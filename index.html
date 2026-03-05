@@ -282,7 +282,8 @@ h1{
 }
 
 .zoom-side{
-  position:sticky;
+  position:fixed;
+  left:40px;
   top:50%;
   transform:translateY(-50%);
   display:flex;
@@ -406,14 +407,13 @@ h1{
 </head>
 <body>
 
-<div class="layout">
-  <div class="zoom-side">
-    <button class="zoom-btn zoom1" onclick="copyZoomLink(1)">Z1</button>
-    <button class="zoom-btn zoom2" onclick="copyZoomLink(2)">Z2</button>
-    <button class="zoom-btn zoom3" onclick="copyZoomLink(3)">Z3</button>
-  </div>
+<div class="zoom-side">
+  <button class="zoom-btn zoom1" onclick="copyZoomLink(1)">Z1</button>
+  <button class="zoom-btn zoom2" onclick="copyZoomLink(2)">Z2</button>
+  <button class="zoom-btn zoom3" onclick="copyZoomLink(3)">Z3</button>
+</div>
 
-  <div class="container">
+<div class="container">
   <h1><span class="title-main">ממשק לניהול חשבונות</span> ZOOM - <span class="title-main">תעשיידע</span></h1>
 
   <div class="toolbar">
