@@ -538,6 +538,15 @@ h1{
   border-radius:8px;
   padding:7px 10px;
   font-family:inherit;
+  font-size:12px;
+}
+
+.time-field{
+  width:100%;
+  border:1px solid #dbe3f0;
+  border-radius:8px;
+  padding:7px 10px;
+  font-family:inherit;
 }
 
 .completed-checkbox{
@@ -1079,6 +1088,8 @@ async function saveData(){
       body:JSON.stringify({
         action:"updatepotential",
         id:row.id,
+        startTime:row.startTime,
+        endTime:row.endTime,
         notes:row.notes,
         completed:row.completed
       })
@@ -1489,14 +1500,18 @@ function renderPotential(data){
       <td>${escHtml(row.school)}</td>
       <td>${escHtml(row.program)}</td>
       <td>${escHtml(row.employee)}</td>
-      <td>${escHtml(row.startTime)}</td>
-      <td>${escHtml(row.endTime)}</td>
+      <td><input class="time-field" type="text" value="${escHtml(row.startTime)}" data-id="${escHtml(row.id)}" data-field="startTime" /></td>
+      <td><input class="time-field" type="text" value="${escHtml(row.endTime)}" data-id="${escHtml(row.id)}" data-field="endTime" /></td>
       <td><input class="notes-field" type="text" value="${escHtml(row.notes)}" data-id="${escHtml(row.id)}" /></td>
       <td><input type="checkbox" class="completed-checkbox" data-id="${escHtml(row.id)}" ${row.completed ? 'checked' : ''} /></td>
     </tr>
   `).join('');
 
   potentialEmptyEl.style.display = rows.length ? 'none' : 'block';
+
+  potentialTableBodyEl.querySelectorAll('.time-field').forEach(input => {
+    input.addEventListener('change', (e)=> updatePotentialTime(e.target.dataset.id, e.target.dataset.field, e.target.value));
+  });
 
   potentialTableBodyEl.querySelectorAll('.notes-field').forEach(input => {
     input.addEventListener('change', (e)=> updateNotes(e.target.dataset.id, e.target.value));
@@ -1535,6 +1550,13 @@ async function updateNotes(id, notes){
   const row = potentialData.find(item => item.id === id);
   if(!row) return;
   row.notes = notes;
+  pendingPotentialUpdates.add(id);
+}
+
+async function updatePotentialTime(id, field, value){
+  const row = potentialData.find(item => item.id === id);
+  if(!row || !['startTime','endTime'].includes(field)) return;
+  row[field] = value;
   pendingPotentialUpdates.add(id);
 }
 
