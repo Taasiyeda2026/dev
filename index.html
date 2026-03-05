@@ -284,6 +284,32 @@ h1{
 .pill.zoom3{ background:#9333ea; }
 
 .small-note{ font-size:12px; color:var(--muted); }
+
+.link-popup-body{
+  padding:16px 14px;
+  display:grid;
+  gap:10px;
+  text-align:center;
+}
+
+.zoom-link-box{
+  border:1px solid #dbe3f0;
+  border-radius:10px;
+  background:#f8fafc;
+  padding:8px;
+  font-size:12px;
+  line-height:1.5;
+  color:#334155;
+  word-break:break-all;
+}
+
+.btn-compact{
+  padding:6px 12px;
+  border-radius:10px;
+  font-size:12px;
+  min-width:110px;
+  margin:0 auto;
+}
 </style>
 </head>
 <body>
@@ -334,6 +360,18 @@ h1{
 </div>
 </div>
 
+<div id="zoomLinkModal" class="modal-backdrop">
+<div class="modal">
+<div class="modal-header">קישור זום לשיעור</div>
+<div class="link-popup-body">
+<div id="zoomLinkUser" style="font-weight:900;color:#3730a3"></div>
+<div id="zoomLinkValue" class="zoom-link-box"></div>
+<button id="copyZoomLinkBtn" class="btn btn-compact" type="button">העתק קישור</button>
+<div id="copyStatus" class="small-note"></div>
+</div>
+</div>
+</div>
+
 <script>
 /*
   גרסה מלאה עם הלוגיקה המקורית:
@@ -366,6 +404,11 @@ const TIME_SLOTS = [
 ];
 
 const ZOOMS = ["Zoom1","Zoom2","Zoom3"];
+const ZOOM_LINKS = {
+  Zoom1: "https://zoom.us/j/6023602336?omn=96962875568",
+  Zoom2: "https://zoom.us/j/7601360450?omn=98989531483",
+  Zoom3: "https://zoom.us/j/5274325600?omn=96368524491"
+};
 
 // מדריכים
 const instructors = [
@@ -402,6 +445,11 @@ const modalStatusEl = document.getElementById('modalStatus');
 const zoomSuggestionEl = document.getElementById('zoomSuggestion');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
+const zoomLinkModal = document.getElementById('zoomLinkModal');
+const zoomLinkUserEl = document.getElementById('zoomLinkUser');
+const zoomLinkValueEl = document.getElementById('zoomLinkValue');
+const copyZoomLinkBtn = document.getElementById('copyZoomLinkBtn');
+const copyStatusEl = document.getElementById('copyStatus');
 
 const modalState = { day: null, time: null };
 
@@ -612,6 +660,42 @@ function closeModal(){
   modalStatusEl.textContent = '';
 }
 
+function openZoomLinkPopup(zoom){
+  const zoomLink = ZOOM_LINKS[zoom];
+  if(!zoomLink) return;
+
+  zoomLinkUserEl.textContent = zoom;
+  zoomLinkValueEl.textContent = zoomLink;
+  copyStatusEl.textContent = '';
+  zoomLinkModal.style.display = 'flex';
+}
+
+function closeZoomLinkPopup(){
+  zoomLinkModal.style.display = 'none';
+}
+
+async function copyZoomLink(){
+  const link = zoomLinkValueEl.textContent;
+  if(!link) return;
+
+  try{
+    if(navigator.clipboard?.writeText){
+      await navigator.clipboard.writeText(link);
+    }else{
+      const area = document.createElement('textarea');
+      area.value = link;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      document.body.removeChild(area);
+    }
+    copyStatusEl.textContent = 'הקישור הועתק.';
+    setTimeout(closeZoomLinkPopup, 350);
+  }catch(_){
+    copyStatusEl.textContent = 'לא ניתן להעתיק. נסו שוב.';
+  }
+}
+
 function updateZoomSuggestion(){
   const day = modalState.day;
   const time = modalState.time;
@@ -663,6 +747,7 @@ async function saveAssignment(){
   await addItem(day, time, instructor, zoom);
   closeModal();
   render();
+  openZoomLinkPopup(zoom);
 }
 
 // --- Render ---
@@ -754,9 +839,12 @@ clearBtn.addEventListener('click', clearSystem);
 
 cancelBtn.addEventListener('click', closeModal);
 saveBtn.addEventListener('click', saveAssignment);
+copyZoomLinkBtn.addEventListener('click', copyZoomLink);
 
 modalBackdrop.addEventListener('click', (e)=>{ if(e.target === modalBackdrop) closeModal(); });
+zoomLinkModal.addEventListener('click', (e)=>{ if(e.target === zoomLinkModal) closeZoomLinkPopup(); });
 window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
+window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && zoomLinkModal.style.display === 'flex') closeZoomLinkPopup(); });
 
 modalInstructorEl.addEventListener('change', updateZoomSuggestion);
 
