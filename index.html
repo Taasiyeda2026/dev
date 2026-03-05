@@ -382,7 +382,7 @@ h1{
   - הצעת Zoom חכמה (שומרת רצף למדריך + נמנעת מה-Zoom של המשבצת הקודמת)
   - חיפוש (מ-3 תווים) + סינון לפי Zoom
   - מחיקה בלחיצה על כרטיס
-  - טעינה/שמירה: SharePoint List אם זמין, אחרת localStorage
+  - טעינה/שמירה: Google Apps Script (Sheets), עם localStorage כגיבוי
 */
 
 // ימים בעברית
@@ -426,7 +426,7 @@ const colorPalette = [
 instructors.forEach((name,i)=>{ instructorColors[name] = colorPalette[i % colorPalette.length]; });
 
 // --- Persist config ---
-const LIST_NAME = "ZoomSchedule";            // אם יש List כזה באתר
+const API_URL = "https://script.google.com/macros/s/AKfycbxkNSgFfNX0A6cxtXkmZOmYZnB1Q4gYVytNPRyu2fK8J2eWPXly0BoHEtTwE5rq_EophQ/exec";
 const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
 
 let schedule = [];
@@ -550,25 +550,13 @@ function pickZoomForSlot(day, time, instructor=null){
   return preferred || available[0];
 }
 
-// --- SharePoint / local persistence ---
+// --- Google Sheets / local fallback persistence ---
 async function loadSchedule(){
-  // ניסיון SharePoint List (עובד רק אם קיים List ושדות מתאימים)
   try{
-    const url = `/_api/web/lists/getbytitle('${LIST_NAME}')/items?$select=Id,day,time,instructor,zoom`;
-    const res = await fetch(url, { headers: { "Accept": "application/json;odata=nometadata" }});
-    if(!res.ok) throw new Error('SP list not available');
-
-    const data = await res.json();
-    schedule = (data.value || []).map(i => ({
-      id: i.Id,
-      day: i.day,
-      time: i.time,
-      instructor: i.instructor,
-      zoom: i.zoom
-    }));
-    return;
+    const res = await fetch(API_URL, { method: "GET" });
+    if(!res.ok) throw new Error("GET failed");
+    schedule = await res.json();
   }catch(_){
-    // fallback local
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
       schedule = raw ? JSON.parse(raw) : [];
@@ -579,56 +567,22 @@ async function loadSchedule(){
 }
 
 async function addItem(day, time, instructor, zoom){
-  // ניסיון SharePoint List create
-  try{
-    const digest = document.getElementById('__REQUESTDIGEST')?.value;
-    if(!digest) throw new Error('No request digest');
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ day, time, instructor, zoom })
+  });
 
-    const res = await fetch(`/_api/web/lists/getbytitle('${LIST_NAME}')/items`,{
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json;odata=nometadata',
-        'Content-Type': 'application/json;odata=nometadata',
-        'X-RequestDigest': digest
-      },
-      body: JSON.stringify({ day, time, instructor, zoom })
-    });
-    if(!res.ok) throw new Error('SP create failed');
-
-    const data = await res.json();
-    schedule.push({ id: data.Id, day, time, instructor, zoom });
-    return;
-  }catch(_){
-    schedule.push({ id: null, day, time, instructor, zoom });
-    persistSchedule();
+  if(!res.ok){
+    throw new Error("POST failed");
   }
+
+  schedule.push({ id: null, day, time, instructor, zoom });
+  persistSchedule();
 }
 
 async function deleteItemByEvent(ev){
-  // אם יש id - ננסה למחוק מה-List
-  if(ev && ev.id){
-    try{
-      const digest = document.getElementById('__REQUESTDIGEST')?.value;
-      if(!digest) throw new Error('No request digest');
-
-      const res = await fetch(`/_api/web/lists/getbytitle('${LIST_NAME}')/items(${ev.id})`,{
-        method: 'POST',
-        headers: {
-          'X-HTTP-Method': 'DELETE',
-          'IF-MATCH': '*',
-          'X-RequestDigest': digest
-        }
-      });
-      if(!res.ok) throw new Error('SP delete failed');
-
-      schedule = schedule.filter(e => e.id !== ev.id);
-      return;
-    }catch(_){
-      // fallback מחיקה מקומית
-    }
-  }
-
-  // fallback: מחיקה לפי התאמה מלאה
+  // כרגע אין API למחיקה ב-Google Apps Script, לכן זו מחיקה מקומית בלבד.
   schedule = schedule.filter(e => !(
     e.day===ev.day && e.time===ev.time && e.instructor===ev.instructor && e.zoom===ev.zoom
   ));
