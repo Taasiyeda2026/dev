@@ -1476,35 +1476,56 @@ function renderPotentialTabs(){
 
 function filterByDate(data, dateValue){
   const target = normalizePotentialDate(dateValue);
-  return data.filter(row => normalizePotentialDate(row.date) === target);
+  return data.filter(row => normalizePotentialDate(row.Date) === target);
 }
 
 function renderPotential(data){
+
   renderPotentialTabs();
+
   const rows = filterByDate(data, selectedPotentialDate);
 
   potentialTableBodyEl.innerHTML = rows.map(row => `
     <tr data-id="${escHtml(row.id)}">
-      <td>${escHtml(row.authority)}</td>
-      <td>${escHtml(row.school)}</td>
-      <td>${escHtml(row.program)}</td>
-      <td>${escHtml(row.employee)}</td>
-      <td>${escHtml(row.startTime)}</td>
-      <td>${escHtml(row.endTime)}</td>
-      <td><input class="notes-field" type="text" value="${escHtml(row.notes)}" data-id="${escHtml(row.id)}" /></td>
-      <td><input type="checkbox" class="completed-checkbox" data-id="${escHtml(row.id)}" ${row.completed ? 'checked' : ''} /></td>
+      <td>${escHtml(row.Authority)}</td>
+      <td>${escHtml(row.School)}</td>
+      <td>${escHtml(row.Program)}</td>
+      <td>${escHtml(row.Employee)}</td>
+      <td>${escHtml(row.StartTime)}</td>
+      <td>${escHtml(row.EndTime)}</td>
+      <td>
+        <input
+          class="notes-field"
+          type="text"
+          value="${escHtml(row.Notes || '')}"
+          data-id="${escHtml(row.id)}"
+        />
+      </td>
+      <td>
+        <input
+          type="checkbox"
+          class="completed-checkbox"
+          data-id="${escHtml(row.id)}"
+          ${row.Completed ? 'checked' : ''}
+        />
+      </td>
     </tr>
   `).join('');
 
   potentialEmptyEl.style.display = rows.length ? 'none' : 'block';
 
   potentialTableBodyEl.querySelectorAll('.notes-field').forEach(input => {
-    input.addEventListener('change', (e)=> updateNotes(e.target.dataset.id, e.target.value));
+    input.addEventListener('change', (e) => {
+      updateNotes(e.target.dataset.id, e.target.value);
+    });
   });
 
   potentialTableBodyEl.querySelectorAll('.completed-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', (e)=> toggleCompleted(e.target.dataset.id, e.target.checked));
+    checkbox.addEventListener('change', (e) => {
+      toggleCompleted(e.target.dataset.id, e.target.checked);
+    });
   });
+
 }
 
 async function loadPotentialData(){
