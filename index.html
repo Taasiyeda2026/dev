@@ -32,7 +32,17 @@ body{
     linear-gradient(180deg,#eef2ff,#f8fafc);
 }
 
+.layout{
+  width:100%;
+  max-width:1280px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:24px;
+}
+
 .container{
+  direction:rtl;
   width:100%;
   max-width:1100px;
   padding:30px;
@@ -271,6 +281,55 @@ h1{
   background:#fafbff;
 }
 
+.zoom-side{
+  position:sticky;
+  top:50%;
+  transform:translateY(-50%);
+  display:flex;
+  flex-direction:column;
+  gap:25px;
+  z-index:100;
+}
+
+.zoom-btn{
+  width:90px;
+  height:90px;
+  font-size:28px;
+  font-weight:900;
+  border-radius:14px;
+  cursor:pointer;
+  border:3px solid;
+  transition:all .15s ease;
+  box-shadow:0 6px 16px rgba(0,0,0,0.25);
+}
+
+/* תחושת לחיצה */
+.zoom-btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 22px rgba(0,0,0,0.30);
+}
+
+.zoom-btn:active{
+  transform:translateY(1px);
+  box-shadow:0 3px 10px rgba(0,0,0,0.20);
+}
+
+/* צבעים שונים */
+.zoom1{
+  border-color:#10b981;
+  background:#d1fae5;
+}
+
+.zoom2{
+  border-color:#1d4ed8;
+  background:#dbeafe;
+}
+
+.zoom3{
+  border-color:#e11d48;
+  background:#fde2e2;
+}
+
 .zoomQuick{
   display:flex;
   gap:4px;
@@ -347,7 +406,14 @@ h1{
 </head>
 <body>
 
-<div class="container">
+<div class="layout">
+  <div class="zoom-side">
+    <button class="zoom-btn zoom1" onclick="copyZoomLink(1)">Z1</button>
+    <button class="zoom-btn zoom2" onclick="copyZoomLink(2)">Z2</button>
+    <button class="zoom-btn zoom3" onclick="copyZoomLink(3)">Z3</button>
+  </div>
+
+  <div class="container">
   <h1><span class="title-main">ממשק לניהול חשבונות</span> ZOOM - <span class="title-main">תעשיידע</span></h1>
 
   <div class="toolbar">
@@ -366,6 +432,7 @@ h1{
   <div class="board-wrap">
     <div class="board" id="board"></div>
   </div>
+</div>
 </div>
 
 <div id="assignModal" class="modal-backdrop">
@@ -392,11 +459,6 @@ h1{
     </div>
 
     <div class="modal-actions">
-      <div class="zoomQuick">
-        <button class="zbtn" type="button" onclick="copyZoomLink(1)">Z1</button>
-        <button class="zbtn" type="button" onclick="copyZoomLink(2)">Z2</button>
-        <button class="zbtn" type="button" onclick="copyZoomLink(3)">Z3</button>
-      </div>
       <button id="cancelBtn" class="btn" type="button">ביטול</button>
       <button id="saveBtn" class="btn" type="button">שמור</button>
     </div>
