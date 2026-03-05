@@ -421,6 +421,111 @@ h1{
 .tooltip hr{ border:none; border-top:1px solid rgba(255,255,255,.18); margin:8px 0; }
 .tooltip ul{ margin:6px 0 0; padding:0 18px 0 0; }
 .tooltip li{ margin:2px 0; }
+
+
+.view{ display:none; }
+.view.active{ display:block; }
+
+.potential-btn{
+  background:#6366f1;
+  color:white;
+  border:none;
+  padding:8px 16px;
+  border-radius:10px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.15);
+  cursor:pointer;
+  transition:0.2s;
+  font-weight:800;
+}
+
+.potential-btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 6px 14px rgba(0,0,0,0.2);
+}
+
+.potential-title{
+  margin:0 0 14px;
+  font-size:20px;
+  color:#312e81;
+  text-align:right;
+}
+
+.potential-tabs{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.potential-tab{
+  border:1px solid #c7d2fe;
+  background:#eef2ff;
+  color:#3730a3;
+  border-radius:999px;
+  padding:6px 14px;
+  cursor:pointer;
+  font-weight:700;
+}
+
+.potential-tab.active{
+  background:#6366f1;
+  color:#fff;
+}
+
+.potential-table-wrap{
+  background:white;
+  border-radius:10px;
+  overflow:auto;
+}
+
+.potential-table{
+  width:100%;
+  border-collapse:collapse;
+  background:white;
+  min-width:920px;
+}
+
+.potential-table th,.potential-table td{
+  padding:10px;
+  text-align:right;
+  border-bottom:1px solid #eee;
+}
+
+.potential-table tbody tr:nth-child(even){
+  background:#fafbff;
+}
+
+.potential-table tbody tr:hover{
+  background:#f3f4f6;
+}
+
+.potential-table tbody tr td{ vertical-align:middle; }
+
+.notes-field{
+  width:100%;
+  border:1px solid #dbe3f0;
+  border-radius:8px;
+  padding:7px 10px;
+  font-family:inherit;
+}
+
+.completed-checkbox{
+  width:18px;
+  height:18px;
+  accent-color:#16a34a;
+}
+
+.potential-muted{
+  color:#64748b;
+  padding:12px;
+  text-align:center;
+}
+
+@media (max-width: 820px){
+  .potential-title{ font-size:18px; }
+  .container{ padding:18px; }
+}
+
 </style>
 </head>
 <body>
@@ -445,10 +550,36 @@ h1{
     </select>
 
     <button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
+    <button id="potentialNavBtn" class="potential-btn" type="button">פוטנציאל</button>
   </div>
 
-  <div class="board-wrap">
-    <div class="board" id="board"></div>
+  <div id="scheduleView" class="view active">
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+    </div>
+  </div>
+
+  <div id="potentialView" class="view">
+    <h2 class="potential-title">פוטנציאל</h2>
+    <div id="potentialTabs" class="potential-tabs"></div>
+    <div class="potential-table-wrap">
+      <table class="potential-table">
+        <thead>
+          <tr>
+            <th>Authority</th>
+            <th>School</th>
+            <th>Program</th>
+            <th>Employee</th>
+            <th>StartTime</th>
+            <th>EndTime</th>
+            <th>Notes</th>
+            <th>Completed</th>
+          </tr>
+        </thead>
+        <tbody id="potentialTableBody"></tbody>
+      </table>
+      <div id="potentialEmpty" class="potential-muted" style="display:none">אין פעילויות לתאריך זה.</div>
+    </div>
   </div>
 </div>
 </div>
@@ -670,6 +801,15 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzP4qa72BKpvW6ahaWL2XOd
 const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
 
 let schedule = [];
+let potentialData = [];
+let selectedPotentialDate = '08/03/2026';
+
+const POTENTIAL_DATES = [
+  { label: '8.3', value: '08/03/2026' },
+  { label: '9.3', value: '09/03/2026' },
+  { label: '10.3', value: '10/03/2026' },
+  { label: '11.3', value: '11/03/2026' }
+];
 
 function firstDefined(obj, keys){
   for(const key of keys){
@@ -1273,10 +1413,174 @@ function populateInstructorDetails(){
   };
 }
 
+
+const scheduleViewEl = document.getElementById('scheduleView');
+const potentialViewEl = document.getElementById('potentialView');
+const potentialNavBtn = document.getElementById('potentialNavBtn');
+const potentialTabsEl = document.getElementById('potentialTabs');
+const potentialTableBodyEl = document.getElementById('potentialTableBody');
+const potentialEmptyEl = document.getElementById('potentialEmpty');
+
+function normalizePotentialDate(dateStr){
+  const raw = String(dateStr || '').trim();
+  const m = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if(!m) return raw;
+  const dd = m[1].padStart(2,'0');
+  const mm = m[2].padStart(2,'0');
+  const yyyy = m[3].length === 2 ? `20${m[3]}` : m[3];
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function parseCompleted(value){
+  if(value === true || value === 1) return true;
+  const v = String(value || '').toLowerCase().trim();
+  return ['true','1','yes','כן','בוצע','completed'].includes(v);
+}
+
+function mapPotentialRow(raw){
+  return {
+    id: firstDefined(raw, ['id','ID','Id']),
+    date: normalizePotentialDate(firstDefined(raw, ['Date','date','תאריך'])),
+    authority: firstDefined(raw, ['Authority','authority','רשות']),
+    school: firstDefined(raw, ['School','school','בית ספר']),
+    program: firstDefined(raw, ['Program','program','תוכנית']),
+    employee: firstDefined(raw, ['Employee','employee','מדריך']),
+    startTime: firstDefined(raw, ['StartTime','startTime','start','שעת התחלה']),
+    endTime: firstDefined(raw, ['EndTime','endTime','end','שעת סיום']),
+    notes: firstDefined(raw, ['Notes','notes','הערות']),
+    completed: parseCompleted(raw?.Completed ?? raw?.completed)
+  };
+}
+
+function renderPotentialTabs(){
+  potentialTabsEl.innerHTML = POTENTIAL_DATES.map(tab => (
+    `<button class="potential-tab ${tab.value === selectedPotentialDate ? 'active' : ''}" data-date="${tab.value}" type="button">${tab.label}</button>`
+  )).join('');
+
+  potentialTabsEl.querySelectorAll('.potential-tab').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      selectedPotentialDate = btn.dataset.date;
+      renderPotential(potentialData);
+    });
+  });
+}
+
+function filterByDate(data, dateValue){
+  const target = normalizePotentialDate(dateValue);
+  return data.filter(row => normalizePotentialDate(row.date) === target);
+}
+
+function renderPotential(data){
+  renderPotentialTabs();
+  const rows = filterByDate(data, selectedPotentialDate);
+
+  potentialTableBodyEl.innerHTML = rows.map(row => `
+    <tr data-id="${escHtml(row.id)}">
+      <td>${escHtml(row.authority)}</td>
+      <td>${escHtml(row.school)}</td>
+      <td>${escHtml(row.program)}</td>
+      <td>${escHtml(row.employee)}</td>
+      <td>${escHtml(row.startTime)}</td>
+      <td>${escHtml(row.endTime)}</td>
+      <td><input class="notes-field" type="text" value="${escHtml(row.notes)}" data-id="${escHtml(row.id)}" /></td>
+      <td><input type="checkbox" class="completed-checkbox" data-id="${escHtml(row.id)}" ${row.completed ? 'checked' : ''} /></td>
+    </tr>
+  `).join('');
+
+  potentialEmptyEl.style.display = rows.length ? 'none' : 'block';
+
+  potentialTableBodyEl.querySelectorAll('.notes-field').forEach(input => {
+    input.addEventListener('change', (e)=> updateNotes(e.target.dataset.id, e.target.value));
+  });
+
+  potentialTableBodyEl.querySelectorAll('.completed-checkbox').forEach(checkbox => {
+    checkbox.addEventListener('change', (e)=> toggleCompleted(e.target.dataset.id, e.target.checked));
+  });
+}
+
+async function loadPotentialData(){
+  const res = await fetch(API_URL + '?sheet=Potential');
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : (data.data || []);
+  potentialData = rows.map(mapPotentialRow);
+  renderPotential(potentialData);
+}
+
+async function updateRow(id, notes, completed){
+  await fetch(API_URL, {
+    method:'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ sheet:'Potential', action:'updatePotential', id, notes, completed })
+  });
+}
+
+async function updateNotes(id, notes){
+  const row = potentialData.find(item => item.id === id);
+  if(!row) return;
+  const previous = row.notes;
+  row.notes = notes;
+  try{
+    await updateRow(id, notes, row.completed);
+  }catch(err){
+    row.notes = previous;
+    renderPotential(potentialData);
+    alert('שמירת ההערה נכשלה.');
+  }
+}
+
+async function toggleCompleted(id, completed){
+  const row = potentialData.find(item => item.id === id);
+  if(!row) return;
+  const previous = row.completed;
+  row.completed = completed;
+  try{
+    await updateRow(id, row.notes, completed);
+  }catch(err){
+    row.completed = previous;
+    renderPotential(potentialData);
+    alert('עדכון סטטוס הביצוע נכשל.');
+  }
+}
+
+function openPotentialView(){
+  scheduleViewEl.classList.remove('active');
+  potentialViewEl.classList.add('active');
+  potentialNavBtn.textContent = 'לו"ז';
+}
+
+function openScheduleView(){
+  potentialViewEl.classList.remove('active');
+  scheduleViewEl.classList.add('active');
+  potentialNavBtn.textContent = 'פוטנציאל';
+}
+
+potentialNavBtn.addEventListener('click', async ()=>{
+  const isPotentialOpen = potentialViewEl.classList.contains('active');
+  if(isPotentialOpen){
+    openScheduleView();
+    return;
+  }
+
+  openPotentialView();
+  if(!potentialData.length){
+    try{
+      await loadPotentialData();
+    }catch(err){
+      potentialTableBodyEl.innerHTML = '';
+      potentialEmptyEl.style.display = 'block';
+      potentialEmptyEl.textContent = 'שגיאה בטעינת נתוני פוטנציאל.';
+      console.error(err);
+    }
+  }else{
+    renderPotential(potentialData);
+  }
+});
+
 // --- Init ---
 (async function init(){
   await loadSchedule();
   render();
+  renderPotentialTabs();
 })();
 </script>
 
