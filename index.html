@@ -1216,26 +1216,23 @@ async function loadSchedule(){
 
 async function addItem(day, time, instructor, zoom, school='', course=''){
   const zoomLink = ZOOM_LINKS[zoom] || "";
-  schedule.push(normalizeEvent({
-    id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-    day,
-    time,
-    instructor,
-    zoom,
-    zoomLink,
-    school,
-    course
-  }));
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink, school, course })
+  });
+  const data = await res.json();
+  schedule = (Array.isArray(data) ? data : (data.data || [])).map(normalizeEvent);
 }
 
 async function deleteItemByEvent(ev){
-  schedule = schedule.filter(e => !(
-    e.day===ev.day &&
-    e.time===ev.time &&
-    e.instructor===ev.instructor &&
-    e.zoom===ev.zoom &&
-    (ev.id ? e.id===ev.id : true)
-  ));
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ action: "delete", day: ev.day, time: ev.time, instructor: ev.instructor, zoom: ev.zoom })
+  });
+  const data = await res.json();
+  schedule = (Array.isArray(data) ? data : (data.data || [])).map(normalizeEvent);
 }
 
 // --- Modal ---
@@ -1486,6 +1483,11 @@ boardEl.addEventListener('click', async (e) => {
 // --- Controls ---
 async function clearSystem(){
   if(!confirm('למחוק את כל השיבוצים במערכת?')) return;
+  await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ action: "clear" })
+  });
   schedule = [];
   searchEl.value = '';
   zoomFilterEl.value = '';
