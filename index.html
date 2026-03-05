@@ -271,6 +271,26 @@ h1{
   background:#fafbff;
 }
 
+.zoomQuick{
+  display:flex;
+  gap:4px;
+  margin-right:6px;
+}
+
+.zbtn{
+  background:#eef2ff;
+  border:1px solid #c7d2fe;
+  border-radius:6px;
+  font-size:11px;
+  padding:2px 6px;
+  cursor:pointer;
+  font-weight:600;
+}
+
+.zbtn:hover{
+  background:#c7d2fe;
+}
+
 .pill{
   display:inline-flex;
   padding:4px 10px;
@@ -372,6 +392,11 @@ h1{
     </div>
 
     <div class="modal-actions">
+      <div class="zoomQuick">
+        <button class="zbtn" type="button" onclick="copyZoomLink(1)">Z1</button>
+        <button class="zbtn" type="button" onclick="copyZoomLink(2)">Z2</button>
+        <button class="zbtn" type="button" onclick="copyZoomLink(3)">Z3</button>
+      </div>
       <button id="cancelBtn" class="btn" type="button">ביטול</button>
       <button id="saveBtn" class="btn" type="button">שמור</button>
     </div>
@@ -884,12 +909,19 @@ function closeZoomLinkPopup(){
   zoomLinkModal.style.display = 'none';
 }
 
-async function copyZoomLink(){
-  const link = zoomLinkValueEl.textContent;
+async function copyZoomLink(num){
+  const quickLinks = {
+    1: ZOOM_LINKS.Zoom1,
+    2: ZOOM_LINKS.Zoom2,
+    3: ZOOM_LINKS.Zoom3
+  };
+
+  const quickLink = Number.isInteger(num) ? quickLinks[num] : '';
+  const link = quickLink || zoomLinkValueEl.textContent;
   if(!link) return;
 
-  // ✅ שינוי המשפט לפני הקישור בלבד (כפי שביקשת)
-  const textToCopy = `להצטרפות לזום לחצו (${link})`;
+  const textToCopy = `להצטרפות לזום לחצו:
+${link}`;
 
   try{
     if(navigator.clipboard?.writeText){
@@ -902,9 +934,19 @@ async function copyZoomLink(){
       document.execCommand('copy');
       document.body.removeChild(area);
     }
+
+    if(quickLink){
+      alert(`קישור Z${num} הועתק`);
+      return;
+    }
+
     copyStatusEl.textContent = 'ההודעה הועתקה.';
     setTimeout(closeZoomLinkPopup, 350);
   }catch(_){
+    if(quickLink){
+      alert('לא ניתן להעתיק. נסו שוב.');
+      return;
+    }
     copyStatusEl.textContent = 'לא ניתן להעתיק. נסו שוב.';
   }
 }
