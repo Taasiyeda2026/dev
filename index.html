@@ -480,11 +480,11 @@ function slotsOverlap(a, b){
 
 function escHtml(s){
   return String(s)
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;')
-    .replaceAll("'",'&#39;');
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;');
 }
 
 function enc(s){ return encodeURIComponent(String(s)); }
@@ -567,26 +567,27 @@ async function loadSchedule(){
 }
 
 async function addItem(day, time, instructor, zoom){
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ day, time, instructor, zoom })
-  });
-
-  if(!res.ok){
-    throw new Error("POST failed");
+  try{
+    await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ day, time, instructor, zoom })
+    });
+  }catch(e){
+    console.log("API error", e);
   }
 
   schedule.push({ id: null, day, time, instructor, zoom });
   persistSchedule();
 }
 
-async function deleteItemByEvent(ev){
+function deleteItemByEvent(ev){
   // כרגע אין API למחיקה ב-Google Apps Script, לכן זו מחיקה מקומית בלבד.
   schedule = schedule.filter(e => !(
     e.day===ev.day && e.time===ev.time && e.instructor===ev.instructor && e.zoom===ev.zoom
   ));
   persistSchedule();
+  render();
 }
 
 // --- Modal ---
@@ -770,8 +771,7 @@ function attachInteractions(){
       const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
       if(!ok) return;
 
-      await deleteItemByEvent(ev);
-      render();
+      deleteItemByEvent(ev);
     };
   });
 }
