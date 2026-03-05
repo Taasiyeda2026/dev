@@ -359,6 +359,10 @@ h1{
 
       <select id="modalInstructor"></select>
 
+      <select id="modalSchool"></select>
+
+      <select id="modalCourse"></select>
+
       <div style="text-align:center">
         <div style="font-size:12px;color:#64748b">Zoom שיוקצה:</div>
         <div class="pill" id="zoomSuggestion"></div>
@@ -1110,7 +1114,40 @@ zoomLinkModal.addEventListener('click', (e)=>{ if(e.target === zoomLinkModal) cl
 window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
 window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && zoomLinkModal.style.display === 'flex') closeZoomLinkPopup(); });
 
-modalInstructorEl.addEventListener('change', updateZoomSuggestion);
+modalInstructorEl.addEventListener('change', ()=>{
+  updateZoomSuggestion();
+  populateInstructorDetails();
+});
+
+const modalSchoolEl = document.getElementById('modalSchool');
+const modalCourseEl = document.getElementById('modalCourse');
+
+function populateInstructorDetails(){
+  const name = modalInstructorEl.value;
+  const list = getInstructorAssignments(name);
+
+  modalSchoolEl.innerHTML = "";
+  modalCourseEl.innerHTML = "";
+
+  if(!name || list.length===0){
+    modalSchoolEl.innerHTML = "<option>בחר בית ספר</option>";
+    modalCourseEl.innerHTML = "<option>בחר קורס</option>";
+    return;
+  }
+
+  const schools = [...new Set(list.map(i=>i.school))];
+
+  modalSchoolEl.innerHTML = "<option value=''>בחר בית ספר</option>" +
+    schools.map(s=>`<option value="${escHtml(s)}">${escHtml(s)}</option>`).join('');
+
+  modalSchoolEl.onchange = ()=>{
+    const school = modalSchoolEl.value;
+    const courses = list.filter(i=>i.school===school).map(i=>i.course);
+
+    modalCourseEl.innerHTML = "<option value=''>בחר קורס</option>" +
+      courses.map(c=>`<option value="${escHtml(c)}">${escHtml(c)}</option>`).join('');
+  };
+}
 
 // --- Init ---
 (async function init(){
