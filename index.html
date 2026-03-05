@@ -106,12 +106,9 @@ h1{
   transition: all .15s ease;
 }
 
-.btn:hover{ transform: translateY(-2px); box-shadow:0 8px 18px rgba(0,0,0,0.15); }
-
-.btn:disabled{
-  opacity:0.6;
-  cursor:not-allowed;
-  transform:none;
+.btn:hover{
+  transform: translateY(-2px);
+  box-shadow:0 8px 18px rgba(0,0,0,0.15);
 }
 
 .btn-danger{
@@ -253,7 +250,17 @@ h1{
   text-align:center;
 }
 
-.modal-body{ padding:12px 14px; display:grid; gap:8px; }
+.modal-body{ padding:12px 14px; display:grid; gap:10px; }
+
+/* הגדלת גובה תיבות הרשימה (בחירת מדריך וכו') */
+.modal-body select{
+  height:44px;
+  font-size:14px;
+  padding:6px 10px;
+  border-radius:10px;
+  border:1px solid #dbe3f0;
+  background:#ffffff;
+}
 
 .modal-actions{
   padding:14px;
@@ -292,13 +299,30 @@ h1{
   word-break:break-all;
 }
 
-.btn-compact{
-  padding:6px 12px;
-  border-radius:10px;
+.btn-compact{ padding:6px 12px; border-radius:10px; font-size:12px; min-width:110px; margin:0 auto; }
+
+/* Tooltip (hover details) */
+.tooltip{
+  position:fixed;
+  z-index:2000;
+  display:none;
+  max-width:340px;
+  background:#0f172a;
+  color:#fff;
+  padding:10px 12px;
+  border-radius:12px;
   font-size:12px;
-  min-width:110px;
-  margin:0 auto;
+  line-height:1.4;
+  box-shadow:0 20px 40px rgba(0,0,0,.35);
+  pointer-events:none;
 }
+.tooltip .t-title{ font-weight:900; margin-bottom:6px; }
+.tooltip .t-row{ display:flex; gap:8px; }
+.tooltip .t-k{ opacity:.75; min-width:78px; }
+.tooltip .t-v{ font-weight:700; }
+.tooltip hr{ border:none; border-top:1px solid rgba(255,255,255,.18); margin:8px 0; }
+.tooltip ul{ margin:6px 0 0; padding:0 18px 0 0; }
+.tooltip li{ margin:2px 0; }
 </style>
 </head>
 <body>
@@ -315,6 +339,7 @@ h1{
       <option value="Zoom2">Zoom2</option>
       <option value="Zoom3">Zoom3</option>
     </select>
+
     <button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
   </div>
 
@@ -332,17 +357,9 @@ h1{
         <span id="modalDay"></span> · <span id="modalTime"></span>
       </div>
 
-      <div style="font-size:12px;color:#64748b;font-weight:800;margin-top:6px">מדריך:</div>
       <select id="modalInstructor"></select>
 
-      <div style="font-size:12px;color:#64748b;font-weight:800;margin-top:6px">בית ספר:</div>
-      <select id="modalSchool"></select>
-
-      <div style="font-size:12px;color:#64748b;font-weight:800;margin-top:6px">שם קורס:</div>
-      <select id="modalCourse"></select>
-
-      <div id="schoolCourseHint" style="text-align:center;color:#64748b;font-weight:800;font-size:12px"></div>
-<div style="text-align:center">
+      <div style="text-align:center">
         <div style="font-size:12px;color:#64748b">Zoom שיוקצה:</div>
         <div class="pill" id="zoomSuggestion"></div>
       </div>
@@ -371,18 +388,19 @@ h1{
 
 <script>
 /*
-  תיקונים מרכזיים בגרסה הזו:
-  1) כפתור "שמור" לא נתקע בשקט: כל שגיאת API מוצגת למשתמש ולא "בולעת" לחיצה.
-  2) ערכי <option> של מדריכים אינם HTML-escaped (כדי לא לשבור שמות עם גרשיים). משתמשים ב-encodeURIComponent.
-  3) מחיקה/איפוס: ניסיון למחיקה גם ב-GAS דרך action=delete/clear. אם אין תמיכה – ממשיך מקומית.
-  4) TIME_SLOTS מסודר לפי זמן התחלה כדי שה"משבצת הקודמת" תהיה הגיונית.
+  תיקון לפי השרת החדש (Google Apps Script):
+  - שימוש ב-action: add / delete / clear
+  - שמירת zoomLink בגוגל שיט
+  - מחיקה אמיתית לפי id (ולא רק מחיקה מקומית)
+  - שמירה על כל הלוגיקה המקורית של חפיפות/הצעות Zoom/פילטרים
 */
 
 // ימים בעברית
 const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי"];
 
-// שעות (מקור)
-const TIME_SLOTS_RAW = [
+// סדר שעות: 1 שעה ואז 2 שעות (מוקדם עד מאוחר)
+// שעות של שעה אחת
+const ONE_HOUR_SLOTS = [
   "08:00-09:00",
   "09:00-10:00",
   "10:00-11:00",
@@ -390,26 +408,156 @@ const TIME_SLOTS_RAW = [
   "12:00-13:00",
   "13:00-14:00",
   "14:00-15:00",
+  "15:00-16:00",
+  "16:00-17:00"
+];
+
+// שעות של שעתיים
+const TWO_HOUR_SLOTS = [
   "08:00-10:00",
   "10:00-12:00",
   "12:00-14:00",
   "14:00-16:00"
 ];
 
+// כל השעות למערכת
+const TIME_SLOTS = [...ONE_HOUR_SLOTS, ...TWO_HOUR_SLOTS];
+
 const ZOOMS = ["Zoom1","Zoom2","Zoom3"];
 const ZOOM_LINKS = {
   Zoom1: "https://zoom.us/j/6023602336?omn=96962875568",
   Zoom2: "https://zoom.us/j/7601360450?omn=98989531483",
-  Zoom3: "https://zoom.us/j/97448258082"
+  Zoom3: "https://zoom.us/j/5274325600?omn=96368524491"
 };
 
 // מדריכים
 const instructors = [
   "הנאא אבו אמזה","הילה רוזן","ראנה סאלח","סוהא סאלם","מיכל שכטמן","אלדר מיכאל טייב",
   "אביגדור שרון","אסיל ג'בר","אביב בלנדר","ברקת קטעי","ליאל בן חמו","אלכס זפקה",
-  "אפרת אוחיון","עליזה מולה","כרמית סמנדרוב","קרן גורביץ","אוריה פדידה","אילנה טיטייבסקי",
-  "אושרי רם","אמיר מלמוד","אסאלה ברהום"
+  "אפרת אוחיון","עליזה מולה","כרמית סמנדרוב","קרן גורביץ","אוריה פדידה","אילנה טיטייבסקי"
 ].sort((a,b)=>a.localeCompare(b,'he'));
+
+// שיוך מדריך -> בית ספר/מוסד + קורס (זה המידע הקבוע שנתת)
+// כרגע אין שדה "רשות" נפרד בנתונים, לכן אנחנו מציגים את "בית הספר/המוסד" כפי שהוא.
+const INSTRUCTOR_ASSIGNMENTS = {
+  "אביב בלנדר": [
+    { school: "מתנ\"ס", course: "תלמידים להייטק" },
+    { school: "תל-חי", course: "ביומימיקרי" },
+    { school: "מצודות", course: "ביומימיקרי" }
+  ],
+  "אוריה פדידה": [
+    { school: "טשרניחובסקי", course: "בינה מלאכותית" },
+    { school: "אורט גוטמן", course: "תמיר - איפה דדי?" }
+  ],
+  "אושרי רם": [
+    { school: "טשרניחובסקי", course: "בינה מלאכותית" }
+  ],
+  "אילנה טיטייבסקי": [
+    { school: "גולדה", course: "ביומימיקרי" },
+    { school: "ישיבת אבירי יעקב", course: "השמיים אינם הגבול" },
+    { school: "רמב\"ם", course: "בינה מלאכותית" }
+  ],
+  "אלדר מיכאל טייב": [
+    { school: "בי\"ס אילנות", course: "ביומימיקרי" },
+    { school: "בראשית", course: "ביומימיקרי" },
+    { school: "התומר", course: "בינה מלאכותית" },
+    { school: "מקיף אמית", course: "פרימיום" },
+    { school: "שקמים", course: "בינה מלאכותית" },
+    { school: "אבן שמואל", course: "ביומימיקרי" },
+    { school: "בי\"ס שפיר", course: "בינה מלאכותית" },
+    { school: "אסם", course: "הרמת כוסית - אסם (פרימיום)" },
+    { school: "חווה חקלאית - רננות", course: "ביומימיקרי" }
+  ],
+  "אלכס זפקה": [
+    { school: "ניצני קטיף", course: "ביומימיקרי" },
+    { school: "מקיף ה'", course: "רוקחים עולם" },
+    { school: "מקיף ה'", course: "בינה מלאכותית" },
+    { school: "שמש גבולות", course: "בינה מלאכותית" },
+    { school: "פרדס צפוני", course: "ביומימיקרי" },
+    { school: "בינת תקשורת", course: "סיור" },
+    { school: "מקיף ט'", course: "השמיים אינם הגבול" },
+    { school: "נבון", course: "רוקחים עולם" }
+  ],
+  "אמיר מלמוד": [
+    { school: "מקיף ג'", course: "רוקחים עולם" }
+  ],
+  "אסאלה ברהום": [
+    { school: "יסודי עין נקובא-ראפה", course: "מנהיגות ירוקה" }
+  ],
+  "אסיל ג'בר": [
+    { school: "נווה שלום", course: "מנהיגות ירוקה" }
+  ],
+  "אפרת אוחיון": [
+    { school: "שדות סילבר", course: "בינה מלאכותית" },
+    { school: "ביכורים", course: "ביומימיקרי" },
+    { school: "קסם", course: "מנהיגות ירוקה" },
+    { school: "הרטוב", course: "מנהיגות ירוקה" }
+  ],
+  "ברקת קטעי": [
+    { school: "עוזיאל", course: "ביומימיקרי" },
+    { school: "עוזיאל", course: "בינה מלאכותית" },
+    { school: "תל-חי", course: "ביומימיקרי" }
+  ],
+  "הילה רוזן": [
+    { school: "אל-אמין", course: "ביומימיקרי לחטיבה" },
+    { school: "אלרואיא", course: "ביומימיקרי לחטיבה" },
+    { school: "כסרא סמיע", course: "ביומימיקרי לחטיבה" },
+    { school: "סמילנסקי", course: "ביומימיקרי" },
+    { school: "קציר", course: "ביומימיקרי לחטיבה" },
+    { school: "דה שליט", course: "פורצות דרך" },
+    { school: "יצחק שמיר", course: "פורצות דרך" },
+    { school: "מקיף עמית", course: "פרימיום" },
+    { school: "אסם", course: "הרמת כוסית - אסם (פרימיום)" }
+  ],
+  "הנאא אבו אמזה": [
+    { school: "בוקעתא", course: "ביומימיקרי לחטיבה" },
+    { school: "דרכא ג'וליס", course: "ביומימיקרי לחטיבה" },
+    { school: "מסעדה", course: "ביומימיקרי לחטיבה" },
+    { school: "עין-קיניה", course: "ביומימיקרי לחטיבה" },
+    { school: "ג'דיידה יסודי", course: "ביומימיקרי" },
+    { school: "גורדון", course: "בינה מלאכותית" },
+    { school: "כפר הנוער רמת הדסה", course: "ביומימיקרי לחטיבה" },
+    { school: "כפר הנוער רמת הדסה", course: "טכנולוגיות החלל" },
+    { school: "כפר הנוער רמת הדסה", course: "בינה מלאכותית" }
+  ],
+  "כרמית סמנדרוב": [
+    { school: "צאלון", course: "ביומימיקרי" }
+  ],
+  "ליאל בן חמו": [
+    { school: "ניצני קטיף", course: "ביומימיקרי" },
+    { school: "ניצן", course: "בינה מלאכותית" }
+  ],
+  "מיכל שכטמן": [
+    { school: "אלון", course: "מנהיגות ירוקה" },
+    { school: "מתיתיהו", course: "מנהיגות ירוקה" }
+  ],
+  "סוהא סאלם": [
+    { school: "מול גלעד", course: "מנהיגות ירוקה" },
+    { school: "נופי ארבל", course: "ביומימיקרי לחטיבה" },
+    { school: "כנרת", course: "ביומימיקרי לחטיבה" },
+    { school: "כנרת", course: "טכנולוגיות החלל" },
+    { school: "כנרת", course: "ביומימיקרי" },
+    { school: "בית חינוך דגניה", course: "ביומימיקרי לחטיבה" },
+    { school: "אלאשראק", course: "ביומימיקרי" },
+    { school: "אורט גוטמן", course: "תמיר - איפה דדי?" },
+    { school: "חט\"ב ב'", course: "ביומימיקרי לחטיבה" }
+  ],
+  "עליזה מולה": [
+    { school: "מרחבי אשכול", course: "ביומימיקרי" },
+    { school: "מרחבי אשכול", course: "בינה מלאכותית" },
+    { school: "פרדס צפוני", course: "ביומימיקרי" },
+    { school: "תיכון ב'", course: "פורצות דרך" },
+    { school: "הר נבו", course: "תמיר - קווסט חדר בריחה" },
+    { school: "בן גוריון", course: "רוקחים עולם" }
+  ],
+  "קרן גורביץ": [
+    { school: "מתנ\"ס", course: "מייקרים" },
+    { school: "אלתרמן", course: "תמיר - איפה דדי?" }
+  ],
+  "ראנה סאלח": [
+    { school: "מג'דל שמס", course: "ביומימיקרי לחטיבה" }
+  ]
+};
 
 // צבע קבוע לכל מדריך
 const instructorColors = {};
@@ -420,10 +568,101 @@ const colorPalette = [
 instructors.forEach((name,i)=>{ instructorColors[name] = colorPalette[i % colorPalette.length]; });
 
 // --- Persist config ---
+// ✅ API_URL מעודכן
 const API_URL = "https://script.google.com/macros/s/AKfycbzP4qa72BKpvW6ahaWL2XOdzoR5TSiaViwIV4wULCSckyiLza6zLHYltzV3c90Fm_bv/exec";
-const STORAGE_KEY = "zoomScheduleLocal"; // fallback localStorage
+const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
 
 let schedule = [];
+
+// --- Hover Tooltip ---
+const tooltipEl = document.createElement('div');
+tooltipEl.className = 'tooltip';
+document.body.appendChild(tooltipEl);
+
+function getInstructorAssignments(name){
+  const list = INSTRUCTOR_ASSIGNMENTS[name] || [];
+  const uniq = [];
+  const seen = new Set();
+  for(const item of list){
+    const key = `${item.school}||${item.course}`;
+    if(seen.has(key)) continue;
+    seen.add(key);
+    uniq.push(item);
+  }
+  return uniq;
+}
+
+function buildTooltipHtml(ev){
+  const day = ev.day || '';
+  const time = ev.time || '';
+  const instructor = ev.instructor || '';
+  const zoom = ev.zoom || '';
+
+  const directSchool = ev.school || ev.organization || ev.org || '';
+  const directCourse = ev.course || '';
+  const directAuthority = ev.authority || '';
+
+  let metaHtml = '';
+  if(directSchool || directCourse || directAuthority){
+    metaHtml += `<div class="t-title">פרטי שיבוץ</div>`;
+    if(directAuthority) metaHtml += `<div class="t-row"><div class="t-k">רשות</div><div class="t-v">${escHtml(directAuthority)}</div></div>`;
+    if(directSchool) metaHtml += `<div class="t-row"><div class="t-k">בית ספר</div><div class="t-v">${escHtml(directSchool)}</div></div>`;
+    if(directCourse) metaHtml += `<div class="t-row"><div class="t-k">קורס</div><div class="t-v">${escHtml(directCourse)}</div></div>`;
+  }else{
+    // ✅ שינוי תצוגה בלבד לפי הבקשה שלך:
+    // אם לשם המדריך יש *שיוך אחד בלבד* ברשימה — נציג אותו.
+    // אם יש יותר משיוך אחד — לא נציג את כולם (כדי לא להציג "את כל מה שקיים").
+    // כדי להציג בדיוק את השיוך של *השיבוץ הספציפי* צריך לשמור אותו בתוך השיבוץ (ב-Google Sheets).
+    const list = getInstructorAssignments(instructor);
+
+    if(list.length === 1){
+      metaHtml += `<div class="t-title">פרטי השיבוץ</div>`;
+      metaHtml += `<div class="t-row"><div class="t-k">בית ספר</div><div class="t-v">${escHtml(list[0].school)}</div></div>`;
+      metaHtml += `<div class="t-row"><div class="t-k">קורס</div><div class="t-v">${escHtml(list[0].course)}</div></div>`;
+    }else if(list.length > 1){
+      metaHtml += `<div class="t-title">פרטי השיבוץ</div>`;
+      metaHtml += `<div style="opacity:.85">למדריך יש כמה שיוכים קבועים ברשימה.</div>`;
+      metaHtml += `<div style="opacity:.85">כדי להציג את השיוך של *השיבוץ הספציפי* (ולא את כולם), צריך לשמור בשיבוץ עצמו את בית הספר והקורס בגוגל שיט.</div>`;
+    }else{
+      metaHtml += `<div class="t-title">פרטי השיבוץ</div>`;
+      metaHtml += `<div style="opacity:.85">אין שיוך בית ספר/קורס עבור מדריך זה ברשימה.</div>`;
+    }
+  }
+
+  return `
+    <div class="t-row"><div class="t-k">מדריך</div><div class="t-v">${escHtml(instructor)}</div></div>
+    <div class="t-row"><div class="t-k">זום</div><div class="t-v">${escHtml(zoom)}</div></div>
+    <div class="t-row"><div class="t-k">יום/שעה</div><div class="t-v">${escHtml(day)} · ${escHtml(time)}</div></div>
+    <hr />
+    ${metaHtml}
+  `;
+}
+
+function positionTooltip(x, y){
+  const pad = 12;
+  const rect = tooltipEl.getBoundingClientRect();
+  let left = x + pad;
+  let top = y + pad;
+
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  if(left + rect.width + 10 > vw) left = Math.max(10, vw - rect.width - 10);
+  if(top + rect.height + 10 > vh) top = Math.max(10, vh - rect.height - 10);
+
+  tooltipEl.style.left = left + 'px';
+  tooltipEl.style.top = top + 'px';
+}
+
+function showTooltip(ev, x, y){
+  tooltipEl.innerHTML = buildTooltipHtml(ev);
+  tooltipEl.style.display = 'block';
+  requestAnimationFrame(() => positionTooltip(x, y));
+}
+
+function hideTooltip(){
+  tooltipEl.style.display = 'none';
+}
 
 // --- DOM ---
 const boardEl = document.getElementById('board');
@@ -435,14 +674,10 @@ const modalBackdrop = document.getElementById('assignModal');
 const modalDayEl = document.getElementById('modalDay');
 const modalTimeEl = document.getElementById('modalTime');
 const modalInstructorEl = document.getElementById('modalInstructor');
-const modalSchoolEl = document.getElementById('modalSchool');
-const modalCourseEl = document.getElementById('modalCourse');
-const schoolCourseHintEl = document.getElementById('schoolCourseHint');
 const modalStatusEl = document.getElementById('modalStatus');
 const zoomSuggestionEl = document.getElementById('zoomSuggestion');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
-
 const zoomLinkModal = document.getElementById('zoomLinkModal');
 const zoomLinkUserEl = document.getElementById('zoomLinkUser');
 const zoomLinkValueEl = document.getElementById('zoomLinkValue');
@@ -450,6 +685,10 @@ const copyZoomLinkBtn = document.getElementById('copyZoomLinkBtn');
 const copyStatusEl = document.getElementById('copyStatus');
 
 const modalState = { day: null, time: null };
+
+// מילוי רשימת מדריכים
+modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
+  instructors.map(i => `<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
 
 // --- Utilities ---
 function persistSchedule(){
@@ -484,13 +723,6 @@ function escHtml(s){
 function enc(s){ return encodeURIComponent(String(s)); }
 function dec(s){ return decodeURIComponent(String(s || '')); }
 
-// TIME_SLOTS מסודר לפי זמן התחלה/סיום כדי שה"קודם" יהיה הגיוני
-const TIME_SLOTS = [...new Set(TIME_SLOTS_RAW)].sort((a,b)=>{
-  const pa = parseSlot(a);
-  const pb = parseSlot(b);
-  return (pa.start - pb.start) || (pa.end - pb.end);
-});
-
 function getSearchTerm(){
   const term = (searchEl.value || '').trim().toLowerCase();
   return term.length >= 3 ? term : '';
@@ -519,19 +751,6 @@ function isZoomFree(day, time, zoom){
 
 function isInstructorFree(day, time, instructor){
   return !schedule.some(e => e.day === day && e.instructor === instructor && slotsOverlap(e.time, time));
-}
-
-function normalizeEvent(e){
-  if(!e || typeof e !== 'object') return null;
-  const day = String(e.day || '');
-  const time = String(e.time || '');
-  const instructor = String(e.instructor || '');
-  const zoom = String(e.zoom || '');
-  const zoomLink = String(e.zoomLink || ZOOM_LINKS[zoom] || '');
-  const school = String(e.school || '');
-  const course = String(e.course || '');
-  const id = (e.id === 0 || e.id) ? e.id : null;
-  return { id, day, time, instructor, zoom, zoomLink, school, course };
 }
 
 function pickZoomForSlot(day, time, instructor=null){
@@ -564,290 +783,62 @@ function pickZoomForSlot(day, time, instructor=null){
   return preferred || available[0];
 }
 
-function setBusy(isBusy, msg=''){
-  saveBtn.disabled = !!isBusy;
-  cancelBtn.disabled = !!isBusy;
-  modalInstructorEl.disabled = !!isBusy;
-  modalStatusEl.textContent = msg || '';
-}
-
-function fillInstructorsSelect(){
-  // חשוב: value הוא encodeURIComponent(name) כדי לא לשבור שמות עם גרשיים/תווים מיוחדים.
-  modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
-    instructors.map(name => {
-      const v = enc(name);
-      return `<option value="${v}">${escHtml(name)}</option>`;
-    }).join('');
-}
-
-fillInstructorsSelect();
-
-// ====== בתי ספר וקורסים (הרשימה הקבועה שלך) ======
-// מקור אמת: הרשימה שהדבקת בצ׳אט. לא נשלף משום מקום אחר.
-// המבנה: INSTRUCTOR_MAP[instructor] = [{school, course}, ...]
-const INSTRUCTOR_MAP = {};
-const RAW_ASSIGNMENTS = [
-  ["אביב בלנדר","מתנ\"ס","תלמידים להייטק"],
-  ["אביב בלנדר","תל-חי","ביומימיקרי"],
-  ["אביב בלנדר","מצודות","ביומימיקרי"],
-  ["אוריה פדידה","טשרניחובסקי","בינה מלאכותית"],
-  ["אוריה פדידה","אורט גוטמן","תמיר - איפה דדי?"],
-  ["אושרי רם","טשרניחובסקי","בינה מלאכותית"],
-  ["אילנה טיטייבסקי","גולדה","ביומימיקרי"],
-  ["אילנה טיטייבסקי","ישיבת אבירי יעקב","השמיים אינם הגבול"],
-  ["אלדר מיכאל טייב","בי\"ס אילנות","ביומימיקרי"],
-  ["אלדר מיכאל טייב","בראשית","ביומימיקרי"],
-  ["אלדר מיכאל טייב","התומר","בינה מלאכותית"],
-  ["אלדר מיכאל טייב","מקיף אמית","פרימיום"],
-  ["אלדר מיכאל טייב","שקמים","בינה מלאכותית"],
-  ["אלדר מיכאל טייב","אבן שמואל","ביומימיקרי"],
-  ["אלדר מיכאל טייב","בי\"ס שפיר","בינה מלאכותית"],
-  ["אלדר מיכאל טייב","אסם","הרמת כוסית - אסם (פרימיום)"],
-  ["אלכס זפקה","ניצני קטיף","ביומימיקרי"],
-  ["אלכס זפקה","מקיף ה'","רוקחים עולם"],
-  ["אלכס זפקה","מקיף ה'","בינה מלאכותית"],
-  ["אלכס זפקה","שמש גבולות","בינה מלאכותית"],
-  ["אלכס זפקה","פרדס צפוני","ביומימיקרי"],
-  ["אלכס זפקה","בינת תקשורת","סיור"],
-  ["אמיר מלמוד","מקיף ג'","רוקחים עולם"],
-  ["אסאלה ברהום","יסודי עין נקובא-ראפה","מנהיגות ירוקה"],
-  ["אסיל ג'בר","נווה שלום","מנהיגות ירוקה"],
-  ["אפרת אוחיון","שדות סילבר","בינה מלאכותית"],
-  ["אפרת אוחיון","ביכורים","ביומימיקרי"],
-  ["אפרת אוחיון","קסם","מנהיגות ירוקה"],
-  ["אפרת אוחיון","הרטוב","מנהיגות ירוקה"],
-  ["ברקת קטעי","עוזיאל","ביומימיקרי"],
-  ["ברקת קטעי","עוזיאל","בינה מלאכותית"],
-  ["ברקת קטעי","תל-חי","ביומימיקרי"],
-  ["הילה רוזן","אל-אמין","ביומימיקרי לחטיבה"],
-  ["הילה רוזן","אלרואיא","ביומימיקרי לחטיבה"],
-  ["הילה רוזן","כסרא סמיע","ביומימיקרי לחטיבה"],
-  ["הילה רוזן","סמילנסקי","ביומימיקרי"],
-  ["הילה רוזן","קציר","ביומימיקרי לחטיבה"],
-  ["הילה רוזן","דה שליט","פורצות דרך"],
-  ["הילה רוזן","יצחק שמיר","פורצות דרך"],
-  ["הילה רוזן","מקיף עמית","פרימיום"],
-  ["הילה רוזן","אסם","הרמת כוסית - אסם (פרימיום)"],
-  ["הנאא אבו אמזה","בוקעתא","ביומימיקרי לחטיבה"],
-  ["הנאא אבו אמזה","דרכא ג'וליס","ביומימיקרי לחטיבה"],
-  ["הנאא אבו אמזה","מסעדה","ביומימיקרי לחטיבה"],
-  ["הנאא אבו אמזה","עין-קיניה","ביומימיקרי לחטיבה"],
-  ["הנאא אבו אמזה","ג'דיידה יסודי","ביומימיקרי"],
-  ["הנאא אבו אמזה","גורדון","בינה מלאכותית"],
-  ["הנאא אבו אמזה","כפר הנוער רמת הדסה","ביומימיקרי לחטיבה"],
-  ["הנאא אבו אמזה","כפר הנוער רמת הדסה","טכנולוגיות החלל"],
-  ["הנאא אבו אמזה","כפר הנוער רמת הדסה","בינה מלאכותית"],
-  ["כרמית סמנדרוב","צאלון","ביומימיקרי"],
-  ["ליאל בן חמו","ניצני קטיף","ביומימיקרי"],
-  ["מיכל שכטמן","אלון","מנהיגות ירוקה"],
-  ["מיכל שכטמן","מתיתיהו","מנהיגות ירוקה"],
-  ["סוהא סאלם","מול גלעד","מנהיגות ירוקה"],
-  ["סוהא סאלם","נופי ארבל","ביומימיקרי לחטיבה"],
-  ["סוהא סאלם","כנרת","ביומימיקרי לחטיבה"],
-  ["סוהא סאלם","כנרת","טכנולוגיות החלל"],
-  ["סוהא סאלם","כנרת","ביומימיקרי"],
-  ["סוהא סאלם","בית חינוך דגניה","ביומימיקרי לחטיבה"],
-  ["סוהא סאלם","אלאשראק","ביומימיקרי"],
-  ["סוהא סאלם","אורט גוטמן","תמיר - איפה דדי?"],
-  ["עליזה מולה","מרחבי אשכול","ביומימיקרי"],
-  ["עליזה מולה","מרחבי אשכול","בינה מלאכותית"],
-  ["עליזה מולה","פרדס צפוני","ביומימיקרי"],
-  ["עליזה מולה","תיכון ב'","פורצות דרך"],
-  ["עליזה מולה","הר נבו","תמיר - קווסט חדר בריחה"],
-  ["קרן גורביץ","מתנ\"ס","מייקרים"],
-  ["קרן גורביץ","אלתרמן","תמיר - איפה דדי?"],
-  ["ראנה סאלח","מג'דל שמס","ביומימיקרי לחטיבה"],
-  ["אילנה טיטייבסקי","רמב\"ם","בינה מלאכותית"],
-  ["אלדר מיכאל טייב","חווה חקלאית - רננות","ביומימיקרי"],
-  ["אלכס זפקה","מקיף ט'","השמיים אינם הגבול"],
-  ["אלכס זפקה","נבון","רוקחים עולם"],
-  ["ליאל בן חמו","ניצן","בינה מלאכותית"],
-  ["סוהא סאלם","חט\"ב ב'","ביומימיקרי לחטיבה"],
-  ["עליזה מולה","בן גוריון","רוקחים עולם"],
-];
-
-RAW_ASSIGNMENTS.forEach(([inst, school, course])=>{
-  if(!INSTRUCTOR_MAP[inst]) INSTRUCTOR_MAP[inst] = [];
-  if(!INSTRUCTOR_MAP[inst].some(x=>x.school===school && x.course===course)){
-    INSTRUCTOR_MAP[inst].push({ school, course });
-  }
-});
-
-function getSchoolsForInstructor(instructor){
-  const rows = INSTRUCTOR_MAP[instructor] || [];
-  const set = new Set(rows.map(r=>r.school).filter(Boolean));
-  return Array.from(set).sort((a,b)=>a.localeCompare(b,'he'));
-}
-
-function getCoursesForInstructorAndSchool(instructor, school){
-  const rows = INSTRUCTOR_MAP[instructor] || [];
-  const set = new Set(rows.filter(r=>r.school===school).map(r=>r.course).filter(Boolean));
-  return Array.from(set).sort((a,b)=>a.localeCompare(b,'he'));
-}
-
-function fillSchoolsSelectForInstructor(instructor){
-  const schools = getSchoolsForInstructor(instructor);
-  modalSchoolEl.innerHTML = "<option value=''>בחר בית ספר</option>" +
-    schools.map(s => `<option value=\"${enc(s)}\">${escHtml(s)}</option>`).join('');
-}
-
-function fillCoursesSelectForInstructor(instructor, school){
-  const courses = school ? getCoursesForInstructorAndSchool(instructor, school) : [];
-  modalCourseEl.innerHTML = "<option value=''>בחר קורס</option>" +
-    courses.map(c => `<option value=\"${enc(c)}\">${escHtml(c)}</option>`).join('');
-}
-
-function findSuggestedSchoolCourseForInstructor(instructor){
-  const idxOf = (t)=> TIME_SLOTS.indexOf(t);
-  const same = schedule.filter(e => e && e.instructor === instructor && (e.school || e.course));
-  if(same.length){
-    same.sort((a,b)=>{
-      const da = DAYS.indexOf(a.day);
-      const db = DAYS.indexOf(b.day);
-      const ta = idxOf(a.time);
-      const tb = idxOf(b.time);
-      return (da - db) || (ta - tb);
-    });
-    const last = same[same.length - 1];
-    return { school: last.school || '', course: last.course || '' };
-  }
-  const list = INSTRUCTOR_MAP[instructor] || [];
-  if(list.length) return { school: list[0].school || '', course: list[0].course || '' };
-  return { school:'', course:'' };
-}
-
-function applySuggestedSchoolCourse(instructor){
-  if(!instructor){
-    modalSchoolEl.innerHTML = "<option value=''>בחר קודם מדריך</option>";
-    modalCourseEl.innerHTML = "<option value=''>בחר קודם מדריך</option>";
-    schoolCourseHintEl.textContent = '';
-    return;
-  }
-
-  fillSchoolsSelectForInstructor(instructor);
-
-  const sug = findSuggestedSchoolCourseForInstructor(instructor);
-  if(sug.school){
-    modalSchoolEl.value = enc(sug.school);
-    fillCoursesSelectForInstructor(instructor, sug.school);
-
-    if(sug.course){
-      modalCourseEl.value = enc(sug.course);
-      schoolCourseHintEl.textContent = `הצעה: ${sug.school} · ${sug.course}`;
-    }else{
-      schoolCourseHintEl.textContent = `הצעה: ${sug.school}`;
-    }
-  }else{
-    schoolCourseHintEl.textContent = '';
-    modalCourseEl.innerHTML = "<option value=''>בחר קורס</option>";
-  }
-}
-
-modalSchoolEl.addEventListener('change', ()=>{
-  const instructor = modalInstructorEl.value ? dec(modalInstructorEl.value) : '';
-  const school = modalSchoolEl.value ? dec(modalSchoolEl.value) : '';
-  fillCoursesSelectForInstructor(instructor, school);
-  schoolCourseHintEl.textContent = '';
-});
-
-// ברירת מחדל
-applySuggestedSchoolCourse('');
-
 // --- Google Sheets / local fallback persistence ---
 async function loadSchedule(){
   try{
-    const res = await fetch(API_URL, { method: "GET", redirect: "follow" });
-    if(!res.ok) throw new Error(`GET failed (${res.status})`);
+    const res = await fetch(API_URL, { method: "GET" });
+    if(!res.ok) throw new Error("GET failed");
     const data = await res.json();
-    schedule = Array.isArray(data) ? data.map(normalizeEvent) : [];
+    schedule = Array.isArray(data) ? data : (data.data || []);
   }catch(_){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      const data = raw ? JSON.parse(raw) : [];
-      schedule = Array.isArray(data) ? data.map(normalizeEvent) : [];
+      schedule = raw ? JSON.parse(raw) : [];
     }catch(__){
       schedule = [];
     }
   }
 }
 
-async function postToApi(payload){
+async function addItem(day, time, instructor, zoom){
+  const zoomLink = ZOOM_LINKS[zoom] || "";
+
   const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload),
-    redirect: "follow"
+    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink })
   });
 
-  // ב-GAS לפעמים יש redirect/תשובה לא JSON. ננסה לקרוא טקסט לצורך דיבוג.
-  const txt = await res.text().catch(()=>"");
-  if(!res.ok){
-    throw new Error(`API POST failed (${res.status}). ${txt}`);
-  }
+  const data = await res.json();
+  if(data && data.ok === false) throw new Error(data.error || "API add error");
 
-  // אם השרת מחזיר JSON של schedule מעודכן — נקבל אותו.
-  try{
-    const maybe = JSON.parse(txt);
-    return maybe;
-  }catch(_){
-    return null;
-  }
-}
-
-async function addItem(day, time, instructor, zoom, school='', course=''){
-  // הקישור הוא נגזרת של חשבון ה-Zoom (אבל אם רוצים עמודה בשיט – שולחים גם אותו)
-  const zoomLink = ZOOM_LINKS[zoom] || '';
-
-  // קודם מעדכנים מקומית כדי שהכפתור תמיד "יעבוד".
-  schedule.push({ id: null, day, time, instructor, zoom, zoomLink, school, course });
+  // השרת מחזיר רשימה מלאה עם id — מסנכרנים תמיד
+  schedule = Array.isArray(data) ? data : (data.data || data);
   persistSchedule();
-
-  // ואז מנסים לשמור לשרת.
-  try{
-    const maybe = await postToApi({ action: "add", day, time, instructor, zoom, zoomLink, school, course });
-    if(Array.isArray(maybe)){
-      schedule = maybe.map(normalizeEvent);
-      persistSchedule();
-    }
-  }catch(e){
-    console.log("API add error", e);
-    // משאירים את הנתון מקומית, ומציגים הודעה עדינה למשתמש.
-    // לא עוצרים את העבודה.
-  }
 }
 
 async function deleteItemByEvent(ev){
-  // מחיקה מקומית מיידית
+  // מחיקה אמיתית לפי id
+  if(ev.id){
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "delete", id: ev.id })
+    });
+
+    const data = await res.json();
+    if(data && data.ok === false) throw new Error(data.error || "API delete error");
+
+    schedule = Array.isArray(data) ? data : (data.data || data);
+    persistSchedule();
+    return;
+  }
+
+  // fallback מקומי אם אין id
   schedule = schedule.filter(e => !(
     e.day===ev.day && e.time===ev.time && e.instructor===ev.instructor && e.zoom===ev.zoom
   ));
   persistSchedule();
-  render();
-
-  // ניסיון מחיקה בשרת (אם ה-GAS תומך)
-  try{
-    const maybe = await postToApi({ action: "delete", day: ev.day, time: ev.time, instructor: ev.instructor, zoom: ev.zoom });
-    if(Array.isArray(maybe)){
-      schedule = maybe;
-      persistSchedule();
-      render();
-    }
-  }catch(e){
-    console.log("API delete error", e);
-  }
-}
-
-async function clearAllRemoteIfPossible(){
-  try{
-    const maybe = await postToApi({ action: "clear" });
-    if(Array.isArray(maybe)){
-      schedule = maybe;
-      persistSchedule();
-      render();
-    }
-  }catch(e){
-    console.log("API clear error", e);
-  }
 }
 
 // --- Modal ---
@@ -862,9 +853,6 @@ function openModal(day, time){
   // איפוס בחירה
   modalInstructorEl.value = '';
 
-  // בית ספר/קורס - ברירת מחדל לפי הרשימה/היסטוריה
-  applySuggestedSchoolCourse('');
-
   // הצעת Zoom ראשונית (ללא מדריך)
   updateZoomSuggestion();
 
@@ -872,15 +860,14 @@ function openModal(day, time){
 }
 
 function closeModal(){
-  if(saveBtn.disabled) return; // בזמן שמירה לא מאפשרים לסגור בטעות
   modalBackdrop.style.display = 'none';
   modalState.day = null;
   modalState.time = null;
   modalStatusEl.textContent = '';
 }
 
-function openZoomLinkPopup(zoom, zoomLinkOverride=''){
-  const zoomLink = zoomLinkOverride || ZOOM_LINKS[zoom];
+function openZoomLinkPopup(zoom){
+  const zoomLink = ZOOM_LINKS[zoom];
   if(!zoomLink) return;
 
   zoomLinkUserEl.textContent = zoom;
@@ -897,18 +884,21 @@ async function copyZoomLink(){
   const link = zoomLinkValueEl.textContent;
   if(!link) return;
 
+  // ✅ שינוי המשפט לפני הקישור בלבד (כפי שביקשת)
+  const textToCopy = `להצטרפות לזום לחצו (${link})`;
+
   try{
     if(navigator.clipboard?.writeText){
-      await navigator.clipboard.writeText(link);
+      await navigator.clipboard.writeText(textToCopy);
     }else{
       const area = document.createElement('textarea');
-      area.value = link;
+      area.value = textToCopy;
       document.body.appendChild(area);
       area.select();
       document.execCommand('copy');
       document.body.removeChild(area);
     }
-    copyStatusEl.textContent = 'הקישור הועתק.';
+    copyStatusEl.textContent = 'ההודעה הועתקה.';
     setTimeout(closeZoomLinkPopup, 350);
   }catch(_){
     copyStatusEl.textContent = 'לא ניתן להעתיק. נסו שוב.';
@@ -918,7 +908,7 @@ async function copyZoomLink(){
 function updateZoomSuggestion(){
   const day = modalState.day;
   const time = modalState.time;
-  const instructor = modalInstructorEl.value ? dec(modalInstructorEl.value) : null;
+  const instructor = modalInstructorEl.value || null;
 
   const suggested = pickZoomForSlot(day, time, instructor);
   zoomSuggestionEl.className = 'pill';
@@ -940,7 +930,7 @@ async function saveAssignment(){
     return;
   }
 
-  const instructor = modalInstructorEl.value ? dec(modalInstructorEl.value) : '';
+  const instructor = modalInstructorEl.value;
   if(!instructor){
     modalStatusEl.textContent = 'יש לבחור מדריך.';
     return;
@@ -963,22 +953,14 @@ async function saveAssignment(){
     return;
   }
 
-  setBusy(true, 'שומר...');
   try{
-    const school = modalSchoolEl.value ? dec(modalSchoolEl.value) : '';
-    const course = modalCourseEl.value ? dec(modalCourseEl.value) : '';
-
-    await addItem(day, time, instructor, zoom, school, course);
-    // הצלחה מקומית לפחות
-    modalStatusEl.textContent = '';
-    modalBackdrop.style.display = 'none';
+    await addItem(day, time, instructor, zoom);
+    closeModal();
     render();
-    openZoomLinkPopup(zoom, ZOOM_LINKS[zoom] || '');
-  }catch(e){
-    console.log(e);
-    modalStatusEl.textContent = 'שגיאה בשמירה. נסו שוב.';
-  }finally{
-    setBusy(false);
+    openZoomLinkPopup(zoom);
+  }catch(err){
+    modalStatusEl.textContent = 'שגיאה בשמירה. בדוק הרשאות/פריסה של הסקריפט.';
+    console.error(err);
   }
 }
 
@@ -989,7 +971,14 @@ function render(){
   boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
   DAYS.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(d)}</div>`));
 
-  TIME_SLOTS.forEach(time => {
+  TIME_SLOTS.forEach((time,idx) => {
+
+    // ✅ הפרדה ויזואלית בין שעות של שעה לשעות של שעתיים
+    if(idx === ONE_HOUR_SLOTS.length){
+      boardEl.insertAdjacentHTML('beforeend', `<div class="time-cell" style="background:#e2e8f0;font-weight:900">—</div>`);
+      DAYS.forEach(()=> boardEl.insertAdjacentHTML('beforeend', `<div class="slot" style="background:#e2e8f0;border-top:3px solid #6366f1"></div>`));
+    }
+
     boardEl.insertAdjacentHTML('beforeend', `<div class="time-cell">${escHtml(time)}</div>`);
 
     DAYS.forEach(day => {
@@ -999,23 +988,22 @@ function render(){
       const cardsHtml = visible.map(ev => {
         const bg = instructorColors[ev.instructor] || '#e5e7eb';
         return `<div class="event-card"
-          data-id="${ev.id ? String(ev.id) : ''}"
+          data-id="${ev.id ? enc(ev.id) : ''}"
           data-day="${enc(day)}"
           data-time="${enc(time)}"
           data-instructor="${enc(ev.instructor)}"
           data-zoom="${enc(ev.zoom)}"
-          data-zoomlink="${enc(ev.zoomLink || ZOOM_LINKS[ev.zoom] || '')}"
           data-school="${enc(ev.school || '')}"
           data-course="${enc(ev.course || '')}"
+          data-authority="${enc(ev.authority || '')}"
           title="לחץ להסרה"
           style="background:${bg}">
           ${escHtml(ev.instructor)} | ${escHtml(ev.zoom)}
         </div>`;
       }).join('');
 
-      // חשוב: data-* הם raw (לא escHtml) כדי לא לייצר ערכים מוזרים
       boardEl.insertAdjacentHTML('beforeend',
-        `<div class="slot" data-day="${enc(day)}" data-time="${enc(time)}">
+        `<div class="slot" data-day="${escHtml(day)}" data-time="${escHtml(time)}">
           ${cardsHtml}
           <button class="add-btn" type="button" title="שיבוץ">+</button>
         </div>`
@@ -1032,42 +1020,52 @@ function attachInteractions(){
     btn.onclick = (e) => {
       e.stopPropagation();
       const slot = btn.closest('.slot');
-      openModal(dec(slot.dataset.day), dec(slot.dataset.time));
+      openModal(slot.dataset.day, slot.dataset.time);
     };
   });
 
   // לחיצה על שיבוץ קיים = הסרה
   document.querySelectorAll('.event-card').forEach(card => {
-    card.onclick = async (e) => {
-      // Shift+Click מציג קישור בלבד (ללא מחיקה)
-      if(e.shiftKey){
-        const z = dec(card.dataset.zoom);
-        const l = card.dataset.zoomlink ? dec(card.dataset.zoomlink) : (ZOOM_LINKS[z] || '');
-        openZoomLinkPopup(z, l);
-        return;
-      }
-      e.stopPropagation();
+    const readEventFromCard = () => ({
+      id: card.dataset.id ? dec(card.dataset.id) : null,
+      day: dec(card.dataset.day),
+      time: dec(card.dataset.time),
+      instructor: dec(card.dataset.instructor),
+      zoom: dec(card.dataset.zoom),
+      school: dec(card.dataset.school),
+      course: dec(card.dataset.course),
+      authority: dec(card.dataset.authority)
+    });
 
-      const ev = {
-        id: card.dataset.id ? Number(card.dataset.id) : null,
-        day: dec(card.dataset.day),
-        time: dec(card.dataset.time),
-        instructor: dec(card.dataset.instructor),
-        zoom: dec(card.dataset.zoom),
-        zoomLink: card.dataset.zoomlink ? dec(card.dataset.zoomlink) : (ZOOM_LINKS[dec(card.dataset.zoom)] || ''),
-        school: card.dataset.school ? dec(card.dataset.school) : '',
-        course: card.dataset.course ? dec(card.dataset.course) : ''
-      };
+    // Hover tooltip
+    card.addEventListener('mouseenter', (e) => {
+      const ev = readEventFromCard();
+      showTooltip(ev, e.clientX, e.clientY);
+    });
+
+    card.addEventListener('mousemove', (e) => {
+      if(tooltipEl.style.display === 'block') positionTooltip(e.clientX, e.clientY);
+    });
+
+    card.addEventListener('mouseleave', hideTooltip);
+
+    // לחיצה על שיבוץ קיים = הסרה (כמו שהיה)
+    card.onclick = async (e) => {
+      e.stopPropagation();
+      hideTooltip();
+
+      const ev = readEventFromCard();
 
       const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
       if(!ok) return;
 
-      await deleteItemByEvent(ev);
-
-      // אופציונלי: בלחיצה על כרטיס עם Shift – מציגים את הקישור בלי למחוק
-      // (לא משנה שום לוגיקה קיימת למחיקה רגילה)
-      // אם תרצה להפוך את זה לברירת מחדל – אגיד לך איפה לשנות.
-      
+      try{
+        await deleteItemByEvent(ev);
+        render();
+      }catch(err){
+        alert('שגיאה במחיקה. בדוק הרשאות/פריסה של הסקריפט.');
+        console.error(err);
+      }
     };
   });
 }
@@ -1075,14 +1073,27 @@ function attachInteractions(){
 // --- Controls ---
 async function clearSystem(){
   if(!confirm('למחוק את כל השיבוצים במערכת?')) return;
-  schedule = [];
+
+  try{
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "clear" })
+    });
+
+    const data = await res.json();
+    if(data && data.ok === false) throw new Error(data.error || "API clear error");
+
+    schedule = Array.isArray(data) ? data : (data.data || []);
+  }catch(_){
+    // fallback מקומי
+    schedule = [];
+  }
+
   persistSchedule();
   searchEl.value = '';
   zoomFilterEl.value = '';
   render();
-
-  // ניסיון למחיקה בשרת (אם קיים)
-  await clearAllRemoteIfPossible();
 }
 
 // --- Events / bindings ---
@@ -1099,11 +1110,7 @@ zoomLinkModal.addEventListener('click', (e)=>{ if(e.target === zoomLinkModal) cl
 window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
 window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && zoomLinkModal.style.display === 'flex') closeZoomLinkPopup(); });
 
-modalInstructorEl.addEventListener('change', ()=>{
-  updateZoomSuggestion();
-  const instructor = modalInstructorEl.value ? dec(modalInstructorEl.value) : '';
-  applySuggestedSchoolCourse(instructor);
-});
+modalInstructorEl.addEventListener('change', updateZoomSuggestion);
 
 // --- Init ---
 (async function init(){
