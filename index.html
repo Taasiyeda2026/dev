@@ -293,8 +293,19 @@ h1{
   transform:translateY(-50%);
   display:flex;
   flex-direction:column;
-  gap:25px;
+  align-items:center;
+  gap:16px;
   z-index:100;
+}
+
+.zoom-side-note{
+  margin:0;
+  text-align:center;
+  font-size:11px;
+  line-height:1.25;
+  color:#475569;
+  font-weight:700;
+  max-width:88px;
 }
 
 .save-container{
@@ -574,6 +585,8 @@ h1{
   <button class="zoom-btn zoom1" onclick="copyZoomLink(1)">Z1</button>
   <button class="zoom-btn zoom2" onclick="copyZoomLink(2)">Z2</button>
   <button class="zoom-btn zoom3" onclick="copyZoomLink(3)">Z3</button>
+  <p class="zoom-side-note">לחצו על חשבון Zoom
+    <br>לקבלת הקישור</p>
 </div>
 
 <div class="container">
