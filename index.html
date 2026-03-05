@@ -653,6 +653,27 @@ const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
 
 let schedule = [];
 
+function firstDefined(obj, keys){
+  for(const key of keys){
+    const val = obj?.[key];
+    if(val !== undefined && val !== null && String(val).trim() !== '') return String(val);
+  }
+  return '';
+}
+
+function normalizeEvent(raw){
+  return {
+    ...raw,
+    day: firstDefined(raw, ['day','Day','יום']),
+    time: firstDefined(raw, ['time','Time','שעה']),
+    instructor: firstDefined(raw, ['instructor','Instructor','מדריך']),
+    zoom: firstDefined(raw, ['zoom','Zoom','חשבון Zoom']),
+    school: firstDefined(raw, ['school','schoolName','school_name','organization','org','בית ספר']),
+    course: firstDefined(raw, ['course','courseName','course_name','קורס']),
+    authority: firstDefined(raw, ['authority','city','municipality','רשות'])
+  };
+}
+
 // --- Hover Tooltip ---
 const tooltipEl = document.createElement('div');
 tooltipEl.className = 'tooltip';
@@ -677,9 +698,9 @@ function buildTooltipHtml(ev){
   const instructor = ev.instructor || '';
   const zoom = ev.zoom || '';
 
-  const directSchool = ev.school || ev.organization || ev.org || '';
-  const directCourse = ev.course || '';
-  const directAuthority = ev.authority || '';
+  const directSchool = firstDefined(ev, ['school','schoolName','school_name','organization','org','בית ספר']);
+  const directCourse = firstDefined(ev, ['course','courseName','course_name','קורס']);
+  const directAuthority = firstDefined(ev, ['authority','city','municipality','רשות']);
 
   let metaHtml = '';
   if(directSchool || directCourse || directAuthority){
@@ -688,10 +709,7 @@ function buildTooltipHtml(ev){
     if(directSchool) metaHtml += `<div class="t-row"><div class="t-k">בית ספר</div><div class="t-v">${escHtml(directSchool)}</div></div>`;
     if(directCourse) metaHtml += `<div class="t-row"><div class="t-k">קורס</div><div class="t-v">${escHtml(directCourse)}</div></div>`;
   }else{
-    // ✅ שינוי תצוגה בלבד לפי הבקשה שלך:
-    // אם לשם המדריך יש *שיוך אחד בלבד* ברשימה — נציג אותו.
-    // אם יש יותר משיוך אחד — לא נציג את כולם (כדי לא להציג "את כל מה שקיים").
-    // כדי להציג בדיוק את השיוך של *השיבוץ הספציפי* צריך לשמור אותו בתוך השיבוץ (ב-Google Sheets).
+    // אם אין נתוני בית ספר/קורס על השיבוץ עצמו, נופלים לנתוני ברירת המחדל של המדריך.
     const list = getInstructorAssignments(instructor);
 
     if(list.length === 1){
@@ -700,8 +718,9 @@ function buildTooltipHtml(ev){
       metaHtml += `<div class="t-row"><div class="t-k">קורס</div><div class="t-v">${escHtml(list[0].course)}</div></div>`;
     }else if(list.length > 1){
       metaHtml += `<div class="t-title">פרטי השיבוץ</div>`;
-      metaHtml += `<div style="opacity:.85">למדריך יש כמה שיוכים קבועים ברשימה.</div>`;
-      metaHtml += `<div style="opacity:.85">כדי להציג את השיוך של *השיבוץ הספציפי* (ולא את כולם), צריך לשמור בשיבוץ עצמו את בית הספר והקורס בגוגל שיט.</div>`;
+      metaHtml += `<div style="opacity:.85">פרטי בית הספר/הקורס לא נשמרו בשיבוץ הזה.</div>`;
+      metaHtml += `<div style="opacity:.85">שיוכים אפשריים למדריך:</div>`;
+      metaHtml += `<ul>${list.map(item => `<li>${escHtml(item.school)} · ${escHtml(item.course)}</li>`).join('')}</ul>`;
     }else{
       metaHtml += `<div class="t-title">פרטי השיבוץ</div>`;
       metaHtml += `<div style="opacity:.85">אין שיוך בית ספר/קורס עבור מדריך זה ברשימה.</div>`;
@@ -863,31 +882,34 @@ async function loadSchedule(){
     const res = await fetch(API_URL, { method: "GET" });
     if(!res.ok) throw new Error("GET failed");
     const data = await res.json();
-    schedule = Array.isArray(data) ? data : (data.data || []);
+    const list = Array.isArray(data) ? data : (data.data || []);
+    schedule = list.map(normalizeEvent);
   }catch(_){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      schedule = raw ? JSON.parse(raw) : [];
+      const list = raw ? JSON.parse(raw) : [];
+      schedule = list.map(normalizeEvent);
     }catch(__){
       schedule = [];
     }
   }
 }
 
-async function addItem(day, time, instructor, zoom){
+async function addItem(day, time, instructor, zoom, school='', course=''){
   const zoomLink = ZOOM_LINKS[zoom] || "";
 
   const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink })
+    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink, school, course })
   });
 
   const data = await res.json();
   if(data && data.ok === false) throw new Error(data.error || "API add error");
 
   // השרת מחזיר רשימה מלאה עם id — מסנכרנים תמיד
-  schedule = Array.isArray(data) ? data : (data.data || data);
+  const list = Array.isArray(data) ? data : (data.data || data);
+  schedule = list.map(normalizeEvent);
   persistSchedule();
 }
 
@@ -903,7 +925,8 @@ async function deleteItemByEvent(ev){
     const data = await res.json();
     if(data && data.ok === false) throw new Error(data.error || "API delete error");
 
-    schedule = Array.isArray(data) ? data : (data.data || data);
+    const list = Array.isArray(data) ? data : (data.data || data);
+    schedule = list.map(normalizeEvent);
     persistSchedule();
     return;
   }
@@ -1008,6 +1031,8 @@ async function saveAssignment(){
   }
 
   const zoom = pickZoomForSlot(day, time, instructor);
+  const school = modalSchoolEl.value || '';
+  const course = modalCourseEl.value || '';
   if(!zoom){
     modalStatusEl.textContent = 'אין חשבון Zoom פנוי בשעה זו.';
     return;
@@ -1020,7 +1045,7 @@ async function saveAssignment(){
   }
 
   try{
-    await addItem(day, time, instructor, zoom);
+    await addItem(day, time, instructor, zoom, school, course);
     closeModal();
     render();
   }catch(err){
