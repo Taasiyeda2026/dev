@@ -297,6 +297,37 @@ h1{
   z-index:100;
 }
 
+.save-container{
+  position:fixed;
+  bottom:25px;
+  left:25px;
+  z-index:999;
+}
+
+.save-btn{
+  background:#10b981;
+  color:white;
+  border:none;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 6px 14px rgba(0,0,0,0.25);
+  transition:all 0.2s ease;
+}
+
+.save-btn:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 18px rgba(0,0,0,0.3);
+}
+
+.save-btn:active{
+  transform:translateY(1px);
+  box-shadow:0 3px 8px rgba(0,0,0,0.2);
+}
+
 .zoom-btn{
   width:54px;
   height:54px;
@@ -584,6 +615,10 @@ h1{
 </div>
 </div>
 
+<div class="save-container">
+  <button class="save-btn" type="button" onclick="saveData()">שמור</button>
+</div>
+
 <div id="assignModal" class="modal-backdrop">
   <div class="modal">
     <div class="modal-header" id="modalTitle">שיבוץ מדריך</div>
@@ -798,8 +833,6 @@ instructors.forEach((name,i)=>{ instructorColors[name] = colorPalette[i % colorP
 // --- Persist config ---
 // ✅ API_URL מעודכן
 const API_URL = "https://script.google.com/macros/s/AKfycbzS7HyufZEkaG5I9A9wwEfchuQ7Ro95hifLhsgWKmtg4117NZzgtjlDo_EwMImr9h3a3A/exec";
-const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
-
 let schedule = [];
 let potentialData = [];
 let selectedPotentialDate = '08/03/2026';
@@ -942,10 +975,6 @@ modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
   instructors.map(i => `<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
 
 // --- Utilities ---
-function persistSchedule(){
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule)); }catch(_){ /* ignore */ }
-}
-
 function toMinutes(hhmm){
   const [h,m] = hhmm.split(':').map(Number);
   return h*60 + m;
@@ -1035,65 +1064,44 @@ function pickZoomForSlot(day, time, instructor=null){
 }
 
 // --- Google Sheets / local fallback persistence ---
+async function saveData(payload = { schedule, potentialData }){
+  await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action: "saveAll", ...payload })
+  });
+}
+
 async function loadSchedule(){
-  try{
-    const res = await fetch(API_URL, { method: "GET" });
-    if(!res.ok) throw new Error("GET failed");
-    const data = await res.json();
-    const list = Array.isArray(data) ? data : (data.data || []);
-    schedule = list.map(normalizeEvent);
-  }catch(_){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      const list = raw ? JSON.parse(raw) : [];
-      schedule = list.map(normalizeEvent);
-    }catch(__){
-      schedule = [];
-    }
-  }
+  const res = await fetch(API_URL, { method: "GET" });
+  if(!res.ok) throw new Error("GET failed");
+  const data = await res.json();
+  const list = Array.isArray(data) ? data : (data.data || []);
+  schedule = list.map(normalizeEvent);
 }
 
 async function addItem(day, time, instructor, zoom, school='', course=''){
   const zoomLink = ZOOM_LINKS[zoom] || "";
-
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink, school, course })
-  });
-
-  const data = await res.json();
-  if(data && data.ok === false) throw new Error(data.error || "API add error");
-
-  // השרת מחזיר רשימה מלאה עם id — מסנכרנים תמיד
-  const list = Array.isArray(data) ? data : (data.data || data);
-  schedule = list.map(normalizeEvent);
-  persistSchedule();
+  schedule.push(normalizeEvent({
+    id: `local-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    day,
+    time,
+    instructor,
+    zoom,
+    zoomLink,
+    school,
+    course
+  }));
 }
 
 async function deleteItemByEvent(ev){
-  // מחיקה אמיתית לפי id
-  if(ev.id){
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "delete", id: ev.id })
-    });
-
-    const data = await res.json();
-    if(data && data.ok === false) throw new Error(data.error || "API delete error");
-
-    const list = Array.isArray(data) ? data : (data.data || data);
-    schedule = list.map(normalizeEvent);
-    persistSchedule();
-    return;
-  }
-
-  // fallback מקומי אם אין id
   schedule = schedule.filter(e => !(
-    e.day===ev.day && e.time===ev.time && e.instructor===ev.instructor && e.zoom===ev.zoom
+    e.day===ev.day &&
+    e.time===ev.time &&
+    e.instructor===ev.instructor &&
+    e.zoom===ev.zoom &&
+    (ev.id ? e.id===ev.id : true)
   ));
-  persistSchedule();
 }
 
 // --- Modal ---
@@ -1344,24 +1352,7 @@ boardEl.addEventListener('click', async (e) => {
 // --- Controls ---
 async function clearSystem(){
   if(!confirm('למחוק את כל השיבוצים במערכת?')) return;
-
-  try{
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "clear" })
-    });
-
-    const data = await res.json();
-    if(data && data.ok === false) throw new Error(data.error || "API clear error");
-
-    schedule = Array.isArray(data) ? data : (data.data || []);
-  }catch(_){
-    // fallback מקומי
-    schedule = [];
-  }
-
-  persistSchedule();
+  schedule = [];
   searchEl.value = '';
   zoomFilterEl.value = '';
   render();
@@ -1507,11 +1498,10 @@ async function loadPotentialData(){
 }
 
 async function updateRow(id, notes, completed){
-  await fetch(API_URL, {
-    method:'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ sheet:'Potential', action:'updatePotential', id, notes, completed })
-  });
+  const row = potentialData.find(item => item.id === id);
+  if(!row) return;
+  row.notes = notes;
+  row.completed = completed;
 }
 
 async function updateNotes(id, notes){
@@ -1554,34 +1544,45 @@ function openScheduleView(){
   potentialNavBtn.textContent = 'פוטנציאל';
 }
 
-potentialNavBtn.addEventListener('click', async ()=>{
-  const isPotentialOpen = potentialViewEl.classList.contains('active');
-  if(isPotentialOpen){
-    openScheduleView();
+async function loadPage(view){
+  if(view === 'potential'){
+    await loadPotentialData();
+    openPotentialView();
     return;
   }
 
-  openPotentialView();
-  if(!potentialData.length){
-    try{
-      await loadPotentialData();
-    }catch(err){
+  await loadSchedule();
+  render();
+  openScheduleView();
+}
+
+potentialNavBtn.addEventListener('click', async ()=>{
+  const isPotentialOpen = potentialViewEl.classList.contains('active');
+
+  try{
+    if(isPotentialOpen){
+      await loadPage('schedule');
+    }else{
+      await loadPage('potential');
+    }
+  }catch(err){
+    if(!isPotentialOpen){
       potentialTableBodyEl.innerHTML = '';
       potentialEmptyEl.style.display = 'block';
       potentialEmptyEl.textContent = 'שגיאה בטעינת נתוני פוטנציאל.';
-      console.error(err);
     }
-  }else{
-    renderPotential(potentialData);
+    console.error(err);
   }
 });
 
 // --- Init ---
-(async function init(){
+async function initApp(){
   await loadSchedule();
   render();
   renderPotentialTabs();
-})();
+}
+
+window.onload = initApp;
 </script>
 
 </body>
