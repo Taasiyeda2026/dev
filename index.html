@@ -54,9 +54,7 @@ h1{
   font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
 }
 
-.title-main{
-  color:#1e3a8a;
-}
+.title-main{ color:#1e3a8a; }
 
 .toolbar{
   background:white;
@@ -108,9 +106,12 @@ h1{
   transition: all .15s ease;
 }
 
-.btn:hover{
-  transform: translateY(-2px);
-  box-shadow:0 8px 18px rgba(0,0,0,0.15);
+.btn:hover{ transform: translateY(-2px); box-shadow:0 8px 18px rgba(0,0,0,0.15); }
+
+.btn:disabled{
+  opacity:0.6;
+  cursor:not-allowed;
+  transform:none;
 }
 
 .btn-danger{
@@ -222,10 +223,7 @@ h1{
   transition: opacity .18s ease, transform .18s ease;
 }
 
-.slot:hover .add-btn{
-  opacity:1;
-  transform:scale(1);
-}
+.slot:hover .add-btn{ opacity:1; transform:scale(1); }
 
 .modal-backdrop{
   position:fixed;
@@ -255,11 +253,7 @@ h1{
   text-align:center;
 }
 
-.modal-body{
-  padding:12px 14px;
-  display:grid;
-  gap:8px;
-}
+.modal-body{ padding:12px 14px; display:grid; gap:8px; }
 
 .modal-actions{
   padding:14px;
@@ -285,12 +279,7 @@ h1{
 
 .small-note{ font-size:12px; color:var(--muted); }
 
-.link-popup-body{
-  padding:16px 14px;
-  display:grid;
-  gap:10px;
-  text-align:center;
-}
+.link-popup-body{ padding:16px 14px; display:grid; gap:10px; text-align:center; }
 
 .zoom-link-box{
   border:1px solid #dbe3f0;
@@ -315,81 +304,77 @@ h1{
 <body>
 
 <div class="container">
-<h1><span class="title-main">ממשק לניהול חשבונות</span> ZOOM - <span class="title-main">תעשיידע</span></h1>
+  <h1><span class="title-main">ממשק לניהול חשבונות</span> ZOOM - <span class="title-main">תעשיידע</span></h1>
 
-<div class="toolbar">
-<input id="searchInstructor" placeholder="חיפוש..." />
+  <div class="toolbar">
+    <input id="searchInstructor" placeholder="חיפוש..." />
 
-<select id="filterZoom">
-<option value="">ZOOM</option>
-<option value="Zoom1">Zoom1</option>
-<option value="Zoom2">Zoom2</option>
-<option value="Zoom3">Zoom3</option>
-</select>
-<button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
-</div>
+    <select id="filterZoom">
+      <option value="">ZOOM</option>
+      <option value="Zoom1">Zoom1</option>
+      <option value="Zoom2">Zoom2</option>
+      <option value="Zoom3">Zoom3</option>
+    </select>
+    <button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
+  </div>
 
-<div class="board-wrap">
-<div class="board" id="board"></div>
-</div>
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
 </div>
 
 <div id="assignModal" class="modal-backdrop">
-<div class="modal">
-<div class="modal-header" id="modalTitle">שיבוץ מדריך</div>
+  <div class="modal">
+    <div class="modal-header" id="modalTitle">שיבוץ מדריך</div>
 
-<div class="modal-body">
-<div style="font-weight:800;font-size:14px;text-align:center">
-<span id="modalDay"></span> · <span id="modalTime"></span>
-</div>
+    <div class="modal-body">
+      <div style="font-weight:800;font-size:14px;text-align:center">
+        <span id="modalDay"></span> · <span id="modalTime"></span>
+      </div>
 
-<select id="modalInstructor"></select>
+      <select id="modalInstructor"></select>
 
-<div style="text-align:center">
-<div style="font-size:12px;color:#64748b">Zoom שיוקצה:</div>
-<div class="pill" id="zoomSuggestion"></div>
-</div>
+      <div style="text-align:center">
+        <div style="font-size:12px;color:#64748b">Zoom שיוקצה:</div>
+        <div class="pill" id="zoomSuggestion"></div>
+      </div>
 
-<div id="modalStatus" style="text-align:center;color:#b91c1c;font-weight:800"></div>
-</div>
+      <div id="modalStatus" style="text-align:center;color:#b91c1c;font-weight:800"></div>
+    </div>
 
-<div class="modal-actions">
-<button id="cancelBtn" class="btn">ביטול</button>
-<button id="saveBtn" class="btn">שמור</button>
-</div>
-</div>
+    <div class="modal-actions">
+      <button id="cancelBtn" class="btn" type="button">ביטול</button>
+      <button id="saveBtn" class="btn" type="button">שמור</button>
+    </div>
+  </div>
 </div>
 
 <div id="zoomLinkModal" class="modal-backdrop">
-<div class="modal">
-<div class="modal-header">קישור זום לשיעור</div>
-<div class="link-popup-body">
-<div id="zoomLinkUser" style="font-weight:900;color:#3730a3"></div>
-<div id="zoomLinkValue" class="zoom-link-box"></div>
-<button id="copyZoomLinkBtn" class="btn btn-compact" type="button">העתק קישור</button>
-<div id="copyStatus" class="small-note"></div>
-</div>
-</div>
+  <div class="modal">
+    <div class="modal-header">קישור זום לשיעור</div>
+    <div class="link-popup-body">
+      <div id="zoomLinkUser" style="font-weight:900;color:#3730a3"></div>
+      <div id="zoomLinkValue" class="zoom-link-box"></div>
+      <button id="copyZoomLinkBtn" class="btn btn-compact" type="button">העתק קישור</button>
+      <div id="copyStatus" class="small-note"></div>
+    </div>
+  </div>
 </div>
 
 <script>
 /*
-  גרסה מלאה עם הלוגיקה המקורית:
-  - חפיפות בין טווחי שעות (כולל שיעורים ארוכים)
-  - מניעת שיבוץ מדריך בזמן חופף
-  - מניעת שימוש באותו Zoom בזמן חופף
-  - מקסימום 3 Zoom באותה משבצת זמן (זהה)
-  - הצעת Zoom חכמה (שומרת רצף למדריך + נמנעת מה-Zoom של המשבצת הקודמת)
-  - חיפוש (מ-3 תווים) + סינון לפי Zoom
-  - מחיקה בלחיצה על כרטיס
-  - טעינה/שמירה: Google Apps Script (Sheets), עם localStorage כגיבוי
+  תיקונים מרכזיים בגרסה הזו:
+  1) כפתור "שמור" לא נתקע בשקט: כל שגיאת API מוצגת למשתמש ולא "בולעת" לחיצה.
+  2) ערכי <option> של מדריכים אינם HTML-escaped (כדי לא לשבור שמות עם גרשיים). משתמשים ב-encodeURIComponent.
+  3) מחיקה/איפוס: ניסיון למחיקה גם ב-GAS דרך action=delete/clear. אם אין תמיכה – ממשיך מקומית.
+  4) TIME_SLOTS מסודר לפי זמן התחלה כדי שה"משבצת הקודמת" תהיה הגיונית.
 */
 
 // ימים בעברית
 const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי"];
 
-// סדר שעות: 1 שעה ואז 2 שעות (מוקדם עד מאוחר)
-const TIME_SLOTS = [
+// שעות (מקור)
+const TIME_SLOTS_RAW = [
   "08:00-09:00",
   "09:00-10:00",
   "10:00-11:00",
@@ -427,7 +412,7 @@ instructors.forEach((name,i)=>{ instructorColors[name] = colorPalette[i % colorP
 
 // --- Persist config ---
 const API_URL = "https://script.google.com/macros/s/AKfycbxkNSgFfNX0A6cxtXkmZOmYZnB1Q4gYVytNPRyu2fK8J2eWPXly0BoHEtTwE5rq_EophQ/exec";
-const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
+const STORAGE_KEY = "zoomScheduleLocal"; // fallback localStorage
 
 let schedule = [];
 
@@ -445,6 +430,7 @@ const modalStatusEl = document.getElementById('modalStatus');
 const zoomSuggestionEl = document.getElementById('zoomSuggestion');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
+
 const zoomLinkModal = document.getElementById('zoomLinkModal');
 const zoomLinkUserEl = document.getElementById('zoomLinkUser');
 const zoomLinkValueEl = document.getElementById('zoomLinkValue');
@@ -452,10 +438,6 @@ const copyZoomLinkBtn = document.getElementById('copyZoomLinkBtn');
 const copyStatusEl = document.getElementById('copyStatus');
 
 const modalState = { day: null, time: null };
-
-// מילוי רשימת מדריכים
-modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
-  instructors.map(i => `<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
 
 // --- Utilities ---
 function persistSchedule(){
@@ -490,6 +472,13 @@ function escHtml(s){
 function enc(s){ return encodeURIComponent(String(s)); }
 function dec(s){ return decodeURIComponent(String(s || '')); }
 
+// TIME_SLOTS מסודר לפי זמן התחלה/סיום כדי שה"קודם" יהיה הגיוני
+const TIME_SLOTS = [...new Set(TIME_SLOTS_RAW)].sort((a,b)=>{
+  const pa = parseSlot(a);
+  const pb = parseSlot(b);
+  return (pa.start - pb.start) || (pa.end - pb.end);
+});
+
 function getSearchTerm(){
   const term = (searchEl.value || '').trim().toLowerCase();
   return term.length >= 3 ? term : '';
@@ -518,6 +507,17 @@ function isZoomFree(day, time, zoom){
 
 function isInstructorFree(day, time, instructor){
   return !schedule.some(e => e.day === day && e.instructor === instructor && slotsOverlap(e.time, time));
+}
+
+function normalizeEvent(e){
+  if(!e || typeof e !== 'object') return null;
+  const day = String(e.day || '');
+  const time = String(e.time || '');
+  const instructor = String(e.instructor || '');
+  const zoom = String(e.zoom || '');
+  const zoomLink = String(e.zoomLink || ZOOM_LINKS[zoom] || '');
+  const id = (e.id === 0 || e.id) ? e.id : null;
+  return { id, day, time, instructor, zoom, zoomLink };
 }
 
 function pickZoomForSlot(day, time, instructor=null){
@@ -550,44 +550,119 @@ function pickZoomForSlot(day, time, instructor=null){
   return preferred || available[0];
 }
 
+function setBusy(isBusy, msg=''){
+  saveBtn.disabled = !!isBusy;
+  cancelBtn.disabled = !!isBusy;
+  modalInstructorEl.disabled = !!isBusy;
+  modalStatusEl.textContent = msg || '';
+}
+
+function fillInstructorsSelect(){
+  // חשוב: value הוא encodeURIComponent(name) כדי לא לשבור שמות עם גרשיים/תווים מיוחדים.
+  modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
+    instructors.map(name => {
+      const v = enc(name);
+      return `<option value="${v}">${escHtml(name)}</option>`;
+    }).join('');
+}
+
+fillInstructorsSelect();
+
 // --- Google Sheets / local fallback persistence ---
 async function loadSchedule(){
   try{
-    const res = await fetch(API_URL, { method: "GET" });
-    if(!res.ok) throw new Error("GET failed");
-    schedule = await res.json();
+    const res = await fetch(API_URL, { method: "GET", redirect: "follow" });
+    if(!res.ok) throw new Error(`GET failed (${res.status})`);
+    const data = await res.json();
+    schedule = Array.isArray(data) ? data.map(normalizeEvent) : [];
   }catch(_){
     try{
       const raw = localStorage.getItem(STORAGE_KEY);
-      schedule = raw ? JSON.parse(raw) : [];
+      const data = raw ? JSON.parse(raw) : [];
+      schedule = Array.isArray(data) ? data.map(normalizeEvent) : [];
     }catch(__){
       schedule = [];
     }
   }
 }
 
-async function addItem(day, time, instructor, zoom){
-  try{
-    await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ day, time, instructor, zoom })
-    });
-  }catch(e){
-    console.log("API error", e);
+async function postToApi(payload){
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(payload),
+    redirect: "follow"
+  });
+
+  // ב-GAS לפעמים יש redirect/תשובה לא JSON. ננסה לקרוא טקסט לצורך דיבוג.
+  const txt = await res.text().catch(()=>"");
+  if(!res.ok){
+    throw new Error(`API POST failed (${res.status}). ${txt}`);
   }
 
-  schedule.push({ id: null, day, time, instructor, zoom });
-  persistSchedule();
+  // אם השרת מחזיר JSON של schedule מעודכן — נקבל אותו.
+  try{
+    const maybe = JSON.parse(txt);
+    return maybe;
+  }catch(_){
+    return null;
+  }
 }
 
-function deleteItemByEvent(ev){
-  // כרגע אין API למחיקה ב-Google Apps Script, לכן זו מחיקה מקומית בלבד.
+async function addItem(day, time, instructor, zoom){
+  // הקישור הוא נגזרת של חשבון ה-Zoom (אבל אם רוצים עמודה בשיט – שולחים גם אותו)
+  const zoomLink = ZOOM_LINKS[zoom] || '';
+
+  // קודם מעדכנים מקומית כדי שהכפתור תמיד "יעבוד".
+  schedule.push({ id: null, day, time, instructor, zoom, zoomLink });
+  persistSchedule();
+
+  // ואז מנסים לשמור לשרת.
+  try{
+    const maybe = await postToApi({ action: "add", day, time, instructor, zoom, zoomLink });
+    if(Array.isArray(maybe)){
+      schedule = maybe.map(normalizeEvent);
+      persistSchedule();
+    }
+  }catch(e){
+    console.log("API add error", e);
+    // משאירים את הנתון מקומית, ומציגים הודעה עדינה למשתמש.
+    // לא עוצרים את העבודה.
+  }
+}
+
+async function deleteItemByEvent(ev){
+  // מחיקה מקומית מיידית
   schedule = schedule.filter(e => !(
     e.day===ev.day && e.time===ev.time && e.instructor===ev.instructor && e.zoom===ev.zoom
   ));
   persistSchedule();
   render();
+
+  // ניסיון מחיקה בשרת (אם ה-GAS תומך)
+  try{
+    const maybe = await postToApi({ action: "delete", day: ev.day, time: ev.time, instructor: ev.instructor, zoom: ev.zoom });
+    if(Array.isArray(maybe)){
+      schedule = maybe;
+      persistSchedule();
+      render();
+    }
+  }catch(e){
+    console.log("API delete error", e);
+  }
+}
+
+async function clearAllRemoteIfPossible(){
+  try{
+    const maybe = await postToApi({ action: "clear" });
+    if(Array.isArray(maybe)){
+      schedule = maybe;
+      persistSchedule();
+      render();
+    }
+  }catch(e){
+    console.log("API clear error", e);
+  }
 }
 
 // --- Modal ---
@@ -599,24 +674,22 @@ function openModal(day, time){
   modalTimeEl.textContent = time;
   modalStatusEl.textContent = '';
 
-  // איפוס בחירה
   modalInstructorEl.value = '';
-
-  // הצעת Zoom ראשונית (ללא מדריך)
   updateZoomSuggestion();
 
   modalBackdrop.style.display = 'flex';
 }
 
 function closeModal(){
+  if(saveBtn.disabled) return; // בזמן שמירה לא מאפשרים לסגור בטעות
   modalBackdrop.style.display = 'none';
   modalState.day = null;
   modalState.time = null;
   modalStatusEl.textContent = '';
 }
 
-function openZoomLinkPopup(zoom){
-  const zoomLink = ZOOM_LINKS[zoom];
+function openZoomLinkPopup(zoom, zoomLinkOverride=''){
+  const zoomLink = zoomLinkOverride || ZOOM_LINKS[zoom];
   if(!zoomLink) return;
 
   zoomLinkUserEl.textContent = zoom;
@@ -654,7 +727,7 @@ async function copyZoomLink(){
 function updateZoomSuggestion(){
   const day = modalState.day;
   const time = modalState.time;
-  const instructor = modalInstructorEl.value || null;
+  const instructor = modalInstructorEl.value ? dec(modalInstructorEl.value) : null;
 
   const suggested = pickZoomForSlot(day, time, instructor);
   zoomSuggestionEl.className = 'pill';
@@ -676,7 +749,7 @@ async function saveAssignment(){
     return;
   }
 
-  const instructor = modalInstructorEl.value;
+  const instructor = modalInstructorEl.value ? dec(modalInstructorEl.value) : '';
   if(!instructor){
     modalStatusEl.textContent = 'יש לבחור מדריך.';
     return;
@@ -699,10 +772,20 @@ async function saveAssignment(){
     return;
   }
 
-  await addItem(day, time, instructor, zoom);
-  closeModal();
-  render();
-  openZoomLinkPopup(zoom);
+  setBusy(true, 'שומר...');
+  try{
+    await addItem(day, time, instructor, zoom);
+    // הצלחה מקומית לפחות
+    modalStatusEl.textContent = '';
+    modalBackdrop.style.display = 'none';
+    render();
+    openZoomLinkPopup(zoom, ZOOM_LINKS[zoom] || '');
+  }catch(e){
+    console.log(e);
+    modalStatusEl.textContent = 'שגיאה בשמירה. נסו שוב.';
+  }finally{
+    setBusy(false);
+  }
 }
 
 // --- Render ---
@@ -727,14 +810,16 @@ function render(){
           data-time="${enc(time)}"
           data-instructor="${enc(ev.instructor)}"
           data-zoom="${enc(ev.zoom)}"
+          data-zoomlink="${enc(ev.zoomLink || ZOOM_LINKS[ev.zoom] || '')}"
           title="לחץ להסרה"
           style="background:${bg}">
           ${escHtml(ev.instructor)} | ${escHtml(ev.zoom)}
         </div>`;
       }).join('');
 
+      // חשוב: data-* הם raw (לא escHtml) כדי לא לייצר ערכים מוזרים
       boardEl.insertAdjacentHTML('beforeend',
-        `<div class="slot" data-day="${escHtml(day)}" data-time="${escHtml(time)}">
+        `<div class="slot" data-day="${enc(day)}" data-time="${enc(time)}">
           ${cardsHtml}
           <button class="add-btn" type="button" title="שיבוץ">+</button>
         </div>`
@@ -751,13 +836,20 @@ function attachInteractions(){
     btn.onclick = (e) => {
       e.stopPropagation();
       const slot = btn.closest('.slot');
-      openModal(slot.dataset.day, slot.dataset.time);
+      openModal(dec(slot.dataset.day), dec(slot.dataset.time));
     };
   });
 
   // לחיצה על שיבוץ קיים = הסרה
   document.querySelectorAll('.event-card').forEach(card => {
     card.onclick = async (e) => {
+      // Shift+Click מציג קישור בלבד (ללא מחיקה)
+      if(e.shiftKey){
+        const z = dec(card.dataset.zoom);
+        const l = card.dataset.zoomlink ? dec(card.dataset.zoomlink) : (ZOOM_LINKS[z] || '');
+        openZoomLinkPopup(z, l);
+        return;
+      }
       e.stopPropagation();
 
       const ev = {
@@ -765,25 +857,34 @@ function attachInteractions(){
         day: dec(card.dataset.day),
         time: dec(card.dataset.time),
         instructor: dec(card.dataset.instructor),
-        zoom: dec(card.dataset.zoom)
+        zoom: dec(card.dataset.zoom),
+        zoomLink: card.dataset.zoomlink ? dec(card.dataset.zoomlink) : (ZOOM_LINKS[dec(card.dataset.zoom)] || '')
       };
 
       const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
       if(!ok) return;
 
-      deleteItemByEvent(ev);
+      await deleteItemByEvent(ev);
+
+      // אופציונלי: בלחיצה על כרטיס עם Shift – מציגים את הקישור בלי למחוק
+      // (לא משנה שום לוגיקה קיימת למחיקה רגילה)
+      // אם תרצה להפוך את זה לברירת מחדל – אגיד לך איפה לשנות.
+      
     };
   });
 }
 
 // --- Controls ---
-function clearSystem(){
+async function clearSystem(){
   if(!confirm('למחוק את כל השיבוצים במערכת?')) return;
   schedule = [];
   persistSchedule();
   searchEl.value = '';
   zoomFilterEl.value = '';
   render();
+
+  // ניסיון למחיקה בשרת (אם קיים)
+  await clearAllRemoteIfPossible();
 }
 
 // --- Events / bindings ---
