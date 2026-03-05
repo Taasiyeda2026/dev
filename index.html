@@ -1167,26 +1167,39 @@ function attachInteractions(){
 
     card.addEventListener('mouseleave', hideTooltip);
 
-    // לחיצה על שיבוץ קיים = הסרה (כמו שהיה)
-    card.onclick = async (e) => {
-      e.stopPropagation();
-      hideTooltip();
-
-      const ev = readEventFromCard();
-
-      const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
-      if(!ok) return;
-
-      try{
-        await deleteItemByEvent(ev);
-        render();
-      }catch(err){
-        alert('שגיאה במחיקה. בדוק הרשאות/פריסה של הסקריפט.');
-        console.error(err);
-      }
-    };
   });
 }
+
+// מאזין גלובלי עם event delegation למחיקה — יציב יותר גם אחרי render דינמי
+boardEl.addEventListener('click', async (e) => {
+  const card = e.target.closest('.event-card');
+  if(!card || !boardEl.contains(card)) return;
+
+  e.stopPropagation();
+  hideTooltip();
+
+  const ev = {
+    id: card.dataset.id ? dec(card.dataset.id) : null,
+    day: dec(card.dataset.day),
+    time: dec(card.dataset.time),
+    instructor: dec(card.dataset.instructor),
+    zoom: dec(card.dataset.zoom),
+    school: dec(card.dataset.school),
+    course: dec(card.dataset.course),
+    authority: dec(card.dataset.authority)
+  };
+
+  const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
+  if(!ok) return;
+
+  try{
+    await deleteItemByEvent(ev);
+    render();
+  }catch(err){
+    alert('שגיאה במחיקה. בדוק הרשאות/פריסה של הסקריפט.');
+    console.error(err);
+  }
+});
 
 // --- Controls ---
 async function clearSystem(){
