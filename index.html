@@ -721,9 +721,8 @@ h1{
 // ימים בעברית
 const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי"];
 
-// סדר שעות: 1 שעה ואז 2 שעות (מוקדם עד מאוחר)
-// שעות של שעה אחת
-const ONE_HOUR_SLOTS = [
+// שעות של שעה אחת: 08:00 עד 16:00
+const TIME_SLOTS = [
   "08:00-09:00",
   "09:00-10:00",
   "10:00-11:00",
@@ -731,20 +730,8 @@ const ONE_HOUR_SLOTS = [
   "12:00-13:00",
   "13:00-14:00",
   "14:00-15:00",
-  "15:00-16:00",
-  "16:00-17:00"
+  "15:00-16:00"
 ];
-
-// שעות של שעתיים
-const TWO_HOUR_SLOTS = [
-  "08:00-10:00",
-  "10:00-12:00",
-  "12:00-14:00",
-  "14:00-16:00"
-];
-
-// כל השעות למערכת
-const TIME_SLOTS = [...ONE_HOUR_SLOTS, ...TWO_HOUR_SLOTS];
 
 const ZOOMS = ["Zoom1","Zoom2","Zoom3"];
 const ZOOM_LINKS = {
@@ -1368,13 +1355,7 @@ function render(){
   boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
   DAYS.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(d)}</div>`));
 
-  TIME_SLOTS.forEach((time,idx) => {
-
-    // ✅ הפרדה ויזואלית בין שעות של שעה לשעות של שעתיים
-    if(idx === ONE_HOUR_SLOTS.length){
-      boardEl.insertAdjacentHTML('beforeend', `<div class="time-cell" style="background:#e2e8f0;font-weight:900">—</div>`);
-      DAYS.forEach(()=> boardEl.insertAdjacentHTML('beforeend', `<div class="slot" style="background:#e2e8f0;border-top:3px solid #6366f1"></div>`));
-    }
+  TIME_SLOTS.forEach((time) => {
 
     boardEl.insertAdjacentHTML('beforeend', `<div class="time-cell">${escHtml(time)}</div>`);
 
