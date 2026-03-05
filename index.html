@@ -739,6 +739,7 @@ const ZOOM_LINKS = {
   Zoom2: "https://zoom.us/j/7601360450?omn=98989531483",
   Zoom3: "https://zoom.us/j/5274325600?omn=96368524491"
 };
+const PROTECTED_HOURS = 1; // שעות מוגנות לפני שיעור קרוב
 
 // מדריכים
 const instructors = [
@@ -1082,6 +1083,19 @@ function isInstructorFree(day, time, instructor){
   return !schedule.some(e => e.day === day && e.instructor === instructor && slotsOverlap(e.time, time));
 }
 
+function getRoundedUpCurrentTime(){
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  return Math.ceil(mins / 60) * 60;
+}
+
+function isSlotLocked(time){
+  const roundedUp = getRoundedUpCurrentTime();
+  const windowEnd = roundedUp + PROTECTED_HOURS * 60;
+  const slotStart = toMinutes(time.split('-')[0]);
+  return slotStart >= roundedUp && slotStart < windowEnd;
+}
+
 function pickZoomForSlot(day, time, instructor=null){
   // מקסימום 3 באותה משבצת זמן זהה
   const usedNowExact = getEventsInCell(day, time).map(e => e.zoom);
@@ -1110,6 +1124,48 @@ function pickZoomForSlot(day, time, instructor=null){
 
   const preferred = available.find(z => !usedPrev.includes(z));
   return preferred || available[0];
+}
+
+// שלב 2 – תיקון רצפים אוטומטי
+// סורק את כל הימים ומנסה לאחד חשבונות Zoom של אותו מדריך בשעות רצופות
+async function repairSequences(){
+  for(const day of DAYS){
+    for(let i = 0; i < TIME_SLOTS.length - 1; i++){
+      const time1 = TIME_SLOTS[i];
+      const time2 = TIME_SLOTS[i + 1];
+
+      // שעה 2 נעולה – דילוג
+      if(isSlotLocked(time2)) continue;
+
+      const events2 = getEventsInCell(day, time2);
+      for(const ev2 of [...events2]){
+        const ev1 = getEventsInCell(day, time1).find(e => e.instructor === ev2.instructor);
+        if(!ev1 || ev1.zoom === ev2.zoom) continue;
+
+        // אפשרות א: Zoom של שעה 1 פנוי בשעה 2 – עדכן שעה 2 בלבד
+        if(isZoomFree(day, time2, ev1.zoom)){
+          await deleteItemByEvent(ev2);
+          await addItem(ev2.day, ev2.time, ev2.instructor, ev1.zoom, ev2.school, ev2.course);
+          break;
+        }
+
+        // אפשרות ב: מצא Zoom פנוי בשתי השעות ועדכן את שתיהן
+        if(!isSlotLocked(time1)){
+          const freeInBoth = ZOOMS.find(z =>
+            !schedule.some(e => e.day === day && e.zoom === z && slotsOverlap(e.time, time1) && e.id !== ev1.id) &&
+            !schedule.some(e => e.day === day && e.zoom === z && slotsOverlap(e.time, time2) && e.id !== ev2.id)
+          );
+          if(freeInBoth){
+            await deleteItemByEvent(ev1);
+            await addItem(ev1.day, ev1.time, ev1.instructor, freeInBoth, ev1.school, ev1.course);
+            await deleteItemByEvent(ev2);
+            await addItem(ev2.day, ev2.time, ev2.instructor, freeInBoth, ev2.school, ev2.course);
+            break;
+          }
+        }
+      }
+    }
+  }
 }
 
 // --- Google Sheets / local fallback persistence ---
@@ -1309,6 +1365,12 @@ async function saveAssignment(){
     return;
   }
 
+  // שלב 3 – מניעת שינוי שעות קרובות
+  if(isSlotLocked(time)){
+    modalStatusEl.textContent = 'לא ניתן לשבץ שיעורים בשעות קרובות.';
+    return;
+  }
+
   const instructor = modalInstructorEl.value;
   if(!instructor){
     modalStatusEl.textContent = 'יש לבחור מדריך.';
@@ -1338,6 +1400,7 @@ async function saveAssignment(){
 
   try{
     await addItem(day, time, instructor, zoom, school, course);
+    await repairSequences();
     closeModal();
     render();
   }catch(err){
@@ -1449,11 +1512,18 @@ boardEl.addEventListener('click', async (e) => {
     authority: dec(card.dataset.authority)
   };
 
+  // שלב 3 – מניעת שינוי שעות קרובות
+  if(isSlotLocked(ev.time)){
+    alert('לא ניתן להסיר שיבוץ בשעות קרובות.');
+    return;
+  }
+
   const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
   if(!ok) return;
 
   try{
     await deleteItemByEvent(ev);
+    await repairSequences();
     render();
   }catch(err){
     alert('שגיאה במחיקה. בדוק הרשאות/פריסה של הסקריפט.');
