@@ -32,7 +32,17 @@ body{
     linear-gradient(180deg,#eef2ff,#f8fafc);
 }
 
+.layout{
+  width:100%;
+  max-width:1280px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:24px;
+}
+
 .container{
+  direction:rtl;
   width:100%;
   max-width:1100px;
   padding:30px;
@@ -422,6 +432,7 @@ h1{
   <div class="board-wrap">
     <div class="board" id="board"></div>
   </div>
+</div>
 </div>
 
 <div id="assignModal" class="modal-backdrop">
