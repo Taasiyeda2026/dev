@@ -613,7 +613,6 @@ h1{
     </div>
   </div>
 </div>
-</div>
 
 <div class="save-container">
   <button class="save-btn" type="button" onclick="saveData()">שמור</button>
@@ -835,6 +834,7 @@ instructors.forEach((name,i)=>{ instructorColors[name] = colorPalette[i % colorP
 const API_URL = "https://script.google.com/macros/s/AKfycbzS7HyufZEkaG5I9A9wwEfchuQ7Ro95hifLhsgWKmtg4117NZzgtjlDo_EwMImr9h3a3A/exec";
 let schedule = [];
 let potentialData = [];
+let pendingPotentialUpdates = new Set();
 let selectedPotentialDate = '08/03/2026';
 
 const POTENTIAL_DATES = [
@@ -1065,6 +1065,13 @@ function pickZoomForSlot(day, time, instructor=null){
 
 // --- Google Sheets / local fallback persistence ---
 async function saveData(payload = { schedule, potentialData }){
+  for(const id of pendingPotentialUpdates){
+    const row = potentialData.find(item => item.id === id);
+    if(!row) continue;
+    await updateRow(id, row.notes, row.completed);
+  }
+  pendingPotentialUpdates.clear();
+
   await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -1490,46 +1497,41 @@ function renderPotential(data){
 }
 
 async function loadPotentialData(){
-  const res = await fetch(API_URL + '?sheet=Potential');
+  const res = await fetch(API_URL + '?action=potential');
   const data = await res.json();
   const rows = Array.isArray(data) ? data : (data.data || []);
   potentialData = rows.map(mapPotentialRow);
+  pendingPotentialUpdates.clear();
   renderPotential(potentialData);
 }
 
 async function updateRow(id, notes, completed){
-  const row = potentialData.find(item => item.id === id);
-  if(!row) return;
-  row.notes = notes;
-  row.completed = completed;
+  await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "updatepotential",
+      id: id,
+      notes: notes,
+      completed: completed
+    })
+  });
 }
 
 async function updateNotes(id, notes){
   const row = potentialData.find(item => item.id === id);
   if(!row) return;
-  const previous = row.notes;
   row.notes = notes;
-  try{
-    await updateRow(id, notes, row.completed);
-  }catch(err){
-    row.notes = previous;
-    renderPotential(potentialData);
-    alert('שמירת ההערה נכשלה.');
-  }
+  pendingPotentialUpdates.add(id);
 }
 
 async function toggleCompleted(id, completed){
   const row = potentialData.find(item => item.id === id);
   if(!row) return;
-  const previous = row.completed;
   row.completed = completed;
-  try{
-    await updateRow(id, row.notes, completed);
-  }catch(err){
-    row.completed = previous;
-    renderPotential(potentialData);
-    alert('עדכון סטטוס הביצוע נכשל.');
-  }
+  pendingPotentialUpdates.add(id);
 }
 
 function openPotentialView(){
@@ -1560,6 +1562,7 @@ potentialNavBtn.addEventListener('click', async ()=>{
   const isPotentialOpen = potentialViewEl.classList.contains('active');
 
   try{
+    await saveData();
     if(isPotentialOpen){
       await loadPage('schedule');
     }else{
