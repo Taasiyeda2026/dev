@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>מערכת ניהול Zoom - תעשיידע</title>
+<style>
+:root{
+  --bg1:#eef2ff;
+  --bg2:#f8fafc;
+  --panel:#ffffff;
+  --border:#e2e8f0;
+  --text:#1e293b;
+  --muted:#64748b;
+  --accent:#6366f1;
+  --danger:#ef4444;
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;
+  font-family: Heebo, Segoe UI, sans-serif;
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    radial-gradient(circle at 20% 20%, #c7d2fe 0%, transparent 40%),
+    radial-gradient(circle at 80% 10%, #bae6fd 0%, transparent 40%),
+    linear-gradient(180deg,#eef2ff,#f8fafc);
+}
+
+.container{
+  width:100%;
+  max-width:1100px;
+  padding:30px;
+  background:rgba(255,255,255,0.75);
+  backdrop-filter: blur(12px);
+  border-radius:22px;
+  box-shadow:
+    0 25px 70px rgba(0,0,0,0.12),
+    0 8px 20px rgba(0,0,0,0.08);
+}
+
+h1{
+  text-align:center;
+  margin:0 0 18px;
+  color:#4338ca;
+  font-size:24px;
+  font-weight:900;
+  letter-spacing:.4px;
+  font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+}
+
+.title-main{
+  color:#1e3a8a;
+}
+
+.toolbar{
+  background:white;
+  border-radius:14px;
+  padding:14px;
+  display:flex;
+  gap:12px;
+  justify-content:center;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+  box-shadow:0 10px 25px rgba(0,0,0,0.08);
+}
+
+.toolbar input,.toolbar select{
+  padding:8px 14px;
+  border-radius:12px;
+  border:1px solid #dbe3f0;
+  font-family:inherit;
+  font-size:13px;
+  background: linear-gradient(180deg, #ffffff, #f4f7ff);
+  outline:none;
+  transition: all .15s ease;
+  box-shadow:
+    0 8px 18px rgba(15,23,42,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.95);
+}
+
+.toolbar input:hover,.toolbar select:hover{
+  box-shadow:
+    0 10px 22px rgba(15,23,42,0.14),
+    inset 0 1px 0 rgba(255,255,255,0.95);
+}
+
+.toolbar input:focus,.toolbar select:focus{
+  border-color:#6366f1;
+  box-shadow:0 0 0 3px rgba(99,102,241,0.15);
+}
+
+.btn{
+  padding:9px 18px;
+  border-radius:12px;
+  border:1px solid #c7d2fe;
+  background:linear-gradient(180deg,#ffffff,#eef2ff);
+  cursor:pointer;
+  font-weight:800;
+  font-size:13px;
+  color:#3730a3;
+  box-shadow:0 4px 10px rgba(0,0,0,0.1);
+  transition: all .15s ease;
+}
+
+.btn:hover{
+  transform: translateY(-2px);
+  box-shadow:0 8px 18px rgba(0,0,0,0.15);
+}
+
+.btn-danger{
+  border-color: rgba(239,68,68,0.3);
+  background: linear-gradient(180deg,#fff,#fee2e2);
+  color:#991b1b;
+}
+
+.board-wrap{
+  background:white;
+  border-radius:16px;
+  overflow:auto;
+  padding:8px;
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.12),
+    0 4px 10px rgba(0,0,0,0.06);
+}
+
+.board{
+  display:grid;
+  grid-template-columns:90px repeat(6, 120px);
+  min-width:860px;
+}
+
+.head-cell{
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background:linear-gradient(180deg,#e0e7ff,#c7d2fe);
+  border-bottom:1px solid var(--border);
+  border-left:1px solid var(--border);
+  text-align:center;
+  font-weight:900;
+  font-size:17px;
+  padding:10px 6px;
+  color:#3730a3;
+}
+
+.time-cell{
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  background:#f1f5ff;
+  border-top:1px solid var(--border);
+  border-left:1px solid var(--border);
+  text-align:center;
+  font-weight:900;
+  font-size:12px;
+  padding:7px;
+}
+
+.slot{
+  border-top:1px solid var(--border);
+  border-left:1px solid var(--border);
+  min-height:70px;
+  padding:6px;
+  position:relative;
+  transition: all .15s ease;
+  background:white;
+}
+
+.slot:nth-child(odd){ background:#fbfdff; }
+
+.slot:hover{
+  background:#eef2ff;
+  box-shadow: inset 0 0 0 1px #c7d2fe;
+}
+
+.event-card{
+  position:relative;
+  z-index:2;
+  border-radius:10px;
+  padding:7px;
+  font-size:11px;
+  color:#1e293b;
+  margin-bottom:5px;
+  cursor:pointer;
+  font-weight:800;
+  border:1px solid rgba(0,0,0,0.05);
+  box-shadow:0 6px 14px rgba(0,0,0,0.25);
+  transition: all .15s ease;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+}
+
+.event-card:hover{ transform: scale(1.06); }
+
+.add-btn{
+  position:absolute;
+  top:4px;
+  left:6px;
+  width:28px;
+  height:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:2px solid rgba(255,255,255,0.95);
+  border-radius:50%;
+  background:rgba(255,255,255,0.18);
+  backdrop-filter: blur(2px);
+  font-weight:900;
+  font-size:18px;
+  cursor:pointer;
+  opacity:0;
+  transform:scale(0.65);
+  z-index:6;
+  transition: opacity .18s ease, transform .18s ease;
+}
+
+.slot:hover .add-btn{
+  opacity:1;
+  transform:scale(1);
+}
+
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  background: rgba(15,23,42,0.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+  padding: 14px;
+}
+
+.modal{
+  width:min(320px,90vw);
+  background:white;
+  border-radius:16px;
+  box-shadow:0 25px 60px rgba(0,0,0,0.30);
+  overflow:hidden;
+}
+
+.modal-header{
+  padding:10px 14px;
+  background:linear-gradient(180deg,#e0e7ff,#c7d2fe);
+  font-weight:900;
+  font-size:14px;
+  color:#3730a3;
+  text-align:center;
+}
+
+.modal-body{
+  padding:12px 14px;
+  display:grid;
+  gap:8px;
+}
+
+.modal-actions{
+  padding:14px;
+  border-top:1px solid var(--border);
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  background:#fafbff;
+}
+
+.pill{
+  display:inline-flex;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  color:white;
+}
+
+.pill.zoom1{ background:#3b82f6; }
+.pill.zoom2{ background:#16a34a; }
+.pill.zoom3{ background:#9333ea; }
+
+.small-note{ font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1><span class="title-main">ממשק לניהול חשבונות</span> ZOOM - <span class="title-main">תעשיידע</span></h1>
+
+<div class="toolbar">
+<input id="searchInstructor" placeholder="חיפוש..." />
+
+<select id="filterZoom">
+<option value="">ZOOM</option>
+<option value="Zoom1">Zoom1</option>
+<option value="Zoom2">Zoom2</option>
+<option value="Zoom3">Zoom3</option>
+</select>
+<button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
+</div>
+
+<div class="board-wrap">
+<div class="board" id="board"></div>
+</div>
+</div>
+
+<div id="assignModal" class="modal-backdrop">
+<div class="modal">
+<div class="modal-header" id="modalTitle">שיבוץ מדריך</div>
+
+<div class="modal-body">
+<div style="font-weight:800;font-size:14px;text-align:center">
+<span id="modalDay"></span> · <span id="modalTime"></span>
+</div>
+
+<select id="modalInstructor"></select>
+
+<div style="text-align:center">
+<div style="font-size:12px;color:#64748b">Zoom שיוקצה:</div>
+<div class="pill" id="zoomSuggestion"></div>
+</div>
+
+<div id="modalStatus" style="text-align:center;color:#b91c1c;font-weight:800"></div>
+</div>
+
+<div class="modal-actions">
+<button id="cancelBtn" class="btn">ביטול</button>
+<button id="saveBtn" class="btn">שמור</button>
+</div>
+</div>
+</div>
+
+<script>
+/*
+  גרסה מלאה עם הלוגיקה המקורית:
+  - חפיפות בין טווחי שעות (כולל שיעורים ארוכים)
+  - מניעת שיבוץ מדריך בזמן חופף
+  - מניעת שימוש באותו Zoom בזמן חופף
+  - מקסימום 3 Zoom באותה משבצת זמן (זהה)
+  - הצעת Zoom חכמה (שומרת רצף למדריך + נמנעת מה-Zoom של המשבצת הקודמת)
+  - חיפוש (מ-3 תווים) + סינון לפי Zoom
+  - מחיקה בלחיצה על כרטיס
+  - טעינה/שמירה: SharePoint List אם זמין, אחרת localStorage
+*/
+
+// ימים בעברית
+const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי"];
+
+// סדר שעות: 1 שעה ואז 2 שעות (מוקדם עד מאוחר)
+const TIME_SLOTS = [
+  "08:00-09:00",
+  "09:00-10:00",
+  "10:00-11:00",
+  "11:00-12:00",
+  "12:00-13:00",
+  "13:00-14:00",
+  "14:00-15:00",
+  "08:00-10:00",
+  "10:00-12:00",
+  "12:00-14:00",
+  "14:00-16:00"
+];
+
+const ZOOMS = ["Zoom1","Zoom2","Zoom3"];
+
+// מדריכים
+const instructors = [
+  "הנאא אבו אמזה","הילה רוזן","ראנה סאלח","סוהא סאלם","מיכל שכטמן","אלדר מיכאל טייב",
+  "אביגדור שרון","אסיל ג'בר","אביב בלנדר","ברקת קטעי","ליאל בן חמו","אלכס זפקה",
+  "אפרת אוחיון","עליזה מולה","כרמית סמנדרוב","קרן גורביץ","אוריה פדידה","אילנה טיטייבסקי"
+].sort((a,b)=>a.localeCompare(b,'he'));
+
+// צבע קבוע לכל מדריך
+const instructorColors = {};
+const colorPalette = [
+  "#b2ebf2", "#f8bbd0", "#fff9c4", "#ffe0b2", "#c8e6c9", "#bbdefb",
+  "#e0f7fa", "#fce4ec", "#fff3e0", "#f3e5f5", "#e3f2fd", "#ffebee"
+];
+instructors.forEach((name,i)=>{ instructorColors[name] = colorPalette[i % colorPalette.length]; });
+
+// --- Persist config ---
+const LIST_NAME = "ZoomSchedule";            // אם יש List כזה באתר
+const STORAGE_KEY = "zoomScheduleLocal";     // fallback localStorage
+
+let schedule = [];
+
+// --- DOM ---
+const boardEl = document.getElementById('board');
+const searchEl = document.getElementById('searchInstructor');
+const zoomFilterEl = document.getElementById('filterZoom');
+const clearBtn = document.getElementById('clearBtn');
+
+const modalBackdrop = document.getElementById('assignModal');
+const modalDayEl = document.getElementById('modalDay');
+const modalTimeEl = document.getElementById('modalTime');
+const modalInstructorEl = document.getElementById('modalInstructor');
+const modalStatusEl = document.getElementById('modalStatus');
+const zoomSuggestionEl = document.getElementById('zoomSuggestion');
+const cancelBtn = document.getElementById('cancelBtn');
+const saveBtn = document.getElementById('saveBtn');
+
+const modalState = { day: null, time: null };
+
+// מילוי רשימת מדריכים
+modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
+  instructors.map(i => `<option value="${escHtml(i)}">${escHtml(i)}</option>`).join('');
+
+// --- Utilities ---
+function persistSchedule(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule)); }catch(_){ /* ignore */ }
+}
+
+function toMinutes(hhmm){
+  const [h,m] = hhmm.split(':').map(Number);
+  return h*60 + m;
+}
+
+function parseSlot(slot){
+  const [start, end] = slot.split('-');
+  return { start: toMinutes(start), end: toMinutes(end) };
+}
+
+function slotsOverlap(a, b){
+  const s1 = parseSlot(a);
+  const s2 = parseSlot(b);
+  return s1.start < s2.end && s2.start < s1.end;
+}
+
+function escHtml(s){
+  return String(s)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'",'&#39;');
+}
+
+function enc(s){ return encodeURIComponent(String(s)); }
+function dec(s){ return decodeURIComponent(String(s || '')); }
+
+function getSearchTerm(){
+  const term = (searchEl.value || '').trim().toLowerCase();
+  return term.length >= 3 ? term : '';
+}
+
+function eventMatchesFilters(ev){
+  const term = getSearchTerm();
+  const zoom = zoomFilterEl.value;
+
+  if(term){
+    const t = (ev.instructor || '').toLowerCase();
+    if(!t.includes(term)) return false;
+  }
+
+  if(zoom && ev.zoom !== zoom) return false;
+  return true;
+}
+
+function getEventsInCell(day, time){
+  return schedule.filter(e => e.day === day && e.time === time);
+}
+
+function isZoomFree(day, time, zoom){
+  return !schedule.some(e => e.day === day && e.zoom === zoom && slotsOverlap(e.time, time));
+}
+
+function isInstructorFree(day, time, instructor){
+  return !schedule.some(e => e.day === day && e.instructor === instructor && slotsOverlap(e.time, time));
+}
+
+function pickZoomForSlot(day, time, instructor=null){
+  // מקסימום 3 באותה משבצת זמן זהה
+  const usedNowExact = getEventsInCell(day, time).map(e => e.zoom);
+  const availableExact = ZOOMS.filter(z => !usedNowExact.includes(z));
+  if(availableExact.length === 0) return null;
+
+  // וגם פנוי מבחינת חפיפה
+  const available = availableExact.filter(z => isZoomFree(day, time, z));
+  if(available.length === 0) return null;
+
+  const idx = TIME_SLOTS.indexOf(time);
+
+  // עדיפות 1: אם אותו מדריך לימד במשבצת הקודמת, תן לו את אותו Zoom (אם פנוי)
+  if(instructor && idx > 0){
+    const prevTime = TIME_SLOTS[idx - 1];
+    const prev = schedule.find(e => e.day===day && e.time===prevTime && e.instructor===instructor);
+    if(prev && available.includes(prev.zoom)) return prev.zoom;
+  }
+
+  // עדיפות 2: Zoom שלא היה במשבצת הזמן הקודמת
+  let usedPrev = [];
+  if(idx > 0){
+    const prevTime = TIME_SLOTS[idx - 1];
+    usedPrev = getEventsInCell(day, prevTime).map(e => e.zoom);
+  }
+
+  const preferred = available.find(z => !usedPrev.includes(z));
+  return preferred || available[0];
+}
+
+// --- SharePoint / local persistence ---
+async function loadSchedule(){
+  // ניסיון SharePoint List (עובד רק אם קיים List ושדות מתאימים)
+  try{
+    const url = `/_api/web/lists/getbytitle('${LIST_NAME}')/items?$select=Id,day,time,instructor,zoom`;
+    const res = await fetch(url, { headers: { "Accept": "application/json;odata=nometadata" }});
+    if(!res.ok) throw new Error('SP list not available');
+
+    const data = await res.json();
+    schedule = (data.value || []).map(i => ({
+      id: i.Id,
+      day: i.day,
+      time: i.time,
+      instructor: i.instructor,
+      zoom: i.zoom
+    }));
+    return;
+  }catch(_){
+    // fallback local
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      schedule = raw ? JSON.parse(raw) : [];
+    }catch(__){
+      schedule = [];
+    }
+  }
+}
+
+async function addItem(day, time, instructor, zoom){
+  // ניסיון SharePoint List create
+  try{
+    const digest = document.getElementById('__REQUESTDIGEST')?.value;
+    if(!digest) throw new Error('No request digest');
+
+    const res = await fetch(`/_api/web/lists/getbytitle('${LIST_NAME}')/items`,{
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json;odata=nometadata',
+        'Content-Type': 'application/json;odata=nometadata',
+        'X-RequestDigest': digest
+      },
+      body: JSON.stringify({ day, time, instructor, zoom })
+    });
+    if(!res.ok) throw new Error('SP create failed');
+
+    const data = await res.json();
+    schedule.push({ id: data.Id, day, time, instructor, zoom });
+    return;
+  }catch(_){
+    schedule.push({ id: null, day, time, instructor, zoom });
+    persistSchedule();
+  }
+}
+
+async function deleteItemByEvent(ev){
+  // אם יש id - ננסה למחוק מה-List
+  if(ev && ev.id){
+    try{
+      const digest = document.getElementById('__REQUESTDIGEST')?.value;
+      if(!digest) throw new Error('No request digest');
+
+      const res = await fetch(`/_api/web/lists/getbytitle('${LIST_NAME}')/items(${ev.id})`,{
+        method: 'POST',
+        headers: {
+          'X-HTTP-Method': 'DELETE',
+          'IF-MATCH': '*',
+          'X-RequestDigest': digest
+        }
+      });
+      if(!res.ok) throw new Error('SP delete failed');
+
+      schedule = schedule.filter(e => e.id !== ev.id);
+      return;
+    }catch(_){
+      // fallback מחיקה מקומית
+    }
+  }
+
+  // fallback: מחיקה לפי התאמה מלאה
+  schedule = schedule.filter(e => !(
+    e.day===ev.day && e.time===ev.time && e.instructor===ev.instructor && e.zoom===ev.zoom
+  ));
+  persistSchedule();
+}
+
+// --- Modal ---
+function openModal(day, time){
+  modalState.day = day;
+  modalState.time = time;
+
+  modalDayEl.textContent = day;
+  modalTimeEl.textContent = time;
+  modalStatusEl.textContent = '';
+
+  // איפוס בחירה
+  modalInstructorEl.value = '';
+
+  // הצעת Zoom ראשונית (ללא מדריך)
+  updateZoomSuggestion();
+
+  modalBackdrop.style.display = 'flex';
+}
+
+function closeModal(){
+  modalBackdrop.style.display = 'none';
+  modalState.day = null;
+  modalState.time = null;
+  modalStatusEl.textContent = '';
+}
+
+function updateZoomSuggestion(){
+  const day = modalState.day;
+  const time = modalState.time;
+  const instructor = modalInstructorEl.value || null;
+
+  const suggested = pickZoomForSlot(day, time, instructor);
+  zoomSuggestionEl.className = 'pill';
+
+  if(suggested){
+    zoomSuggestionEl.textContent = suggested;
+    zoomSuggestionEl.classList.add(suggested.toLowerCase());
+  }else{
+    zoomSuggestionEl.textContent = 'אין פנוי';
+  }
+}
+
+async function saveAssignment(){
+  const day = modalState.day;
+  const time = modalState.time;
+
+  if(!day || !time){
+    modalStatusEl.textContent = 'שגיאה: חסר יום/שעה.';
+    return;
+  }
+
+  const instructor = modalInstructorEl.value;
+  if(!instructor){
+    modalStatusEl.textContent = 'יש לבחור מדריך.';
+    return;
+  }
+
+  if(!isInstructorFree(day, time, instructor)){
+    modalStatusEl.textContent = 'המדריך כבר משובץ בזמן חופף.';
+    return;
+  }
+
+  const zoom = pickZoomForSlot(day, time, instructor);
+  if(!zoom){
+    modalStatusEl.textContent = 'אין חשבון Zoom פנוי בשעה זו.';
+    return;
+  }
+
+  // לא לשבץ אותו Zoom באותה משבצת (זהה)
+  if(getEventsInCell(day, time).some(e => e.zoom === zoom)){
+    modalStatusEl.textContent = 'חשבון Zoom זה כבר משובץ במשבצת זו.';
+    return;
+  }
+
+  await addItem(day, time, instructor, zoom);
+  closeModal();
+  render();
+}
+
+// --- Render ---
+function render(){
+  boardEl.innerHTML = '';
+
+  boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
+  DAYS.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(d)}</div>`));
+
+  TIME_SLOTS.forEach(time => {
+    boardEl.insertAdjacentHTML('beforeend', `<div class="time-cell">${escHtml(time)}</div>`);
+
+    DAYS.forEach(day => {
+      const cellEvents = getEventsInCell(day, time);
+      const visible = cellEvents.filter(eventMatchesFilters);
+
+      const cardsHtml = visible.map(ev => {
+        const bg = instructorColors[ev.instructor] || '#e5e7eb';
+        return `<div class="event-card"
+          data-id="${ev.id ? String(ev.id) : ''}"
+          data-day="${enc(day)}"
+          data-time="${enc(time)}"
+          data-instructor="${enc(ev.instructor)}"
+          data-zoom="${enc(ev.zoom)}"
+          title="לחץ להסרה"
+          style="background:${bg}">
+          ${escHtml(ev.instructor)} | ${escHtml(ev.zoom)}
+        </div>`;
+      }).join('');
+
+      boardEl.insertAdjacentHTML('beforeend',
+        `<div class="slot" data-day="${escHtml(day)}" data-time="${escHtml(time)}">
+          ${cardsHtml}
+          <button class="add-btn" type="button" title="שיבוץ">+</button>
+        </div>`
+      );
+    });
+  });
+
+  attachInteractions();
+}
+
+function attachInteractions(){
+  // הפלוס פותח חלונית
+  document.querySelectorAll('.add-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const slot = btn.closest('.slot');
+      openModal(slot.dataset.day, slot.dataset.time);
+    };
+  });
+
+  // לחיצה על שיבוץ קיים = הסרה
+  document.querySelectorAll('.event-card').forEach(card => {
+    card.onclick = async (e) => {
+      e.stopPropagation();
+
+      const ev = {
+        id: card.dataset.id ? Number(card.dataset.id) : null,
+        day: dec(card.dataset.day),
+        time: dec(card.dataset.time),
+        instructor: dec(card.dataset.instructor),
+        zoom: dec(card.dataset.zoom)
+      };
+
+      const ok = confirm(`להסיר את השיבוץ של ${ev.instructor}?`);
+      if(!ok) return;
+
+      await deleteItemByEvent(ev);
+      render();
+    };
+  });
+}
+
+// --- Controls ---
+function clearSystem(){
+  if(!confirm('למחוק את כל השיבוצים במערכת?')) return;
+  schedule = [];
+  persistSchedule();
+  searchEl.value = '';
+  zoomFilterEl.value = '';
+  render();
+}
+
+// --- Events / bindings ---
+searchEl.addEventListener('input', render);
+zoomFilterEl.addEventListener('change', render);
+clearBtn.addEventListener('click', clearSystem);
+
+cancelBtn.addEventListener('click', closeModal);
+saveBtn.addEventListener('click', saveAssignment);
+
+modalBackdrop.addEventListener('click', (e)=>{ if(e.target === modalBackdrop) closeModal(); });
+window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
+
+modalInstructorEl.addEventListener('change', updateZoomSuggestion);
+
+// --- Init ---
+(async function init(){
+  await loadSchedule();
+  render();
+})();
+</script>
+
+</body>
+</html>
