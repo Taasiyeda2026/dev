@@ -315,6 +315,33 @@ h1{
   z-index:999;
 }
 
+.save-status{
+  position:fixed;
+  bottom:96px;
+  left:25px;
+  z-index:1000;
+  min-width:190px;
+  padding:10px 14px;
+  border-radius:10px;
+  font-size:13px;
+  font-weight:800;
+  color:#fff;
+  box-shadow:0 8px 18px rgba(0,0,0,0.25);
+  opacity:0;
+  transform:translateY(6px);
+  pointer-events:none;
+  transition:opacity .2s ease, transform .2s ease;
+}
+
+.save-status.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+.save-status.loading{ background:#0ea5e9; }
+.save-status.success{ background:#16a34a; }
+.save-status.error{ background:#dc2626; }
+
 .save-btn{
   background:#10b981;
   color:white;
@@ -647,8 +674,10 @@ h1{
 </div>
 
 <div class="save-container">
-  <button class="save-btn" type="button" onclick="saveData()">שמור</button>
+  <button class="save-btn" type="button" onclick="handleManualSave()">שמור</button>
 </div>
+
+<div id="saveStatus" class="save-status" aria-live="polite"></div>
 
 <div id="assignModal" class="modal-backdrop">
   <div class="modal">
@@ -868,6 +897,7 @@ let schedule = [];
 let potentialData = [];
 let pendingPotentialUpdates = new Set();
 let selectedPotentialDate = '08/03/2026';
+let saveStatusHideTimer = null;
 
 const POTENTIAL_DATES = [
   { label: '8.3', value: '08/03/2026' },
@@ -1097,31 +1127,63 @@ function pickZoomForSlot(day, time, instructor=null){
 
 // --- Google Sheets / local fallback persistence ---
 async function saveData(){
+  showSaveStatus('אנא המתן....', 'loading');
 
-  for(const id of pendingPotentialUpdates){
+  try{
+    for(const id of pendingPotentialUpdates){
 
-    const row = potentialData.find(item => item.id === id);
-    if(!row) continue;
+      const row = potentialData.find(item => item.id === id);
+      if(!row) continue;
 
-    await fetch(API_URL,{
-      method:"POST",
-      headers:{
-        "Content-Type":"text/plain;charset=utf-8"
-      },
-      body:JSON.stringify({
-        action:"updatepotential",
-        id:row.id,
-        startTime:row.startTime,
-        endTime:row.endTime,
-        notes:row.notes,
-        completed:row.completed
-      })
-    });
+      await fetch(API_URL,{
+        method:"POST",
+        headers:{
+          "Content-Type":"text/plain;charset=utf-8"
+        },
+        body:JSON.stringify({
+          action:"updatepotential",
+          id:row.id,
+          startTime:row.startTime,
+          endTime:row.endTime,
+          notes:row.notes,
+          completed:row.completed
+        })
+      });
 
+    }
+
+    pendingPotentialUpdates.clear();
+    showSaveStatus('שמירה בוצעה בהצלחה', 'success', 1800);
+  }catch(err){
+    showSaveStatus('שגיאה בשמירה', 'error', 2200);
+    throw err;
+  }
+}
+
+function showSaveStatus(message, type='loading', autoHideMs=0){
+  const saveStatusEl = document.getElementById('saveStatus');
+  if(!saveStatusEl) return;
+
+  if(saveStatusHideTimer){
+    clearTimeout(saveStatusHideTimer);
+    saveStatusHideTimer = null;
   }
 
-  pendingPotentialUpdates.clear();
+  saveStatusEl.textContent = message;
+  saveStatusEl.className = `save-status ${type} show`;
 
+  if(autoHideMs > 0){
+    saveStatusHideTimer = setTimeout(()=>{
+      saveStatusEl.className = 'save-status';
+      saveStatusHideTimer = null;
+    }, autoHideMs);
+  }
+}
+
+function handleManualSave(){
+  saveData().catch(err => {
+    console.error(err);
+  });
 }
 
 async function loadSchedule(){
