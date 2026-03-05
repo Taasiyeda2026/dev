@@ -465,18 +465,6 @@ h1{
   </div>
 </div>
 
-<div id="zoomLinkModal" class="modal-backdrop">
-  <div class="modal">
-    <div class="modal-header">קישור זום לשיעור</div>
-    <div class="link-popup-body">
-      <div id="zoomLinkUser" style="font-weight:900;color:#3730a3"></div>
-      <div id="zoomLinkValue" class="zoom-link-box"></div>
-      <button id="copyZoomLinkBtn" class="btn btn-compact" type="button">העתק קישור</button>
-      <div id="copyStatus" class="small-note"></div>
-    </div>
-  </div>
-</div>
-
 <script>
 /*
   תיקון לפי השרת החדש (Google Apps Script):
@@ -769,11 +757,6 @@ const modalStatusEl = document.getElementById('modalStatus');
 const zoomSuggestionEl = document.getElementById('zoomSuggestion');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
-const zoomLinkModal = document.getElementById('zoomLinkModal');
-const zoomLinkUserEl = document.getElementById('zoomLinkUser');
-const zoomLinkValueEl = document.getElementById('zoomLinkValue');
-const copyZoomLinkBtn = document.getElementById('copyZoomLinkBtn');
-const copyStatusEl = document.getElementById('copyStatus');
 
 const modalState = { day: null, time: null };
 
@@ -957,20 +940,6 @@ function closeModal(){
   modalStatusEl.textContent = '';
 }
 
-function openZoomLinkPopup(zoom){
-  const zoomLink = ZOOM_LINKS[zoom];
-  if(!zoomLink) return;
-
-  zoomLinkUserEl.textContent = zoom;
-  zoomLinkValueEl.textContent = zoomLink;
-  copyStatusEl.textContent = '';
-  zoomLinkModal.style.display = 'flex';
-}
-
-function closeZoomLinkPopup(){
-  zoomLinkModal.style.display = 'none';
-}
-
 async function copyZoomLink(num){
   const quickLinks = {
     1: ZOOM_LINKS.Zoom1,
@@ -979,11 +948,10 @@ async function copyZoomLink(num){
   };
 
   const quickLink = Number.isInteger(num) ? quickLinks[num] : '';
-  const link = quickLink || zoomLinkValueEl.textContent;
-  if(!link) return;
+  if(!quickLink) return;
 
   const textToCopy = `להצטרפות לזום לחצו:
-${link}`;
+${quickLink}`;
 
   try{
     if(navigator.clipboard?.writeText){
@@ -997,19 +965,9 @@ ${link}`;
       document.body.removeChild(area);
     }
 
-    if(quickLink){
-      alert(`קישור Z${num} הועתק`);
-      return;
-    }
-
-    copyStatusEl.textContent = 'ההודעה הועתקה.';
-    setTimeout(closeZoomLinkPopup, 350);
+    alert(`קישור Z${num} הועתק`);
   }catch(_){
-    if(quickLink){
-      alert('לא ניתן להעתיק. נסו שוב.');
-      return;
-    }
-    copyStatusEl.textContent = 'לא ניתן להעתיק. נסו שוב.';
+    alert('לא ניתן להעתיק. נסו שוב.');
   }
 }
 
@@ -1065,7 +1023,6 @@ async function saveAssignment(){
     await addItem(day, time, instructor, zoom);
     closeModal();
     render();
-    openZoomLinkPopup(zoom);
   }catch(err){
     modalStatusEl.textContent = 'שגיאה בשמירה. בדוק הרשאות/פריסה של הסקריפט.';
     console.error(err);
@@ -1211,12 +1168,9 @@ clearBtn.addEventListener('click', clearSystem);
 
 cancelBtn.addEventListener('click', closeModal);
 saveBtn.addEventListener('click', saveAssignment);
-copyZoomLinkBtn.addEventListener('click', copyZoomLink);
 
 modalBackdrop.addEventListener('click', (e)=>{ if(e.target === modalBackdrop) closeModal(); });
-zoomLinkModal.addEventListener('click', (e)=>{ if(e.target === zoomLinkModal) closeZoomLinkPopup(); });
 window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && modalBackdrop.style.display === 'flex') closeModal(); });
-window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape' && zoomLinkModal.style.display === 'flex') closeZoomLinkPopup(); });
 
 modalInstructorEl.addEventListener('change', ()=>{
   updateZoomSuggestion();
