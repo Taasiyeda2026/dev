@@ -1470,6 +1470,32 @@ function parseCompleted(value){
   return ['true','1','yes','כן','בוצע','completed'].includes(v);
 }
 
+function normalizePotentialTime(value){
+  if(value === null || value === undefined) return '';
+
+  if(typeof value === 'number' && Number.isFinite(value)){
+    const totalMinutes = Math.round(value * 24 * 60);
+    const hh = Math.floor(totalMinutes / 60) % 24;
+    const mm = totalMinutes % 60;
+    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+  }
+
+  const raw = String(value).trim();
+  if(!raw) return '';
+
+  const hhmmMatch = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if(hhmmMatch){
+    return `${hhmmMatch[1].padStart(2,'0')}:${hhmmMatch[2]}`;
+  }
+
+  const isoTimeMatch = raw.match(/T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?Z$/i);
+  if(isoTimeMatch){
+    return `${isoTimeMatch[1]}:${isoTimeMatch[2]}`;
+  }
+
+  return raw;
+}
+
 function mapPotentialRow(raw){
   return {
     id: firstDefined(raw, ['id','ID','Id']),
@@ -1478,8 +1504,8 @@ function mapPotentialRow(raw){
     school: firstDefined(raw, ['School','school','בית ספר']),
     program: firstDefined(raw, ['Program','program','תוכנית']),
     employee: firstDefined(raw, ['Employee','employee','מדריך']),
-    startTime: firstDefined(raw, ['StartTime','startTime','start','שעת התחלה']),
-    endTime: firstDefined(raw, ['EndTime','endTime','end','שעת סיום']),
+    startTime: normalizePotentialTime(raw?.StartTime ?? raw?.startTime ?? raw?.start ?? raw?.['שעת התחלה']),
+    endTime: normalizePotentialTime(raw?.EndTime ?? raw?.endTime ?? raw?.end ?? raw?.['שעת סיום']),
     notes: firstDefined(raw, ['Notes','notes','הערות']),
     completed: parseCompleted(raw?.Completed ?? raw?.completed)
   };
