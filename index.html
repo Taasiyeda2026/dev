@@ -1064,19 +1064,30 @@ function pickZoomForSlot(day, time, instructor=null){
 }
 
 // --- Google Sheets / local fallback persistence ---
-async function saveData(payload = { schedule, potentialData }){
+async function saveData(){
+
   for(const id of pendingPotentialUpdates){
+
     const row = potentialData.find(item => item.id === id);
     if(!row) continue;
-    await updateRow(id, row.notes, row.completed);
+
+    await fetch(API_URL,{
+      method:"POST",
+      headers:{
+        "Content-Type":"text/plain;charset=utf-8"
+      },
+      body:JSON.stringify({
+        action:"updatepotential",
+        id:row.id,
+        notes:row.notes,
+        completed:row.completed
+      })
+    });
+
   }
+
   pendingPotentialUpdates.clear();
 
-  await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "saveAll", ...payload })
-  });
 }
 
 async function loadSchedule(){
