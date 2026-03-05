@@ -1646,11 +1646,11 @@ function renderPotential(data){
     const endInput = tr.querySelector('.endTime-field');
 
     if(startInput){
-      startInput.addEventListener('change', (e)=> updatePotentialTime(id, 'startTime', e.target.value));
+      startInput.addEventListener('change', (e)=> { updatePotentialTime(id, 'startTime', e.target.value); e.target.blur(); });
     }
 
     if(endInput){
-      endInput.addEventListener('change', (e)=> updatePotentialTime(id, 'endTime', e.target.value));
+      endInput.addEventListener('change', (e)=> { updatePotentialTime(id, 'endTime', e.target.value); e.target.blur(); });
     }
   });
 
