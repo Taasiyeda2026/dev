@@ -1,0 +1,133 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f7fb;
+  direction: rtl;
+}
+
+.app {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 10px;
+  align-items: center;
+}
+
+.toolbar input,
+.toolbar select,
+.toolbar button {
+  height: 38px;
+  border: 1px solid #c8d1e0;
+  border-radius: 8px;
+  padding: 0 10px;
+}
+
+.board {
+  display: grid;
+  gap: 4px;
+  background: #d9e2ef;
+  padding: 4px;
+  border-radius: 10px;
+}
+
+.cell {
+  background: #fff;
+  min-height: 64px;
+  padding: 8px;
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.cell.head {
+  font-weight: 700;
+  background: #edf2ff;
+}
+
+.cell.time {
+  font-weight: 700;
+  background: #f1f4fb;
+}
+
+.add-btn {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #9fb2d6;
+  background: #f3f7ff;
+  cursor: pointer;
+}
+
+.event {
+  background: #dde9ff;
+  border: 1px solid #95b3eb;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.potential {
+  display: grid;
+  gap: 10px;
+}
+
+.potential-item {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #d6deeb;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.potential-item button {
+  border: none;
+  border-radius: 8px;
+  background: #1f6feb;
+  color: #fff;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+dialog {
+  border: none;
+  border-radius: 12px;
+  width: min(520px, 90vw);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-grid label { display: grid; gap: 4px; }
+
+.form-grid input {
+  height: 38px;
+  border: 1px solid #c8d1e0;
+  border-radius: 8px;
+  padding: 0 10px;
+}
+
+.actions {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
