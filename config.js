@@ -1,5 +1,5 @@
 // חשוב: לשים פה את כתובת ה-WebApp של Apps Script
-export const API_URL = "PUT_YOUR_APPS_SCRIPT_WEBAPP_URL_HERE";
+export const API_URL = "export const API_URL = "https://script.google.com/macros/s/AKfycbwP0huvvA5gXhSU-dtYwRimZPzqdOjTPWysgVWa0axZxsJaEwFye_MJdedLUTc9zSRx/exec";";
 
 // ימים שמוצגים בלוח
 export const HE_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי"];
