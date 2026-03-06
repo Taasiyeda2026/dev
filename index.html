@@ -1546,7 +1546,7 @@ function render(){
   boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
   boardEl.style.gridTemplateColumns = `90px repeat(${activeScheduleDates.length}, 120px)`;
   boardEl.style.minWidth = `${90 + activeScheduleDates.length * 120}px`;
-  activeScheduleDates.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(getWeekdayName(d))}<div style="font-size:11px;font-weight:700">${escHtml(d)}</div></div>`));
+  activeScheduleDates.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(getWeekdayName(d))}</div>`));
 
   TIME_SLOTS.forEach((time) => {
 
@@ -1975,6 +1975,11 @@ function checkPotentialAssignment(row){
     return { ok:false, status:'no_available_slot', reason:'outside_schedule' };
   }
 
+  if(scheduleData.some(e => e.day === date && e.time === slot)){
+    row.status = 'slot_conflict';
+    return { ok:false, status:'slot_conflict', reason:'slot' };
+  }
+
   if(!isInstructorFree(date, slot, row.instructor)){
     row.status = 'instructor_conflict';
     return { ok:false, status:'instructor_conflict', reason:'instructor' };
@@ -2207,9 +2212,14 @@ async function assignPotentialToSchedule(rowId){
     })
   });
   const createData = await createRes.json();
-  if(!createData.success) return { success:false, reason:createData.reason || 'assign_failed' };
+  if(createData && createData.success === false){
+    return { success:false, reason:createData.reason || 'assign_failed' };
+  }
 
   const list = Array.isArray(createData) ? createData : (createData.data || []);
+  if(!Array.isArray(list) || list.length === 0){
+    return { success:false, reason:'assign_failed' };
+  }
   scheduleData = list.map(normalizeEvent);
   schedule = scheduleData;
 
@@ -2242,7 +2252,19 @@ async function assignPotentialToSchedule(rowId){
 async function assignFromPotential(row){
   const result = await assignPotentialToSchedule(row.id);
   if(!result.success){
-    alert('לא ניתן לשבץ פעילות זו לפי לוגיקת המערכת.');
+    if(['instructor','zoom','slot'].includes(result.reason)){
+      alert('לא ניתן לשבץ פעילות זו לפי לוגיקת המערכת.');
+      return;
+    }
+
+    const reasonTextMap = {
+      invalid: 'לא ניתן לשבץ: חסרות/לא תקינות שעות פעילות.',
+      outside_schedule: 'לא ניתן לשבץ: הפעילות מחוץ לשבוע הנבחר או ללא משבצת מתאימה.',
+      assigned: 'הפעילות כבר שובצה.',
+      potential_not_found: 'רשומת הפוטנציאל לא נמצאה.',
+      assign_failed: 'נכשלה יצירת רשומת שיבוץ.'
+    };
+    alert(reasonTextMap[result.reason] || 'לא ניתן להשלים שיבוץ כעת.');
     return;
   }
 }
