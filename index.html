@@ -711,7 +711,9 @@ const TIME_SLOTS = [
   "15:00-16:00"
 ];
 
-const ZOOMS = ["Zoom1","Zoom2","Zoom3"];
+const ZOOM_ACCOUNTS = ["Z1","Z2","Z3"];
+const ZOOM_ACCOUNT_TO_LEGACY = { Z1:"Zoom1", Z2:"Zoom2", Z3:"Zoom3" };
+const LEGACY_TO_ZOOM_ACCOUNT = { Zoom1:"Z1", Zoom2:"Z2", Zoom3:"Z3" };
 const ZOOM_LINKS = {
   Zoom1: "https://zoom.us/j/6023602336?omn=96962875568",
   Zoom2: "https://zoom.us/j/7601360450?omn=98989531483",
@@ -971,14 +973,25 @@ function firstDefined(obj, keys){
 }
 
 function normalizeEvent(raw){
+  const date = firstDefined(raw, ['date','Date','day','Day','יום']);
+  const slot = firstDefined(raw, ['slot','Slot','time','Time','שעה']);
+  const zoomAccountRaw = firstDefined(raw, ['zoomAccount','zoom_account','zoom','Zoom','חשבון Zoom']);
+  const zoomAccount = LEGACY_TO_ZOOM_ACCOUNT[zoomAccountRaw] || zoomAccountRaw;
+  const [slotStart, slotEnd] = slot.split('-');
   return {
     ...raw,
-    day: firstDefined(raw, ['day','Day','יום']),
-    time: firstDefined(raw, ['time','Time','שעה']),
+    date,
+    slot,
+    day: date,
+    time: slot,
+    startTime: firstDefined(raw, ['startTime','start_time']) || slotStart || '',
+    endTime: firstDefined(raw, ['endTime','end_time']) || slotEnd || '',
     instructor: firstDefined(raw, ['instructor','Instructor','מדריך']),
-    zoom: firstDefined(raw, ['zoom','Zoom','חשבון Zoom']),
+    zoomAccount,
+    zoom: ZOOM_ACCOUNT_TO_LEGACY[zoomAccount] || zoomAccount,
     school: firstDefined(raw, ['school','schoolName','school_name','organization','org','בית ספר']),
-    course: firstDefined(raw, ['course','courseName','course_name','קורס']),
+    program: firstDefined(raw, ['program','Program','course','courseName','course_name','קורס']),
+    course: firstDefined(raw, ['program','Program','course','courseName','course_name','קורס']),
     authority: firstDefined(raw, ['authority','city','municipality','רשות']),
     scheduleId: firstDefined(raw, ['scheduleId','scheduleID','schedule_id']),
     potentialId: firstDefined(raw, ['potentialId','potentialID','potential_id'])
@@ -1169,30 +1182,26 @@ function isSlotLocked(time){
   return slotStart >= roundedUp && slotStart < windowEnd;
 }
 
-function pickZoomForSlot(day, time, instructor=null){
-  // מקסימום 3 באותה משבצת זמן זהה
-  const usedNowExact = getEventsInCell(day, time).map(e => e.zoom);
-  const availableExact = ZOOMS.filter(z => !usedNowExact.includes(z));
+function pickZoomForSlot(day, slot, instructor=null){
+  const usedNowExact = getEventsInCell(day, slot).map(e => e.zoomAccount || LEGACY_TO_ZOOM_ACCOUNT[e.zoom] || e.zoom);
+  const availableExact = ZOOM_ACCOUNTS.filter(z => !usedNowExact.includes(z));
   if(availableExact.length === 0) return null;
 
-  // וגם פנוי מבחינת חפיפה
-  const available = availableExact.filter(z => isZoomFree(day, time, z));
+  const available = availableExact.filter(z => isZoomFree(day, slot, ZOOM_ACCOUNT_TO_LEGACY[z] || z));
   if(available.length === 0) return null;
 
-  const idx = TIME_SLOTS.indexOf(time);
-
-  // עדיפות 1: אם אותו מדריך לימד במשבצת הקודמת, תן לו את אותו Zoom (אם פנוי)
+  const idx = TIME_SLOTS.indexOf(slot);
   if(instructor && idx > 0){
-    const prevTime = TIME_SLOTS[idx - 1];
-    const prev = scheduleData.find(e => e.day===day && e.time===prevTime && e.instructor===instructor);
-    if(prev && available.includes(prev.zoom)) return prev.zoom;
+    const prevSlot = TIME_SLOTS[idx - 1];
+    const prev = scheduleData.find(e => e.day===day && e.time===prevSlot && e.instructor===instructor);
+    const prevAccount = prev ? (prev.zoomAccount || LEGACY_TO_ZOOM_ACCOUNT[prev.zoom] || prev.zoom) : '';
+    if(prevAccount && available.includes(prevAccount)) return prevAccount;
   }
 
-  // עדיפות 2: Zoom שלא היה במשבצת הזמן הקודמת
   let usedPrev = [];
   if(idx > 0){
-    const prevTime = TIME_SLOTS[idx - 1];
-    usedPrev = getEventsInCell(day, prevTime).map(e => e.zoom);
+    const prevSlot = TIME_SLOTS[idx - 1];
+    usedPrev = getEventsInCell(day, prevSlot).map(e => e.zoomAccount || LEGACY_TO_ZOOM_ACCOUNT[e.zoom] || e.zoom);
   }
 
   const preferred = available.find(z => !usedPrev.includes(z));
@@ -1224,15 +1233,17 @@ async function repairSequences(){
 
         // אפשרות ב: מצא Zoom פנוי בשתי השעות ועדכן את שתיהן
         if(!isSlotLocked(time1)){
-          const freeInBoth = ZOOMS.find(z =>
+          const freeInBoth = ZOOM_ACCOUNTS.find(account => {
+            const z = ZOOM_ACCOUNT_TO_LEGACY[account] || account;
+            return
             !scheduleData.some(e => e.day === day && e.zoom === z && slotsOverlap(e.time, time1) && e.id !== ev1.id) &&
-            !scheduleData.some(e => e.day === day && e.zoom === z && slotsOverlap(e.time, time2) && e.id !== ev2.id)
-          );
+            !scheduleData.some(e => e.day === day && e.zoom === z && slotsOverlap(e.time, time2) && e.id !== ev2.id);
+          });
           if(freeInBoth){
             await deleteItemByEvent(ev1);
-            await addItem(ev1.day, ev1.time, ev1.instructor, freeInBoth, ev1.school, ev1.course);
+            await addItem(ev1.day, ev1.time, ev1.instructor, ZOOM_ACCOUNT_TO_LEGACY[freeInBoth] || freeInBoth, ev1.school, ev1.course);
             await deleteItemByEvent(ev2);
-            await addItem(ev2.day, ev2.time, ev2.instructor, freeInBoth, ev2.school, ev2.course);
+            await addItem(ev2.day, ev2.time, ev2.instructor, ZOOM_ACCOUNT_TO_LEGACY[freeInBoth] || freeInBoth, ev2.school, ev2.course);
             break;
           }
         }
@@ -1455,14 +1466,14 @@ async function saveAssignment(){
     return;
   }
 
-  const [start,end] = time.split('-');
-  const check = canAssignSlot(date, start, end, instructor, pendingPotentialId);
+  const check = canAssignSlot(date, time, instructor, pendingPotentialId);
   if(!check.ok){
     modalStatusEl.textContent = getReasonLabel(check.reason, check.suggestion || "").text;
     return;
   }
 
-  const zoom = check.zoom;
+  const zoomAccount = check.zoomAccount;
+  const zoom = ZOOM_ACCOUNT_TO_LEGACY[zoomAccount] || zoomAccount;
   const school = modalSchoolEl.value || '';
   const course = modalCourseEl.value || '';
   if(!zoom){
@@ -1767,13 +1778,15 @@ function normalizePotentialTime(value){
 }
 
 function mapPotentialRow(raw){
+  const instructor = firstDefined(raw, ['instructor','Instructor','Employee','employee','מדריך']);
   return {
     id: firstDefined(raw, ['id','ID','Id']),
     date: normalizePotentialDate(firstDefined(raw, ['Date','date','תאריך'])),
     authority: firstDefined(raw, ['Authority','authority','רשות']),
     school: firstDefined(raw, ['School','school','בית ספר']),
     program: firstDefined(raw, ['Program','program','תוכנית']),
-    employee: firstDefined(raw, ['Employee','employee','מדריך']),
+    instructor,
+    employee: instructor,
     startTime: normalizePotentialTime(raw?.StartTime ?? raw?.startTime ?? raw?.start ?? raw?.['שעת התחלה']),
     endTime: normalizePotentialTime(raw?.EndTime ?? raw?.endTime ?? raw?.end ?? raw?.['שעת סיום']),
     notes: firstDefined(raw, ['Notes','notes','הערות']),
@@ -1807,7 +1820,7 @@ function getPotentialDayLetter(dateStr){
   return POTENTIAL_DAYS[jsDay - 1];
 }
 
-function normalizeTimes(startTime,endTime){
+function normalizeTime(startTime,endTime){
   const start = roundStartTime(startTime);
   const end = roundEndTime(endTime);
   if(!start || !end) return null;
@@ -1816,7 +1829,29 @@ function normalizeTimes(startTime,endTime){
   const endMinutes = toMinutes(end);
   if(endMinutes <= startMinutes) return null;
 
-  return { startTime: start, endTime: end, time: `${start}-${end}` };
+  return { startTime: start, endTime: end, range: `${start}-${end}` };
+}
+
+function findSlot(startTime, endTime){
+  const targetStart = toMinutes(startTime);
+  const targetEnd = toMinutes(endTime);
+  const exact = TIME_SLOTS.find(slot => {
+    const parsed = parseSlot(slot);
+    return parsed.start === targetStart && parsed.end === targetEnd;
+  });
+  if(exact) return exact;
+
+  const covering = TIME_SLOTS
+    .map(slot => ({ slot, parsed: parseSlot(slot) }))
+    .filter(item => item.parsed.start <= targetStart && item.parsed.end >= targetEnd)
+    .sort((a,b)=>{
+      const widthA = a.parsed.end - a.parsed.start;
+      const widthB = b.parsed.end - b.parsed.start;
+      if(widthA !== widthB) return widthA - widthB;
+      return TIME_SLOTS.indexOf(a.slot) - TIME_SLOTS.indexOf(b.slot);
+    });
+
+  return covering[0]?.slot || null;
 }
 
 function convertDateToScheduleDate(dateStr){
@@ -1825,33 +1860,31 @@ function convertDateToScheduleDate(dateStr){
   return null;
 }
 
-function canAssignSlot(date,start,end,instructor,potentialId=''){
-  const time = `${start}-${end}`;
-
+function canAssignSlot(date, slot, instructor, potentialId=''){
   if(!activeScheduleDates.includes(date)){
     return { ok:false, reason:'outside_schedule' };
   }
 
-  if(!isTimeInSchedule(time)){
+  if(!isTimeInSchedule(slot)){
     return { ok:false, reason:'outside_schedule' };
+  }
+
+  if(scheduleData.some(e => e.day === date && e.time === slot)){
+    return { ok:false, reason:'slot' };
   }
 
   if(potentialId && scheduleData.some(e => e.potentialId && String(e.potentialId) === String(potentialId))){
     return { ok:false, reason:'assigned' };
   }
 
-  if(!isInstructorFree(date, time, instructor)){
+  if(!isInstructorFree(date, slot, instructor)){
     return { ok:false, reason:'instructor' };
   }
 
-  const zoom = pickZoomForSlot(date, time, instructor);
-  if(!zoom) return { ok:false, reason:'zoom' };
+  const zoomAccount = pickZoomForSlot(date, slot, instructor);
+  if(!zoomAccount) return { ok:false, reason:'zoom' };
 
-  if(!isZoomFree(date, time, zoom)){
-    return { ok:false, reason:'zoom' };
-  }
-
-  return { ok:true, zoom, time };
+  return { ok:true, zoomAccount, slot };
 }
 
 function hasAssignmentContinuity(date, time, instructor){
@@ -1873,36 +1906,39 @@ function checkPotentialAssignment(row){
   }
 
   const date = normalizePotentialDate(row.date);
-  const normalized = normalizeTimes(row.startTime, row.endTime);
+  const normalized = normalizeTime(row.startTime, row.endTime);
   if(!date || !normalized){
     row.status = 'no_available_slot';
     return { ok:false, status:'no_available_slot', reason:'invalid' };
   }
 
-  const time = normalized.time;
-  if(!activeScheduleDates.includes(date) || !isTimeInSchedule(time)){
+  const slot = findSlot(normalized.startTime, normalized.endTime);
+  if(!slot){
+    row.status = 'no_available_slot';
+    return { ok:false, status:'no_available_slot', reason:'outside_schedule' };
+  }
+  if(!activeScheduleDates.includes(date) || !isTimeInSchedule(slot)){
     row.status = 'no_available_slot';
     return { ok:false, status:'no_available_slot', reason:'outside_schedule' };
   }
 
-  if(!isInstructorFree(date, time, row.employee)){
+  if(!isInstructorFree(date, slot, row.instructor)){
     row.status = 'instructor_conflict';
     return { ok:false, status:'instructor_conflict', reason:'instructor' };
   }
 
-  const zoom = pickZoomForSlot(date, time, row.employee);
-  if(!zoom || !isZoomFree(date, time, zoom)){
+  const zoomAccount = pickZoomForSlot(date, slot, row.instructor);
+  if(!zoomAccount){
     row.status = 'zoom_conflict';
     return { ok:false, status:'zoom_conflict', reason:'zoom' };
   }
 
-  const continuity = hasAssignmentContinuity(date, time, row.employee);
-  row.status = continuity ? 'ok' : 'no_available_slot';
-  return { ok: continuity, status: row.status, reason: continuity ? '' : 'no_available_slot', zoom, normalized, date, time };
+  row.status = 'ok';
+  return { ok: true, status: row.status, reason: '', zoomAccount, normalized, date, slot };
 }
 
 function prepareAssignment(row){
-  const normalized = normalizeTimes(row.startTime, row.endTime);
+  const normalized = normalizeTime(row.startTime, row.endTime);
   if(!normalized) return null;
 
   return {
@@ -1910,7 +1946,7 @@ function prepareAssignment(row){
     date: normalizePotentialDate(row.date),
     start: normalized.startTime,
     end: normalized.endTime,
-    teacher: row.employee,
+    teacher: row.instructor,
     program: row.program,
     school: row.school
   };
@@ -1959,6 +1995,7 @@ function getReasonLabel(reason, suggestion=''){
   if(reason === 'zoom') return { text:'🔴 אין זום פנוי' + suggestion, css:'bad' };
   if(reason === 'overlap') return { text:'🟠 חפיפה', css:'warn' };
   if(reason === 'instructor') return { text:'🔴 מדריך תפוס', css:'bad' };
+  if(reason === 'slot') return { text:'🔴 המשבצת כבר תפוסה', css:'bad' };
   if(reason === 'invalid') return { text:'שעות לא תקינות', css:'bad' };
   if(reason === 'no_available_slot') return { text:'🟡 דורש בדיקה', css:'warn' };
   if(reason === 'outside_schedule') return { text:'מחוץ ללוח החודשי', css:'bad' };
@@ -1982,12 +2019,14 @@ function canSchedulePotential(row){
   const check = checkPotentialAssignment(row);
   if(!check.ok){
     if(check.reason === 'zoom'){
-      return { ok:false, reason:'zoom', zoom:'', suggestion:suggestAlternative(normalizePotentialDate(row.date), normalizeTimes(row.startTime,row.endTime)?.time || '', row.employee) };
+      const normalized = normalizeTime(row.startTime,row.endTime);
+      const slot = normalized ? findSlot(normalized.startTime, normalized.endTime) : '';
+      return { ok:false, reason:'zoom', zoomAccount:'', suggestion:suggestAlternative(normalizePotentialDate(row.date), slot || '', row.instructor) };
     }
-    return { ok:false, reason:check.reason, zoom:'' };
+    return { ok:false, reason:check.reason, zoomAccount:'' };
   }
 
-  return { ok:true, reason:'', zoom:check.zoom, normalized:check.normalized, date:check.date, time:check.time };
+  return { ok:true, reason:'', zoomAccount:check.zoomAccount, normalized:check.normalized, date:check.date, slot:check.slot };
 }
 
 function buildPotentialCalendarModel(data){
@@ -2036,7 +2075,7 @@ function renderPotential(data){
               <div class="potential-item-row"><b>רשות:</b> ${escHtml(row.authority)}</div>
               <div class="potential-item-row"><b>בית ספר:</b> ${escHtml(row.school)}</div>
               <div class="potential-item-row"><b>תוכנית:</b> ${escHtml(row.program)}</div>
-              <div class="potential-item-row"><b>מדריך:</b> ${escHtml(row.employee)}</div>
+              <div class="potential-item-row"><b>מדריך:</b> ${escHtml(row.instructor)}</div>
               <div class="potential-item-row"><input type="time" class="startTime-field" value="${escHtml(row.startTime)}"> - <input type="time" class="endTime-field" value="${escHtml(row.endTime)}"></div>
               <div class="potential-item-row"><input class="notes-field" type="text" value="${escHtml(row.notes)}" /></div>
               <div class="potential-item-actions">
@@ -2065,24 +2104,31 @@ function renderPotential(data){
 }
 
 
-async function consumePotential(rowId){
+async function assignPotentialToSchedule(rowId){
   const row = potentialData.find(item => String(item.id) === String(rowId));
   if(!row) return { success:false, reason:'potential_not_found' };
 
-  const normalized = normalizeTimes(row.startTime, row.endTime);
+  if(row.status === 'assigned'){
+    return { success:false, reason:'assigned' };
+  }
+
+  const normalized = normalizeTime(row.startTime, row.endTime);
   if(!normalized) return { success:false, reason:'invalid' };
 
   row.startTime = normalized.startTime;
   row.endTime = normalized.endTime;
 
+  const slot = findSlot(normalized.startTime, normalized.endTime);
+  if(!slot) return { success:false, reason:'outside_schedule' };
+
   const date = normalizePotentialDate(row.date);
   if(!date) return { success:false, reason:'invalid' };
 
-  const check = canAssignSlot(date, normalized.startTime, normalized.endTime, row.employee, row.id);
+  const check = canAssignSlot(date, slot, row.instructor, row.id);
   if(!check.ok) return { success:false, reason:check.reason };
 
-  const zoom = pickZoomForSlot(date, check.time, row.employee);
-  if(!zoom) return { success:false, reason:'zoom' };
+  const zoomAccount = check.zoomAccount;
+  const zoom = ZOOM_ACCOUNT_TO_LEGACY[zoomAccount] || zoomAccount;
 
   const createRes = await fetch(API_URL, {
     method:'POST',
@@ -2091,12 +2137,18 @@ async function consumePotential(rowId){
       action:'add',
       id: row.id,
       day: date,
-      time: check.time,
-      instructor: row.employee,
+      date,
+      slot,
+      time: slot,
+      startTime: normalized.startTime,
+      endTime: normalized.endTime,
+      school: row.school || '',
+      program: row.program || '',
+      course: row.program || '',
+      instructor: row.instructor,
+      zoomAccount,
       zoom,
       zoomLink: ZOOM_LINKS[zoom] || '',
-      school: row.school || '',
-      course: row.program || '',
       potentialId: row.id
     })
   });
@@ -2107,10 +2159,8 @@ async function consumePotential(rowId){
   scheduleData = list.map(normalizeEvent);
   schedule = scheduleData;
 
-  renderSchedule();
-
-  row.completed = true;
   row.status = 'assigned';
+  row.completed = true;
 
   await fetch(API_URL, {
     method:'POST',
@@ -2121,24 +2171,24 @@ async function consumePotential(rowId){
       startTime: row.startTime,
       endTime: row.endTime,
       notes: row.notes || '',
+      status: 'assigned',
       completed: true
     })
   });
 
+  renderSchedule();
+  renderPotential(potentialData);
   return { success:true };
 }
 
 async function assignFromPotential(row){
-  const result = await consumePotential(row.id);
+  const result = await assignPotentialToSchedule(row.id);
   if(!result.success){
-    const label = getReasonLabel(result.reason || 'no_available_slot');
-    alert(label.text);
+    alert('לא ניתן לשבץ פעילות זו לפי לוגיקת המערכת.');
     return;
   }
-
-  renderSchedule();
-  renderPotential(potentialData);
 }
+
 
 async function markPotentialAsAssigned(potentialId){
   if(!potentialId) return;
