@@ -1,11 +1,11 @@
-// config.js
-export const API_URL = "https://script.google.com/macros/s/AKfycbxFT4n_kt4PCdOytEVPnHVf8-86OKhq9C5n9bp8ZRgxiOMBrlk9wGWiIX38iNfROQ2btg/exec";
+// חשוב: לשים פה את כתובת ה-WebApp של Apps Script
+export const API_URL = "PUT_YOUR_APPS_SCRIPT_WEBAPP_URL_HERE";
 
-// ימים שמוצגים בלוח (שבוע עבודה)
-export const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי"];
+// ימים שמוצגים בלוח
+export const HE_DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי"];
 
-// סלוטים עגולים בלבד (שעות עגולות)
-export const TIMES = [
+// סלוטים עגולים בלבד
+export const TIMESLOTS = [
   "08:00-09:00",
   "09:00-10:00",
   "10:00-11:00",
@@ -17,17 +17,14 @@ export const TIMES = [
 ];
 
 // חשבונות זום
-export const ZOOMS = ["Zoom1", "Zoom2", "Zoom3"];
+export const ZOOM_ACCOUNTS = ["Zoom1", "Zoom2", "Zoom3"];
 
-// קישורים קבועים לפי זום (תעדכן למה שיש לך)
+// קישורים קבועים (אופציונלי)
 export const ZOOM_LINKS = {
   Zoom1: "https://zoom.us/j/6023602336?omn=96962875568",
   Zoom2: "https://zoom.us/j/7601360450?omn=98989531483",
   Zoom3: "https://zoom.us/j/5274325600?omn=96368524491",
 };
 
-// הגנת זמן (אופציונלי): כמה שעות קדימה “נעולות” מהזמן הנוכחי המעוגל למעלה
-export const PROTECTED_HOURS = 0; // 0 = כבוי. 2 = נועל 2 שעות קדימה
-
-// קוד איפוס (כפתור "נקה לו״ז")
-export const RESET_CODE = "1234";
+// הגנת זמן (אם תרצה): נועל שיבוץ/מחיקה X שעות קדימה מהזמן הנוכחי המעוגל למעלה
+export const PROTECTED_HOURS = 0;
