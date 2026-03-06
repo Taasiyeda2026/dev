@@ -144,7 +144,7 @@ h1{
 
 .board{
   display:grid;
-  grid-template-columns:90px repeat(6, 120px);
+  grid-template-columns:90px repeat(4, 120px);
   min-width:860px;
 }
 
@@ -615,6 +615,17 @@ h1{
       <option value="Zoom3">Zoom3</option>
     </select>
 
+    <select id="scheduleMonth"></select>
+    <select id="scheduleYear"></select>
+    <select id="scheduleWeekday">
+      <option value="0">ראשון</option>
+      <option value="1">שני</option>
+      <option value="2">שלישי</option>
+      <option value="3">רביעי</option>
+      <option value="4" selected>חמישי</option>
+      <option value="5">שישי</option>
+    </select>
+
     <button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
     <button id="potentialNavBtn" class="potential-btn" type="button">פוטנציאל</button>
   </div>
@@ -681,7 +692,8 @@ h1{
 */
 
 // ימים בעברית
-const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי","שישי"];
+const WEEKDAY_NAMES = ["ראשון","שני","שלישי","רביעי","חמישי","שישי"];
+let activeScheduleDates = [];
 
 // שעות של שעה אחת: 08:00 עד 16:00
 const TIME_SLOTS = [
@@ -852,6 +864,98 @@ let saveStatusHideTimer = null;
 const POTENTIAL_DAYS = ['א','ב','ג','ד','ה'];
 const POTENTIAL_DAY_TO_INDEX = { 'א':0, 'ב':1, 'ג':2, 'ד':3, 'ה':4 };
 const POTENTIAL_DAY_TO_SCHEDULE = { 'א':'ראשון', 'ב':'שני', 'ג':'שלישי', 'ד':'רביעי', 'ה':'חמישי' };
+const HEB_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
+const DEFAULT_SCHEDULE_CONFIG = { year: 2026, month: 3, weekday: 4 };
+let scheduleConfig = { ...DEFAULT_SCHEDULE_CONFIG };
+
+function formatDateKey(dateObj){
+  const dd = String(dateObj.getDate()).padStart(2,'0');
+  const mm = String(dateObj.getMonth() + 1).padStart(2,'0');
+  const yyyy = String(dateObj.getFullYear());
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function parseDateKey(dateKey){
+  const m = String(dateKey || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return null;
+  return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+}
+
+function generateMonthlySchedule(year, month, weekday){
+  const dates = [];
+  const targetWeekday = Number(weekday);
+  const d = new Date(year, month - 1, 1);
+  while(d.getMonth() === month - 1){
+    if(d.getDay() === targetWeekday){
+      dates.push(formatDateKey(d));
+    }
+    d.setDate(d.getDate() + 1);
+  }
+  return dates;
+}
+
+function getWeekdayHebName(dateKey){
+  const d = parseDateKey(dateKey);
+  if(!d) return '';
+  const name = WEEKDAY_NAMES[d.getDay()] || '';
+  return name ? `${name} ${dateKey}` : dateKey;
+}
+
+function isTimeInSchedule(time){
+  return TIME_SLOTS.includes(time);
+}
+
+function roundStartTime(value){
+  const [h,m] = String(value || '').split(':').map(Number);
+  if(!Number.isFinite(h) || !Number.isFinite(m)) return '';
+  const rounded = Math.floor((h * 60 + m) / 60) * 60;
+  return `${String(Math.floor(rounded / 60)).padStart(2,'0')}:00`;
+}
+
+function roundEndTime(value){
+  const [h,m] = String(value || '').split(':').map(Number);
+  if(!Number.isFinite(h) || !Number.isFinite(m)) return '';
+  const rounded = Math.ceil((h * 60 + m) / 60) * 60;
+  return `${String(Math.floor(rounded / 60)).padStart(2,'0')}:00`;
+}
+
+function formatMonthKey(year, month){
+  return `${String(month).padStart(2,'0')}/${year}`;
+}
+
+function syncPotentialMonthWithSchedule(){
+  selectedPotentialMonth = formatMonthKey(scheduleConfig.year, scheduleConfig.month);
+  if(potentialMonthBtn) potentialMonthBtn.textContent = HEB_MONTHS[scheduleConfig.month - 1] || selectedPotentialMonth;
+}
+
+function initScheduleControls(){
+  scheduleMonthEl.innerHTML = HEB_MONTHS.map((name, idx)=>`<option value="${idx + 1}">${name}</option>`).join('');
+
+  const years = [2025, 2026, 2027, 2028];
+  scheduleYearEl.innerHTML = years.map(year=>`<option value="${year}">${year}</option>`).join('');
+
+  scheduleMonthEl.value = String(scheduleConfig.month);
+  scheduleYearEl.value = String(scheduleConfig.year);
+  scheduleWeekdayEl.value = String(scheduleConfig.weekday);
+
+  const refresh = ()=>{
+    scheduleConfig = {
+      year: Number(scheduleYearEl.value),
+      month: Number(scheduleMonthEl.value),
+      weekday: Number(scheduleWeekdayEl.value)
+    };
+    activeScheduleDates = generateMonthlySchedule(scheduleConfig.year, scheduleConfig.month, scheduleConfig.weekday);
+    syncPotentialMonthWithSchedule();
+    render();
+    if(potentialViewEl.classList.contains('active')) renderPotential(potentialData);
+  };
+
+  scheduleMonthEl.addEventListener('change', refresh);
+  scheduleYearEl.addEventListener('change', refresh);
+  scheduleWeekdayEl.addEventListener('change', refresh);
+
+  refresh();
+}
 
 function firstDefined(obj, keys){
   for(const key of keys){
@@ -969,6 +1073,9 @@ const boardEl = document.getElementById('board');
 const searchEl = document.getElementById('searchInstructor');
 const zoomFilterEl = document.getElementById('filterZoom');
 const clearBtn = document.getElementById('clearBtn');
+const scheduleMonthEl = document.getElementById('scheduleMonth');
+const scheduleYearEl = document.getElementById('scheduleYear');
+const scheduleWeekdayEl = document.getElementById('scheduleWeekday');
 
 const modalBackdrop = document.getElementById('assignModal');
 const modalDayEl = document.getElementById('modalDay');
@@ -979,7 +1086,7 @@ const zoomSuggestionEl = document.getElementById('zoomSuggestion');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
 
-const modalState = { day: null, time: null, potentialId: null, onAssigned: null };
+const modalState = { date: null, time: null, potentialId: null, onAssigned: null };
 
 // מילוי רשימת מדריכים
 modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
@@ -1090,7 +1197,7 @@ function pickZoomForSlot(day, time, instructor=null){
 // שלב 2 – תיקון רצפים אוטומטי
 // סורק את כל הימים ומנסה לאחד חשבונות Zoom של אותו מדריך בשעות רצופות
 async function repairSequences(){
-  for(const day of DAYS){
+  for(const day of activeScheduleDates){
     for(let i = 0; i < TIME_SLOTS.length - 1; i++){
       const time1 = TIME_SLOTS[i];
       const time2 = TIME_SLOTS[i + 1];
@@ -1231,13 +1338,13 @@ async function deleteItemByEvent(ev){
 }
 
 // --- Modal ---
-function openModal(day, time, options={}){
-  modalState.day = day;
+function openModal(date, time, options={}){
+  modalState.date = date;
   modalState.time = time;
   modalState.potentialId = options.potentialId || null;
   modalState.onAssigned = typeof options.onAssigned === 'function' ? options.onAssigned : null;
 
-  modalDayEl.textContent = day;
+  modalDayEl.textContent = getWeekdayHebName(date);
   modalTimeEl.textContent = time;
   modalStatusEl.textContent = '';
 
@@ -1252,7 +1359,7 @@ function openModal(day, time, options={}){
 
 function closeModal(){
   modalBackdrop.style.display = 'none';
-  modalState.day = null;
+  modalState.date = null;
   modalState.time = null;
   modalState.potentialId = null;
   modalState.onAssigned = null;
@@ -1291,11 +1398,11 @@ ${quickLink}`;
 }
 
 function updateZoomSuggestion(){
-  const day = modalState.day;
+  const date = modalState.date;
   const time = modalState.time;
   const instructor = modalInstructorEl.value || null;
 
-  const suggested = pickZoomForSlot(day, time, instructor);
+  const suggested = pickZoomForSlot(date, time, instructor);
   zoomSuggestionEl.className = 'pill';
 
   if(suggested){
@@ -1313,10 +1420,10 @@ function setSaveBtnLoading(isLoading){
 }
 
 async function saveAssignment(){
-  const day = modalState.day;
+  const date = modalState.date;
   const time = modalState.time;
 
-  if(!day || !time){
+  if(!date || !time){
     modalStatusEl.textContent = 'שגיאה: חסר יום/שעה.';
     return;
   }
@@ -1340,12 +1447,14 @@ async function saveAssignment(){
     return;
   }
 
-  if(!isInstructorFree(day, time, instructor)){
-    modalStatusEl.textContent = 'המדריך כבר משובץ בזמן חופף.';
+  const [start,end] = time.split('-');
+  const check = canAssignSlot(date, start, end, instructor, pendingPotentialId);
+  if(!check.ok){
+    modalStatusEl.textContent = getReasonLabel(check.reason, check.suggestion || "").text;
     return;
   }
 
-  const zoom = pickZoomForSlot(day, time, instructor);
+  const zoom = check.zoom;
   const school = modalSchoolEl.value || '';
   const course = modalCourseEl.value || '';
   if(!zoom){
@@ -1354,7 +1463,7 @@ async function saveAssignment(){
   }
 
   // לא לשבץ אותו Zoom באותה משבצת (זהה)
-  if(getEventsInCell(day, time).some(e => e.zoom === zoom)){
+  if(getEventsInCell(date, time).some(e => e.zoom === zoom)){
     modalStatusEl.textContent = 'חשבון Zoom זה כבר משובץ במשבצת זו.';
     return;
   }
@@ -1362,7 +1471,7 @@ async function saveAssignment(){
   setSaveBtnLoading(true);
 
   try{
-    await addItem(day, time, instructor, zoom, school, course, pendingPotentialId);
+    await addItem(date, time, instructor, zoom, school, course, pendingPotentialId);
     await repairSequences();
 
     if(window.pendingAssignment?.potentialId){
@@ -1387,13 +1496,15 @@ function render(){
   boardEl.innerHTML = '';
 
   boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
-  DAYS.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(d)}</div>`));
+  boardEl.style.gridTemplateColumns = `90px repeat(${activeScheduleDates.length}, 120px)`;
+  boardEl.style.minWidth = `${90 + activeScheduleDates.length * 120}px`;
+  activeScheduleDates.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(getWeekdayHebName(d))}</div>`));
 
   TIME_SLOTS.forEach((time) => {
 
     boardEl.insertAdjacentHTML('beforeend', `<div class="time-cell">${escHtml(time)}</div>`);
 
-    DAYS.forEach(day => {
+    activeScheduleDates.forEach(day => {
       const cellEvents = getEventsInCell(day, time);
       const visible = cellEvents.filter(eventMatchesFilters);
 
@@ -1575,6 +1686,7 @@ const potentialViewEl = document.getElementById('potentialView');
 const potentialNavBtn = document.getElementById('potentialNavBtn');
 const potentialCalendarEl = document.getElementById('potentialCalendar');
 const potentialEmptyEl = document.getElementById('potentialEmpty');
+const potentialMonthBtn = document.getElementById('potentialMonthBtn');
 
 function normalizePotentialDate(dateStr){
   const raw = String(dateStr || '').trim();
@@ -1665,25 +1777,50 @@ function getPotentialDayLetter(dateStr){
 }
 
 function normalizeTimes(startTime,endTime){
-  const [sh,sm] = String(startTime || '').split(':').map(Number);
-  const [eh,em] = String(endTime || '').split(':').map(Number);
-  if(!Number.isFinite(sh) || !Number.isFinite(sm) || !Number.isFinite(eh) || !Number.isFinite(em)) return null;
+  const start = roundStartTime(startTime);
+  const end = roundEndTime(endTime);
+  if(!start || !end) return null;
 
-  const startMinutes = sh * 60 + sm;
-  const endMinutes = eh * 60 + em;
-
-  const roundedStart = Math.floor(startMinutes / 60) * 60;
-  const roundedEnd = Math.ceil(endMinutes / 60) * 60;
-
-  const start = `${String(Math.floor(roundedStart / 60)).padStart(2,'0')}:00`;
-  const end = `${String(Math.floor(roundedEnd / 60)).padStart(2,'0')}:00`;
+  const startMinutes = toMinutes(start);
+  const endMinutes = toMinutes(end);
+  if(endMinutes <= startMinutes) return null;
 
   return { startTime: start, endTime: end, time: `${start}-${end}` };
 }
 
-function convertDateToDay(dateStr){
-  const dayLetter = getPotentialDayLetter(dateStr);
-  return POTENTIAL_DAY_TO_SCHEDULE[dayLetter] || null;
+function convertDateToScheduleDate(dateStr){
+  const normalized = normalizePotentialDate(dateStr);
+  if(activeScheduleDates.includes(normalized)) return normalized;
+  return null;
+}
+
+function canAssignSlot(date,start,end,instructor,potentialId=''){
+  const time = `${start}-${end}`;
+
+  if(!activeScheduleDates.includes(date)){
+    return { ok:false, reason:'outside_schedule' };
+  }
+
+  if(!isTimeInSchedule(time)){
+    return { ok:false, reason:'outside_schedule' };
+  }
+
+  if(potentialId && schedule.some(e => e.potentialId && String(e.potentialId) === String(potentialId))){
+    return { ok:false, reason:'assigned' };
+  }
+
+  if(!isInstructorFree(date, time, instructor)){
+    return { ok:false, reason:'instructor' };
+  }
+
+  const zoom = pickZoomForSlot(date, time, instructor);
+  if(!zoom) return { ok:false, reason:'zoom' };
+
+  if(!isZoomFree(date, time, zoom)){
+    return { ok:false, reason:'zoom' };
+  }
+
+  return { ok:true, zoom, time };
 }
 
 function prepareAssignment(row){
@@ -1692,30 +1829,30 @@ function prepareAssignment(row){
 
   return {
     potentialId: row.id,
-    date: row.date,
+    date: normalizePotentialDate(row.date),
     start: normalized.startTime,
     end: normalized.endTime,
-    instructor: row.employee,
-    school: row.school,
-    course: row.program
+    teacher: row.employee,
+    program: row.program,
+    school: row.school
   };
 }
 
 function prefillAssignment(data){
   if(!data) return;
 
-  const day = convertDateToDay(data.date);
+  const date = convertDateToScheduleDate(data.date);
   const time = `${data.start}-${data.end}`;
-  if(!day) return;
+  if(!date) return;
 
-  openModal(day, time, { potentialId: data.potentialId || null });
+  openModal(date, time, { potentialId: data.potentialId || null });
 
   const instructorSelect = document.querySelector('#modalInstructor') || document.querySelector('#instructorSelect');
   const schoolSelect = document.querySelector('#modalSchool') || document.querySelector('#schoolSelect');
   const courseSelect = document.querySelector('#modalCourse') || document.querySelector('#courseSelect');
 
   if(instructorSelect){
-    instructorSelect.value = data.instructor || '';
+    instructorSelect.value = data.teacher || '';
     populateInstructorDetails();
   }
 
@@ -1726,8 +1863,8 @@ function prefillAssignment(data){
   }
 
   if(courseSelect){
-    const courseExists = Array.from(courseSelect.options || []).some(opt => opt.value === data.course);
-    if(courseExists) courseSelect.value = data.course || '';
+    const courseExists = Array.from(courseSelect.options || []).some(opt => opt.value === data.program);
+    if(courseExists) courseSelect.value = data.program || '';
   }
 
   updateZoomSuggestion();
@@ -1745,6 +1882,7 @@ function getReasonLabel(reason, suggestion=''){
   if(reason === 'overlap') return { text:'🟠 חפיפה', css:'warn' };
   if(reason === 'instructor') return { text:'🟡 מדריך תפוס', css:'warn' };
   if(reason === 'invalid') return { text:'שעות לא תקינות', css:'bad' };
+  if(reason === 'outside_schedule') return { text:'מחוץ ללוח החודשי', css:'bad' };
   return { text:'✔ ניתן לשבץ', css:'ok' };
 }
 
@@ -1764,52 +1902,47 @@ function suggestAlternative(day, baseTime, instructor){
 function canSchedulePotential(row){
   if(row.status === 'assigned' || row.completed) return { ok:false, reason:'assigned', zoom:'' };
 
-  const dayLetter = getPotentialDayLetter(row.date);
-  const day = POTENTIAL_DAY_TO_SCHEDULE[dayLetter];
-  if(!day) return { ok:false, reason:'invalid', zoom:'' };
+  const date = normalizePotentialDate(row.date);
+  if(!date) return { ok:false, reason:'invalid', zoom:'' };
 
   const normalized = normalizeTimes(row.startTime,row.endTime);
   if(!normalized) return { ok:false, reason:'invalid', zoom:'' };
 
-  const time = normalized.time;
-  const instructor = row.employee;
-
-  if(schedule.some(e => e.potentialId && String(e.potentialId) === String(row.id))){
-    return { ok:false, reason:'assigned', zoom:'' };
-  }
-
-  if(schedule.some(e => e.day === day && slotsOverlap(e.time, time))){
-    const zoom = pickZoomForSlot(day, time, instructor);
-    if(!zoom){
-      return { ok:false, reason:'zoom', zoom:'', suggestion:suggestAlternative(day,time,instructor) };
+  const assignCheck = canAssignSlot(date, normalized.startTime, normalized.endTime, row.employee, row.id);
+  if(!assignCheck.ok){
+    if(assignCheck.reason === 'zoom'){
+      return { ok:false, reason:'zoom', zoom:'', suggestion:suggestAlternative(date, normalized.time, row.employee) };
     }
+    return { ok:false, reason:assignCheck.reason, zoom:'' };
   }
 
-  if(!isInstructorFree(day, time, instructor)){
-    return { ok:false, reason:'instructor', zoom:'' };
-  }
-
-  const zoom = pickZoomForSlot(day, time, instructor);
-  if(!zoom) return { ok:false, reason:'zoom', zoom:'', suggestion:suggestAlternative(day,time,instructor) };
-
-  const overlapping = schedule.some(e => e.day === day && e.zoom === zoom && slotsOverlap(e.time, time));
-  if(overlapping) return { ok:false, reason:'overlap', zoom:'' };
-
-  return { ok:true, reason:'', zoom, normalized, day, time };
+  return { ok:true, reason:'', zoom:assignCheck.zoom, normalized, date, time:normalized.time };
 }
 
 function buildPotentialCalendarModel(data){
   const filtered = data.filter(row => getMonthKey(row.date) === selectedPotentialMonth);
-  const weeks = [1,2,3,4].map(week => ({ week, days: { 'א':[], 'ב':[], 'ג':[], 'ד':[], 'ה':[] } }));
+  const datesByWeek = new Map();
 
-  filtered.forEach(row => {
-    const week = getWeekOfMonth(row.date);
-    const dayLetter = getPotentialDayLetter(row.date);
-    if(!dayLetter || !weeks[week - 1]) return;
-    weeks[week - 1].days[dayLetter].push(row);
+  activeScheduleDates.forEach(date => {
+    if(getMonthKey(date) !== selectedPotentialMonth) return;
+    const week = getWeekOfMonth(date);
+    if(!datesByWeek.has(week)) datesByWeek.set(week, []);
+    datesByWeek.get(week).push(date);
   });
 
-  return { weeks, count: filtered.length };
+  filtered.forEach(row => {
+    const date = normalizePotentialDate(row.date);
+    if(!activeScheduleDates.includes(date)) return;
+    const week = getWeekOfMonth(date);
+    if(!datesByWeek.has(week)) datesByWeek.set(week, []);
+    if(!datesByWeek.get(week).includes(date)) datesByWeek.get(week).push(date);
+  });
+
+  const weeks = [...datesByWeek.entries()]
+    .sort((a,b)=>a[0]-b[0])
+    .map(([week, dates])=>({ week, dates: dates.sort((a,b)=>parseDateKey(a)-parseDateKey(b)) }));
+
+  return { weeks, count: filtered.length, filtered };
 }
 
 function renderPotential(data){
@@ -1819,15 +1952,16 @@ function renderPotential(data){
   potentialCalendarEl.innerHTML = model.weeks.map(week => `
     <section class="potential-week">
       <div class="potential-week-title">שבוע ${week.week}</div>
-      <div class="potential-week-grid">
-        ${POTENTIAL_DAYS.map(day => {
-          const items = week.days[day] || [];
-          return `<div class="potential-day-col"><div class="potential-day-head">${day}</div><div class="potential-day-body">${items.map(row => {
+      <div class="potential-week-grid" style="grid-template-columns:repeat(${week.dates.length || 1},1fr)">
+        ${week.dates.map(date => {
+          const items = model.filtered.filter(row => normalizePotentialDate(row.date) === date);
+          return `<div class="potential-day-col"><div class="potential-day-head">${escHtml(getWeekdayHebName(date))}</div><div class="potential-day-body">${items.map(row => {
             const check = canSchedulePotential(row);
             const label = check.ok
               ? getReasonLabel(check.reason, check.suggestion || '')
-              : (check.reason === 'assigned' ? getReasonLabel(check.reason, check.suggestion || '') : { text:'אין זום פנוי', css:'bad' });
+              : getReasonLabel(check.reason, check.suggestion || '');
             return `<article class="potential-item" data-id="${escHtml(row.id)}">
+              <div class="potential-item-row"><b>תאריך:</b> ${escHtml(date)}</div>
               <div class="potential-item-row"><b>רשות:</b> ${escHtml(row.authority)}</div>
               <div class="potential-item-row"><b>בית ספר:</b> ${escHtml(row.school)}</div>
               <div class="potential-item-row"><b>תוכנית:</b> ${escHtml(row.program)}</div>
@@ -1863,9 +1997,8 @@ function renderPotential(data){
 async function assignFromPotential(row){
   const check = canSchedulePotential(row);
   if(!check.ok){
-    if(check.reason === 'assigned'){
-      alert('פעילות זו כבר שובצה');
-    }
+    const label = getReasonLabel(check.reason, check.suggestion || '');
+    alert(label.text);
     return;
   }
 
@@ -2013,6 +2146,7 @@ potentialNavBtn.addEventListener('click', async ()=>{
 
 // --- Init ---
 async function initApp(){
+  initScheduleControls();
   await loadSchedule();
   render();
   consumePendingAssignment();
