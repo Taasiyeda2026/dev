@@ -6,12 +6,64 @@
   <title>מערכת שיבוץ Zoom</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-left">
-      <h1>מערכת שיבוץ Zoom</h1>
-      <div id="weekLabel" class="week-label"></div>
-    </div>
+body{
+font-family: Arial, sans-serif;
+background:#f4f6fb;
+margin:0;
+padding:20px;
+direction:rtl;
+}
+
+h1{
+margin-bottom:20px;
+}
+
+.board{
+display:grid;
+grid-template-columns:120px repeat(5,1fr);
+gap:2px;
+background:#ccc;
+}
+
+.cell{
+background:white;
+padding:6px;
+min-height:60px;
+position:relative;
+font-size:14px;
+}
+
+.head{
+background:#e8ecf6;
+font-weight:bold;
+text-align:center;
+}
+
+.time{
+background:#f0f2f7;
+font-weight:bold;
+text-align:center;
+}
+
+.add-btn{
+position:absolute;
+top:2px;
+left:2px;
+font-size:12px;
+background:#eef2ff;
+border:1px solid #c8d1e0;
+cursor:pointer;
+}
+
+.event{
+background:#6366f1;
+color:white;
+padding:4px;
+margin-top:14px;
+border-radius:4px;
+font-size:12px;
+cursor:pointer;
+}
 
     <div class="topbar-right">
       <div class="week-nav">
