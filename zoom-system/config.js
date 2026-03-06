@@ -1,4 +1,4 @@
-export const API_URL = "GOOGLE_SCRIPT_URL";
+export const API_URL = "https://script.google.com/macros/s/AKfycbxFT4n_kt4PCdOytEVPnHVf8-86OKhq9C5n9bp8ZRgxiOMBrlk9wGWiIX38iNfROQ2btg/exec";
 
 export const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי"];
 
