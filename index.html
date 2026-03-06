@@ -519,12 +519,7 @@ h1{
   text-align:right;
 }
 
-.potential-tabs{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
-  margin-bottom:12px;
-}
+
 
 .potential-tab{
   border:1px solid #c7d2fe;
@@ -536,47 +531,26 @@ h1{
   font-weight:700;
 }
 
-.potential-tab.active{
-  background:#6366f1;
-  color:#fff;
-}
-
-.potential-table-wrap{
-  background:white;
-  border-radius:10px;
-  overflow:auto;
-}
-
-.potential-table{
-  width:100%;
-  border-collapse:collapse;
-  background:white;
-  min-width:920px;
-}
-
-.potential-table th,.potential-table td{
-  padding:10px;
-  text-align:right;
-  border-bottom:1px solid #eee;
-}
-
-.potential-table .time-col{
-  width:110px;
-}
-
-.potential-table .notes-col{
-  width:260px;
-}
-
-.potential-table tbody tr:nth-child(even){
-  background:#fafbff;
-}
-
-.potential-table tbody tr:hover{
-  background:#f3f4f6;
-}
-
-.potential-table tbody tr td{ vertical-align:middle; }
+.potential-tab.active{ background:#6366f1; color:#fff; }
+.potential-controls{ display:flex; justify-content:flex-end; margin-bottom:10px; }
+.potential-calendar{ display:grid; gap:12px; }
+.potential-week{ background:#fff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; }
+.potential-week-title{ padding:10px 12px; font-weight:900; background:#eef2ff; color:#3730a3; }
+.potential-week-grid{ display:grid; grid-template-columns:repeat(5,1fr); border-top:1px solid #e2e8f0; }
+.potential-day-col{ border-left:1px solid #e2e8f0; min-height:130px; }
+.potential-day-col:last-child{ border-left:none; }
+.potential-day-head{ padding:8px 10px; font-weight:800; background:#f8faff; }
+.potential-day-body{ padding:8px; display:grid; gap:8px; }
+.potential-item{ border:1px solid #e2e8f0; border-radius:10px; padding:8px; background:#fff; font-size:12px; }
+.potential-item-row{ margin-bottom:4px; }
+.potential-item-actions{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; }
+.potential-status{ font-weight:800; }
+.potential-status.assigned{ color:#16a34a; }
+.potential-status.ok{ color:#059669; }
+.potential-status.bad{ color:#b91c1c; }
+.potential-status.warn{ color:#c2410c; }
+.assign-btn{ padding:5px 10px; border-radius:8px; border:1px solid #c7d2fe; background:#eef2ff; cursor:pointer; font-weight:800; }
+.assign-btn:disabled{ opacity:.5; cursor:not-allowed; }
 
 .notes-field{
   width:100%;
@@ -612,6 +586,8 @@ h1{
 @media (max-width: 820px){
   .potential-title{ font-size:18px; }
   .container{ padding:18px; }
+  .potential-week-grid{ grid-template-columns:1fr; }
+  .potential-day-col{ border-left:none; border-top:1px solid #e2e8f0; }
 }
 
 </style>
@@ -651,25 +627,11 @@ h1{
 
   <div id="potentialView" class="view">
     <h2 class="potential-title">פוטנציאל</h2>
-    <div id="potentialTabs" class="potential-tabs"></div>
-    <div class="potential-table-wrap">
-      <table class="potential-table">
-        <thead>
-          <tr>
-            <th>Authority</th>
-            <th>School</th>
-            <th>Program</th>
-            <th>Employee</th>
-            <th class="time-col">StartTime</th>
-            <th class="time-col">EndTime</th>
-            <th class="notes-col">Notes</th>
-            <th>Completed</th>
-          </tr>
-        </thead>
-        <tbody id="potentialTableBody"></tbody>
-      </table>
-      <div id="potentialEmpty" class="potential-muted" style="display:none">אין פעילויות לתאריך זה.</div>
+    <div class="potential-controls">
+      <button id="potentialMonthBtn" class="potential-tab active" type="button">מרץ</button>
     </div>
+    <div id="potentialCalendar" class="potential-calendar"></div>
+    <div id="potentialEmpty" class="potential-muted" style="display:none">אין פעילויות לחודש זה.</div>
   </div>
 </div>
 
@@ -884,15 +846,11 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxZ-2qO_KuJxNE03qyNZVMK
 let schedule = [];
 let potentialData = [];
 let pendingPotentialUpdates = new Set();
-let selectedPotentialDate = '08/03/2026';
+let selectedPotentialMonth = '03/2026';
 let saveStatusHideTimer = null;
-
-const POTENTIAL_DATES = [
-  { label: '8.3', value: '08/03/2026' },
-  { label: '9.3', value: '09/03/2026' },
-  { label: '10.3', value: '10/03/2026' },
-  { label: '11.3', value: '11/03/2026' }
-];
+const POTENTIAL_DAYS = ['א','ב','ג','ד','ה'];
+const POTENTIAL_DAY_TO_INDEX = { 'א':0, 'ב':1, 'ג':2, 'ד':3, 'ה':4 };
+const POTENTIAL_DAY_TO_SCHEDULE = { 'א':'ראשון', 'ב':'שני', 'ג':'שלישי', 'ד':'רביעי', 'ה':'חמישי' };
 
 function firstDefined(obj, keys){
   for(const key of keys){
@@ -911,7 +869,9 @@ function normalizeEvent(raw){
     zoom: firstDefined(raw, ['zoom','Zoom','חשבון Zoom']),
     school: firstDefined(raw, ['school','schoolName','school_name','organization','org','בית ספר']),
     course: firstDefined(raw, ['course','courseName','course_name','קורס']),
-    authority: firstDefined(raw, ['authority','city','municipality','רשות'])
+    authority: firstDefined(raw, ['authority','city','municipality','רשות']),
+    scheduleId: firstDefined(raw, ['scheduleId','scheduleID','schedule_id']),
+    potentialId: firstDefined(raw, ['potentialId','potentialID','potential_id'])
   };
 }
 
@@ -1018,7 +978,7 @@ const zoomSuggestionEl = document.getElementById('zoomSuggestion');
 const cancelBtn = document.getElementById('cancelBtn');
 const saveBtn = document.getElementById('saveBtn');
 
-const modalState = { day: null, time: null };
+const modalState = { day: null, time: null, potentialId: null, onAssigned: null };
 
 // מילוי רשימת מדריכים
 modalInstructorEl.innerHTML = "<option value=''>בחר מדריך</option>" +
@@ -1178,25 +1138,15 @@ async function saveData(){
       const row = potentialData.find(item => item.id === id);
       if(!row) continue;
 
-      const tr = Array.from(potentialTableBodyEl.querySelectorAll('tr[data-id]')).find(item => item.dataset.id === String(id));
-      const startTime = tr ? tr.querySelector(".startTime-field").value : row.startTime;
-      const endTime = tr ? tr.querySelector(".endTime-field").value : row.endTime;
-      const notes = row.notes;
-      const completed = row.completed;
-
       const updatePayload = {
         action:"updatepotential",
         id:row.id,
-        startTime:startTime,
-        endTime:endTime,
-        notes:notes,
-        completed:completed
+        startTime:row.startTime,
+        endTime:row.endTime,
+        notes:row.notes,
+        status:row.status || '',
+        completed:row.completed
       };
-
-      row.startTime = updatePayload.startTime;
-      row.endTime = updatePayload.endTime;
-      row.notes = updatePayload.notes;
-      row.completed = updatePayload.completed;
 
       await fetch(API_URL,{
         method:"POST",
@@ -1209,6 +1159,7 @@ async function saveData(){
           startTime:row.startTime,
           endTime:row.endTime,
           notes:row.notes,
+          status:row.status || '',
           completed:row.completed
         })
       });
@@ -1257,12 +1208,12 @@ async function loadSchedule(){
   schedule = list.map(normalizeEvent);
 }
 
-async function addItem(day, time, instructor, zoom, school='', course=''){
+async function addItem(day, time, instructor, zoom, school='', course='', potentialId=''){
   const zoomLink = ZOOM_LINKS[zoom] || "";
   const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink, school, course })
+    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink, school, course, potentialId })
   });
   const data = await res.json();
   schedule = (Array.isArray(data) ? data : (data.data || [])).map(normalizeEvent);
@@ -1279,9 +1230,11 @@ async function deleteItemByEvent(ev){
 }
 
 // --- Modal ---
-function openModal(day, time){
+function openModal(day, time, options={}){
   modalState.day = day;
   modalState.time = time;
+  modalState.potentialId = options.potentialId || null;
+  modalState.onAssigned = typeof options.onAssigned === 'function' ? options.onAssigned : null;
 
   modalDayEl.textContent = day;
   modalTimeEl.textContent = time;
@@ -1300,6 +1253,8 @@ function closeModal(){
   modalBackdrop.style.display = 'none';
   modalState.day = null;
   modalState.time = null;
+  modalState.potentialId = null;
+  modalState.onAssigned = null;
   modalStatusEl.textContent = '';
 }
 
@@ -1377,6 +1332,11 @@ async function saveAssignment(){
     return;
   }
 
+  if(modalState.potentialId && schedule.some(e => String(e.potentialId || '') === String(modalState.potentialId))){
+    modalStatusEl.textContent = 'פעילות זו כבר שובצה';
+    return;
+  }
+
   if(!isInstructorFree(day, time, instructor)){
     modalStatusEl.textContent = 'המדריך כבר משובץ בזמן חופף.';
     return;
@@ -1399,10 +1359,12 @@ async function saveAssignment(){
   setSaveBtnLoading(true);
 
   try{
-    await addItem(day, time, instructor, zoom, school, course);
+    await addItem(day, time, instructor, zoom, school, course, modalState.potentialId || '');
     await repairSequences();
+    const onAssigned = modalState.onAssigned;
     closeModal();
     render();
+    if(onAssigned) await onAssigned();
   }catch(err){
     modalStatusEl.textContent = 'שגיאה בשמירה. בדוק הרשאות/פריסה של הסקריפט.';
     console.error(err);
@@ -1602,8 +1564,7 @@ function populateInstructorDetails(){
 const scheduleViewEl = document.getElementById('scheduleView');
 const potentialViewEl = document.getElementById('potentialView');
 const potentialNavBtn = document.getElementById('potentialNavBtn');
-const potentialTabsEl = document.getElementById('potentialTabs');
-const potentialTableBodyEl = document.getElementById('potentialTableBody');
+const potentialCalendarEl = document.getElementById('potentialCalendar');
 const potentialEmptyEl = document.getElementById('potentialEmpty');
 
 function normalizePotentialDate(dateStr){
@@ -1664,67 +1625,218 @@ function mapPotentialRow(raw){
     startTime: normalizePotentialTime(raw?.StartTime ?? raw?.startTime ?? raw?.start ?? raw?.['שעת התחלה']),
     endTime: normalizePotentialTime(raw?.EndTime ?? raw?.endTime ?? raw?.end ?? raw?.['שעת סיום']),
     notes: firstDefined(raw, ['Notes','notes','הערות']),
+    status: firstDefined(raw, ['Status','status']),
     completed: parseCompleted(raw?.Completed ?? raw?.completed)
   };
 }
 
-function renderPotentialTabs(){
-  potentialTabsEl.innerHTML = POTENTIAL_DATES.map(tab => (
-    `<button class="potential-tab ${tab.value === selectedPotentialDate ? 'active' : ''}" data-date="${tab.value}" type="button">${tab.label}</button>`
-  )).join('');
-
-  potentialTabsEl.querySelectorAll('.potential-tab').forEach(btn => {
-    btn.addEventListener('click', ()=>{
-      selectedPotentialDate = btn.dataset.date;
-      renderPotential(potentialData);
-    });
-  });
+function getMonthKey(dateStr){
+  const normalized = normalizePotentialDate(dateStr);
+  const m = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return selectedPotentialMonth;
+  return `${m[2]}/${m[3]}`;
 }
 
-function filterByDate(data, dateValue){
-  const target = normalizePotentialDate(dateValue);
-  return data.filter(row => normalizePotentialDate(row.date) === target);
+function getWeekOfMonth(dateStr){
+  const normalized = normalizePotentialDate(dateStr);
+  const m = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return 1;
+  const day = Number(m[1]);
+  return Math.min(4, Math.max(1, Math.ceil(day / 7)));
+}
+
+function getPotentialDayLetter(dateStr){
+  const normalized = normalizePotentialDate(dateStr);
+  const m = normalized.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return null;
+  const d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+  const jsDay = d.getDay();
+  if(jsDay < 1 || jsDay > 5) return null;
+  return POTENTIAL_DAYS[jsDay - 1];
+}
+
+function normalizeTimes(startTime,endTime){
+  const [sh,sm] = String(startTime || '').split(':').map(Number);
+  const [eh,em] = String(endTime || '').split(':').map(Number);
+  if(!Number.isFinite(sh) || !Number.isFinite(sm) || !Number.isFinite(eh) || !Number.isFinite(em)) return null;
+
+  const startMinutes = sh * 60 + sm;
+  const endMinutes = eh * 60 + em;
+
+  const roundedStart = Math.floor(startMinutes / 60) * 60;
+  const roundedEnd = Math.ceil(endMinutes / 60) * 60;
+
+  const start = `${String(Math.floor(roundedStart / 60)).padStart(2,'0')}:00`;
+  const end = `${String(Math.floor(roundedEnd / 60)).padStart(2,'0')}:00`;
+
+  return { startTime: start, endTime: end, time: `${start}-${end}` };
+}
+
+function getReasonLabel(reason, suggestion=''){
+  if(reason === 'assigned') return { text:'שובץ', css:'assigned' };
+  if(reason === 'zoom') return { text:'🔴 אין זום פנוי' + suggestion, css:'bad' };
+  if(reason === 'overlap') return { text:'🟠 חפיפה', css:'warn' };
+  if(reason === 'instructor') return { text:'🟡 מדריך תפוס', css:'warn' };
+  if(reason === 'invalid') return { text:'שעות לא תקינות', css:'bad' };
+  return { text:'✔ ניתן לשבץ', css:'ok' };
+}
+
+function suggestAlternative(day, baseTime, instructor){
+  const slot = parseSlot(baseTime);
+  for(const plus of [1,2]){
+    const startMin = slot.start + plus * 60;
+    const endMin = slot.end + plus * 60;
+    const suggested = `${String(Math.floor(startMin / 60)).padStart(2,'0')}:00-${String(Math.floor(endMin / 60)).padStart(2,'0')}:00`;
+    if(pickZoomForSlot(day, suggested, instructor)){
+      return `, זמין ב ${suggested.split('-')[0]}`;
+    }
+  }
+  return '';
+}
+
+function canSchedulePotential(row){
+  if(row.status === 'assigned' || row.completed) return { ok:false, reason:'assigned', zoom:'' };
+
+  const dayLetter = getPotentialDayLetter(row.date);
+  const day = POTENTIAL_DAY_TO_SCHEDULE[dayLetter];
+  if(!day) return { ok:false, reason:'invalid', zoom:'' };
+
+  const normalized = normalizeTimes(row.startTime,row.endTime);
+  if(!normalized) return { ok:false, reason:'invalid', zoom:'' };
+
+  const time = normalized.time;
+  const instructor = row.employee;
+
+  if(schedule.some(e => e.potentialId && String(e.potentialId) === String(row.id))){
+    return { ok:false, reason:'assigned', zoom:'' };
+  }
+
+  if(schedule.some(e => e.day === day && slotsOverlap(e.time, time))){
+    const zoom = pickZoomForSlot(day, time, instructor);
+    if(!zoom){
+      return { ok:false, reason:'zoom', zoom:'', suggestion:suggestAlternative(day,time,instructor) };
+    }
+  }
+
+  if(!isInstructorFree(day, time, instructor)){
+    return { ok:false, reason:'instructor', zoom:'' };
+  }
+
+  const zoom = pickZoomForSlot(day, time, instructor);
+  if(!zoom) return { ok:false, reason:'zoom', zoom:'', suggestion:suggestAlternative(day,time,instructor) };
+
+  const overlapping = schedule.some(e => e.day === day && e.zoom === zoom && slotsOverlap(e.time, time));
+  if(overlapping) return { ok:false, reason:'overlap', zoom:'' };
+
+  return { ok:true, reason:'', zoom, normalized, day, time };
+}
+
+function buildPotentialCalendarModel(data){
+  const filtered = data.filter(row => getMonthKey(row.date) === selectedPotentialMonth);
+  const weeks = [1,2,3,4].map(week => ({ week, days: { 'א':[], 'ב':[], 'ג':[], 'ד':[], 'ה':[] } }));
+
+  filtered.forEach(row => {
+    const week = getWeekOfMonth(row.date);
+    const dayLetter = getPotentialDayLetter(row.date);
+    if(!dayLetter || !weeks[week - 1]) return;
+    weeks[week - 1].days[dayLetter].push(row);
+  });
+
+  return { weeks, count: filtered.length };
 }
 
 function renderPotential(data){
-  renderPotentialTabs();
-  const rows = filterByDate(data, selectedPotentialDate);
+  const model = buildPotentialCalendarModel(data);
+  potentialEmptyEl.style.display = model.count ? 'none' : 'block';
 
-  potentialTableBodyEl.innerHTML = rows.map(row => `
-    <tr data-id="${escHtml(row.id)}">
-      <td>${escHtml(row.authority)}</td>
-      <td>${escHtml(row.school)}</td>
-      <td>${escHtml(row.program)}</td>
-      <td>${escHtml(row.employee)}</td>
-      <td class="time-col"><input type="time" class="startTime-field" value="${escHtml(row.startTime)}"></td>
-      <td class="time-col"><input type="time" class="endTime-field" value="${escHtml(row.endTime)}"></td>
-      <td class="notes-col"><input class="notes-field" type="text" value="${escHtml(row.notes)}" data-id="${escHtml(row.id)}" /></td>
-      <td><input type="checkbox" class="completed-checkbox" data-id="${escHtml(row.id)}" ${row.completed ? 'checked' : ''} /></td>
-    </tr>
+  potentialCalendarEl.innerHTML = model.weeks.map(week => `
+    <section class="potential-week">
+      <div class="potential-week-title">שבוע ${week.week}</div>
+      <div class="potential-week-grid">
+        ${POTENTIAL_DAYS.map(day => {
+          const items = week.days[day] || [];
+          return `<div class="potential-day-col"><div class="potential-day-head">${day}</div><div class="potential-day-body">${items.map(row => {
+            const check = canSchedulePotential(row);
+            const label = getReasonLabel(check.reason, check.suggestion || '');
+            return `<article class="potential-item" data-id="${escHtml(row.id)}">
+              <div class="potential-item-row"><b>רשות:</b> ${escHtml(row.authority)}</div>
+              <div class="potential-item-row"><b>בית ספר:</b> ${escHtml(row.school)}</div>
+              <div class="potential-item-row"><b>תוכנית:</b> ${escHtml(row.program)}</div>
+              <div class="potential-item-row"><b>מדריך:</b> ${escHtml(row.employee)}</div>
+              <div class="potential-item-row"><input type="time" class="startTime-field" value="${escHtml(row.startTime)}"> - <input type="time" class="endTime-field" value="${escHtml(row.endTime)}"></div>
+              <div class="potential-item-row"><input class="notes-field" type="text" value="${escHtml(row.notes)}" /></div>
+              <div class="potential-item-actions">
+                <span class="potential-status ${label.css}">${label.text}</span>
+                ${check.ok ? `<button type="button" class="assign-btn">שבץ</button>` : ''}
+              </div>
+            </article>`;
+          }).join('') || '<div class="potential-muted">—</div>'}</div></div>`;
+        }).join('')}
+      </div>
+    </section>
   `).join('');
 
-  potentialEmptyEl.style.display = rows.length ? 'none' : 'block';
+  potentialCalendarEl.querySelectorAll('.potential-item').forEach(card => {
+    const id = card.dataset.id;
+    const startInput = card.querySelector('.startTime-field');
+    const endInput = card.querySelector('.endTime-field');
+    const notesInput = card.querySelector('.notes-field');
+    const assignBtn = card.querySelector('.assign-btn');
 
-  potentialTableBodyEl.querySelectorAll('tr[data-id]').forEach(tr => {
-    const id = tr.dataset.id;
-    const startInput = tr.querySelector('.startTime-field');
-    const endInput = tr.querySelector('.endTime-field');
+    if(startInput) startInput.addEventListener('change', (e)=>{ updatePotentialTime(id, 'startTime', e.target.value); renderPotential(potentialData); });
+    if(endInput) endInput.addEventListener('change', (e)=>{ updatePotentialTime(id, 'endTime', e.target.value); renderPotential(potentialData); });
+    if(notesInput) notesInput.addEventListener('change', (e)=> updateNotes(id, e.target.value));
+    if(assignBtn) assignBtn.addEventListener('click', ()=> assignFromPotentialById(id));
+  });
+}
 
-    if(startInput){
-      startInput.addEventListener('change', (e)=> { updatePotentialTime(id, 'startTime', e.target.value); e.target.blur(); });
+
+async function assignFromPotential(row){
+  const check = canSchedulePotential(row);
+  if(!check.ok){
+    if(check.reason === 'assigned'){
+      alert('פעילות זו כבר שובצה');
     }
+    return;
+  }
 
-    if(endInput){
-      endInput.addEventListener('change', (e)=> { updatePotentialTime(id, 'endTime', e.target.value); e.target.blur(); });
+  row.startTime = check.normalized.startTime;
+  row.endTime = check.normalized.endTime;
+  pendingPotentialUpdates.add(row.id);
+
+  await loadPage('schedule');
+
+  openModal(check.day, check.time, {
+    potentialId: row.id,
+    onAssigned: async ()=>{
+      row.status = 'assigned';
+      row.completed = true;
+      pendingPotentialUpdates.add(row.id);
+      await saveData();
+      await loadPage('potential');
     }
   });
 
-  potentialTableBodyEl.querySelectorAll('.notes-field').forEach(input => {
-    input.addEventListener('change', (e)=> updateNotes(e.target.dataset.id, e.target.value));
-  });
+  modalInstructorEl.value = row.employee;
+  populateInstructorDetails();
+  if(modalSchoolEl){
+    const schoolExists = Array.from(modalSchoolEl.options).some(opt => opt.value === row.school);
+    if(schoolExists) modalSchoolEl.value = row.school;
+    modalSchoolEl.dispatchEvent(new Event('change'));
+  }
+  if(modalCourseEl){
+    const courseExists = Array.from(modalCourseEl.options).some(opt => opt.value === row.program);
+    if(courseExists) modalCourseEl.value = row.program;
+  }
+  updateZoomSuggestion();
+}
 
-  potentialTableBodyEl.querySelectorAll('.completed-checkbox').forEach(checkbox => {
-    checkbox.addEventListener('change', (e)=> toggleCompleted(e.target.dataset.id, e.target.checked));
+function assignFromPotentialById(id){
+  const row = potentialData.find(item => String(item.id) === String(id));
+  if(!row) return;
+  assignFromPotential(row).catch(err => {
+    console.error(err);
+    alert('שגיאה בתהליך השיבוץ מהפוטנציאל.');
   });
 }
 
@@ -1755,6 +1867,7 @@ async function updateRow(id, notes, completed){
       startTime:row.startTime,
       endTime:row.endTime,
       notes:row.notes,
+      status:row.status || '',
       completed:row.completed
     })
   });
@@ -1817,7 +1930,7 @@ potentialNavBtn.addEventListener('click', async ()=>{
     }
   }catch(err){
     if(!isPotentialOpen){
-      potentialTableBodyEl.innerHTML = '';
+      potentialCalendarEl.innerHTML = '';
       potentialEmptyEl.style.display = 'block';
       potentialEmptyEl.textContent = 'שגיאה בטעינת נתוני פוטנציאל.';
     }
@@ -1829,7 +1942,6 @@ potentialNavBtn.addEventListener('click', async ()=>{
 async function initApp(){
   await loadSchedule();
   render();
-  renderPotentialTabs();
 }
 
 window.onload = initApp;
