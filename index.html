@@ -1,99 +1,90 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>מערכת ניהול Zoom - תעשיידע</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zoom Scheduler</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <div style="font-weight:800;font-size:16px">מערכת ניהול Zoom</div>
-      <div id="weekLabel" style="color:#6b7280;font-size:13px"></div>
-    </div>
-
+  <div class="app">
     <div class="toolbar">
-      <input id="searchInstructor" placeholder="חיפוש מדריך..." />
-      <select id="filterZoom">
-        <option value="">כל ה-Zoom</option>
-        <option value="Zoom1">Zoom1</option>
-        <option value="Zoom2">Zoom2</option>
-        <option value="Zoom3">Zoom3</option>
+
+      <select id="viewMode">
+        <option value="schedule">שיבוץ</option>
+        <option value="potential">פוטנציאל</option>
       </select>
-      <button id="reloadData">רענן</button>
-      <button id="resetSchedule" class="danger">נקה לו״ז</button>
+
+      <input id="searchInput" placeholder="חיפוש (רשות / בית ספר / מדריך / תוכנית)" />
+
+      <button id="reloadBtn">רענון</button>
+
+      <!-- חדש: ניווט שבוע -->
+      <div class="week-nav">
+        <button id="prevWeek" type="button" class="week-btn">‹ שבוע</button>
+        <button id="todayWeek" type="button" class="week-btn">היום</button>
+        <button id="nextWeek" type="button" class="week-btn">שבוע ›</button>
+        <input id="weekPicker" type="date" class="week-date" />
+        <div id="weekLabel" class="week-label"></div>
+      </div>
+
     </div>
-  </header>
 
-  <main>
-    <section class="panel">
-      <h2>לו״ז שבועי</h2>
-      <div id="board"></div>
-    </section>
+    <div id="board" class="board"></div>
 
-    <aside class="panel">
-      <h2>פוטנציאל</h2>
-      <div style="padding:10px;display:flex;gap:8px">
-        <button id="potentialSave" class="primary" style="flex:1">שמור פוטנציאל</button>
+    <div id="potentialPanel" class="panel" style="display:none;">
+      <h3>רשומות פוטנציאל</h3>
+      <div id="potentialList" class="potential-list"></div>
+    </div>
+
+    <!-- modal -->
+    <div id="modalOverlay" class="modal-overlay" style="display:none;">
+      <div class="modal">
+        <div class="modal-head">
+          <div id="modalTitle" class="modal-title"></div>
+          <button id="modalCloseBtn" class="modal-close">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="grid">
+            <label>תאריך</label>
+            <input id="mDate" type="date" />
+
+            <label>שעה התחלה</label>
+            <select id="mStart"></select>
+
+            <label>שעה סיום</label>
+            <select id="mEnd"></select>
+
+            <label>רשות</label>
+            <input id="mAuthority" />
+
+            <label>בית ספר</label>
+            <input id="mSchool" />
+
+            <label>תוכנית</label>
+            <input id="mProgram" />
+
+            <label>מדריך</label>
+            <input id="mEmployee" />
+
+            <label>Zoom</label>
+            <select id="mZoom"></select>
+
+            <label>הערות</label>
+            <input id="mNotes" />
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="saveBtn">שמירה</button>
+          <button id="deleteBtn" class="danger">מחיקה</button>
+        </div>
       </div>
-      <div id="potentialList"></div>
-    </aside>
-  </main>
+    </div>
 
-  <dialog id="assignModal">
-    <form id="assignForm" class="modal">
-      <h3>שיבוץ</h3>
+  </div>
 
-      <div class="grid">
-        <div class="full hint" id="roundingHint" style="display:none"></div>
-
-        <label class="full">
-          תאריך
-          <input name="date" id="assignDate" readonly />
-        </label>
-
-        <label>
-          שעה (Slot)
-          <select name="slot" id="assignSlot"></select>
-        </label>
-
-        <label>
-          Zoom (אופציונלי)
-          <select name="zoom" id="assignZoom">
-            <option value="">אוטומטי</option>
-            <option value="Zoom1">Zoom1</option>
-            <option value="Zoom2">Zoom2</option>
-            <option value="Zoom3">Zoom3</option>
-          </select>
-        </label>
-
-        <label class="full">
-          מדריך
-          <select name="instructor" id="assignInstructor"></select>
-        </label>
-
-        <label class="full">
-          בית ספר
-          <input name="school" id="assignSchool" />
-        </label>
-
-        <label class="full">
-          תוכנית
-          <input name="course" id="assignCourse" />
-        </label>
-      </div>
-
-      <div style="display:flex;gap:8px;justify-content:flex-start;margin-top:12px">
-        <button type="submit" class="primary">שבץ</button>
-        <button type="button" id="closeModal">ביטול</button>
-      </div>
-    </form>
-  </dialog>
-
-  <script type="module">
-    import { init } from "./ui.js";
-    init();
-  </script>
+  <script type="module" src="./ui.js"></script>
 </body>
 </html>

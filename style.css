@@ -196,3 +196,32 @@ dialog{
   font-size:13px;
   line-height:1.35;
 }
+
+.week-nav{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-start;
+  flex-wrap:wrap;
+}
+
+.week-btn{
+  cursor:pointer;
+  background:#eef2ff;
+  border:1px solid #c8d1e0;
+  border-radius:8px;
+  padding:0 10px;
+}
+
+.week-btn:hover{
+  filter:brightness(0.97);
+}
+
+.week-date{
+  width:160px;
+}
+
+.week-label{
+  font-weight:700;
+  color:#1e293b;
+}
