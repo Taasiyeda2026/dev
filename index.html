@@ -1,88 +1,108 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Zoom Scheduler</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>מערכת שיבוץ Zoom</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div class="app">
-    <div class="toolbar">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>מערכת שיבוץ Zoom</h1>
+      <div id="weekLabel" class="week-label"></div>
+    </div>
 
-      <select id="viewMode">
-        <option value="schedule">שיבוץ</option>
+    <div class="topbar-right">
+      <div class="week-nav">
+        <button id="prevWeek" class="btn">◀ שבוע קודם</button>
+        <button id="todayWeek" class="btn btn-primary">היום</button>
+        <button id="nextWeek" class="btn">שבוע הבא ▶</button>
+
+        <input id="weekPicker" class="input" type="date" />
+      </div>
+
+      <select id="viewMode" class="input">
+        <option value="schedule">שיבוצים</option>
         <option value="potential">פוטנציאל</option>
       </select>
 
-      <input id="searchInput" placeholder="חיפוש (רשות / בית ספר / מדריך / תוכנית)" />
-
-      <button id="reloadBtn">רענון</button>
-
-      <!-- חדש: ניווט שבוע -->
-      <div class="week-nav">
-        <button id="prevWeek" type="button" class="week-btn">‹ שבוע</button>
-        <button id="todayWeek" type="button" class="week-btn">היום</button>
-        <button id="nextWeek" type="button" class="week-btn">שבוע ›</button>
-        <input id="weekPicker" type="date" class="week-date" />
-        <div id="weekLabel" class="week-label"></div>
-      </div>
-
+      <input id="searchInput" class="input" type="text" placeholder="חיפוש (רשות/בית ספר/מדריך/תכנית)..." />
+      <button id="reloadBtn" class="btn">רענון</button>
     </div>
+  </header>
 
-    <div id="board" class="board"></div>
+  <main class="layout">
+    <section class="board-wrap">
+      <div id="board" class="board"></div>
+    </section>
 
-    <div id="potentialPanel" class="panel" style="display:none;">
-      <h3>רשומות פוטנציאל</h3>
+    <aside id="potentialPanel" class="potential">
+      <div class="panel-title">פוטנציאל</div>
       <div id="potentialList" class="potential-list"></div>
-    </div>
+    </aside>
+  </main>
 
-    <!-- modal -->
-    <div id="modalOverlay" class="modal-overlay" style="display:none;">
-      <div class="modal">
-        <div class="modal-head">
-          <div id="modalTitle" class="modal-title"></div>
-          <button id="modalCloseBtn" class="modal-close">✕</button>
+  <!-- MODAL -->
+  <div id="modalOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <div id="modalTitle" class="modal-title"></div>
+        <button id="modalCloseBtn" class="btn">סגור</button>
+      </div>
+
+      <div class="modal-grid">
+        <div class="field">
+          <label>תאריך</label>
+          <input id="mDate" class="input" type="text" disabled />
         </div>
 
-        <div class="modal-body">
-          <div class="grid">
-            <label>תאריך</label>
-            <input id="mDate" type="date" />
-
-            <label>שעה התחלה</label>
-            <select id="mStart"></select>
-
-            <label>שעה סיום</label>
-            <select id="mEnd"></select>
-
-            <label>רשות</label>
-            <input id="mAuthority" />
-
-            <label>בית ספר</label>
-            <input id="mSchool" />
-
-            <label>תוכנית</label>
-            <input id="mProgram" />
-
-            <label>מדריך</label>
-            <input id="mEmployee" />
-
-            <label>Zoom</label>
-            <select id="mZoom"></select>
-
-            <label>הערות</label>
-            <input id="mNotes" />
-          </div>
+        <div class="field">
+          <label>שעה התחלה</label>
+          <select id="mStart" class="input"></select>
         </div>
 
-        <div class="modal-actions">
-          <button id="saveBtn">שמירה</button>
-          <button id="deleteBtn" class="danger">מחיקה</button>
+        <div class="field">
+          <label>שעה סיום</label>
+          <select id="mEnd" class="input"></select>
+        </div>
+
+        <div class="field">
+          <label>רשות</label>
+          <input id="mAuthority" class="input" type="text" />
+        </div>
+
+        <div class="field">
+          <label>בית ספר</label>
+          <input id="mSchool" class="input" type="text" />
+        </div>
+
+        <div class="field">
+          <label>תכנית</label>
+          <input id="mProgram" class="input" type="text" />
+        </div>
+
+        <div class="field">
+          <label>מדריך</label>
+          <input id="mEmployee" class="input" type="text" />
+        </div>
+
+        <div class="field">
+          <label>Zoom</label>
+          <select id="mZoom" class="input"></select>
+        </div>
+
+        <div class="field field-wide">
+          <label>הערות</label>
+          <input id="mNotes" class="input" type="text" />
         </div>
       </div>
-    </div>
 
+      <div class="modal-actions">
+        <button id="deleteBtn" class="btn btn-danger">מחיקה</button>
+        <button id="saveBtn" class="btn btn-primary">שמירה</button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="./ui.js"></script>
