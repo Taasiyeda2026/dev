@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zoom Scheduler</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="toolbar">
+        <input id="searchInstructor" type="search" placeholder="חיפוש מדריך" />
+        <select id="filterZoom">
+          <option value="">כל חשבונות Zoom</option>
+          <option value="Zoom1">Zoom1</option>
+          <option value="Zoom2">Zoom2</option>
+          <option value="Zoom3">Zoom3</option>
+        </select>
+        <button id="reloadData" type="button">רענון</button>
+        <button id="potentialSave" type="button">שמור</button>
+        <button id="resetSchedule" type="button">RESET</button>
+        <strong id="weekLabel"></strong>
+      </section>
+
+      <section id="board" class="board" aria-label="schedule board"></section>
+
+      <section class="potential" aria-label="potential view">
+        <h2>פוטנציאל</h2>
+        <div id="potentialList"></div>
+      </section>
+    </main>
+
+    <dialog id="assignModal">
+      <form id="assignForm" class="form-grid" method="dialog">
+        <label>תאריך <input name="date" readonly /></label>
+        <label>שעה <input name="slot" readonly /></label>
+        <label>מדריך <input name="instructor" required /></label>
+        <label>בית ספר <input name="school" required /></label>
+        <label style="grid-column: 1 / -1">קורס <input name="course" required /></label>
+        <div class="actions" style="grid-column: 1 / -1">
+          <button id="closeModal" type="button">סגור</button>
+          <button type="submit">שמור שיבוץ</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./config.js"></script>
+    <script type="module" src="./api.js"></script>
+    <script type="module" src="./scheduler.js"></script>
+    <script type="module" src="./ui.js"></script>
+    <script type="module">
+      import { init } from "./ui.js";
+      init();
+    </script>
+  </body>
+</html>
