@@ -696,10 +696,6 @@ let activeScheduleDates = [];
 
 // סדר טווחי שעות קבוע להצגה במערכת
 const TIME_SLOTS = [
-  "08:00-10:00",
-  "10:00-12:00",
-  "12:00-14:00",
-  "14:00-16:00",
   "08:00-09:00",
   "09:00-10:00",
   "10:00-11:00",
@@ -906,7 +902,9 @@ function getWeekDates(baseDate){
   if(!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) return [];
 
   const sunday = new Date(inputDate);
-  sunday.setDate(inputDate.getDate() - inputDate.getDay());
+  while(sunday.getDay() !== 0){
+    sunday.setDate(sunday.getDate() - 1);
+  }
 
   return Array.from({ length: 5 }, (_, idx) => {
     const d = new Date(sunday);
@@ -1363,15 +1361,32 @@ async function loadSchedule(){
 }
 
 async function addItem(day, time, instructor, zoom, school='', course='', potentialId=''){
-  const zoomLink = ZOOM_LINKS[zoom] || "";
+  let zoomAccount = LEGACY_TO_ZOOM_ACCOUNT[zoom] || zoom;
+  if(!zoomAccount || !ZOOM_ACCOUNTS.includes(zoomAccount)){
+    zoomAccount = pickZoomForSlot(day, time, instructor) || ZOOM_ACCOUNTS[0];
+  }
+  const normalizedZoom = ZOOM_ACCOUNT_TO_LEGACY[zoomAccount] || zoom;
+  const zoomLink = ZOOM_LINKS[normalizedZoom] || "";
   const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({ action: "add", day, time, instructor, zoom, zoomLink, school, course, potentialId })
+    body: JSON.stringify({
+      action: "add",
+      day,
+      time,
+      instructor,
+      zoomAccount,
+      zoom: normalizedZoom,
+      zoomLink,
+      school,
+      course,
+      potentialId
+    })
   });
   const data = await res.json();
   scheduleData = (Array.isArray(data) ? data : (data.data || [])).map(normalizeEvent);
   schedule = scheduleData;
+  renderSchedule();
 }
 
 async function deleteItemByEvent(ev){
@@ -1490,7 +1505,7 @@ async function saveAssignment(){
 
   const pendingPotentialId = window.pendingAssignment?.potentialId || modalState.potentialId || '';
 
-  if(pendingPotentialId && schedule.some(e => String(e.potentialId || '') === String(pendingPotentialId))){
+  if(scheduleData.some(e => e.potentialId && String(e.potentialId) === String(pendingPotentialId))){
     modalStatusEl.textContent = 'פעילות זו כבר שובצה';
     return;
   }
@@ -1511,7 +1526,9 @@ async function saveAssignment(){
   }
 
   // לא לשבץ אותו Zoom באותה משבצת (זהה)
-  if(getEventsInCell(date, time).some(e => e.zoom === zoom)){
+  if(getEventsInCell(date, time).some(e =>
+    (e.zoomAccount || LEGACY_TO_ZOOM_ACCOUNT[e.zoom] || e.zoom) === zoomAccount
+  )){
     modalStatusEl.textContent = 'חשבון Zoom זה כבר משובץ במשבצת זו.';
     return;
   }
@@ -1529,7 +1546,7 @@ async function saveAssignment(){
 
     const onAssigned = modalState.onAssigned;
     closeModal();
-    render();
+    renderSchedule();
     if(onAssigned) await onAssigned();
   }catch(err){
     modalStatusEl.textContent = 'שגיאה בשמירה. בדוק הרשאות/פריסה של הסקריפט.';
@@ -1544,7 +1561,7 @@ function render(){
   boardEl.innerHTML = '';
 
   boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
-  boardEl.style.gridTemplateColumns = `90px repeat(${activeScheduleDates.length}, 120px)`;
+  boardEl.style.gridTemplateColumns = `90px repeat(5, 120px)`;
   boardEl.style.minWidth = `${90 + activeScheduleDates.length * 120}px`;
   activeScheduleDates.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(getWeekdayName(d))}</div>`));
 
@@ -1591,6 +1608,7 @@ function render(){
 }
 
 function renderSchedule(){
+  activeScheduleDates = getWeekDates(currentBaseDate);
   render();
 }
 
@@ -1746,7 +1764,15 @@ const potentialEmptyEl = document.getElementById('potentialEmpty');
 const potentialMonthBtn = document.getElementById('potentialMonthBtn');
 
 function normalizePotentialDate(dateStr){
-  if(dateStr instanceof Date && !isNaN(dateStr)){
+  const isValidDateParts = (yyyy, mm, dd)=>{
+    const parsed = new Date(yyyy, mm - 1, dd);
+    return !Number.isNaN(parsed.getTime()) &&
+      parsed.getFullYear() === yyyy &&
+      parsed.getMonth() === mm - 1 &&
+      parsed.getDate() === dd;
+  };
+
+  if(dateStr instanceof Date && !Number.isNaN(dateStr.getTime())){
     return formatDateKey(dateStr);
   }
 
@@ -1755,23 +1781,26 @@ function normalizePotentialDate(dateStr){
 
   const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if(iso){
-    const dd = iso[3].padStart(2,'0');
-    const mm = iso[2].padStart(2,'0');
-    return `${dd}/${mm}/${iso[1]}`;
+    const yyyy = Number(iso[1]);
+    const mm = Number(iso[2]);
+    const dd = Number(iso[3]);
+    if(!isValidDateParts(yyyy, mm, dd)) return '';
+    return `${String(dd).padStart(2,'0')}/${String(mm).padStart(2,'0')}/${yyyy}`;
   }
 
   const dmy = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if(dmy){
-    const dd = dmy[1].padStart(2,'0');
-    const mm = dmy[2].padStart(2,'0');
-    const yyyy = dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3];
-    return `${dd}/${mm}/${yyyy}`;
+    const dd = Number(dmy[1]);
+    const mm = Number(dmy[2]);
+    const yyyy = Number(dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]);
+    if(!isValidDateParts(yyyy, mm, dd)) return '';
+    return `${String(dd).padStart(2,'0')}/${String(mm).padStart(2,'0')}/${yyyy}`;
   }
 
   const parsed = new Date(raw);
-  if(!isNaN(parsed)) return formatDateKey(parsed);
+  if(!Number.isNaN(parsed.getTime())) return formatDateKey(parsed);
 
-  return raw;
+  return '';
 }
 
 function parseCompleted(value){
@@ -1868,30 +1897,19 @@ function normalizeTime(startTime,endTime){
 
 function findSlot(startTime, endTime){
   const targetStart = toMinutes(startTime);
-  const targetEnd = toMinutes(endTime);
-  const exact = TIME_SLOTS.find(slot => {
-    const parsed = parseSlot(slot);
-    return parsed.start === targetStart && parsed.end === targetEnd;
+  const slot = TIME_SLOTS.find(s=>{
+    const parsed = parseSlot(s);
+    return parsed.start === targetStart;
   });
-  if(exact) return exact;
-
-  const covering = TIME_SLOTS
-    .map(slot => ({ slot, parsed: parseSlot(slot) }))
-    .filter(item => item.parsed.start <= targetStart && item.parsed.end >= targetEnd)
-    .sort((a,b)=>{
-      const widthA = a.parsed.end - a.parsed.start;
-      const widthB = b.parsed.end - b.parsed.start;
-      if(widthA !== widthB) return widthA - widthB;
-      return TIME_SLOTS.indexOf(a.slot) - TIME_SLOTS.indexOf(b.slot);
-    });
-
-  return covering[0]?.slot || null;
+  return slot || null;
 }
 
 function convertDateToScheduleDate(dateStr){
   const normalized = normalizePotentialDate(dateStr);
-  if(activeScheduleDates.includes(normalized)) return normalized;
-  return null;
+  if(!activeScheduleDates.includes(normalized)){
+    return null;
+  }
+  return normalized;
 }
 
 function canAssignSlot(date, slot, instructor, potentialId=''){
@@ -1903,7 +1921,8 @@ function canAssignSlot(date, slot, instructor, potentialId=''){
     return { ok:false, reason:'outside_schedule' };
   }
 
-  if(scheduleData.some(e => e.day === date && e.time === slot)){
+  const eventsInSlot = scheduleData.filter(e => e.day === date && e.time === slot);
+  if(eventsInSlot.length >= ZOOM_ACCOUNTS.length){
     return { ok:false, reason:'slot' };
   }
 
@@ -1975,7 +1994,8 @@ function checkPotentialAssignment(row){
     return { ok:false, status:'no_available_slot', reason:'outside_schedule' };
   }
 
-  if(scheduleData.some(e => e.day === date && e.time === slot)){
+  const eventsInSlot = scheduleData.filter(e => e.day === date && e.time === slot);
+  if(eventsInSlot.length >= ZOOM_ACCOUNTS.length){
     row.status = 'slot_conflict';
     return { ok:false, status:'slot_conflict', reason:'slot' };
   }
