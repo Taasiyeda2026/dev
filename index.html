@@ -1,56 +1,99 @@
 <!doctype html>
 <html lang="he" dir="rtl">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zoom Scheduler</title>
-    <link rel="stylesheet" href="./style.css" />
-  </head>
-  <body>
-    <main class="app">
-      <section class="toolbar">
-        <input id="searchInstructor" type="search" placeholder="חיפוש מדריך" />
-        <select id="filterZoom">
-          <option value="">כל חשבונות Zoom</option>
-          <option value="Zoom1">Zoom1</option>
-          <option value="Zoom2">Zoom2</option>
-          <option value="Zoom3">Zoom3</option>
-        </select>
-        <button id="reloadData" type="button">רענון</button>
-        <button id="potentialSave" type="button">שמור</button>
-        <button id="resetSchedule" type="button">RESET</button>
-        <strong id="weekLabel"></strong>
-      </section>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>מערכת ניהול Zoom - תעשיידע</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <div>
+      <div style="font-weight:800;font-size:16px">מערכת ניהול Zoom</div>
+      <div id="weekLabel" style="color:#6b7280;font-size:13px"></div>
+    </div>
 
-      <section id="board" class="board" aria-label="schedule board"></section>
+    <div class="toolbar">
+      <input id="searchInstructor" placeholder="חיפוש מדריך..." />
+      <select id="filterZoom">
+        <option value="">כל ה-Zoom</option>
+        <option value="Zoom1">Zoom1</option>
+        <option value="Zoom2">Zoom2</option>
+        <option value="Zoom3">Zoom3</option>
+      </select>
+      <button id="reloadData">רענן</button>
+      <button id="resetSchedule" class="danger">נקה לו״ז</button>
+    </div>
+  </header>
 
-      <section class="potential" aria-label="potential view">
-        <h2>פוטנציאל</h2>
-        <div id="potentialList"></div>
-      </section>
-    </main>
+  <main>
+    <section class="panel">
+      <h2>לו״ז שבועי</h2>
+      <div id="board"></div>
+    </section>
 
-    <dialog id="assignModal">
-      <form id="assignForm" class="form-grid" method="dialog">
-        <label>תאריך <input name="date" readonly /></label>
-        <label>שעה <input name="slot" readonly /></label>
-        <label>מדריך <input name="instructor" required /></label>
-        <label>בית ספר <input name="school" required /></label>
-        <label style="grid-column: 1 / -1">קורס <input name="course" required /></label>
-        <div class="actions" style="grid-column: 1 / -1">
-          <button id="closeModal" type="button">סגור</button>
-          <button type="submit">שמור שיבוץ</button>
-        </div>
-      </form>
-    </dialog>
+    <aside class="panel">
+      <h2>פוטנציאל</h2>
+      <div style="padding:10px;display:flex;gap:8px">
+        <button id="potentialSave" class="primary" style="flex:1">שמור פוטנציאל</button>
+      </div>
+      <div id="potentialList"></div>
+    </aside>
+  </main>
 
-    <script type="module" src="./config.js"></script>
-    <script type="module" src="./api.js"></script>
-    <script type="module" src="./scheduler.js"></script>
-    <script type="module" src="./ui.js"></script>
-    <script type="module">
-      import { init } from "./ui.js";
-      init();
-    </script>
-  </body>
+  <dialog id="assignModal">
+    <form id="assignForm" class="modal">
+      <h3>שיבוץ</h3>
+
+      <div class="grid">
+        <div class="full hint" id="roundingHint" style="display:none"></div>
+
+        <label class="full">
+          תאריך
+          <input name="date" id="assignDate" readonly />
+        </label>
+
+        <label>
+          שעה (Slot)
+          <select name="slot" id="assignSlot"></select>
+        </label>
+
+        <label>
+          Zoom (אופציונלי)
+          <select name="zoom" id="assignZoom">
+            <option value="">אוטומטי</option>
+            <option value="Zoom1">Zoom1</option>
+            <option value="Zoom2">Zoom2</option>
+            <option value="Zoom3">Zoom3</option>
+          </select>
+        </label>
+
+        <label class="full">
+          מדריך
+          <select name="instructor" id="assignInstructor"></select>
+        </label>
+
+        <label class="full">
+          בית ספר
+          <input name="school" id="assignSchool" />
+        </label>
+
+        <label class="full">
+          תוכנית
+          <input name="course" id="assignCourse" />
+        </label>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-start;margin-top:12px">
+        <button type="submit" class="primary">שבץ</button>
+        <button type="button" id="closeModal">ביטול</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { init } from "./ui.js";
+    init();
+  </script>
+</body>
 </html>

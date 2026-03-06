@@ -1,3 +1,4 @@
+// api.js
 import { API_URL } from "./config.js";
 
 async function request(url, options = {}) {
@@ -32,7 +33,6 @@ export async function deleteEvent(eventData) {
 export async function clearSchedule() {
   return request(`${API_URL}?action=clear`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
   });
 }
 
