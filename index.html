@@ -846,6 +846,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbxZ-2qO_KuJxNE03qyNZVMK
 let schedule = [];
 let potentialData = [];
 let pendingPotentialUpdates = new Set();
+window.pendingAssignment = window.pendingAssignment || null;
 let selectedPotentialMonth = '03/2026';
 let saveStatusHideTimer = null;
 const POTENTIAL_DAYS = ['א','ב','ג','ד','ה'];
@@ -1332,7 +1333,9 @@ async function saveAssignment(){
     return;
   }
 
-  if(modalState.potentialId && schedule.some(e => String(e.potentialId || '') === String(modalState.potentialId))){
+  const pendingPotentialId = window.pendingAssignment?.potentialId || modalState.potentialId || '';
+
+  if(pendingPotentialId && schedule.some(e => String(e.potentialId || '') === String(pendingPotentialId))){
     modalStatusEl.textContent = 'פעילות זו כבר שובצה';
     return;
   }
@@ -1359,8 +1362,14 @@ async function saveAssignment(){
   setSaveBtnLoading(true);
 
   try{
-    await addItem(day, time, instructor, zoom, school, course, modalState.potentialId || '');
+    await addItem(day, time, instructor, zoom, school, course, pendingPotentialId);
     await repairSequences();
+
+    if(window.pendingAssignment?.potentialId){
+      await markPotentialAsAssigned(window.pendingAssignment.potentialId);
+      window.pendingAssignment = null;
+    }
+
     const onAssigned = modalState.onAssigned;
     closeModal();
     render();
@@ -1672,6 +1681,64 @@ function normalizeTimes(startTime,endTime){
   return { startTime: start, endTime: end, time: `${start}-${end}` };
 }
 
+function convertDateToDay(dateStr){
+  const dayLetter = getPotentialDayLetter(dateStr);
+  return POTENTIAL_DAY_TO_SCHEDULE[dayLetter] || null;
+}
+
+function prepareAssignment(row){
+  const normalized = normalizeTimes(row.startTime, row.endTime);
+  if(!normalized) return null;
+
+  return {
+    potentialId: row.id,
+    date: row.date,
+    start: normalized.startTime,
+    end: normalized.endTime,
+    instructor: row.employee,
+    school: row.school,
+    course: row.program
+  };
+}
+
+function prefillAssignment(data){
+  if(!data) return;
+
+  const day = convertDateToDay(data.date);
+  const time = `${data.start}-${data.end}`;
+  if(!day) return;
+
+  openModal(day, time, { potentialId: data.potentialId || null });
+
+  const instructorSelect = document.querySelector('#modalInstructor') || document.querySelector('#instructorSelect');
+  const schoolSelect = document.querySelector('#modalSchool') || document.querySelector('#schoolSelect');
+  const courseSelect = document.querySelector('#modalCourse') || document.querySelector('#courseSelect');
+
+  if(instructorSelect){
+    instructorSelect.value = data.instructor || '';
+    populateInstructorDetails();
+  }
+
+  if(schoolSelect){
+    const schoolExists = Array.from(schoolSelect.options || []).some(opt => opt.value === data.school);
+    if(schoolExists) schoolSelect.value = data.school || '';
+    schoolSelect.dispatchEvent(new Event('change'));
+  }
+
+  if(courseSelect){
+    const courseExists = Array.from(courseSelect.options || []).some(opt => opt.value === data.course);
+    if(courseExists) courseSelect.value = data.course || '';
+  }
+
+  updateZoomSuggestion();
+}
+
+function consumePendingAssignment(){
+  if(window.pendingAssignment){
+    prefillAssignment(window.pendingAssignment);
+  }
+}
+
 function getReasonLabel(reason, suggestion=''){
   if(reason === 'assigned') return { text:'שובץ', css:'assigned' };
   if(reason === 'zoom') return { text:'🔴 אין זום פנוי' + suggestion, css:'bad' };
@@ -1757,7 +1824,9 @@ function renderPotential(data){
           const items = week.days[day] || [];
           return `<div class="potential-day-col"><div class="potential-day-head">${day}</div><div class="potential-day-body">${items.map(row => {
             const check = canSchedulePotential(row);
-            const label = getReasonLabel(check.reason, check.suggestion || '');
+            const label = check.ok
+              ? getReasonLabel(check.reason, check.suggestion || '')
+              : (check.reason === 'assigned' ? getReasonLabel(check.reason, check.suggestion || '') : { text:'אין זום פנוי', css:'bad' });
             return `<article class="potential-item" data-id="${escHtml(row.id)}">
               <div class="potential-item-row"><b>רשות:</b> ${escHtml(row.authority)}</div>
               <div class="potential-item-row"><b>בית ספר:</b> ${escHtml(row.school)}</div>
@@ -1800,35 +1869,38 @@ async function assignFromPotential(row){
     return;
   }
 
-  row.startTime = check.normalized.startTime;
-  row.endTime = check.normalized.endTime;
-  pendingPotentialUpdates.add(row.id);
+  const assignment = prepareAssignment(row);
+  if(!assignment) return;
+
+  row.startTime = assignment.start;
+  row.endTime = assignment.end;
+  window.pendingAssignment = assignment;
 
   await loadPage('schedule');
+}
 
-  openModal(check.day, check.time, {
-    potentialId: row.id,
-    onAssigned: async ()=>{
-      row.status = 'assigned';
-      row.completed = true;
-      pendingPotentialUpdates.add(row.id);
-      await saveData();
-      await loadPage('potential');
-    }
+async function markPotentialAsAssigned(potentialId){
+  if(!potentialId) return;
+
+  const row = potentialData.find(item => String(item.id) === String(potentialId));
+  if(row){
+    row.status = 'assigned';
+    row.completed = true;
+  }
+
+  await fetch(API_URL,{
+    method:"POST",
+    headers:{ "Content-Type":"text/plain" },
+    body: JSON.stringify({
+      action:"updatepotential",
+      id: potentialId,
+      startTime: row?.startTime || '',
+      endTime: row?.endTime || '',
+      notes: row?.notes || '',
+      status: 'assigned',
+      completed: true
+    })
   });
-
-  modalInstructorEl.value = row.employee;
-  populateInstructorDetails();
-  if(modalSchoolEl){
-    const schoolExists = Array.from(modalSchoolEl.options).some(opt => opt.value === row.school);
-    if(schoolExists) modalSchoolEl.value = row.school;
-    modalSchoolEl.dispatchEvent(new Event('change'));
-  }
-  if(modalCourseEl){
-    const courseExists = Array.from(modalCourseEl.options).some(opt => opt.value === row.program);
-    if(courseExists) modalCourseEl.value = row.program;
-  }
-  updateZoomSuggestion();
 }
 
 function assignFromPotentialById(id){
@@ -1916,6 +1988,7 @@ async function loadPage(view){
   await loadSchedule();
   render();
   openScheduleView();
+  consumePendingAssignment();
 }
 
 potentialNavBtn.addEventListener('click', async ()=>{
@@ -1942,6 +2015,7 @@ potentialNavBtn.addEventListener('click', async ()=>{
 async function initApp(){
   await loadSchedule();
   render();
+  consumePendingAssignment();
 }
 
 window.onload = initApp;
