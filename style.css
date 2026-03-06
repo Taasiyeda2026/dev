@@ -1,227 +1,110 @@
-:root{
-  --bg:#f6f7fb;
-  --panel:#ffffff;
-  --border:#e5e7eb;
-  --text:#111827;
-  --muted:#6b7280;
-  --accent:#6366f1;
-  --danger:#ef4444;
-  --ok:#10b981;
-}
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>מערכת שיבוץ Zoom</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>מערכת שיבוץ Zoom</h1>
+      <div id="weekLabel" class="week-label"></div>
+    </div>
 
-*{box-sizing:border-box}
+    <div class="topbar-right">
+      <div class="week-nav">
+        <button id="prevWeek" class="btn">◀ שבוע קודם</button>
+        <button id="todayWeek" class="btn btn-primary">היום</button>
+        <button id="nextWeek" class="btn">שבוע הבא ▶</button>
 
-body{
-  margin:0;
-  font-family: Heebo, Segoe UI, Arial, sans-serif;
-  background:var(--bg);
-  color:var(--text);
-}
+        <input id="weekPicker" class="input" type="date" />
+      </div>
 
-header{
-  padding:14px 16px;
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:space-between;
-}
+      <select id="viewMode" class="input">
+        <option value="schedule">שיבוצים</option>
+        <option value="potential">פוטנציאל</option>
+      </select>
 
-.toolbar{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  flex-wrap:wrap;
-}
+      <input id="searchInput" class="input" type="text" placeholder="חיפוש (רשות/בית ספר/מדריך/תכנית)..." />
+      <button id="reloadBtn" class="btn">רענון</button>
+    </div>
+  </header>
 
-input, select, button{
-  font:inherit;
-}
+  <main class="layout">
+    <section class="board-wrap">
+      <div id="board" class="board"></div>
+    </section>
 
-input, select{
-  padding:8px 10px;
-  border:1px solid var(--border);
-  border-radius:10px;
-  background:#fff;
-}
+    <aside id="potentialPanel" class="potential">
+      <div class="panel-title">פוטנציאל</div>
+      <div id="potentialList" class="potential-list"></div>
+    </aside>
+  </main>
 
-button{
-  padding:8px 12px;
-  border:1px solid var(--border);
-  border-radius:10px;
-  background:#fff;
-  cursor:pointer;
-}
+  <!-- MODAL -->
+  <div id="modalOverlay" class="modal-overlay" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <div id="modalTitle" class="modal-title"></div>
+        <button id="modalCloseBtn" class="btn">סגור</button>
+      </div>
 
-button.primary{
-  background:var(--accent);
-  color:#fff;
-  border-color:transparent;
-}
+      <div class="modal-grid">
+        <div class="field">
+          <label>תאריך</label>
+          <input id="mDate" class="input" type="text" disabled />
+        </div>
 
-button.danger{
-  background:var(--danger);
-  color:#fff;
-  border-color:transparent;
-}
+        <div class="field">
+          <label>שעה התחלה</label>
+          <select id="mStart" class="input"></select>
+        </div>
 
-button:disabled{
-  opacity:.5;
-  cursor:not-allowed;
-}
+        <div class="field">
+          <label>שעה סיום</label>
+          <select id="mEnd" class="input"></select>
+        </div>
 
-main{
-  padding:0 16px 16px;
-  display:grid;
-  grid-template-columns: 1fr 360px;
-  gap:12px;
-}
+        <div class="field">
+          <label>רשות</label>
+          <input id="mAuthority" class="input" type="text" />
+        </div>
 
-.panel{
-  background:var(--panel);
-  border:1px solid var(--border);
-  border-radius:14px;
-  overflow:hidden;
-}
+        <div class="field">
+          <label>בית ספר</label>
+          <input id="mSchool" class="input" type="text" />
+        </div>
 
-.panel h2{
-  margin:0;
-  padding:12px 12px;
-  border-bottom:1px solid var(--border);
-  font-size:16px;
-}
+        <div class="field">
+          <label>תכנית</label>
+          <input id="mProgram" class="input" type="text" />
+        </div>
 
-#board{
-  display:grid;
-  gap:0;
-}
+        <div class="field">
+          <label>מדריך</label>
+          <input id="mEmployee" class="input" type="text" />
+        </div>
 
-.cell{
-  border-bottom:1px solid var(--border);
-  border-left:1px solid var(--border);
-  min-height:74px;
-  padding:8px;
-  position:relative;
-}
+        <div class="field">
+          <label>Zoom</label>
+          <select id="mZoom" class="input"></select>
+        </div>
 
-.cell.head, .cell.time{
-  background:#fafafa;
-  font-weight:700;
-  color:#111827;
-}
+        <div class="field field-wide">
+          <label>הערות</label>
+          <input id="mNotes" class="input" type="text" />
+        </div>
+      </div>
 
-.cell.time{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
+      <div class="modal-actions">
+        <button id="deleteBtn" class="btn btn-danger">מחיקה</button>
+        <button id="saveBtn" class="btn btn-primary">שמירה</button>
+      </div>
+    </div>
+  </div>
 
-.add-btn{
-  position:absolute;
-  top:8px;
-  left:8px;
-  width:28px;
-  height:28px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:#fff;
-  cursor:pointer;
-}
-
-.event{
-  margin-top:28px;
-  padding:8px 10px;
-  border-radius:12px;
-  background:#eef2ff;
-  border:1px solid #dbeafe;
-  cursor:pointer;
-}
-
-.event small{
-  color:var(--muted);
-}
-
-.potential-item{
-  padding:12px;
-  border-bottom:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-
-.potential-actions{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.badge{
-  display:inline-flex;
-  align-items:center;
-  padding:4px 8px;
-  border-radius:999px;
-  font-size:12px;
-  border:1px solid var(--border);
-  color:var(--muted);
-}
-
-.badge.ok{ color:var(--ok); border-color:rgba(16,185,129,.35); background:rgba(16,185,129,.08); }
-.badge.assigned{ color:var(--accent); border-color:rgba(99,102,241,.35); background:rgba(99,102,241,.08); }
-
-dialog{
-  border:none;
-  border-radius:16px;
-  padding:0;
-  width:min(520px, 92vw);
-}
-
-.modal{
-  padding:14px;
-}
-
-.modal h3{
-  margin:0 0 10px 0;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
-}
-
-.grid .full{ grid-column:1 / -1; }
-
-.hint{
-  color:var(--muted);
-  font-size:13px;
-  line-height:1.35;
-}
-
-.week-nav{
-  display:flex;
-  gap:8px;
-  align-items:center;
-  justify-content:flex-start;
-  flex-wrap:wrap;
-}
-
-.week-btn{
-  cursor:pointer;
-  background:#eef2ff;
-  border:1px solid #c8d1e0;
-  border-radius:8px;
-  padding:0 10px;
-}
-
-.week-btn:hover{
-  filter:brightness(0.97);
-}
-
-.week-date{
-  width:160px;
-}
-
-.week-label{
-  font-weight:700;
-  color:#1e293b;
-}
+  <script type="module" src="./ui.js"></script>
+</body>
+</html>
