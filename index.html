@@ -144,9 +144,12 @@ h1{
 
 .board{
   display:grid;
-  grid-template-columns:90px repeat(4, 120px);
+  grid-template-columns:90px repeat(5, 1fr);
   min-width:860px;
 }
+
+.week-nav{ display:flex; align-items:center; gap:8px; }
+.week-label{ font-size:12px; font-weight:800; color:#334155; min-width:170px; text-align:center; }
 
 .head-cell{
   position: sticky;
@@ -615,16 +618,12 @@ h1{
       <option value="Zoom3">Zoom3</option>
     </select>
 
-    <select id="scheduleMonth"></select>
-    <select id="scheduleYear"></select>
-    <select id="scheduleWeekday">
-      <option value="0">ראשון</option>
-      <option value="1">שני</option>
-      <option value="2">שלישי</option>
-      <option value="3">רביעי</option>
-      <option value="4" selected>חמישי</option>
-      <option value="5">שישי</option>
-    </select>
+    <div class="week-nav">
+      <button id="prevWeekBtn" class="btn" type="button">שבוע קודם</button>
+      <input id="baseDate" type="date" />
+      <button id="nextWeekBtn" class="btn" type="button">שבוע הבא</button>
+      <span id="weekRangeLabel" class="week-label"></span>
+    </div>
 
     <button id="clearBtn" class="btn btn-danger" type="button">RESET</button>
     <button id="potentialNavBtn" class="potential-btn" type="button">פוטנציאל</button>
@@ -872,8 +871,22 @@ const POTENTIAL_DAYS = ['א','ב','ג','ד','ה'];
 const POTENTIAL_DAY_TO_INDEX = { 'א':0, 'ב':1, 'ג':2, 'ד':3, 'ה':4 };
 const POTENTIAL_DAY_TO_SCHEDULE = { 'א':'ראשון', 'ב':'שני', 'ג':'שלישי', 'ד':'רביעי', 'ה':'חמישי' };
 const HEB_MONTHS = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
-const DEFAULT_SCHEDULE_CONFIG = { year: 2026, month: 3, weekday: 4 };
-let scheduleConfig = { ...DEFAULT_SCHEDULE_CONFIG };
+const DEFAULT_BASE_DATE = '2026-03-01';
+let currentBaseDate = parseInputDate(DEFAULT_BASE_DATE);
+
+function parseInputDate(value){
+  const m = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return null;
+  return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+function formatDateForInput(dateObj){
+  if(!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return '';
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 function formatDateKey(dateObj){
   const dd = String(dateObj.getDate()).padStart(2,'0');
@@ -888,17 +901,18 @@ function parseDateKey(dateKey){
   return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
 }
 
-function generateWeeklySchedule(year, month, weekday){
-  const dates = [];
-  const targetWeekday = Number(weekday);
-  const d = new Date(year, month - 1, 1);
-  while(d.getMonth() === month - 1){
-    if(d.getDay() === targetWeekday){
-      dates.push(formatDateKey(d));
-    }
-    d.setDate(d.getDate() + 1);
-  }
-  return dates;
+function getWeekDates(baseDate){
+  const inputDate = baseDate instanceof Date ? new Date(baseDate) : parseDateKey(baseDate);
+  if(!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) return [];
+
+  const sunday = new Date(inputDate);
+  sunday.setDate(inputDate.getDate() - inputDate.getDay());
+
+  return Array.from({ length: 5 }, (_, idx) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + idx);
+    return formatDateKey(d);
+  });
 }
 
 function getWeekdayHebName(dateKey){
@@ -906,6 +920,12 @@ function getWeekdayHebName(dateKey){
   if(!d) return '';
   const name = WEEKDAY_NAMES[d.getDay()] || '';
   return name ? `${name} ${dateKey}` : dateKey;
+}
+
+function getWeekdayName(dateKey){
+  const d = parseDateKey(dateKey);
+  if(!d) return '';
+  return WEEKDAY_NAMES[d.getDay()] || '';
 }
 
 function isTimeInSchedule(time){
@@ -931,37 +951,45 @@ function formatMonthKey(year, month){
 }
 
 function syncPotentialMonthWithSchedule(){
-  selectedPotentialMonth = formatMonthKey(scheduleConfig.year, scheduleConfig.month);
-  if(potentialMonthBtn) potentialMonthBtn.textContent = HEB_MONTHS[scheduleConfig.month - 1] || selectedPotentialMonth;
+  selectedPotentialMonth = formatMonthKey(currentBaseDate.getFullYear(), currentBaseDate.getMonth() + 1);
+  if(potentialMonthBtn) potentialMonthBtn.textContent = HEB_MONTHS[currentBaseDate.getMonth()] || selectedPotentialMonth;
 }
 
 function initScheduleControls(){
-  scheduleMonthEl.innerHTML = HEB_MONTHS.map((name, idx)=>`<option value="${idx + 1}">${name}</option>`).join('');
+  if(!currentBaseDate) currentBaseDate = parseInputDate(DEFAULT_BASE_DATE) || new Date();
+  baseDateEl.value = formatDateForInput(currentBaseDate);
 
-  const years = [2025, 2026, 2027, 2028];
-  scheduleYearEl.innerHTML = years.map(year=>`<option value="${year}">${year}</option>`).join('');
-
-  scheduleMonthEl.value = String(scheduleConfig.month);
-  scheduleYearEl.value = String(scheduleConfig.year);
-  scheduleWeekdayEl.value = String(scheduleConfig.weekday);
-
-  const refresh = ()=>{
-    scheduleConfig = {
-      year: Number(scheduleYearEl.value),
-      month: Number(scheduleMonthEl.value),
-      weekday: Number(scheduleWeekdayEl.value)
-    };
-    activeScheduleDates = generateWeeklySchedule(scheduleConfig.year, scheduleConfig.month, scheduleConfig.weekday);
+  const refreshWeek = ()=>{
+    if(!currentBaseDate || Number.isNaN(currentBaseDate.getTime())) return;
+    activeScheduleDates = getWeekDates(currentBaseDate);
+    const start = activeScheduleDates[0] || '';
+    const end = activeScheduleDates[4] || '';
+    weekRangeLabelEl.textContent = start && end ? `${start} - ${end}` : '';
     syncPotentialMonthWithSchedule();
     renderSchedule();
     renderPotential(potentialData);
   };
 
-  scheduleMonthEl.addEventListener('change', refresh);
-  scheduleYearEl.addEventListener('change', refresh);
-  scheduleWeekdayEl.addEventListener('change', refresh);
+  baseDateEl.addEventListener('change', (e)=>{
+    const picked = parseInputDate(e.target.value);
+    if(!picked) return;
+    currentBaseDate = picked;
+    refreshWeek();
+  });
 
-  refresh();
+  prevWeekBtn.addEventListener('click', ()=>{
+    currentBaseDate.setDate(currentBaseDate.getDate() - 7);
+    baseDateEl.value = formatDateForInput(currentBaseDate);
+    refreshWeek();
+  });
+
+  nextWeekBtn.addEventListener('click', ()=>{
+    currentBaseDate.setDate(currentBaseDate.getDate() + 7);
+    baseDateEl.value = formatDateForInput(currentBaseDate);
+    refreshWeek();
+  });
+
+  refreshWeek();
 }
 
 function firstDefined(obj, keys){
@@ -1091,9 +1119,10 @@ const boardEl = document.getElementById('board');
 const searchEl = document.getElementById('searchInstructor');
 const zoomFilterEl = document.getElementById('filterZoom');
 const clearBtn = document.getElementById('clearBtn');
-const scheduleMonthEl = document.getElementById('scheduleMonth');
-const scheduleYearEl = document.getElementById('scheduleYear');
-const scheduleWeekdayEl = document.getElementById('scheduleWeekday');
+const baseDateEl = document.getElementById('baseDate');
+const prevWeekBtn = document.getElementById('prevWeekBtn');
+const nextWeekBtn = document.getElementById('nextWeekBtn');
+const weekRangeLabelEl = document.getElementById('weekRangeLabel');
 
 const modalBackdrop = document.getElementById('assignModal');
 const modalDayEl = document.getElementById('modalDay');
@@ -1517,7 +1546,7 @@ function render(){
   boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">שעה</div>`);
   boardEl.style.gridTemplateColumns = `90px repeat(${activeScheduleDates.length}, 120px)`;
   boardEl.style.minWidth = `${90 + activeScheduleDates.length * 120}px`;
-  activeScheduleDates.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(getWeekdayHebName(d))}</div>`));
+  activeScheduleDates.forEach(d => boardEl.insertAdjacentHTML('beforeend', `<div class="head-cell">${escHtml(getWeekdayName(d))}<div style="font-size:11px;font-weight:700">${escHtml(d)}</div></div>`));
 
   TIME_SLOTS.forEach((time) => {
 
@@ -1540,7 +1569,12 @@ function render(){
           data-authority="${enc(ev.authority || '')}"
           title="לחץ להסרה"
           style="background:${bg}">
-          ${escHtml(ev.instructor)} | ${escHtml(ev.zoom)}
+          <div>
+            <div>${escHtml(ev.school || '—')}</div>
+            <div>${escHtml(ev.program || ev.course || '—')}</div>
+            <div>${escHtml(ev.instructor || '—')}</div>
+            <div>${escHtml(ev.zoom || '—')}</div>
+          </div>
         </div>`;
       }).join('');
 
@@ -1887,6 +1921,20 @@ function canAssignSlot(date, slot, instructor, potentialId=''){
   return { ok:true, zoomAccount, slot };
 }
 
+function hasScheduleRecordForPotential(potentialId){
+  if(!potentialId) return false;
+  return scheduleData.some(e => e.potentialId && String(e.potentialId) === String(potentialId));
+}
+
+function ensurePotentialAssignmentConsistency(){
+  potentialData.forEach(row => {
+    if(row.status === 'assigned' && !hasScheduleRecordForPotential(row.id)){
+      row.status = '';
+      row.completed = false;
+    }
+  });
+}
+
 function hasAssignmentContinuity(date, time, instructor){
   if(!instructor) return false;
   const idx = TIME_SLOTS.indexOf(time);
@@ -1900,6 +1948,11 @@ function hasAssignmentContinuity(date, time, instructor){
 }
 
 function checkPotentialAssignment(row){
+  if(row.status === 'assigned' && !hasScheduleRecordForPotential(row.id)){
+    row.status = '';
+    row.completed = false;
+  }
+
   if(row.status === 'assigned' || row.completed){
     row.status = 'assigned';
     return { ok:false, status:'assigned', reason:'assigned' };
@@ -1998,7 +2051,7 @@ function getReasonLabel(reason, suggestion=''){
   if(reason === 'slot') return { text:'🔴 המשבצת כבר תפוסה', css:'bad' };
   if(reason === 'invalid') return { text:'שעות לא תקינות', css:'bad' };
   if(reason === 'no_available_slot') return { text:'🟡 דורש בדיקה', css:'warn' };
-  if(reason === 'outside_schedule') return { text:'מחוץ ללוח החודשי', css:'bad' };
+  if(reason === 'outside_schedule') return { text:'מחוץ לשבוע הנבחר', css:'bad' };
   return { text:'✔ ניתן לשבץ', css:'ok' };
 }
 
@@ -2056,6 +2109,7 @@ function buildPotentialCalendarModel(data){
 }
 
 function renderPotential(data){
+  ensurePotentialAssignmentConsistency();
   const model = buildPotentialCalendarModel(data);
   potentialEmptyEl.style.display = model.count ? 'none' : 'block';
 
@@ -2159,6 +2213,10 @@ async function assignPotentialToSchedule(rowId){
   scheduleData = list.map(normalizeEvent);
   schedule = scheduleData;
 
+  if(!hasScheduleRecordForPotential(row.id)){
+    return { success:false, reason:'assign_failed' };
+  }
+
   row.status = 'assigned';
   row.completed = true;
 
@@ -2228,6 +2286,7 @@ async function loadPotentialData(){
   const data = await res.json();
   const rows = Array.isArray(data) ? data : (data.data || []);
   potentialData = rows.map(mapPotentialRow);
+  ensurePotentialAssignmentConsistency();
   potentialData.forEach(checkPotentialAssignment);
   pendingPotentialUpdates.clear();
   renderPotential(potentialData);
