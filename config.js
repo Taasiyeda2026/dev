@@ -1,5 +1,5 @@
 // config.js
-export const API_URL = "PUT_YOUR_APPS_SCRIPT_WEBAPP_URL_HERE";
+export const API_URL = "https://script.google.com/macros/s/AKfycbxFT4n_kt4PCdOytEVPnHVf8-86OKhq9C5n9bp8ZRgxiOMBrlk9wGWiIX38iNfROQ2btg/exec";
 
 // ימים שמוצגים בלוח (שבוע עבודה)
 export const DAYS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי"];
