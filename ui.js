@@ -1,415 +1,369 @@
-// ui.js
-import { DAYS, TIMES, ZOOMS, ZOOM_LINKS, RESET_CODE } from "./config.js";
-import { addEvent, clearSchedule, deleteEvent, loadPotential, loadSchedule, updatePotential } from "./api.js";
-import { canAssign, dateByHebrewDay, getWeekDates, isSlotLocked, roundTimeRange } from "./scheduler.js";
+import { TIMESLOTS, ZOOM_ACCOUNTS, HE_DAYS } from './config.js';
+import { getWeekDates, dateByHebrewDay, roundTimeRange } from './scheduler.js';
+import { apiLoadSchedule, apiLoadPotential, apiUpsertSchedule, apiDeleteSchedule } from './api.js';
+
+const els = {
+  board: document.getElementById('board'),
+  potentialPanel: document.getElementById('potentialPanel'),
+  potentialList: document.getElementById('potentialList'),
+  viewMode: document.getElementById('viewMode'),
+  searchInput: document.getElementById('searchInput'),
+  reloadBtn: document.getElementById('reloadBtn'),
+  weekLabel: document.getElementById('weekLabel'),
+
+  // חדש: ניווט שבוע
+  prevWeek: document.getElementById('prevWeek'),
+  nextWeek: document.getElementById('nextWeek'),
+  todayWeek: document.getElementById('todayWeek'),
+  weekPicker: document.getElementById('weekPicker'),
+
+  modalOverlay: document.getElementById('modalOverlay'),
+  modalCloseBtn: document.getElementById('modalCloseBtn'),
+  modalTitle: document.getElementById('modalTitle'),
+  saveBtn: document.getElementById('saveBtn'),
+  deleteBtn: document.getElementById('deleteBtn'),
+
+  mDate: document.getElementById('mDate'),
+  mStart: document.getElementById('mStart'),
+  mEnd: document.getElementById('mEnd'),
+  mAuthority: document.getElementById('mAuthority'),
+  mSchool: document.getElementById('mSchool'),
+  mProgram: document.getElementById('mProgram'),
+  mEmployee: document.getElementById('mEmployee'),
+  mZoom: document.getElementById('mZoom'),
+  mNotes: document.getElementById('mNotes'),
+};
 
 const state = {
-  weekDates: getWeekDates(),
+  viewMode: 'schedule',
+  search: '',
+  baseDate: new Date(),
+  weekDates: [],
   schedule: [],
   potential: [],
-  pendingPotentialUpdates: new Set(), // ids
-  pendingPotential: null, // row when assigning from potential
-  filters: { instructor: "", zoom: "" },
+  editing: null,
+  creatingSlot: null, // { dayName, time } when click "+"
 };
 
-const el = {
-  board: document.getElementById("board"),
-  weekLabel: document.getElementById("weekLabel"),
-  potentialList: document.getElementById("potentialList"),
-
-  searchInstructor: document.getElementById("searchInstructor"),
-  filterZoom: document.getElementById("filterZoom"),
-  reloadBtn: document.getElementById("reloadData"),
-  resetBtn: document.getElementById("resetSchedule"),
-  potentialSaveBtn: document.getElementById("potentialSave"),
-
-  assignModal: document.getElementById("assignModal"),
-  assignForm: document.getElementById("assignForm"),
-  roundingHint: document.getElementById("roundingHint"),
-
-  assignSlot: document.getElementById("assignSlot"),
-  assignZoom: document.getElementById("assignZoom"),
-  assignInstructor: document.getElementById("assignInstructor"),
-  assignSchool: document.getElementById("assignSchool"),
-  assignCourse: document.getElementById("assignCourse"),
-  assignDate: document.getElementById("assignDate"),
-
-  closeModalBtn: document.getElementById("closeModal"),
-};
-
-function normListResponse(data) {
-  return Array.isArray(data) ? data : (data?.data || []);
+function toISODate(d) {
+  const dd = new Date(d);
+  const y = dd.getFullYear();
+  const m = String(dd.getMonth() + 1).padStart(2, '0');
+  const day = String(dd.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-function uniqueStrings(list) {
-  return Array.from(new Set(list.map((x) => (x || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "he"));
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
 }
 
-function setWeekLabel() {
-  const first = state.weekDates[0];
-  const last = state.weekDates[state.weekDates.length - 1];
-  el.weekLabel.textContent = `${first} → ${last}`;
+function normalizeDateStr(dateStr) {
+  // dateStr already "YYYY-MM-DD" in this system.
+  return String(dateStr || '').trim();
 }
 
-function addHeaderCell(html, cls) {
-  const div = document.createElement("div");
-  div.className = `cell ${cls}`;
-  div.innerHTML = html;
-  el.board.append(div);
+function isInCurrentWeek(dateStr) {
+  const d = normalizeDateStr(dateStr);
+  return state.weekDates.includes(d);
 }
 
-export async function init() {
-  bindToolbar();
+function setBaseDate(newBase) {
+  state.baseDate = new Date(newBase);
+  state.weekDates = getWeekDates(state.baseDate);
+
+  // UI sync
+  els.weekPicker.value = toISODate(state.baseDate);
+
   renderBoard();
-  await loadInitialData();
-}
-
-async function loadInitialData() {
-  try {
-    const [scheduleData, potentialData] = await Promise.all([loadSchedule(), loadPotential()]);
-    state.schedule = normListResponse(scheduleData);
-    state.potential = normListResponse(potentialData);
-  } catch (e) {
-    console.warn("Load failed", e);
-    state.schedule = [];
-    state.potential = [];
-  }
-  setWeekLabel();
-  renderEvents();
+  renderScheduleEvents();
   renderPotential();
 }
 
-function bindToolbar() {
-  el.searchInstructor.addEventListener("input", (e) => {
-    state.filters.instructor = e.target.value.trim().toLowerCase();
-    renderEvents();
-  });
-
-  el.filterZoom.addEventListener("change", (e) => {
-    state.filters.zoom = e.target.value;
-    renderEvents();
-  });
-
-  el.reloadBtn.addEventListener("click", loadInitialData);
-
-  el.resetBtn.addEventListener("click", async () => {
-    const code = window.prompt("הכנס קוד איפוס");
-    if (code !== RESET_CODE) return window.alert("קוד שגוי");
-    await clearSchedule();
-    state.schedule = [];
-    renderEvents();
-  });
-
-  el.potentialSaveBtn.addEventListener("click", savePotentialUpdates);
-
-  el.assignForm.addEventListener("submit", saveAssignment);
-  el.closeModalBtn.addEventListener("click", closeAssignModal);
+function setWeekLabel() {
+  const a = state.weekDates[0];
+  const b = state.weekDates[state.weekDates.length - 1];
+  els.weekLabel.textContent = `שבוע: ${a} ← ${b}`;
 }
 
-export function renderBoard() {
-  el.board.innerHTML = "";
-  el.board.style.gridTemplateColumns = `160px repeat(${DAYS.length}, minmax(160px, 1fr))`;
-
-  addHeaderCell("שעה", "head");
-  DAYS.forEach((day, index) => addHeaderCell(`${day}<br><small>${state.weekDates[index]}</small>`, "head"));
-
-  TIMES.forEach((slot) => {
-    addHeaderCell(slot, "time");
-    DAYS.forEach((_, dayIndex) => {
-      const date = state.weekDates[dayIndex];
-      const cell = document.createElement("div");
-      cell.className = "cell";
-      cell.dataset.date = date;
-      cell.dataset.slot = slot;
-
-      const btn = document.createElement("button");
-      btn.className = "add-btn";
-      btn.textContent = "+";
-      btn.type = "button";
-      btn.disabled = isSlotLocked(slot);
-      btn.title = btn.disabled ? "משבצת נעולה" : "שיבוץ";
-
-      btn.addEventListener("click", () => openAssignModal(date, slot, null));
-      cell.append(btn);
-
-      el.board.append(cell);
-    });
-  });
+function populateSelectOptions(sel, items) {
+  sel.innerHTML = items.map(x => `<option value="${x}">${x}</option>`).join('');
 }
 
-export function renderEvents() {
-  document.querySelectorAll(".event").forEach((n) => n.remove());
+function openModal({ title, item, creatingSlot }) {
+  state.editing = item || null;
+  state.creatingSlot = creatingSlot || null;
 
-  const filtered = state.schedule.filter((item) => {
-    const byInstructor =
-      !state.filters.instructor || (item.instructor || "").toLowerCase().includes(state.filters.instructor);
-    const byZoom = !state.filters.zoom || item.zoom === state.filters.zoom;
-    return byInstructor && byZoom;
-  });
+  els.modalTitle.textContent = title;
+  els.modalOverlay.style.display = 'block';
 
-  filtered.forEach((event) => appendEventCard(event));
-}
+  // fill selects
+  populateSelectOptions(els.mStart, TIMESLOTS);
+  populateSelectOptions(els.mEnd, TIMESLOTS);
+  populateSelectOptions(els.mZoom, ['', ...ZOOM_ACCOUNTS]);
 
-function appendEventCard(event) {
-  const selector = `.cell[data-date="${event.date}"][data-slot="${event.time}"]`;
-  const cell = el.board.querySelector(selector);
-  if (!cell) return;
-
-  const card = document.createElement("div");
-  card.className = "event";
-
-  const zoomLink = ZOOM_LINKS[event.zoom] || "";
-  card.innerHTML = `
-    <div style="font-weight:800">${event.instructor} | ${event.zoom}</div>
-    <small>${event.school || ""}</small>
-    ${zoomLink ? `<div style="margin-top:6px"><a href="${zoomLink}" target="_blank" rel="noopener">קישור לזום</a></div>` : ""}
-  `;
-
-  card.title = event.course || "";
-
-  card.addEventListener("click", async () => {
-    if (isSlotLocked(event.time)) return window.alert("משבצת נעולה – לא מוחקים.");
-    if (!window.confirm("למחוק שיבוץ זה?")) return;
-
-    await deleteEvent(event);
-    state.schedule = state.schedule.filter((x) => x !== event);
-    card.remove();
-  });
-
-  cell.append(card);
-}
-
-// --- MODAL (lists + rounding) ---
-function fillSlotOptions(selectedSlot) {
-  el.assignSlot.innerHTML = "";
-  TIMES.forEach((slot) => {
-    const opt = document.createElement("option");
-    opt.value = slot;
-    opt.textContent = slot;
-    if (slot === selectedSlot) opt.selected = true;
-    el.assignSlot.append(opt);
-  });
-}
-
-function fillInstructorOptions(selectedValue = "") {
-  // מקור לרשימה: כל המדריכים שמופיעים בלו"ז ובפוטנציאל
-  const fromSchedule = state.schedule.map((x) => x.instructor);
-  const fromPotential = state.potential.map((x) => x.instructor || x.employee);
-  const all = uniqueStrings([...fromSchedule, ...fromPotential]);
-
-  el.assignInstructor.innerHTML = `<option value="">בחר מדריך</option>`;
-  all.forEach((name) => {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    if (name === selectedValue) opt.selected = true;
-    el.assignInstructor.append(opt);
-  });
-}
-
-export function openAssignModal(date, slot, potentialRow = null) {
-  state.pendingPotential = potentialRow;
-
-  // slot base
-  let modalSlot = slot;
-
-  // אם מגיעים מפוטנציאל - תמיד לעגל למטה/למעלה ולהציג הסבר
-  if (potentialRow?.startTime && potentialRow?.endTime) {
-    const rounded = roundTimeRange(potentialRow.startTime, potentialRow.endTime);
-    modalSlot = rounded.slot;
-
-    el.roundingHint.style.display = "block";
-    el.roundingHint.textContent =
-      `שעות הפוטנציאל אינן עגולות: ${potentialRow.startTime}-${potentialRow.endTime} → ` +
-      `בחלון השיבוץ יעוגל אוטומטית ל-${rounded.slot} (למטה בתחילה, למעלה בסוף).`;
-  } else {
-    el.roundingHint.style.display = "none";
-    el.roundingHint.textContent = "";
+  if (item) {
+    els.mDate.value = item.date || '';
+    els.mStart.value = item.startTime || TIMESLOTS[0];
+    els.mEnd.value = item.endTime || TIMESLOTS[1] || TIMESLOTS[0];
+    els.mAuthority.value = item.authority || '';
+    els.mSchool.value = item.school || '';
+    els.mProgram.value = item.program || '';
+    els.mEmployee.value = item.employee || '';
+    els.mZoom.value = item.zoom || '';
+    els.mNotes.value = item.notes || '';
+    els.deleteBtn.style.display = 'inline-block';
+    return;
   }
 
-  el.assignDate.value = date;
-  fillSlotOptions(modalSlot);
-  fillInstructorOptions(potentialRow?.instructor || potentialRow?.employee || "");
+  // creating from "+" click
+  const { dayName, time } = creatingSlot;
+  const date = dateByHebrewDay(state.weekDates, dayName);
+  els.mDate.value = date;
+  els.mStart.value = time;
+  els.mEnd.value = TIMESLOTS[Math.min(TIMESLOTS.indexOf(time) + 1, TIMESLOTS.length - 1)];
 
-  el.assignZoom.value = ""; // אוטומטי
-  el.assignSchool.value = potentialRow?.school || "";
-  el.assignCourse.value = potentialRow?.course || potentialRow?.program || "";
-
-  el.assignModal.showModal();
+  els.mAuthority.value = '';
+  els.mSchool.value = '';
+  els.mProgram.value = '';
+  els.mEmployee.value = '';
+  els.mZoom.value = '';
+  els.mNotes.value = '';
+  els.deleteBtn.style.display = 'none';
 }
 
-function closeAssignModal() {
-  state.pendingPotential = null;
-  el.assignModal.close();
+function closeModal() {
+  els.modalOverlay.style.display = 'none';
+  state.editing = null;
+  state.creatingSlot = null;
 }
 
-async function saveAssignment(e) {
-  e.preventDefault();
-
-  const payload = {
-    date: el.assignDate.value,
-    time: el.assignSlot.value,
-    zoom: (el.assignZoom.value || "").trim(), // optional
-    instructor: (el.assignInstructor.value || "").trim(),
-    school: (el.assignSchool.value || "").trim(),
-    course: (el.assignCourse.value || "").trim(),
-    potentialId: state.pendingPotential?.id || "",
-  };
-
-  const check = canAssign(state.schedule, payload);
-  if (!check.ok) {
-    const map = {
-      missing_fields: "חסרים שדות חובה",
-      slot_locked: "המשבצת נעולה (זמן מוגן)",
-      instructor_busy: "המדריך תפוס בשעה הזו",
-      zoom_busy: "ה-Zoom שבחרת תפוס בשעה הזו",
-      all_zooms_busy: "כל ה-Zoom תפוסים בשעה הזו",
-    };
-    return window.alert(`לא ניתן לשבץ: ${map[check.reason] || check.reason}`);
-  }
-
-  const eventData = { ...payload, zoom: check.zoom };
-  await addEvent(eventData);
-
-  // עדכון לוקאלי + רנדר
-  state.schedule.push(eventData);
-  renderEvents();
-
-  // אם בא מפוטנציאל: לסמן assigned + completed + לשמור start/end מעוגלים
-  if (state.pendingPotential) {
-    const rounded = roundTimeRange(state.pendingPotential.startTime, state.pendingPotential.endTime);
-
-    await updatePotential({
-      id: state.pendingPotential.id,
-      status: "assigned",
-      completed: true,
-      startTime: rounded.start,
-      endTime: rounded.end,
-      date: payload.date,
-      notes: state.pendingPotential.notes || "",
-    });
-
-    state.potential = state.potential.map((row) =>
-      row.id === state.pendingPotential.id
-        ? { ...row, status: "assigned", completed: true, startTime: rounded.start, endTime: rounded.end, date: payload.date }
-        : row
-    );
-    renderPotential();
-  }
-
-  closeAssignModal();
+function matchesSearch(item) {
+  if (!state.search) return true;
+  const hay = [
+    item.authority, item.school, item.program, item.employee,
+    item.zoom, item.notes, item.date, item.startTime, item.endTime
+  ].join(' ').toLowerCase();
+  return hay.includes(state.search.toLowerCase());
 }
 
-// --- POTENTIAL VIEW (editable + save) ---
-function badgeFor(row) {
-  if (row.status === "assigned") return `<span class="badge assigned">שובץ</span>`;
-  if (row.completed === true) return `<span class="badge ok">בוצע</span>`;
-  return `<span class="badge">פתוח</span>`;
-}
+function renderBoard() {
+  setWeekLabel();
 
-export function renderPotential() {
-  el.potentialList.innerHTML = "";
+  // grid: first row headers + time rows
+  const cols = 1 + HE_DAYS.length;
+  els.board.style.gridTemplateColumns = `120px repeat(${HE_DAYS.length}, minmax(150px, 1fr))`;
 
-  state.potential.forEach((row) => {
-    const date = dateByHebrewDay(state.weekDates, row.day) || row.date || "";
-    const instructor = row.instructor || row.employee || "";
-    const startTime = row.startTime || "";
-    const endTime = row.endTime || "";
-    const notes = row.notes || "";
+  const headCells = [
+    `<div class="cell head"></div>`,
+    ...HE_DAYS.map((d, i) => `<div class="cell head">${d}<div class="sub">${state.weekDates[i]}</div></div>`)
+  ];
 
-    const container = document.createElement("div");
-    container.className = "potential-item";
-    container.dataset.id = row.id;
-
-    container.innerHTML = `
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
-        <div>
-          <div style="font-weight:900">${instructor || "ללא מדריך"}</div>
-          <div style="color:#6b7280">${row.school || ""} | ${row.course || row.program || ""}</div>
-          <div style="color:#6b7280">${row.day || ""} ${date ? `(${date})` : ""}</div>
+  const rows = [];
+  for (const t of TIMESLOTS) {
+    rows.push(`<div class="cell time">${t}</div>`);
+    for (const dayName of HE_DAYS) {
+      const date = dateByHebrewDay(state.weekDates, dayName);
+      const id = `cell-${dayName}-${t}`;
+      rows.push(`
+        <div class="cell" id="${id}">
+          <button class="add-btn" data-day="${dayName}" data-time="${t}" title="הוספה">+</button>
+          <div class="events"></div>
         </div>
-        ${badgeFor(row)}
-      </div>
+      `);
+    }
+  }
 
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <label style="display:flex;gap:6px;align-items:center">
-          התחלה:
-          <input type="time" class="p-start" value="${startTime}">
-        </label>
-        <label style="display:flex;gap:6px;align-items:center">
-          סיום:
-          <input type="time" class="p-end" value="${endTime}">
-        </label>
-        <label style="display:flex;gap:6px;align-items:center">
-          בוצע:
-          <input type="checkbox" class="p-done" ${row.completed === true ? "checked" : ""}>
-        </label>
-      </div>
+  els.board.innerHTML = [...headCells, ...rows].join('');
 
-      <input class="p-notes" placeholder="הערות..." value="${escapeHtml(notes)}" />
+  // bind add buttons
+  els.board.querySelectorAll('.add-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dayName = btn.getAttribute('data-day');
+      const time = btn.getAttribute('data-time');
+      openModal({ title: 'שיבוץ חדש', item: null, creatingSlot: { dayName, time } });
+    });
+  });
+}
 
-      <div class="potential-actions">
-        <button type="button" class="primary p-assign">שבץ</button>
-        <span class="hint">בשיבוץ מפוטנציאל: השעות יעוגלו אוטומטית במודל.</span>
+function renderScheduleEvents() {
+  // clear all events containers
+  els.board.querySelectorAll('.events').forEach(x => x.innerHTML = '');
+
+  // IMPORTANT: show only items in current week + match search
+  const rows = state.schedule
+    .filter(x => isInCurrentWeek(x.date))
+    .filter(matchesSearch);
+
+  for (const item of rows) {
+    const dayName = HE_DAYS.find(d => dateByHebrewDay(state.weekDates, d) === item.date);
+    if (!dayName) continue;
+
+    const cellId = `cell-${dayName}-${item.startTime}`;
+    const cell = document.getElementById(cellId);
+    if (!cell) continue;
+
+    const box = document.createElement('div');
+    box.className = 'event';
+    box.innerHTML = `
+      <div><b>${item.school || ''}</b></div>
+      <div>${item.program || ''}</div>
+      <div>${item.employee || ''}</div>
+      <div>${item.startTime || ''}–${item.endTime || ''} ${item.zoom ? ' | ' + item.zoom : ''}</div>
+    `;
+    box.addEventListener('click', () => openModal({ title: 'עריכת שיבוץ', item, creatingSlot: null }));
+
+    cell.querySelector('.events').appendChild(box);
+  }
+}
+
+function renderPotential() {
+  if (state.viewMode !== 'potential') return;
+
+  // פוטנציאל: גם פה מסננים לפי שבוע, כי אחרת אתה רואה הכל ולא מבין מה קורה
+  const list = state.potential
+    .filter(x => isInCurrentWeek(x.date))
+    .filter(matchesSearch);
+
+  els.potentialList.innerHTML = list.map(p => {
+    // עיגול שעות: בפוטנציאל יכול להגיע 13:15–14:45 וכו'
+    const rounded = roundTimeRange(p.startTime, p.endTime);
+
+    return `
+      <div class="potential-item">
+        <div class="pot-top">
+          <b>${p.school || ''}</b>
+          <span class="muted">${p.authority || ''}</span>
+        </div>
+        <div>${p.program || ''} | ${p.employee || ''}</div>
+        <div class="muted">${p.date || ''} | ${p.startTime || ''}–${p.endTime || ''}</div>
+        <div class="pot-actions">
+          <button class="pot-add"
+            data-date="${p.date || ''}"
+            data-start="${rounded.start}"
+            data-end="${rounded.end}"
+            data-authority="${(p.authority || '').replaceAll('"', '&quot;')}"
+            data-school="${(p.school || '').replaceAll('"', '&quot;')}"
+            data-program="${(p.program || '').replaceAll('"', '&quot;')}"
+            data-employee="${(p.employee || '').replaceAll('"', '&quot;')}"
+          >שבץ</button>
+        </div>
       </div>
     `;
+  }).join('');
 
-    // bind
-    const startEl = container.querySelector(".p-start");
-    const endEl = container.querySelector(".p-end");
-    const doneEl = container.querySelector(".p-done");
-    const notesEl = container.querySelector(".p-notes");
-    const assignBtn = container.querySelector(".p-assign");
+  els.potentialList.querySelectorAll('.pot-add').forEach(btn => {
+    btn.addEventListener('click', () => {
+      // יצירה מתוך פוטנציאל: משתמשים בעיגול שעשינו למעלה
+      openModal({
+        title: 'שיבוץ מתוך פוטנציאל',
+        item: null,
+        creatingSlot: {
+          // לא צריך dayName כאן; אנחנו כבר יודעים date ישירות
+          dayName: null,
+          time: btn.getAttribute('data-start')
+        }
+      });
 
-    startEl.addEventListener("change", () => markPotentialDirty(row.id, { startTime: startEl.value }));
-    endEl.addEventListener("change", () => markPotentialDirty(row.id, { endTime: endEl.value }));
-    doneEl.addEventListener("change", () => markPotentialDirty(row.id, { completed: doneEl.checked }));
-    notesEl.addEventListener("change", () => markPotentialDirty(row.id, { notes: notesEl.value }));
+      // דוחפים ערכים לתוך השדות
+      els.mDate.value = btn.getAttribute('data-date') || '';
+      els.mStart.value = btn.getAttribute('data-start') || TIMESLOTS[0];
+      els.mEnd.value = btn.getAttribute('data-end') || TIMESLOTS[1];
 
-    assignBtn.disabled = row.status === "assigned";
-    assignBtn.addEventListener("click", () => {
-      const current = state.potential.find((x) => x.id === row.id) || row;
-      openAssignModal(date, TIMES[0], current);
+      els.mAuthority.value = btn.getAttribute('data-authority') || '';
+      els.mSchool.value = btn.getAttribute('data-school') || '';
+      els.mProgram.value = btn.getAttribute('data-program') || '';
+      els.mEmployee.value = btn.getAttribute('data-employee') || '';
     });
-
-    el.potentialList.append(container);
   });
 }
 
-function markPotentialDirty(id, patch) {
-  state.potential = state.potential.map((row) => (row.id === id ? { ...row, ...patch } : row));
-  state.pendingPotentialUpdates.add(id);
-}
+async function reloadAll() {
+  const [schedule, potential] = await Promise.all([
+    apiLoadSchedule(),
+    apiLoadPotential(),
+  ]);
 
-async function savePotentialUpdates() {
-  const ids = Array.from(state.pendingPotentialUpdates);
-  if (ids.length === 0) return window.alert("אין שינויים לשמירה");
+  state.schedule = schedule || [];
+  state.potential = potential || [];
 
-  // שמירה שורה-שורה (כי השרת שלך כרגע בנוי updatepotential “רגיל”)
-  for (const id of ids) {
-    const row = state.potential.find((x) => x.id === id);
-    if (!row) continue;
+  renderBoard();
+  renderScheduleEvents();
 
-    await updatePotential({
-      id: row.id,
-      startTime: row.startTime || "",
-      endTime: row.endTime || "",
-      notes: row.notes || "",
-      status: row.status || "",
-      completed: row.completed === true,
-      date: row.date || "",
-    });
+  if (state.viewMode === 'potential') {
+    els.potentialPanel.style.display = 'block';
+    renderPotential();
+  } else {
+    els.potentialPanel.style.display = 'none';
   }
-
-  state.pendingPotentialUpdates.clear();
-  window.alert("נשמר בהצלחה");
 }
 
-function escapeHtml(str) {
-  return String(str || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+async function onSave() {
+  const payload = {
+    id: state.editing?.id || null,
+    date: els.mDate.value,
+    startTime: els.mStart.value,
+    endTime: els.mEnd.value,
+    authority: els.mAuthority.value.trim(),
+    school: els.mSchool.value.trim(),
+    program: els.mProgram.value.trim(),
+    employee: els.mEmployee.value.trim(),
+    zoom: els.mZoom.value,
+    notes: els.mNotes.value.trim(),
+  };
+
+  await apiUpsertSchedule(payload);
+  closeModal();
+  await reloadAll();
 }
+
+async function onDelete() {
+  if (!state.editing?.id) return;
+  await apiDeleteSchedule(state.editing.id);
+  closeModal();
+  await reloadAll();
+}
+
+function bindUI() {
+  els.viewMode.addEventListener('change', () => {
+    state.viewMode = els.viewMode.value;
+    if (state.viewMode === 'potential') {
+      els.potentialPanel.style.display = 'block';
+      renderPotential();
+    } else {
+      els.potentialPanel.style.display = 'none';
+    }
+  });
+
+  els.searchInput.addEventListener('input', () => {
+    state.search = els.searchInput.value || '';
+    renderScheduleEvents();
+    renderPotential();
+  });
+
+  els.reloadBtn.addEventListener('click', reloadAll);
+
+  els.modalCloseBtn.addEventListener('click', closeModal);
+  els.modalOverlay.addEventListener('click', (e) => {
+    if (e.target === els.modalOverlay) closeModal();
+  });
+
+  els.saveBtn.addEventListener('click', onSave);
+  els.deleteBtn.addEventListener('click', onDelete);
+
+  // חדש: ניווט שבוע
+  els.prevWeek.addEventListener('click', () => setBaseDate(addDays(state.baseDate, -7)));
+  els.nextWeek.addEventListener('click', () => setBaseDate(addDays(state.baseDate, +7)));
+  els.todayWeek.addEventListener('click', () => setBaseDate(new Date()));
+  els.weekPicker.addEventListener('change', () => {
+    if (!els.weekPicker.value) return;
+    setBaseDate(new Date(els.weekPicker.value));
+  });
+}
+
+(function init() {
+  bindUI();
+  setBaseDate(new Date()); // sets weekDates, renders
+  reloadAll();
+})();
