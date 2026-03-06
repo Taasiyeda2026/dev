@@ -1,5 +1,4 @@
-// scheduler.js
-import { DAYS, TIMES, ZOOMS, PROTECTED_HOURS } from "./config.js";
+import { HE_DAYS, TIMESLOTS, ZOOM_ACCOUNTS, PROTECTED_HOURS } from "./config.js";
 
 const DAY_TO_INDEX = {
   "ראשון": 0,
@@ -22,7 +21,7 @@ export function getWeekDates(baseDate = new Date()) {
   const sunday = new Date(current);
   sunday.setDate(current.getDate() - dayOfWeek);
 
-  return DAYS.map((_, index) => {
+  return HE_DAYS.map((_, index) => {
     const d = new Date(sunday);
     d.setDate(sunday.getDate() + index);
     return toISODate(d);
@@ -35,9 +34,9 @@ export function dateByHebrewDay(weekDates, hebrewDay) {
   return weekDates[index] || null;
 }
 
-export function isInstructorFree(schedule, { date, time, instructor }) {
+export function isInstructorFree(schedule, { date, time, employee }) {
   return !schedule.some(
-    (item) => item.date === date && item.time === time && item.instructor === instructor
+    (item) => item.date === date && item.time === time && item.employee === employee
   );
 }
 
@@ -45,19 +44,40 @@ export function isZoomFree(schedule, { date, time, zoom }) {
   return !schedule.some((item) => item.date === date && item.time === time && item.zoom === zoom);
 }
 
-// --- protected window (אופציונלי) ---
+function eventsInCell(schedule, { date, time }) {
+  return schedule.filter((e) => e.date === date && e.time === time);
+}
+
+export function pickZoomForSlot(schedule, { date, time, employee = null }) {
+  const usedNow = eventsInCell(schedule, { date, time }).map((e) => e.zoom);
+  const available = ZOOM_ACCOUNTS.filter((z) => !usedNow.includes(z));
+  if (available.length === 0) return null;
+
+  const idx = TIMESLOTS.indexOf(time);
+
+  // עדיפות: המשכיות למדריך (אם שעה קודמת באותו תאריך)
+  if (employee && idx > 0) {
+    const prevTime = TIMESLOTS[idx - 1];
+    const prev = schedule.find(
+      (e) => e.date === date && e.time === prevTime && e.employee === employee
+    );
+    if (prev && available.includes(prev.zoom)) return prev.zoom;
+  }
+
+  return available[0];
+}
+
+// ---------- Protected window ----------
 function nowRoundedUpToHourMinutes() {
   const now = new Date();
   const mins = now.getHours() * 60 + now.getMinutes();
   return Math.ceil(mins / 60) * 60;
 }
-
 function slotStartMinutes(slot) {
   const [start] = slot.split("-");
   const [h, m] = start.split(":").map(Number);
   return h * 60 + m;
 }
-
 export function isSlotLocked(slot) {
   if (!PROTECTED_HOURS || PROTECTED_HOURS <= 0) return false;
   const roundedUp = nowRoundedUpToHourMinutes();
@@ -66,79 +86,18 @@ export function isSlotLocked(slot) {
   return startM >= roundedUp && startM < windowEnd;
 }
 
-// --- zoom picking (continuity + avoid prev-slot zooms) ---
-function eventsInCell(schedule, { date, time }) {
-  return schedule.filter((e) => e.date === date && e.time === time);
-}
-
-export function pickZoomForSlot(schedule, { date, time, instructor = null }) {
-  const usedNow = eventsInCell(schedule, { date, time }).map((e) => e.zoom);
-  const available = ZOOMS.filter((z) => !usedNow.includes(z));
-  if (available.length === 0) return null;
-
-  const idx = TIMES.indexOf(time);
-
-  // עדיפות 1: המשכיות למדריך
-  if (instructor && idx > 0) {
-    const prevTime = TIMES[idx - 1];
-    const prev = schedule.find(
-      (e) => e.date === date && e.time === prevTime && e.instructor === instructor
-    );
-    if (prev && available.includes(prev.zoom)) return prev.zoom;
-  }
-
-  // עדיפות 2: לא להשתמש בזום שהיה במשבצת הקודמת (כדי לפזר עומסים)
-  let usedPrev = [];
-  if (idx > 0) {
-    const prevTime = TIMES[idx - 1];
-    usedPrev = eventsInCell(schedule, { date, time: prevTime }).map((e) => e.zoom);
-  }
-
-  const preferred = available.find((z) => !usedPrev.includes(z));
-  return preferred || available[0];
-}
-
-export function canAssign(schedule, candidate) {
-  if (!candidate?.instructor || !candidate?.date || !candidate?.time) {
-    return { ok: false, reason: "missing_fields" };
-  }
-
-  if (isSlotLocked(candidate.time)) {
-    return { ok: false, reason: "slot_locked" };
-  }
-
-  if (!isInstructorFree(schedule, candidate)) {
-    return { ok: false, reason: "instructor_busy" };
-  }
-
-  const desiredZoom = candidate.zoom || null;
-  if (desiredZoom) {
-    if (!isZoomFree(schedule, { ...candidate, zoom: desiredZoom })) {
-      return { ok: false, reason: "zoom_busy" };
-    }
-    return { ok: true, zoom: desiredZoom };
-  }
-
-  const zoom = pickZoomForSlot(schedule, candidate);
-  if (!zoom) return { ok: false, reason: "all_zooms_busy" };
-  return { ok: true, zoom };
-}
-
-// --- rounding for potential ---
-export function roundStartTime(time) {
-  const [h, m] = time.split(":").map(Number);
-  if (m === 0) return time;
-  return `${String(h).padStart(2, "0")}:00`;
-}
-
-export function roundEndTime(time) {
-  const [h, m] = time.split(":").map(Number);
-  if (m === 0) return time;
-  return `${String(h + 1).padStart(2, "0")}:00`;
-}
-
+// ---------- Potential rounding (הדרישה שלך) ----------
 export function roundTimeRange(start, end) {
-  const s = roundStartTime(start);
-  const e = roundEndTime(end);
+  // start -> למטה לשעה עגולה
+  // end   -> למעלה לשעה עגולה
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+
+  const s = `${String(sh).padStart(2, "0")}:00`;
+
+  let eH = eh;
+  if (em !== 0) eH = eh + 1;
+  const e = `${String(eH).padStart(2, "0")}:00`;
+
   return { start: s, end: e, slot: `${s}-${e}` };
 }
