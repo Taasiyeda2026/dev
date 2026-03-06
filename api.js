@@ -1,46 +1,37 @@
-// api.js
 import { API_URL } from "./config.js";
 
 async function request(url, options = {}) {
   const res = await fetch(url, options);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API error ${res.status}: ${text}`);
-  }
-  return res.json();
+  const text = await res.text();
+  if (!res.ok) throw new Error(`API ${res.status}: ${text}`);
+  return text ? JSON.parse(text) : {};
 }
 
-export async function loadSchedule() {
+export async function apiLoadSchedule() {
   return request(API_URL);
 }
 
-export async function addEvent(eventData) {
-  return request(`${API_URL}?action=add`, {
+export async function apiUpsertSchedule(payload) {
+  return request(`${API_URL}?action=upsert`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(eventData),
+    body: JSON.stringify(payload),
   });
 }
 
-export async function deleteEvent(eventData) {
+export async function apiDeleteSchedule(payload) {
   return request(`${API_URL}?action=delete`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(eventData),
+    body: JSON.stringify(payload),
   });
 }
 
-export async function clearSchedule() {
-  return request(`${API_URL}?action=clear`, {
-    method: "POST",
-  });
-}
-
-export async function loadPotential() {
+export async function apiLoadPotential() {
   return request(`${API_URL}?action=potential`);
 }
 
-export async function updatePotential(payload) {
+export async function apiUpdatePotential(payload) {
   return request(`${API_URL}?action=updatepotential`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
