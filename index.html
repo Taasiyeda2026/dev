@@ -1533,6 +1533,13 @@ boardEl.addEventListener('click', async (e) => {
 
 // --- Controls ---
 async function clearSystem(){
+  const resetCode = prompt('להמשך איפוס המערכת, הזן קוד:');
+  if(resetCode === null) return;
+  if(resetCode.trim() !== '2026'){
+    alert('קוד שגוי. האיפוס בוטל.');
+    return;
+  }
+
   if(!confirm('למחוק את כל השיבוצים במערכת?')) return;
   await fetch(API_URL, {
     method: "POST",
