@@ -47,6 +47,9 @@ function doPost(e) {
     if (action === 'updatepotential') {
       return jsonResponse(updatePotential_(payload));
     }
+    if (action === 'add') {
+      return jsonResponse(addSchedule_(payload));
+    }
     if (action === 'delete') {
       return jsonResponse(deleteRowById_(payload.sheet || CONFIG.scheduleSheet, payload.id));
     }
@@ -291,6 +294,40 @@ function readAllRows_(sheetName) {
     rows.push(row);
   }
   return rows;
+}
+
+
+function addSchedule_(payload) {
+  const day = normalizeDateString_(payload.day || payload.date);
+  const time = clean_(payload.time);
+  const instructor = clean_(payload.instructor);
+  const zoom = clean_(payload.zoom);
+
+  if (!day || !time || !instructor || !zoom) {
+    return { success: false, reason: 'missing fields' };
+  }
+
+  const parts = time.split('-');
+  if (parts.length !== 2) return { success: false, reason: 'invalid time' };
+  const startTime = clean_(parts[0]);
+  const endTime = clean_(parts[1]);
+  if (!startTime || !endTime) return { success: false, reason: 'invalid time' };
+
+  appendScheduleRow_({
+    id: clean_(payload.id) || newId_(),
+    date: day,
+    startTime: startTime,
+    endTime: endTime,
+    instructor: instructor,
+    zoom: zoom,
+    zoomLink: clean_(payload.zoomLink),
+    school: clean_(payload.school),
+    course: clean_(payload.course),
+    potentialId: clean_(payload.potentialId),
+    updatedAt: nowStamp_()
+  });
+
+  return { success: true, data: readAllRows_(CONFIG.scheduleSheet) };
 }
 
 function appendScheduleRow_(payload) {

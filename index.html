@@ -2075,19 +2075,56 @@ async function consumePotential(rowId){
   row.startTime = normalized.startTime;
   row.endTime = normalized.endTime;
 
-  const check = canAssignSlot(normalizePotentialDate(row.date), normalized.startTime, normalized.endTime, row.employee, row.id);
+  const date = normalizePotentialDate(row.date);
+  if(!date) return { success:false, reason:'invalid' };
+
+  const check = canAssignSlot(date, normalized.startTime, normalized.endTime, row.employee, row.id);
   if(!check.ok) return { success:false, reason:check.reason };
 
-  const res = await fetch(API_URL, {
+  const zoom = pickZoomForSlot(date, check.time, row.employee);
+  if(!zoom) return { success:false, reason:'zoom' };
+
+  const createRes = await fetch(API_URL, {
     method:'POST',
     headers:{ 'Content-Type':'text/plain' },
-    body: JSON.stringify({ action:'assign', id: row.id })
+    body: JSON.stringify({
+      action:'add',
+      id: row.id,
+      day: date,
+      time: check.time,
+      instructor: row.employee,
+      zoom,
+      zoomLink: ZOOM_LINKS[zoom] || '',
+      school: row.school || '',
+      course: row.program || '',
+      potentialId: row.id
+    })
   });
-  const data = await res.json();
-  if(!data.success) return { success:false, reason:data.reason || 'assign_failed' };
+  const createData = await createRes.json();
+  if(!createData.success) return { success:false, reason:createData.reason || 'assign_failed' };
+
+  const list = Array.isArray(createData) ? createData : (createData.data || []);
+  scheduleData = list.map(normalizeEvent);
+  schedule = scheduleData;
+
+  renderSchedule();
 
   row.completed = true;
   row.status = 'assigned';
+
+  await fetch(API_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'text/plain' },
+    body: JSON.stringify({
+      action:'updatepotential',
+      id: row.id,
+      startTime: row.startTime,
+      endTime: row.endTime,
+      notes: row.notes || '',
+      completed: true
+    })
+  });
+
   return { success:true };
 }
 
@@ -2099,7 +2136,6 @@ async function assignFromPotential(row){
     return;
   }
 
-  await loadSchedule();
   renderSchedule();
   renderPotential(potentialData);
 }
