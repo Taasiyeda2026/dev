@@ -898,19 +898,26 @@ function parseDateKey(dateKey){
 }
 
 function getWeekDates(baseDate){
-  const inputDate = baseDate instanceof Date ? new Date(baseDate) : parseDateKey(baseDate);
-  if(!(inputDate instanceof Date) || Number.isNaN(inputDate.getTime())) return [];
+  if(!baseDate) return [];
 
-  const sunday = new Date(inputDate);
-  while(sunday.getDay() !== 0){
-    sunday.setDate(sunday.getDate() - 1);
+  const d = new Date(baseDate);
+
+  const day = d.getDay();
+
+  const diff = d.getDate() - day;
+
+  const sunday = new Date(d.setDate(diff));
+
+  const week = [];
+
+  for(let i=0;i<5;i++){
+    const dayDate = new Date(sunday);
+    dayDate.setDate(sunday.getDate()+i);
+
+    week.push(formatDateKey(dayDate));
   }
 
-  return Array.from({ length: 5 }, (_, idx) => {
-    const d = new Date(sunday);
-    d.setDate(sunday.getDate() + idx);
-    return formatDateKey(d);
-  });
+  return week;
 }
 
 function getWeekdayHebName(dateKey){
@@ -1356,7 +1363,7 @@ async function loadSchedule(){
   if(!res.ok) throw new Error("GET failed");
   const data = await res.json();
   const list = Array.isArray(data) ? data : (data.data || []);
-  scheduleData = list.map(normalizeEvent);
+  scheduleData = list.map(normalizeEvent).filter(e => e.day && e.time);
   schedule = scheduleData;
 }
 
@@ -1386,6 +1393,7 @@ async function addItem(day, time, instructor, zoom, school='', course='', potent
   const data = await res.json();
   scheduleData = (Array.isArray(data) ? data : (data.data || [])).map(normalizeEvent);
   schedule = scheduleData;
+  await loadSchedule();
   renderSchedule();
 }
 
@@ -1505,11 +1513,6 @@ async function saveAssignment(){
 
   const pendingPotentialId = window.pendingAssignment?.potentialId || modalState.potentialId || '';
 
-  if(scheduleData.some(e => e.potentialId && String(e.potentialId) === String(pendingPotentialId))){
-    modalStatusEl.textContent = 'פעילות זו כבר שובצה';
-    return;
-  }
-
   const check = canAssignSlot(date, time, instructor, pendingPotentialId);
   if(!check.ok){
     modalStatusEl.textContent = getReasonLabel(check.reason, check.suggestion || "").text;
@@ -1609,6 +1612,12 @@ function render(){
 
 function renderSchedule(){
   activeScheduleDates = getWeekDates(currentBaseDate);
+
+  if(!activeScheduleDates.length){
+    console.error("אין תאריכים לשבוע");
+    return;
+  }
+
   render();
 }
 
@@ -1906,38 +1915,54 @@ function findSlot(startTime, endTime){
 
 function convertDateToScheduleDate(dateStr){
   const normalized = normalizePotentialDate(dateStr);
-  if(!activeScheduleDates.includes(normalized)){
-    return null;
+
+  if(activeScheduleDates.includes(normalized)){
+    return normalized;
   }
+
+  const d = parseDateKey(normalized);
+
+  if(!d) return null;
+
+  currentBaseDate = d;
+
+  activeScheduleDates = getWeekDates(d);
+
+  renderSchedule();
+
   return normalized;
 }
 
 function canAssignSlot(date, slot, instructor, potentialId=''){
-  if(!activeScheduleDates.includes(date)){
-    return { ok:false, reason:'outside_schedule' };
+  if(!date || !slot || !instructor){
+    return {ok:false,reason:'invalid'};
   }
 
-  if(!isTimeInSchedule(slot)){
-    return { ok:false, reason:'outside_schedule' };
+  const eventsInSlot = scheduleData.filter(e =>
+    e.day === date && e.time === slot
+  );
+
+  if(eventsInSlot.length >= 3){
+    return {ok:false,reason:'slot'};
   }
 
-  const eventsInSlot = scheduleData.filter(e => e.day === date && e.time === slot);
-  if(eventsInSlot.length >= ZOOM_ACCOUNTS.length){
-    return { ok:false, reason:'slot' };
-  }
-
-  if(potentialId && scheduleData.some(e => e.potentialId && String(e.potentialId) === String(potentialId))){
-    return { ok:false, reason:'assigned' };
-  }
-
-  if(!isInstructorFree(date, slot, instructor)){
-    return { ok:false, reason:'instructor' };
+  if(scheduleData.some(e =>
+    e.day === date &&
+    e.instructor === instructor &&
+    e.time === slot
+  )){
+    return {ok:false,reason:'instructor'};
   }
 
   const zoomAccount = pickZoomForSlot(date, slot, instructor);
-  if(!zoomAccount) return { ok:false, reason:'zoom' };
+  if(!zoomAccount){
+    return {ok:false,reason:'zoom'};
+  }
 
-  return { ok:true, zoomAccount, slot };
+  return {
+    ok:true,
+    zoomAccount
+  };
 }
 
 function hasScheduleRecordForPotential(potentialId){
@@ -2240,7 +2265,7 @@ async function assignPotentialToSchedule(rowId){
   if(!Array.isArray(list) || list.length === 0){
     return { success:false, reason:'assign_failed' };
   }
-  scheduleData = list.map(normalizeEvent);
+  scheduleData = list.map(normalizeEvent).filter(e => e.day && e.time);
   schedule = scheduleData;
 
   if(!hasScheduleRecordForPotential(row.id)){
@@ -2314,13 +2339,25 @@ async function markPotentialAsAssigned(potentialId){
   });
 }
 
-function assignFromPotentialById(id){
-  const row = potentialData.find(item => String(item.id) === String(id));
-  if(!row) return;
-  assignFromPotential(row).catch(err => {
-    console.error(err);
-    alert('שגיאה בתהליך השיבוץ מהפוטנציאל.');
-  });
+async function assignFromPotentialById(id){
+
+  const row = potentialData.find(r => String(r.id)===String(id));
+
+  if(!row){
+    alert("פעילות לא נמצאה");
+    return;
+  }
+
+  const date = normalizePotentialDate(row.date);
+
+  const slot = findSlot(row.startTime,row.endTime);
+
+  if(!slot){
+    alert("השעה לא קיימת בלוח");
+    return;
+  }
+
+  openModal(date,slot,{potentialId:id});
 }
 
 async function loadPotentialData(){
@@ -2433,7 +2470,7 @@ async function initApp(){
   consumePendingAssignment();
 }
 
-window.onload = initApp;
+document.addEventListener("DOMContentLoaded", initApp);
 </script>
 
 </body>
