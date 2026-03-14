@@ -9,75 +9,99 @@
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-      :root { --bg:#f3f6fb; --card:#fff; --line:#d7e1ed; --text:#1d2937; --muted:#667b90; --income:#177245; --expense:#b72e3b; --accent:#2f5f9c; }
-      * { box-sizing:border-box; }
-      body { margin:0; background:var(--bg); color:var(--text); font-family:"Assistant",sans-serif; }
-      .container { max-width:1220px; margin:0 auto; padding:12px; display:grid; gap:10px; }
-      .panel { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; }
-      .header { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
-      .brand { display:flex; align-items:center; gap:8px; }
-      .logo { width:24px; height:24px; border-radius:7px; background:linear-gradient(135deg,#2f5f9c,#2ba66f); }
-      h1,h2,h3 { margin:0; }
-      h1 { font-size:22px; }
-      h2 { font-size:18px; }
-      .controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-      input,button,select { font:inherit; border:1px solid var(--line); border-radius:8px; background:#fff; padding:6px 10px; }
-      button { cursor:pointer; }
-      .primary { background:var(--accent); color:#fff; border-color:var(--accent); }
-      .meta { color:var(--muted); font-size:13px; }
-      .month-nav { display:flex; gap:6px; overflow-x:auto; padding-top:6px; }
-      .month-btn { min-width:86px; }
-      .month-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:700; }
-      .section-head { display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:8px; }
-      .table-wrap { overflow:auto; }
-      table { border-collapse:collapse; }
-      .top-summary { min-width:930px; width:auto; margin:0 auto; }
-      .top-summary th,.top-summary td { border-bottom:1px solid #edf2f7; padding:7px 8px; text-align:right; white-space:nowrap; }
-      .top-summary th { background:#f8fafd; }
-      .income { color:var(--income); font-weight:700; }
-      .expense { color:var(--expense); font-weight:700; }
-      .record-table { width:100%; max-width:900px; margin:0 auto; table-layout:fixed; }
-      .record-table th,.record-table td { border-bottom:1px solid #edf2f7; padding:6px 8px; font-size:14px; text-align:right; }
-      .record-table th { background:#f8fafd; }
-      .col-month { width:82px; }
-      .col-date { width:120px; }
-      .col-amount { width:120px; }
-      .col-actions { width:70px; }
-      .col-fund { width:120px; }
-      .action-group { display:inline-flex; gap:2px; }
-      .icon-btn { border:0; background:transparent; padding:1px 2px; line-height:1; font-size:14px; border-radius:6px; }
-      .icon-btn:hover { background:rgba(47,95,156,.1); }
-      .weekly-cards { display:grid; grid-template-columns:repeat(5,minmax(140px,1fr)); gap:8px; }
-      .week-card { border:1px solid var(--line); border-radius:10px; padding:8px; background:#fcfdff; }
-      .week-card.active { border-color:var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-      .week-btn { width:100%; border:0; background:transparent; text-align:right; padding:0; }
-      .split { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-      .bank-kpis { display:grid; grid-template-columns:repeat(5,minmax(140px,1fr)); gap:8px; margin-bottom:8px; }
-      .kpi { border:1px solid var(--line); border-radius:10px; padding:8px; }
-      .kpi-title { font-size:12px; color:var(--muted); }
-      .kpi-value { font-size:21px; font-weight:800; }
-      .bank-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-      canvas { width:100%; height:260px; border:1px solid var(--line); border-radius:10px; }
-      .movements { border:1px solid var(--line); border-radius:10px; max-height:260px; overflow:auto; }
-      .move-row { display:grid; grid-template-columns:88px 1fr 90px 120px; gap:8px; border-bottom:1px solid #edf2f7; padding:6px; font-size:13px; }
-      .daily-layout { display:grid; grid-template-columns:300px 1fr; gap:8px; }
-      .daily-list { display:grid; gap:6px; max-height:300px; overflow:auto; }
-      .day-btn { width:100%; text-align:right; }
-      .day-btn.active { background:#eef5ff; border-color:var(--accent); }
-      .day-detail { border:1px solid var(--line); border-radius:10px; padding:10px; }
-      .modal-backdrop { position:fixed; inset:0; background:rgba(9,20,40,.45); display:none; align-items:center; justify-content:center; z-index:10; }
-      .modal-backdrop.open { display:flex; }
-      .modal { width:min(460px,96vw); background:#fff; border-radius:12px; border:1px solid var(--line); padding:12px; }
-      .form-grid { display:grid; gap:8px; margin:8px 0; }
-      .form-actions { display:flex; justify-content:flex-end; gap:8px; }
-      @media (max-width:960px){ .weekly-cards{grid-template-columns:repeat(2,minmax(130px,1fr));} .split,.bank-grid,.daily-layout,.bank-kpis{grid-template-columns:1fr;} .top-summary{min-width:820px;} }
+      :root {
+        --bg: #f3f6fb;
+        --card: #fff;
+        --line: #d7e1ed;
+        --text: #1d2937;
+        --muted: #667b90;
+        --income: #177245;
+        --expense: #b72e3b;
+        --accent: #2f5f9c;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: "Assistant", sans-serif; }
+      .container { max-width: 1220px; margin: 0 auto; padding: 12px; display: grid; gap: 10px; }
+      .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+      .header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .brand { display: flex; align-items: center; gap: 8px; }
+      .logo { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, #2f5f9c, #2ba66f); }
+      h1, h2, h3 { margin: 0; }
+      h1 { font-size: 22px; }
+      h2 { font-size: 18px; }
+      h3 { font-size: 15px; }
+      .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      input, select, button {
+        font: inherit;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        padding: 6px 10px;
+      }
+      button { cursor: pointer; }
+      .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .meta { color: var(--muted); font-size: 13px; }
+      .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+      .month-nav { display: flex; gap: 6px; overflow-x: auto; padding-top: 6px; }
+      .month-btn { min-width: 86px; }
+      .month-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+      .table-wrap { overflow: auto; }
+      table { border-collapse: collapse; }
+      .top-summary { min-width: 930px; margin: 0 auto; }
+      .top-summary th, .top-summary td { border-bottom: 1px solid #edf2f7; padding: 7px 8px; white-space: nowrap; text-align: right; }
+      .top-summary th { background: #f8fafd; }
+      .income { color: var(--income); font-weight: 700; }
+      .expense { color: var(--expense); font-weight: 700; }
+      .weekly-cards { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 8px; }
+      .week-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #fcfdff; }
+      .week-card.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+      .week-btn { width: 100%; border: 0; background: transparent; text-align: right; padding: 0; }
+      .group-list { display: grid; gap: 8px; }
+      .group-item { border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+      .group-header { width: 100%; border: 0; background: transparent; display: flex; justify-content: space-between; align-items: center; padding: 8px; }
+      .group-details { border-top: 1px solid #edf2f7; padding: 8px; }
+      .record-table { width: 100%; max-width: 900px; margin: 0 auto; table-layout: fixed; }
+      .record-table th, .record-table td { border-bottom: 1px solid #edf2f7; padding: 6px 8px; text-align: right; font-size: 14px; }
+      .record-table th { background: #f8fafd; }
+      .col-month { width: 84px; }
+      .col-date { width: 124px; }
+      .col-amount { width: 120px; }
+      .col-actions { width: 72px; }
+      .col-fund { width: 120px; }
+      .action-group { display: inline-flex; gap: 2px; }
+      .icon-btn { border: 0; background: transparent; padding: 1px 2px; line-height: 1; border-radius: 6px; font-size: 14px; }
+      .icon-btn:hover { background: rgba(47, 95, 156, 0.1); }
+      .bank-kpis { display: grid; grid-template-columns: repeat(4, minmax(140px, 1fr)); gap: 8px; margin-bottom: 8px; }
+      .kpi { border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+      .kpi-title { font-size: 12px; color: var(--muted); }
+      .kpi-value { font-size: 21px; font-weight: 800; }
+      .bank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      canvas { width: 100%; height: 250px; border: 1px solid var(--line); border-radius: 10px; }
+      .movements { border: 1px solid var(--line); border-radius: 10px; max-height: 250px; overflow: auto; }
+      .move-row { display: grid; grid-template-columns: 90px 1fr 95px 120px; gap: 8px; padding: 6px; border-bottom: 1px solid #edf2f7; font-size: 13px; }
+      .daily-list { display: grid; gap: 6px; }
+      .day-btn { width: 100%; text-align: right; }
+      .day-btn.active { background: #eef5ff; border-color: var(--accent); }
+      .day-detail { border: 1px solid var(--line); border-radius: 10px; padding: 8px; margin-top: 8px; }
+      .modal-backdrop { position: fixed; inset: 0; background: rgba(9, 20, 40, 0.45); display: none; align-items: center; justify-content: center; z-index: 20; }
+      .modal-backdrop.open { display: flex; }
+      .modal { width: min(460px, 96vw); border: 1px solid var(--line); border-radius: 12px; background: #fff; padding: 12px; }
+      .form-grid { display: grid; gap: 8px; margin: 8px 0; }
+      .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+      @media (max-width: 960px) {
+        .weekly-cards { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+        .bank-kpis, .bank-grid { grid-template-columns: 1fr; }
+      }
     </style>
   </head>
   <body>
     <main class="container">
       <section class="panel">
         <div class="header">
-          <div class="brand"><div class="logo" aria-hidden="true"></div><h1>דשבורד כספים - תעשיידע</h1></div>
+          <div class="brand">
+            <div class="logo" aria-hidden="true"></div>
+            <h1>דשבורד כספים - תעשיידע</h1>
+          </div>
           <div class="controls">
             <input id="fileInput" type="file" accept=".xlsx,.xls" />
             <span class="meta">Excel-first בלבד</span>
@@ -87,59 +111,87 @@
       </section>
 
       <section class="panel" id="topSummarySection"></section>
+      <section class="panel" id="weeklySection"></section>
       <section class="panel" id="expensesSection"></section>
       <section class="panel" id="incomesSection"></section>
-      <section class="panel" id="weeklySection"></section>
-      <section class="panel" id="bankSection"></section>
       <section class="panel" id="dailyFlowSection"></section>
+      <section class="panel" id="bankSection"></section>
     </main>
 
     <div id="editorModal" class="modal-backdrop" role="dialog" aria-modal="true"></div>
 
     <script>
-      const DISPLAY_MONTHS = [2,3,4,5,6,7,8];
-      const MONTHS_HE = ["ינואר","פברואר","מרץ","אפריל","מאי","יוני","יולי","אוגוסט","ספטמבר","אוקטובר","נובמבר","דצמבר"];
-      const FUND_GROUPS = ["גפן","ויצו","תעשיינים","תמיר","רשות","מקורות","היי-דרוז",'מתנ"ס',"סיורים"];
+      const DISPLAY_MONTHS = [2, 3, 4, 5, 6, 7, 8];
+      const FLOW_TAB = "flow";
+      const MONTHS_HE = ["ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני", "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"];
+      const FUND_GROUPS = ["גפן", "ויצו", "תעשיינים", "תמיר", "רשות", "מקורות", "היי-דרוז", 'מתנ"ס', "סיורים"];
       const EXPENSE_GROUPS = [
-        { name:"שכר", rows:[4,11] },
-        { name:"עמלות", rows:[12,12] },
-        { name:"ספקים/תפעול", rows:[13,31] },
-        { name:"הלוואה", rows:[2,3] },
-        { name:"חובות מחודשים קודמים", rows:[32,33] },
-        { name:"ללא מועד / התאמות", rows:[34,36], includeUndated:true }
+        { name: "שכר", rows: [4, 11] },
+        { name: "עמלות", rows: [12, 12] },
+        { name: "ספקים שונים", rows: [13, 31] },
+        { name: "הלוואה", rows: [2, 3] },
+        { name: "חובות מחודשים קודמים", rows: [32, 33] }
       ];
-      const monthKeyMap = MONTHS_HE.reduce((acc,name,index)=>{ acc[normalizeHeader(name)] = index+1; return acc; },{});
-      const FUND_ALIASES = { [normalizeHeader('מתנ"ס')]:'מתנ"ס', [normalizeHeader("מתנס")]: 'מתנ"ס' };
 
-      const seedYear = new Date().getFullYear();
       const state = {
-        incomes: [
-          normalizeIncomeRecord({ date:`${seedYear}-02-10`, fund:"גפן", detail:"תשלום מסגרת", amount:48000 }),
-          normalizeIncomeRecord({ date:`${seedYear}-03-18`, fund:"מקורות", detail:"העברה", amount:36000 })
-        ],
-        expenses: [
-          normalizeExpenseRecord({ year:seedYear, month:2, day:4, detail:"שכר", amount:28000, sourceRow:5 }),
-          normalizeExpenseRecord({ year:seedYear, month:3, day:12, detail:"שכירות", amount:9300, sourceRow:13 }),
-          normalizeExpenseRecord({ year:seedYear, month:4, day:null, detail:"ספק ללא מועד", amount:4200, sourceRow:35 })
-        ],
-        bankDaily: [
-          { date:`${seedYear}-02-01`, year:seedYear, month:2, day:1, incomeAmount:0, expenseAmount:0, incomeDesc:"", expenseDesc:"", bank:120000 },
-          { date:`${seedYear}-02-04`, year:seedYear, month:2, day:4, incomeAmount:0, expenseAmount:28000, incomeDesc:"", expenseDesc:"שכר", bank:92000 },
-          { date:`${seedYear}-02-10`, year:seedYear, month:2, day:10, incomeAmount:48000, expenseAmount:0, incomeDesc:"גפן", expenseDesc:"", bank:140000 }
-        ],
+        incomes: [],
+        expenses: [],
+        bankDaily: [],
         selectedMonth: "all",
         selectedWeek: null,
         selectedDay: null,
-        showOnlyMovementDays: true,
-        workYear: seedYear
+        expandedExpenseGroup: null,
+        expandedIncomeGroup: null,
+        workYear: new Date().getFullYear()
       };
 
-      function normalizeHeader(v){ return String(v||"").replace(/["'׳״]/g,"").replace(/\s+/g,"").toLowerCase(); }
-      function monthLabel(m){ return MONTHS_HE[m-1] || `חודש ${m}`; }
-      function formatMoney(v){ return `₪${Number(v||0).toLocaleString("he-IL",{maximumFractionDigits:0})}`; }
-      function shortDate(iso){ return iso ? new Date(iso).toLocaleDateString("he-IL") : "-"; }
+      const monthKeyMap = MONTHS_HE.reduce((acc, name, idx) => {
+        acc[normalizeHeader(name)] = idx + 1;
+        return acc;
+      }, {});
 
-      function excelDateToISO(value){
+      const FUND_ALIASES = {
+        [normalizeHeader('מתנ"ס')]: 'מתנ"ס',
+        [normalizeHeader("מתנס")]: 'מתנ"ס'
+      };
+
+      seed();
+
+      function seed() {
+        const year = new Date().getFullYear();
+        state.workYear = year;
+        state.incomes = [
+          normalizeIncomeRecord({ date: `${year}-02-10`, fund: "גפן", detail: "תשלום מסגרת", amount: 48000 }),
+          normalizeIncomeRecord({ date: `${year}-03-18`, fund: "מקורות", detail: "העברה", amount: 36000 })
+        ];
+        state.expenses = [
+          normalizeExpenseRecord({ year, month: 2, day: 4, detail: "שכר", amount: 28000, sourceRow: 5 }),
+          normalizeExpenseRecord({ year, month: 3, day: 12, detail: "ספק", amount: 9300, sourceRow: 13 })
+        ];
+        state.bankDaily = [
+          { date: `${year}-02-01`, year, month: 2, day: 1, incomeAmount: 0, expenseAmount: 0, incomeDesc: "", expenseDesc: "", bank: 120000 },
+          { date: `${year}-02-04`, year, month: 2, day: 4, incomeAmount: 0, expenseAmount: 28000, incomeDesc: "", expenseDesc: "שכר", bank: 92000 },
+          { date: `${year}-02-10`, year, month: 2, day: 10, incomeAmount: 48000, expenseAmount: 0, incomeDesc: "גפן", expenseDesc: "", bank: 140000 }
+        ];
+      }
+
+      function normalizeHeader(value) {
+        return String(value || "").replace(/["'׳״]/g, "").replace(/\s+/g, "").toLowerCase();
+      }
+
+      function monthLabel(month) {
+        return MONTHS_HE[month - 1] || `חודש ${month}`;
+      }
+
+      function formatMoney(value) {
+        return `₪${Number(value || 0).toLocaleString("he-IL", { maximumFractionDigits: 0 })}`;
+      }
+
+      function shortDate(iso) {
+        return iso ? new Date(iso).toLocaleDateString("he-IL") : "-";
+      }
+
+      function excelDateToISO(value) {
         if (value === null || value === undefined || value === "") return "";
         if (typeof value === "number") {
           const d = new Date(Math.round((value - 25569) * 86400 * 1000));
@@ -150,41 +202,51 @@
         if (!text) return "";
         if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
         if (/^\d{1,2}[./-]\d{1,2}[./-]\d{2,4}$/.test(text)) {
-          const [d,m,yRaw] = text.split(/[./-]/);
+          const [d, m, yRaw] = text.split(/[./-]/);
           const y = yRaw.length === 2 ? Number(`20${yRaw}`) : Number(yRaw);
-          return `${y}-${String(Number(m)).padStart(2,"0")}-${String(Number(d)).padStart(2,"0")}`;
+          return `${y}-${String(Number(m)).padStart(2, "0")}-${String(Number(d)).padStart(2, "0")}`;
         }
         const parsed = new Date(text);
         return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0,10);
       }
 
-      function normalizeExpenseRecord(raw){
+      function normalizeExpenseRecord(raw) {
+        const year = Number(raw.year || state.workYear);
         const month = Number(raw.month || 0);
-        const day = raw.day === null || raw.day === undefined || raw.day === "" ? null : Number(raw.day);
-        const year = Number(raw.year || state.workYear || new Date().getFullYear());
-        const hasDate = month > 0 && day > 0;
+        const day = Number(raw.day || 0);
+        if (!(month > 0 && day > 0)) return null;
         return {
-          id: raw.id || crypto.randomUUID(), year, month, day: hasDate ? day : null,
-          date: hasDate ? `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}` : "",
-          detail: String(raw.detail||"").trim(), amount: Math.abs(Number(raw.amount||0)), sourceRow: Number(raw.sourceRow||0)||null
+          id: raw.id || crypto.randomUUID(),
+          year,
+          month,
+          day,
+          date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+          detail: String(raw.detail || "").trim(),
+          amount: Math.abs(Number(raw.amount || 0)),
+          sourceRow: Number(raw.sourceRow || 0) || null
         };
       }
 
       function normalizeIncomeRecord(raw){
         const date = excelDateToISO(raw.date);
-        const d = date ? new Date(date) : null;
+        if (!date) return null;
+        const d = new Date(date);
         return {
-          id: raw.id || crypto.randomUUID(), date,
-          year: d ? d.getFullYear() : Number(raw.year || state.workYear),
-          month: d ? d.getMonth()+1 : Number(raw.month || 0), day: d ? d.getDate() : Number(raw.day || 0),
-          fund: String(raw.fund||"").trim(), detail: String(raw.detail||"").trim(), amount: Math.abs(Number(raw.amount||0))
+          id: raw.id || crypto.randomUUID(),
+          date,
+          year: d.getFullYear(),
+          month: d.getMonth() + 1,
+          day: d.getDate(),
+          fund: String(raw.fund || "").trim(),
+          detail: String(raw.detail || "").trim(),
+          amount: Math.abs(Number(raw.amount || 0))
         };
       }
 
-      function parseExpensesSheet(rows, derivedYear){
+      function parseExpensesSheet(rows, derivedYear) {
         const firstRow = rows[0] || [];
-        const normalized = firstRow.map(normalizeHeader);
-        let detailCol = normalized.findIndex((h)=>h.includes("פירוט") || h.includes("תיאור"));
+        const normalizedHeaders = firstRow.map(normalizeHeader);
+        let detailCol = normalizedHeaders.findIndex((h) => h.includes("פירוט") || h.includes("תיאור"));
         if (detailCol < 0) detailCol = 1;
         const dayCol = 0;
         const monthCols = firstRow
@@ -192,37 +254,47 @@
           .map(({cell,index})=>{
             const text = String(cell).trim();
             const numericMonth = /^([1-9]|1[0-2])$/.test(text) ? Number(text) : monthKeyMap[normalizeHeader(text)] || null;
-            return { index, month:numericMonth };
-          }).filter((x)=>x.month);
+            return { index, month: numericMonth };
+          })
+          .filter((item) => item.month);
 
         const records = [];
-        rows.slice(1).forEach((row,rowIdx)=>{
-          const detail = String(row[detailCol]||"").trim();
+        rows.slice(1).forEach((row, i) => {
+          const detail = String(row[detailCol] || "").trim();
           if (!detail) return;
-          const dayNum = Number(row[dayCol]);
-          const sourceRow = rowIdx + 2;
-          monthCols.forEach(({index,month})=>{
+          const day = Number(row[0]);
+          const sourceRow = i + 2;
+          if (!(day > 0)) {
+            console.warn("Skipped invalid expense row (missing day)", { sourceRow });
+            return;
+          }
+          monthCols.forEach(({ index, month }) => {
             const amount = Number(row[index]);
             if (!amount) return;
-            records.push(normalizeExpenseRecord({ year:derivedYear, month, day:Number.isFinite(dayNum) ? dayNum : null, detail, amount, sourceRow }));
+            const record = normalizeExpenseRecord({ year: derivedYear, month, day, detail, amount, sourceRow });
+            if (record) records.push(record);
           });
         });
         return records;
       }
 
-      function parseIncomesSheet(rows){
-        const headers = (rows[0]||[]).map(normalizeHeader);
+      function parseIncomesSheet(rows) {
+        const headers = (rows[0] || []).map(normalizeHeader);
         const col = {
-          date: headers.findIndex((h)=>h.includes("תאריך") || h.includes("מועד")),
-          fund: headers.findIndex((h)=>h.includes("מימון") || h.includes("מקור")),
-          detail: headers.findIndex((h)=>h.includes("פירוט") || h.includes("תיאור")),
-          amount: headers.findIndex((h)=>h.includes("סכום"))
+          date: headers.findIndex((h) => h.includes("תאריך") || h.includes("מועד")),
+          fund: headers.findIndex((h) => h.includes("מימון") || h.includes("מקור")),
+          detail: headers.findIndex((h) => h.includes("פירוט") || h.includes("תיאור")),
+          amount: headers.findIndex((h) => h.includes("סכום"))
         };
-        return rows.slice(1).map((row)=>{
-          const date = excelDateToISO(row[col.date]);
+
+        return rows.slice(1).map((row, index) => {
           const amount = Number(row[col.amount]);
-          if (!date || !amount) return null;
-          return normalizeIncomeRecord({ date, fund:row[col.fund], detail:row[col.detail], amount });
+          const date = excelDateToISO(row[col.date]);
+          if (!date || !amount) {
+            if (row[col.amount] || row[col.date]) console.warn("Skipped invalid income row", { row: index + 2 });
+            return null;
+          }
+          return normalizeIncomeRecord({ date, fund: row[col.fund], detail: row[col.detail], amount });
         }).filter(Boolean);
       }
 
@@ -236,7 +308,8 @@
           expenseDesc: headers.findIndex((h)=>h.includes("תיאורהוצאה") || h.includes("הוצאהתיאור")),
           bank: headers.findIndex((h)=>h.includes("יתרה") || h.includes("בנק"))
         };
-        return rows.slice(1).map((row)=>{
+
+        return rows.slice(1).map((row) => {
           const date = excelDateToISO(row[col.date]);
           if (!date) return null;
           const d = new Date(date);
@@ -248,143 +321,349 @@
         }).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
       }
 
-      function deriveWorkYear(incomes, bankDaily){ return bankDaily[0]?.year || incomes[0]?.year || new Date().getFullYear(); }
-      function getActiveMonthRecords(records){ return state.selectedMonth === "all" ? records : records.filter((r)=>r.month === Number(state.selectedMonth)); }
+      function deriveWorkYear(incomes, bankDaily) {
+        return bankDaily[0]?.year || incomes[0]?.year || new Date().getFullYear();
+      }
 
-      function groupIncomeFund(fund){
-        const normalized = normalizeHeader(fund);
-        const alias = FUND_ALIASES[normalized];
+      function getMonthScoped(records) {
+        if (state.selectedMonth === "all" || state.selectedMonth === FLOW_TAB) return records;
+        return records.filter((item) => item.month === Number(state.selectedMonth));
+      }
+
+      function groupIncomeFund(fund) {
+        const normalizedFund = normalizeHeader(fund);
+        const alias = FUND_ALIASES[normalizedFund];
         if (alias) return alias;
-        return FUND_GROUPS.find((name)=>normalizeHeader(name) === normalized) || "אחר";
+        return FUND_GROUPS.find((name) => normalizeHeader(name) === normalizedFund) || "אחר";
       }
 
-      function groupExpenseRecord(expense){
+      function groupExpenseRecord(expense) {
         const row = Number(expense.sourceRow || 0);
-        if (!expense.date) return "ללא מועד / התאמות";
-        const group = EXPENSE_GROUPS.find((g)=>row >= g.rows[0] && row <= g.rows[1]);
-        return group ? group.name : "ללא מועד / התאמות";
+        const group = EXPENSE_GROUPS.find((g) => row >= g.rows[0] && row <= g.rows[1]);
+        return group ? group.name : "ספקים שונים";
       }
 
-      function computeMonthlySummary(){
-        const monthly = DISPLAY_MONTHS.map((month)=>{
-          const incomes = state.incomes.filter((r)=>r.month===month);
-          const expenses = state.expenses.filter((r)=>r.month===month);
-          const incomeByGroup = Object.fromEntries([...FUND_GROUPS, "אחר"].map((g)=>[g,0]));
-          const expenseByGroup = Object.fromEntries(EXPENSE_GROUPS.map((g)=>[g.name,0]));
-          incomes.forEach((r)=>{ const g = groupIncomeFund(r.fund); incomeByGroup[g] += r.amount; });
-          expenses.forEach((r)=>{ const g = groupExpenseRecord(r); expenseByGroup[g] += r.amount; });
-          const incomeTotal = Object.values(incomeByGroup).reduce((s,v)=>s+v,0);
-          const expenseTotal = Object.values(expenseByGroup).reduce((s,v)=>s+v,0);
-          const monthBankRows = state.bankDaily.filter((r)=>r.month===month);
-          return {
-            month, incomeByGroup, expenseByGroup, incomeTotal, expenseTotal,
-            endingBalance: monthBankRows[monthBankRows.length-1]?.bank ?? null, net: incomeTotal-expenseTotal
-          };
-        });
+      function computeMonthlySummary() {
         const opening = state.bankDaily[0]?.bank || 0;
-        return { monthly, opening };
+        const months = DISPLAY_MONTHS.map((month) => {
+          const incomeTotal = state.incomes.filter((item) => item.month === month).reduce((sum, item) => sum + item.amount, 0);
+          const expenseTotal = state.expenses.filter((item) => item.month === month).reduce((sum, item) => sum + item.amount, 0);
+          const bankRows = state.bankDaily.filter((row) => row.month === month);
+          const endingBalance = bankRows[bankRows.length - 1]?.bank ?? null;
+          return { month, incomeTotal, expenseTotal, endingBalance };
+        });
+        return { opening, months };
       }
 
       function computeWeeklySummary(month){
         if (!month) return [];
         const year = state.workYear;
         const lastDay = new Date(year, month, 0).getDate();
-        const ranges = [[1,7],[8,14],[15,21],[22,28],[29,lastDay]].filter(([s,e])=>s<=e);
-        return ranges.map(([start,end],idx)=>{
-          const expenses = state.expenses.filter((r)=>r.month===month && r.day && r.day>=start && r.day<=end);
-          const incomes = state.incomes.filter((r)=>r.month===month && r.day && r.day>=start && r.day<=end);
-          const expenseSum = expenses.reduce((s,r)=>s+r.amount,0);
-          const incomeSum = incomes.reduce((s,r)=>s+r.amount,0);
-          return { index:idx+1,start,end,expenses,incomes,expenseSum,incomeSum,net:incomeSum-expenseSum };
+        const ranges = [[1, 7], [8, 14], [15, 21], [22, 28], [29, lastDay]].filter(([s, e]) => s <= e);
+        return ranges.map(([start, end], idx) => {
+          const weekExpenses = state.expenses.filter((item) => item.month === month && item.day >= start && item.day <= end);
+          const weekIncomes = state.incomes.filter((item) => item.month === month && item.day >= start && item.day <= end);
+          return {
+            index: idx + 1,
+            start,
+            end,
+            expenseSum: weekExpenses.reduce((sum, item) => sum + item.amount, 0),
+            incomeSum: weekIncomes.reduce((sum, item) => sum + item.amount, 0),
+            expenses: weekExpenses,
+            incomes: weekIncomes
+          };
         });
       }
 
-      function recomputeForecastData(){
-        // שכבה ייעודית להמשך: כאן ניתן לחשב תחזית מחדש אחרי שינויים ידניים מול bankDaily.
+      function recomputeForecastData() {
         return state.bankDaily;
       }
 
-      function computeBankSummary(){
-        const baseSeries = recomputeForecastData();
-        const series = state.selectedMonth === "all" ? baseSeries : baseSeries.filter((r)=>r.month===Number(state.selectedMonth));
-        if (!series.length) return { series:[], kpis:{ today:0, forecast:0, low:0, lowDate:"", opening:0, ending:0 } };
-        const today = series[series.length-1].bank;
-        const opening = series[0].bank;
-        const ending = series[series.length-1].bank;
-        const lowRow = series.reduce((min,row)=>row.bank<min.bank?row:min,series[0]);
-        return { series, kpis:{ today, forecast:ending, low:lowRow.bank, lowDate:lowRow.date, opening, ending } };
+      function computeBankSummary() {
+        const series = state.selectedMonth === FLOW_TAB
+          ? recomputeForecastData()
+          : state.selectedMonth === "all"
+            ? recomputeForecastData()
+            : recomputeForecastData().filter((row) => row.month === Number(state.selectedMonth));
+
+        if (!series.length) {
+          return { series: [], kpis: { today: 0, forecast: 0, low: 0, lowDate: "", change: 0 } };
+        }
+
+        const first = series[0].bank;
+        const last = series[series.length - 1].bank;
+        const low = series.reduce((min, row) => (row.bank < min.bank ? row : min), series[0]);
+        return {
+          series,
+          kpis: {
+            today: last,
+            forecast: last,
+            low: low.bank,
+            lowDate: low.date,
+            change: last - first
+          }
+        };
       }
 
-      function computeDailyFlow(){
-        const monthScoped = state.selectedMonth === "all" ? state.bankDaily : state.bankDaily.filter((r)=>r.month===Number(state.selectedMonth));
-        const rows = monthScoped.map((r)=>({ ...r, net:r.incomeAmount-r.expenseAmount }));
-        return state.showOnlyMovementDays ? rows.filter((r)=>r.incomeAmount || r.expenseAmount) : rows;
+      function computeDailyFlow() {
+        const scoped = state.selectedMonth === FLOW_TAB || state.selectedMonth === "all"
+          ? state.bankDaily
+          : state.bankDaily.filter((row) => row.month === Number(state.selectedMonth));
+
+        return scoped
+          .map((row) => ({ ...row, net: row.incomeAmount - row.expenseAmount }))
+          .filter((row) => row.incomeAmount || row.expenseAmount);
       }
 
-      function renderMonthButtons(){
-        const buttons = [{ key:"all", label:"כל השנה" }, ...DISPLAY_MONTHS.map((m)=>({ key:String(m), label:monthLabel(m) }))];
-        document.querySelector("#monthButtons").innerHTML = buttons.map((b)=>`<button class="month-btn ${state.selectedMonth===b.key?"active":""}" data-month="${b.key}">${b.label}</button>`).join("");
+      function computeExpenseGroups() {
+        const scoped = getMonthScoped(state.expenses);
+        const groups = EXPENSE_GROUPS.map((group) => {
+          const records = scoped
+            .filter((item) => groupExpenseRecord(item) === group.name)
+            .sort((a, b) => a.date.localeCompare(b.date));
+          return { name: group.name, total: records.reduce((sum, item) => sum + item.amount, 0), records };
+        });
+        return groups;
       }
 
-      function renderTopSummary(){
-        const { monthly, opening } = computeMonthlySummary();
-        const monthHeaders = monthly.map((m)=>monthLabel(m.month));
-        const incomeValues = monthly.map((m)=>m.incomeTotal);
-        const expenseValues = monthly.map((m)=>m.expenseTotal);
-        const endingValues = monthly.map((m)=>m.endingBalance ?? 0);
-        const netValues = monthly.map((m)=>m.net);
-        const sum = (arr)=>arr.reduce((s,v)=>s+v,0);
-        document.querySelector("#topSummarySection").innerHTML = `
-          <div class="section-head"><h2>תמונת מצב עליונה</h2><div class="meta">שורת יתרת סוף חודש נשענת על תזרים יומי (bankDaily)</div></div>
+      function computeIncomeGroups() {
+        const scoped = getMonthScoped(state.incomes);
+        const groupNames = [...FUND_GROUPS, "אחר"];
+        return groupNames.map((name) => {
+          const records = scoped
+            .filter((item) => groupIncomeFund(item.fund) === name)
+            .sort((a, b) => a.date.localeCompare(b.date));
+          return { name, total: records.reduce((sum, item) => sum + item.amount, 0), records };
+        });
+      }
+
+      function renderMonthButtons() {
+        const items = [
+          { key: "all", label: "כל השנה" },
+          ...DISPLAY_MONTHS.map((month) => ({ key: String(month), label: monthLabel(month) })),
+          { key: FLOW_TAB, label: "תזרים" }
+        ];
+
+        document.querySelector("#monthButtons").innerHTML = items
+          .map((item) => `<button class="month-btn ${state.selectedMonth === item.key ? "active" : ""}" data-month="${item.key}">${item.label}</button>`)
+          .join("");
+      }
+
+      function renderTopSummary() {
+        const section = document.querySelector("#topSummarySection");
+        if (state.selectedMonth === FLOW_TAB) {
+          section.innerHTML = `<div class="section-head"><h2>תמונת מצב עליונה</h2></div><div class="meta">בטאב תזרים מוצגת תצוגה יומית.</div>`;
+          return;
+        }
+
+        const { opening, months } = computeMonthlySummary();
+        const incomeValues = months.map((m) => m.incomeTotal);
+        const expenseValues = months.map((m) => m.expenseTotal);
+        const endingValues = months.map((m) => m.endingBalance);
+        const sum = (arr) => arr.reduce((acc, item) => acc + (Number(item) || 0), 0);
+
+        section.innerHTML = `
+          <div class="section-head"><h2>סיכום שנתי</h2><div class="meta">יתרות סוף חודש נלקחות מגיליון תזרים יומי</div></div>
           <div class="table-wrap">
             <table class="top-summary">
               <thead>
-                <tr><th>פריט</th><th>יתרת פתיחה</th>${monthHeaders.map((h)=>`<th>${h}</th>`).join("")}<th>סה"כ</th></tr>
+                <tr>
+                  <th>פריט</th>
+                  <th>יתרת פתיחה</th>
+                  ${DISPLAY_MONTHS.map((m) => `<th>${monthLabel(m)}</th>`).join("")}
+                  <th>סה"כ</th>
+                </tr>
               </thead>
               <tbody>
-                <tr><th>הכנסות</th><td>${formatMoney(0)}</td>${incomeValues.map((v)=>`<td class="income">${formatMoney(v)}</td>`).join("")}<td class="income">${formatMoney(sum(incomeValues))}</td></tr>
-                <tr><th>הוצאות</th><td>${formatMoney(0)}</td>${expenseValues.map((v)=>`<td class="expense">${formatMoney(v)}</td>`).join("")}<td class="expense">${formatMoney(sum(expenseValues))}</td></tr>
-                <tr><th>יתרת סוף חודש / תזרים מצטבר</th><td>${formatMoney(opening)}</td>${endingValues.map((v)=>`<td class="${v>=0?"income":"expense"}">${formatMoney(v)}</td>`).join("")}<td class="${endingValues[endingValues.length-1]>=0?"income":"expense"}">${formatMoney(endingValues[endingValues.length-1]||opening)}</td></tr>
-                <tr><th>נטו חודשי</th><td>${formatMoney(0)}</td>${netValues.map((v)=>`<td class="${v>=0?"income":"expense"}">${formatMoney(v)}</td>`).join("")}<td class="${sum(netValues)>=0?"income":"expense"}">${formatMoney(sum(netValues))}</td></tr>
+                <tr>
+                  <th>הכנסות</th>
+                  <td>${formatMoney(0)}</td>
+                  ${incomeValues.map((v) => `<td class="income">${formatMoney(v)}</td>`).join("")}
+                  <td class="income">${formatMoney(sum(incomeValues))}</td>
+                </tr>
+                <tr>
+                  <th>הוצאות</th>
+                  <td>${formatMoney(0)}</td>
+                  ${expenseValues.map((v) => `<td class="expense">${formatMoney(v)}</td>`).join("")}
+                  <td class="expense">${formatMoney(sum(expenseValues))}</td>
+                </tr>
+                <tr>
+                  <th>יתרת סוף חודש / יתרת תזרים</th>
+                  <td>${formatMoney(opening)}</td>
+                  ${endingValues.map((v) => `<td class="${(v || 0) >= 0 ? "income" : "expense"}">${v === null ? "-" : formatMoney(v)}</td>`).join("")}
+                  <td class="meta">יתרת סוף התקופה</td>
+                </tr>
               </tbody>
             </table>
-          </div>`;
+          </div>
+        `;
       }
 
-      function renderExpensesSection(){
-        const rows = getActiveMonthRecords(state.expenses).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
-        document.querySelector("#expensesSection").innerHTML = `
-          <div class="section-head"><h2>הוצאות</h2><div class="controls"><button class="icon-btn" data-action="add-expense" title="הוספה">➕</button></div></div>
-          <div class="table-wrap"><table class="record-table">
-            <thead><tr><th class="col-month">חודש</th><th class="col-date">מועד</th><th>פירוט</th><th class="col-amount">סכום</th><th class="col-actions">פעולות</th></tr></thead>
-            <tbody>${rows.map((r)=>`<tr><td>${monthLabel(r.month)}</td><td>${shortDate(r.date)}</td><td>${r.detail||"-"}</td><td class="expense">${formatMoney(r.amount)}</td><td><span class="action-group"><button class="icon-btn" data-action="edit-expense" data-id="${r.id}">✏️</button><button class="icon-btn" data-action="delete-expense" data-id="${r.id}">🗑️</button></span></td></tr>`).join("") || '<tr><td colspan="5">אין נתונים.</td></tr>'}</tbody>
-          </table></div>`;
-      }
-
-      function renderIncomesSection(){
-        const rows = getActiveMonthRecords(state.incomes).sort((a,b)=>a.date.localeCompare(b.date));
-        document.querySelector("#incomesSection").innerHTML = `
-          <div class="section-head"><h2>הכנסות</h2><div class="controls"><button class="icon-btn" data-action="add-income" title="הוספה">➕</button></div></div>
-          <div class="table-wrap"><table class="record-table">
-            <thead><tr><th class="col-month">חודש</th><th class="col-date">מועד</th><th class="col-fund">מימון</th><th>פירוט</th><th class="col-amount">סכום</th><th class="col-actions">פעולות</th></tr></thead>
-            <tbody>${rows.map((r)=>`<tr><td>${monthLabel(r.month)}</td><td>${shortDate(r.date)}</td><td>${r.fund||"-"}</td><td>${r.detail||"-"}</td><td class="income">${formatMoney(r.amount)}</td><td><span class="action-group"><button class="icon-btn" data-action="edit-income" data-id="${r.id}">✏️</button><button class="icon-btn" data-action="delete-income" data-id="${r.id}">🗑️</button></span></td></tr>`).join("") || '<tr><td colspan="6">אין נתונים.</td></tr>'}</tbody>
-          </table></div>`;
-      }
-
-      function renderWeeklySection(){
+      function renderWeeklySection() {
         const section = document.querySelector("#weeklySection");
-        if (state.selectedMonth === "all") {
-          section.innerHTML = `<div class="section-head"><h2>פירוק שבועי</h2></div><div class="meta">בחר חודש כדי להציג פירוק שבועי.</div>`;
+        if (state.selectedMonth === FLOW_TAB) {
+          section.innerHTML = `<div class="section-head"><h2>חלוקה לשבועות</h2></div><div class="meta">בטאב תזרים חלוקה שבועית מוסתרת.</div>`;
           return;
         }
+
+        if (state.selectedMonth === "all") {
+          section.innerHTML = `<div class="section-head"><h2>חלוקה לשבועות</h2></div><div class="meta">בחר חודש להצגת תיבות שבועיות.</div>`;
+          return;
+        }
+
         const month = Number(state.selectedMonth);
         const weeks = computeWeeklySummary(month);
-        state.selectedWeek = state.selectedWeek || weeks[0]?.index || null;
-        const selected = weeks.find((w)=>w.index===state.selectedWeek) || weeks[0];
+        state.selectedWeek = weeks.find((w) => w.index === state.selectedWeek)?.index || weeks[0]?.index || null;
+        const selectedWeek = weeks.find((w) => w.index === state.selectedWeek);
+
         section.innerHTML = `
-          <div class="section-head"><h2>פירוק שבועי - ${monthLabel(month)}</h2></div>
-          <div class="weekly-cards">${weeks.map((w)=>`<div class="week-card ${w.index===state.selectedWeek?"active":""}"><button class="week-btn" data-action="pick-week" data-week="${w.index}"><div><strong>שבוע ${w.index}</strong> (${w.start}-${w.end})</div><div class="expense">הוצאות: ${formatMoney(w.expenseSum)}</div><div class="income">הכנסות: ${formatMoney(w.incomeSum)}</div><div class="${w.net>=0?"income":"expense"}">נטו: ${formatMoney(w.net)}</div></button></div>`).join("")}</div>
-          ${selected ? `<div class="split" style="margin-top:8px"><div><h3>הוצאות</h3><ul>${selected.expenses.map((r)=>`<li>${shortDate(r.date)} | ${r.detail} (${formatMoney(r.amount)})</li>`).join("") || "<li>אין הוצאות.</li>"}</ul></div><div><h3>הכנסות</h3><ul>${selected.incomes.map((r)=>`<li>${shortDate(r.date)} | ${r.fund||"-"} / ${r.detail} (${formatMoney(r.amount)})</li>`).join("") || "<li>אין הכנסות.</li>"}</ul></div></div>` : ""}
+          <div class="section-head"><h2>חלוקה לשבועות - ${monthLabel(month)}</h2></div>
+          <div class="weekly-cards">
+            ${weeks.map((week) => `
+              <div class="week-card ${week.index === state.selectedWeek ? "active" : ""}">
+                <button class="week-btn" data-action="pick-week" data-week="${week.index}">
+                  <div><strong>שבוע ${week.index}</strong></div>
+                  <div class="meta">${week.start}-${week.end}</div>
+                  <div class="income">הכנסות: ${formatMoney(week.incomeSum)}</div>
+                  <div class="expense">הוצאות: ${formatMoney(week.expenseSum)}</div>
+                </button>
+              </div>
+            `).join("")}
+          </div>
+          ${selectedWeek ? `
+            <div class="group-list" style="margin-top:8px">
+              <div class="group-item"><div class="group-details"><h3>פירוט שבוע ${selectedWeek.index} - הוצאות</h3><ul>${selectedWeek.expenses.map((item) => `<li>${shortDate(item.date)} | ${item.detail} (${formatMoney(item.amount)})</li>`).join("") || "<li>אין נתונים.</li>"}</ul></div></div>
+              <div class="group-item"><div class="group-details"><h3>פירוט שבוע ${selectedWeek.index} - הכנסות</h3><ul>${selectedWeek.incomes.map((item) => `<li>${shortDate(item.date)} | ${item.fund || "-"} / ${item.detail} (${formatMoney(item.amount)})</li>`).join("") || "<li>אין נתונים.</li>"}</ul></div></div>
+            </div>` : ""}
+        `;
+      }
+
+      function renderExpensesSection() {
+        const section = document.querySelector("#expensesSection");
+        if (state.selectedMonth === FLOW_TAB) {
+          section.innerHTML = "";
+          return;
+        }
+
+        const groups = computeExpenseGroups();
+        section.innerHTML = `
+          <div class="section-head"><h2>הוצאות לפי קבוצות</h2><button class="icon-btn" data-action="add-expense" title="הוספה">➕</button></div>
+          <div class="group-list">
+            ${groups.map((group) => {
+              const isOpen = state.expandedExpenseGroup === group.name;
+              return `
+                <div class="group-item">
+                  <button class="group-header" data-action="toggle-expense-group" data-group="${group.name}">
+                    <strong>${group.name}</strong>
+                    <span class="expense">${formatMoney(group.total)}</span>
+                  </button>
+                  ${isOpen ? `
+                    <div class="group-details">
+                      <div class="table-wrap">
+                        <table class="record-table">
+                          <thead><tr><th class="col-month">חודש</th><th class="col-date">תאריך</th><th>פירוט</th><th class="col-amount">סכום</th><th class="col-actions">פעולות</th></tr></thead>
+                          <tbody>
+                            ${group.records.map((row) => `
+                              <tr>
+                                <td>${monthLabel(row.month)}</td>
+                                <td>${shortDate(row.date)}</td>
+                                <td>${row.detail || "-"}</td>
+                                <td class="expense">${formatMoney(row.amount)}</td>
+                                <td><span class="action-group"><button class="icon-btn" data-action="edit-expense" data-id="${row.id}">✏️</button><button class="icon-btn" data-action="delete-expense" data-id="${row.id}">🗑️</button></span></td>
+                              </tr>
+                            `).join("") || '<tr><td colspan="5">אין נתונים.</td></tr>'}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ` : ""}
+                </div>
+              `;
+            }).join("")}
+          </div>
+        `;
+      }
+
+      function renderIncomesSection() {
+        const section = document.querySelector("#incomesSection");
+        if (state.selectedMonth === FLOW_TAB) {
+          section.innerHTML = "";
+          return;
+        }
+
+        const groups = computeIncomeGroups();
+        const grandTotal = groups.reduce((sum, g) => sum + g.total, 0);
+
+        section.innerHTML = `
+          <div class="section-head"><h2>הכנסות לפי קבוצות</h2><button class="icon-btn" data-action="add-income" title="הוספה">➕</button></div>
+          <div class="group-list">
+            ${groups.map((group) => {
+              const isOpen = state.expandedIncomeGroup === group.name;
+              return `
+                <div class="group-item">
+                  <button class="group-header" data-action="toggle-income-group" data-group="${group.name}">
+                    <strong>${group.name}</strong>
+                    <span class="income">${formatMoney(group.total)}</span>
+                  </button>
+                  ${isOpen ? `
+                    <div class="group-details">
+                      <div class="table-wrap">
+                        <table class="record-table">
+                          <thead><tr><th class="col-month">חודש</th><th class="col-date">תאריך</th><th class="col-fund">מימון</th><th>פירוט</th><th class="col-amount">סכום</th><th class="col-actions">פעולות</th></tr></thead>
+                          <tbody>
+                            ${group.records.map((row) => `
+                              <tr>
+                                <td>${monthLabel(row.month)}</td>
+                                <td>${shortDate(row.date)}</td>
+                                <td>${row.fund || "-"}</td>
+                                <td>${row.detail || "-"}</td>
+                                <td class="income">${formatMoney(row.amount)}</td>
+                                <td><span class="action-group"><button class="icon-btn" data-action="edit-income" data-id="${row.id}">✏️</button><button class="icon-btn" data-action="delete-income" data-id="${row.id}">🗑️</button></span></td>
+                              </tr>
+                            `).join("") || '<tr><td colspan="6">אין נתונים.</td></tr>'}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ` : ""}
+                </div>
+              `;
+            }).join("")}
+            <div class="group-item"><div class="group-header"><strong>סכום כולל</strong><span class="income">${formatMoney(grandTotal)}</span></div></div>
+          </div>
+        `;
+      }
+
+      function renderDailyFlowSection() {
+        const section = document.querySelector("#dailyFlowSection");
+        const rows = computeDailyFlow();
+
+        if (state.selectedMonth !== FLOW_TAB) {
+          section.innerHTML = "";
+          return;
+        }
+
+        state.selectedDay = rows.some((row) => row.date === state.selectedDay) ? state.selectedDay : rows[0]?.date || null;
+        const selected = rows.find((row) => row.date === state.selectedDay);
+
+        section.innerHTML = `
+          <div class="section-head"><h2>טאב תזרים - תצוגה יומית</h2><div class="meta">רק ימים עם תנועה</div></div>
+          <div class="daily-list">
+            ${rows.map((row) => `
+              <button class="day-btn ${row.date === state.selectedDay ? "active" : ""}" data-action="pick-day" data-date="${row.date}">
+                ${shortDate(row.date)} | הכנסות ${formatMoney(row.incomeAmount)} | הוצאות ${formatMoney(row.expenseAmount)} | נטו ${formatMoney(row.net)} | יתרה ${formatMoney(row.bank)}
+              </button>
+            `).join("") || '<div class="meta">אין נתוני תזרים.</div>'}
+          </div>
+          ${selected ? `
+            <div class="day-detail">
+              <h3>${shortDate(selected.date)}</h3>
+              <p><strong>הכנסות:</strong> ${formatMoney(selected.incomeAmount)} ${selected.incomeDesc ? `| ${selected.incomeDesc}` : ""}</p>
+              <p><strong>הוצאות:</strong> ${formatMoney(selected.expenseAmount)} ${selected.expenseDesc ? `| ${selected.expenseDesc}` : ""}</p>
+              <p><strong>נטו יומי:</strong> <span class="${selected.net >= 0 ? "income" : "expense"}">${formatMoney(selected.net)}</span></p>
+              <p><strong>יתרת בנק סוף יום:</strong> <span class="${selected.bank >= 0 ? "income" : "expense"}">${formatMoney(selected.bank)}</span></p>
+            </div>
+          ` : ""}
         `;
       }
 
@@ -392,110 +671,148 @@
         const canvas = document.querySelector("#bankCanvas");
         if (!canvas || !series.length) return;
         const ctx = canvas.getContext("2d");
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        const values = series.map((r)=>r.bank);
-        const min = Math.min(0,...values), max = Math.max(0,...values), pad = 32;
-        const width = canvas.width - pad*2, height = canvas.height - pad*2;
-        const x = (i)=>pad + (i/Math.max(1,series.length-1))*width;
-        const y = (v)=>pad + (1-(v-min)/((max-min)||1))*height;
-        ctx.strokeStyle="#dbe6f2"; for(let i=0;i<=4;i+=1){ const yy = pad+(height/4)*i; ctx.beginPath(); ctx.moveTo(pad,yy); ctx.lineTo(canvas.width-pad,yy); ctx.stroke(); }
-        ctx.setLineDash([4,4]); ctx.strokeStyle="#596273"; ctx.beginPath(); ctx.moveTo(pad,y(0)); ctx.lineTo(canvas.width-pad,y(0)); ctx.stroke(); ctx.setLineDash([]);
-        ctx.strokeStyle="#2f5f9c"; ctx.lineWidth=2; ctx.beginPath(); series.forEach((r,i)=>i?ctx.lineTo(x(i),y(r.bank)):ctx.moveTo(x(i),y(r.bank))); ctx.stroke();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const values = series.map((row) => row.bank);
+        const minValue = Math.min(0, ...values);
+        const maxValue = Math.max(0, ...values);
+        const pad = 30;
+        const width = canvas.width - pad * 2;
+        const height = canvas.height - pad * 2;
+        const x = (i) => pad + (i / Math.max(1, series.length - 1)) * width;
+        const y = (v) => pad + (1 - (v - minValue) / ((maxValue - minValue) || 1)) * height;
+
+        ctx.strokeStyle = "#dbe6f2";
+        for (let i = 0; i <= 4; i += 1) {
+          const yy = pad + (height / 4) * i;
+          ctx.beginPath();
+          ctx.moveTo(pad, yy);
+          ctx.lineTo(canvas.width - pad, yy);
+          ctx.stroke();
+        }
+
+        ctx.strokeStyle = "#2f5f9c";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        series.forEach((row, idx) => {
+          if (idx === 0) ctx.moveTo(x(idx), y(row.bank));
+          else ctx.lineTo(x(idx), y(row.bank));
+        });
+        ctx.stroke();
       }
 
-      function renderBankSection(){
-        const { series, kpis } = computeBankSummary();
+      function renderBankSection() {
         const section = document.querySelector("#bankSection");
-        if (!series.length) { section.innerHTML = `<h2>תזרים בנק</h2><div class="meta">אין נתונים להצגה.</div>`; return; }
+        const { series, kpis } = computeBankSummary();
+        if (!series.length) {
+          section.innerHTML = `<div class="section-head"><h2>תזרים בנק</h2></div><div class="meta">אין נתונים להצגה.</div>`;
+          return;
+        }
+
         section.innerHTML = `
-          <div class="section-head"><h2>תזרים בנק</h2><div class="meta">מקור נתונים: bankDaily</div></div>
+          <div class="section-head"><h2>תזרים בנק</h2><div class="meta">מקור אמת: גיליון תזרים יומי</div></div>
           <div class="bank-kpis">
-            <div class="kpi"><div class="kpi-title">יתרת פתיחה</div><div class="kpi-value ${kpis.opening>=0?"income":"expense"}">${formatMoney(kpis.opening)}</div></div>
-            <div class="kpi"><div class="kpi-title">יתרת סוף חודש</div><div class="kpi-value ${kpis.ending>=0?"income":"expense"}">${formatMoney(kpis.ending)}</div></div>
-            <div class="kpi"><div class="kpi-title">TODAY</div><div class="kpi-value ${kpis.today>=0?"income":"expense"}">${formatMoney(kpis.today)}</div></div>
-            <div class="kpi"><div class="kpi-title">Forecast</div><div class="kpi-value ${kpis.forecast>=0?"income":"expense"}">${formatMoney(kpis.forecast)}</div></div>
-            <div class="kpi"><div class="kpi-title">נקודה נמוכה</div><div class="kpi-value ${kpis.low>=0?"income":"expense"}">${formatMoney(kpis.low)}</div><div class="meta">${shortDate(kpis.lowDate)}</div></div>
+            <div class="kpi"><div class="kpi-title">עו"ש TODAY</div><div class="kpi-value ${kpis.today >= 0 ? "income" : "expense"}">${formatMoney(kpis.today)}</div></div>
+            <div class="kpi"><div class="kpi-title">תחזית לסוף תקופה</div><div class="kpi-value ${kpis.forecast >= 0 ? "income" : "expense"}">${formatMoney(kpis.forecast)}</div></div>
+            <div class="kpi"><div class="kpi-title">נקודה נמוכה</div><div class="kpi-value ${kpis.low >= 0 ? "income" : "expense"}">${formatMoney(kpis.low)}</div><div class="meta">${shortDate(kpis.lowDate)}</div></div>
+            <div class="kpi"><div class="kpi-title">שינוי בתקופה</div><div class="kpi-value ${kpis.change >= 0 ? "income" : "expense"}">${formatMoney(kpis.change)}</div></div>
           </div>
           <div class="bank-grid">
-            <canvas id="bankCanvas" width="760" height="260"></canvas>
-            <div class="movements"><div class="move-row" style="font-weight:700;background:#f8fafd"><div>תאריך</div><div>תיאור</div><div>נטו יומי</div><div>יתרה</div></div>
-              ${series.map((r)=>{ const net = r.incomeAmount-r.expenseAmount; const desc = [r.incomeDesc?`הכנסה: ${r.incomeDesc}`:"", r.expenseDesc?`הוצאה: ${r.expenseDesc}`:""] .filter(Boolean).join(" | ") || "-"; return `<div class="move-row"><div>${shortDate(r.date)}</div><div>${desc}</div><div class="${net>=0?"income":"expense"}">${formatMoney(net)}</div><div class="${r.bank>=0?"income":"expense"}">${formatMoney(r.bank)}</div></div>`; }).join("")}
+            <canvas id="bankCanvas" width="760" height="250"></canvas>
+            <div class="movements">
+              <div class="move-row" style="font-weight:700;background:#f8fafd"><div>תאריך</div><div>תיאור</div><div>נטו</div><div>יתרה</div></div>
+              ${series.map((row) => {
+                const net = row.incomeAmount - row.expenseAmount;
+                const desc = [row.incomeDesc ? `הכנסה: ${row.incomeDesc}` : "", row.expenseDesc ? `הוצאה: ${row.expenseDesc}` : ""].filter(Boolean).join(" | ") || "-";
+                return `<div class="move-row"><div>${shortDate(row.date)}</div><div>${desc}</div><div class="${net >= 0 ? "income" : "expense"}">${formatMoney(net)}</div><div class="${row.bank >= 0 ? "income" : "expense"}">${formatMoney(row.bank)}</div></div>`;
+              }).join("")}
             </div>
           </div>`;
         drawBankChart(series);
       }
 
-      function renderDailyFlowSection(){
-        const rows = computeDailyFlow();
-        state.selectedDay = rows.some((r)=>r.date===state.selectedDay) ? state.selectedDay : rows[0]?.date || null;
-        const selected = rows.find((r)=>r.date===state.selectedDay);
-        document.querySelector("#dailyFlowSection").innerHTML = `
-          <div class="section-head"><h2>תזרים יומי</h2><label class="meta"><input type="checkbox" id="onlyMovements" ${state.showOnlyMovementDays?"checked":""} /> ימים עם תנועה בלבד</label></div>
-          <div class="daily-layout">
-            <div class="daily-list">${rows.map((r)=>`<button class="day-btn ${r.date===state.selectedDay?"active":""}" data-action="pick-day" data-date="${r.date}">${shortDate(r.date)} | הכנסות ${formatMoney(r.incomeAmount)} | הוצאות ${formatMoney(r.expenseAmount)} | נטו ${formatMoney(r.net)}</button>`).join("") || '<div class="meta">אין תנועות להצגה.</div>'}</div>
-            <div>${selected ? `<div class="day-detail"><h3>${shortDate(selected.date)}</h3><p><strong>הכנסות:</strong> ${formatMoney(selected.incomeAmount)} ${selected.incomeDesc?`| ${selected.incomeDesc}`:""}</p><p><strong>הוצאות:</strong> ${formatMoney(selected.expenseAmount)} ${selected.expenseDesc?`| ${selected.expenseDesc}`:""}</p><p><strong>השפעה יומית:</strong> <span class="${selected.net>=0?"income":"expense"}">${formatMoney(selected.net)}</span></p><p><strong>יתרה בסוף היום:</strong> <span class="${selected.bank>=0?"income":"expense"}">${formatMoney(selected.bank)}</span></p></div>` : '<div class="meta">בחר יום להצגת פירוט.</div>'}</div>
-          </div>`;
-      }
-
-      function render(){
+      function render() {
         renderMonthButtons();
         renderTopSummary();
+        renderWeeklySection();
         renderExpensesSection();
         renderIncomesSection();
-        renderWeeklySection();
-        renderBankSection();
         renderDailyFlowSection();
+        renderBankSection();
       }
 
-      function openEditor(type, record){
+      function openEditor(type, item = null) {
         const isExpense = type === "expense";
         const modal = document.querySelector("#editorModal");
-        const monthOptions = DISPLAY_MONTHS.map((m)=>`<option value="${m}" ${Number(record?.month)===m?"selected":""}>${monthLabel(m)}</option>`).join("");
         modal.innerHTML = `
           <div class="modal">
-            <h3>${record ? "עריכה" : "הוספה"} ${isExpense ? "הוצאה" : "הכנסה"}</h3>
+            <h3>${item ? "עריכה" : "הוספה"} ${isExpense ? "הוצאה" : "הכנסה"}</h3>
             <form id="editorForm" class="form-grid">
-              ${isExpense ? `<label>חודש <select name="month" required>${monthOptions}</select></label><label>תאריך (YYYY-MM-DD או ריק) <input name="date" value="${record?.date||""}" /></label><label>פירוט <input name="detail" required value="${record?.detail||""}" /></label><label>סכום <input name="amount" type="number" min="0" required value="${record?.amount||0}" /></label>` : `<label>תאריך <input name="date" required value="${record?.date||""}" /></label><label>מימון <input name="fund" value="${record?.fund||""}" /></label><label>פירוט <input name="detail" value="${record?.detail||""}" /></label><label>סכום <input name="amount" type="number" min="0" required value="${record?.amount||0}" /></label>`}
+              <label>תאריך (YYYY-MM-DD)<input name="date" required value="${item?.date || ""}" /></label>
+              ${isExpense ? "" : '<label>מקור מימון<input name="fund" value="' + (item?.fund || "") + '" /></label>'}
+              <label>פירוט<input name="detail" required value="${item?.detail || ""}" /></label>
+              <label>סכום<input name="amount" type="number" min="0" required value="${item?.amount || 0}" /></label>
               <div class="form-actions"><button type="button" data-action="close-modal">ביטול</button><button class="primary" type="submit">שמירה</button></div>
             </form>
-          </div>`;
+          </div>
+        `;
         modal.classList.add("open");
 
-        modal.querySelector("#editorForm").addEventListener("submit", (event)=>{
+        modal.querySelector("#editorForm").addEventListener("submit", (event) => {
           event.preventDefault();
           const fd = new FormData(event.target);
+          const date = excelDateToISO(fd.get("date"));
+          if (!date) return alert("תאריך לא תקין.");
+          const d = new Date(date);
           if (isExpense) {
-            const date = excelDateToISO(fd.get("date"));
-            const month = date ? new Date(date).getMonth()+1 : Number(fd.get("month"));
-            const day = date ? new Date(date).getDate() : null;
             const normalized = normalizeExpenseRecord({
-              id: record?.id, year: state.workYear, month, day, detail:fd.get("detail"), amount:Number(fd.get("amount")), sourceRow:record?.sourceRow || 35
+              id: item?.id,
+              year: d.getFullYear(),
+              month: d.getMonth() + 1,
+              day: d.getDate(),
+              detail: fd.get("detail"),
+              amount: Number(fd.get("amount")),
+              sourceRow: item?.sourceRow || 13
             });
-            if (record) state.expenses = state.expenses.map((r)=>r.id===record.id?normalized:r); else state.expenses.push(normalized);
+            if (!normalized) return;
+            if (item) state.expenses = state.expenses.map((row) => (row.id === item.id ? normalized : row));
+            else state.expenses.push(normalized);
           } else {
-            const date = excelDateToISO(fd.get("date"));
-            if (!date) return alert("תאריך לא תקין");
-            const normalized = normalizeIncomeRecord({ id:record?.id, date, fund:fd.get("fund"), detail:fd.get("detail"), amount:Number(fd.get("amount")) });
-            if (record) state.incomes = state.incomes.map((r)=>r.id===record.id?normalized:r); else state.incomes.push(normalized);
+            const normalized = normalizeIncomeRecord({
+              id: item?.id,
+              date,
+              fund: fd.get("fund"),
+              detail: fd.get("detail"),
+              amount: Number(fd.get("amount"))
+            });
+            if (!normalized) return;
+            if (item) state.incomes = state.incomes.map((row) => (row.id === item.id ? normalized : row));
+            else state.incomes.push(normalized);
           }
           closeModal();
           render();
         });
       }
 
-      function closeModal(){ const modal = document.querySelector("#editorModal"); modal.classList.remove("open"); modal.innerHTML = ""; }
+      function closeModal() {
+        const modal = document.querySelector("#editorModal");
+        modal.classList.remove("open");
+        modal.innerHTML = "";
+      }
 
       async function handleFileUpload(file){
         const buffer = await file.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type:"array" });
-        const sheetRows = (name)=>XLSX.utils.sheet_to_json(workbook.Sheets[name], { header:1, defval:"" });
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const sheetRows = (name) => XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
+
         if (!workbook.Sheets["הוצאות"] || !workbook.Sheets["גיול"] || !workbook.Sheets["תזרים יומי"]) {
           alert("חסרים גיליונות חובה: הוצאות, גיול, תזרים יומי");
           return;
         }
+
         const parsedIncomes = parseIncomesSheet(sheetRows("גיול"));
         const parsedBankDaily = parseBankDailySheet(sheetRows("תזרים יומי"));
         const year = deriveWorkYear(parsedIncomes, parsedBankDaily);
+
         state.workYear = year;
         state.incomes = parsedIncomes;
         state.bankDaily = parsedBankDaily;
@@ -503,6 +820,9 @@
         state.selectedMonth = "all";
         state.selectedWeek = null;
         state.selectedDay = null;
+        state.expandedExpenseGroup = null;
+        state.expandedIncomeGroup = null;
+
         render();
       }
 
@@ -512,7 +832,7 @@
           if (file) handleFileUpload(file);
         });
 
-        document.body.addEventListener("click", (event)=>{
+        document.body.addEventListener("click", (event) => {
           const target = event.target.closest("[data-month],[data-action]");
           if (!target) return;
           if (target.dataset.month) {
@@ -534,10 +854,44 @@
           if (action === "close-modal") closeModal();
         });
 
-        document.body.addEventListener("change", (event)=>{
-          if (event.target.id === "onlyMovements") {
-            state.showOnlyMovementDays = event.target.checked;
+          const { action, id, week, date, group } = target.dataset;
+          if (action === "close-modal") return closeModal();
+          if (action === "add-expense") return openEditor("expense");
+          if (action === "add-income") return openEditor("income");
+          if (action === "edit-expense") return openEditor("expense", state.expenses.find((row) => row.id === id));
+          if (action === "edit-income") return openEditor("income", state.incomes.find((row) => row.id === id));
+          if (action === "delete-expense") {
+            if (confirm("למחוק הוצאה?")) {
+              state.expenses = state.expenses.filter((row) => row.id !== id);
+              render();
+            }
+            return;
+          }
+          if (action === "delete-income") {
+            if (confirm("למחוק הכנסה?")) {
+              state.incomes = state.incomes.filter((row) => row.id !== id);
+              render();
+            }
+            return;
+          }
+          if (action === "pick-week") {
+            state.selectedWeek = Number(week);
+            renderWeeklySection();
+            return;
+          }
+          if (action === "pick-day") {
+            state.selectedDay = date;
             renderDailyFlowSection();
+            return;
+          }
+          if (action === "toggle-expense-group") {
+            state.expandedExpenseGroup = state.expandedExpenseGroup === group ? null : group;
+            renderExpensesSection();
+            return;
+          }
+          if (action === "toggle-income-group") {
+            state.expandedIncomeGroup = state.expandedIncomeGroup === group ? null : group;
+            renderIncomesSection();
           }
         });
       }
