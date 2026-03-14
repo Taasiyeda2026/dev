@@ -156,6 +156,19 @@
       };
 
       const monthKeyMap = MONTHS_HE.reduce((acc, name, index) => { acc[normalizeHeader(name)] = index + 1; return acc; }, {});
+      const FUND_GROUPS = ["גפן", "ויצו", "תעשיינים", "תמיר", "רשות", "מקורות", "היי-דרוז", 'מתנ"ס', "סיורים"];
+      const FUND_ALIASES = {
+        [normalizeHeader('מתנ"ס')]: 'מתנ"ס',
+        [normalizeHeader("מתנס")]: 'מתנ"ס'
+      };
+      const EXPENSE_GROUPS = [
+        { name: "שכר", rows: [4, 11] },
+        { name: "עמלות", rows: [12, 12] },
+        { name: "ספקים/תפעול", rows: [13, 31] },
+        { name: "הלוואה", rows: [2, 3] },
+        { name: "חובות מחודשים קודמים", rows: [32, 33] },
+        { name: "ללא מועד / התאמות", rows: [34, 36], includeUndated: true }
+      ];
 
       function normalizeHeader(value) {
         return String(value || "").replace(/["'׳״]/g, "").replace(/\s+/g, "").toLowerCase();
@@ -186,7 +199,8 @@
           day: hasDate ? day : null,
           date: hasDate ? `${Number(raw.year || currentYear)}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` : "",
           detail: String(raw.detail || "").trim(),
-          amount: Math.abs(Number(raw.amount || 0))
+          amount: Math.abs(Number(raw.amount || 0)),
+          sourceRow: Number(raw.sourceRow || 0) || null
         };
       }
 
@@ -223,17 +237,35 @@
           .filter((item) => item.month);
 
         const records = [];
-        rows.slice(1).forEach((row) => {
+        rows.slice(1).forEach((row, index) => {
           const detail = String(row[detailCol] || "").trim();
           if (!detail) return;
           const day = Number(row[dayCol]);
+          const sourceRow = index + 2;
           monthCols.forEach(({ index, month }) => {
             const amount = Number(row[index]);
             if (!amount) return;
-            records.push(normalizeExpenseRecord({ year: currentYear, month, day: Number.isFinite(day) ? day : null, detail, amount }));
+            records.push(normalizeExpenseRecord({ year: currentYear, month, day: Number.isFinite(day) ? day : null, detail, amount, sourceRow }));
           });
         });
         return records;
+      }
+
+      function groupIncomeFund(fund) {
+        const normalizedFund = normalizeHeader(fund);
+        const alias = FUND_ALIASES[normalizedFund];
+        if (alias) return alias;
+        return FUND_GROUPS.find((name) => normalizeHeader(name) === normalizedFund) || "אחר";
+      }
+
+      function groupExpenseRecord(expense) {
+        const row = Number(expense.sourceRow || 0);
+        const isUndated = !expense.date;
+        const explicitGroup = EXPENSE_GROUPS.find((group) => row >= group.rows[0] && row <= group.rows[1]);
+        if (explicitGroup?.name === "ללא מועד / התאמות") return explicitGroup.name;
+        if (isUndated) return "ללא מועד / התאמות";
+        if (explicitGroup) return explicitGroup.name;
+        return "ללא מועד / התאמות";
       }
 
       function parseIncomesSheet(rows) {
@@ -286,14 +318,37 @@
 
       function computeMonthlySummary() {
         const months = [0, ...DISPLAY_MONTHS];
-        const rowByMonth = months.map((month) => {
-          const incomes = state.incomes.filter((item) => month === 0 ? item.month < 2 : item.month === month);
-          const expenses = state.expenses.filter((item) => month === 0 ? item.month < 2 : item.month === month);
-          const incomeSum = incomes.reduce((a, b) => a + b.amount, 0);
-          const expenseSum = expenses.reduce((a, b) => a + b.amount, 0);
-          return { month, incomeSum, expenseSum, net: incomeSum - expenseSum };
+        const incomeGroups = [...FUND_GROUPS, "אחר"];
+        const expenseGroups = EXPENSE_GROUPS.map((group) => group.name);
+
+        const summary = months.map((month) => {
+          const inMonth = (item) => month === 0 ? item.month < 2 : item.month === month;
+          const incomeByGroup = Object.fromEntries(incomeGroups.map((group) => [group, 0]));
+          const expenseByGroup = Object.fromEntries(expenseGroups.map((group) => [group, 0]));
+
+          state.incomes.filter(inMonth).forEach((item) => {
+            const group = groupIncomeFund(item.fund);
+            incomeByGroup[group] = (incomeByGroup[group] || 0) + item.amount;
+          });
+
+          state.expenses.filter(inMonth).forEach((item) => {
+            const group = groupExpenseRecord(item);
+            expenseByGroup[group] = (expenseByGroup[group] || 0) + item.amount;
+          });
+
+          const incomeTotal = Object.values(incomeByGroup).reduce((sum, value) => sum + value, 0);
+          const expenseTotal = Object.values(expenseByGroup).reduce((sum, value) => sum + value, 0);
+
+          return {
+            month,
+            incomeByGroup,
+            expenseByGroup,
+            incomeTotal,
+            expenseTotal,
+            net: incomeTotal - expenseTotal
+          };
         });
-        return rowByMonth;
+        return summary;
       }
 
       function computeWeeklySummary(month) {
@@ -345,27 +400,51 @@
 
       function renderTopSummary() {
         const summary = computeMonthlySummary();
-        const total = summary.reduce((acc, month) => ({
-          income: acc.income + month.incomeSum,
-          expense: acc.expense + month.expenseSum,
+        const headers = ["יתרת פתיחה", ...DISPLAY_MONTHS.map(monthLabel), "סה״כ"];
+        const totals = summary.reduce((acc, month) => ({
+          income: acc.income + month.incomeTotal,
+          expense: acc.expense + month.expenseTotal,
           net: acc.net + month.net
         }), { income: 0, expense: 0, net: 0 });
-        const headers = ["יתרת פתיחה", ...DISPLAY_MONTHS.map(monthLabel), "סה״כ"];
-        const valueBy = (key) => [...summary.map((m) => m[key]), total[key === "incomeSum" ? "income" : key === "expenseSum" ? "expense" : "net"]];
-        const incomeRow = valueBy("incomeSum");
-        const expenseRow = valueBy("expenseSum");
-        const netRow = valueBy("net");
+
+        const buildValues = (groupMapKey, groupName) => {
+          const values = summary.map((item) => item[groupMapKey][groupName] || 0);
+          const totalValue = values.reduce((sum, value) => sum + value, 0);
+          return [...values, totalValue];
+        };
+
+        const incomeRows = [...FUND_GROUPS, "אחר"]
+          .map((group) => ({ group, values: buildValues("incomeByGroup", group) }))
+          .filter((row) => row.values.some((value) => value !== 0) || row.group !== "אחר");
+        const expenseRows = EXPENSE_GROUPS
+          .map((group) => ({ group: group.name, values: buildValues("expenseByGroup", group.name) }));
+
+        const incomeTotalRow = [...summary.map((m) => m.incomeTotal), totals.income];
+        const expenseTotalRow = [...summary.map((m) => m.expenseTotal), totals.expense];
+        const netRow = [...summary.map((m) => m.net), totals.net];
+
         document.querySelector("#topSummarySection").innerHTML = `
-          <div class="section-head"><h2>תמונת מצב שנתית</h2><div class="meta">ברירת מחדל: כל השנה</div></div>
-          <div class="table-wrap">
-            <table class="summary-table">
-              <thead><tr><th>סוג</th>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
-              <tbody>
-                <tr><th>הכנסות</th>${incomeRow.map((v) => `<td class="income">${formatMoney(v)}</td>`).join("")}</tr>
-                <tr><th>הוצאות</th>${expenseRow.map((v) => `<td class="expense">${formatMoney(v)}</td>`).join("")}</tr>
-                <tr><th>נטו</th>${netRow.map((v) => `<td class="${v >= 0 ? "income" : "expense"}">${formatMoney(v)}</td>`).join("")}</tr>
-              </tbody>
-            </table>
+          <div class="section-head"><h2>תמונת מצב שנתית לפי מודל ריכוז</h2><div class="meta">הכנסות לפי מקור מימון | הוצאות לפי קבוצות עסקיות</div></div>
+          <div class="split">
+            <div class="table-wrap">
+              <table class="summary-table">
+                <thead><tr><th>הכנסות (מקור מימון)</th>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+                <tbody>
+                  ${incomeRows.map((row) => `<tr><th>${row.group}</th>${row.values.map((value) => `<td class="income">${formatMoney(value)}</td>`).join("")}</tr>`).join("")}
+                  <tr><th>סך הכנסות</th>${incomeTotalRow.map((value) => `<td class="income">${formatMoney(value)}</td>`).join("")}</tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-wrap">
+              <table class="summary-table">
+                <thead><tr><th>הוצאות (קבוצות)</th>${headers.map((h) => `<th>${h}</th>`).join("")}</tr></thead>
+                <tbody>
+                  ${expenseRows.map((row) => `<tr><th>${row.group}</th>${row.values.map((value) => `<td class="expense">${formatMoney(value)}</td>`).join("")}</tr>`).join("")}
+                  <tr><th>סך הוצאות</th>${expenseTotalRow.map((value) => `<td class="expense">${formatMoney(value)}</td>`).join("")}</tr>
+                  <tr><th>נטו</th>${netRow.map((value) => `<td class="${value >= 0 ? "income" : "expense"}">${formatMoney(value)}</td>`).join("")}</tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         `;
       }
