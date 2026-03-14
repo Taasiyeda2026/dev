@@ -491,7 +491,7 @@
                   <th>יתרת סוף חודש / יתרת תזרים</th>
                   <td>${formatMoney(opening)}</td>
                   ${endingValues.map((v) => `<td class="${(v || 0) >= 0 ? "income" : "expense"}">${v === null ? "-" : formatMoney(v)}</td>`).join("")}
-                  <td class="meta">יתרת סוף התקופה</td>
+                  <td class="${(((endingValues.slice().reverse().find((v) => v !== null) ?? opening)) >= 0) ? "income" : "expense"}">${formatMoney((endingValues.slice().reverse().find((v) => v !== null) ?? opening))}</td>
                 </tr>
               </tbody>
             </table>
@@ -631,6 +631,39 @@
             }).join("")}
             <div class="group-item"><div class="group-header"><strong>סכום כולל</strong><span class="income">${formatMoney(grandTotal)}</span></div></div>
           </div>
+        `;
+      }
+
+      function renderDailyFlowSection() {
+        const section = document.querySelector("#dailyFlowSection");
+        const rows = computeDailyFlow();
+
+        if (state.selectedMonth !== FLOW_TAB) {
+          section.innerHTML = "";
+          return;
+        }
+
+        state.selectedDay = rows.some((row) => row.date === state.selectedDay) ? state.selectedDay : rows[0]?.date || null;
+        const selected = rows.find((row) => row.date === state.selectedDay);
+
+        section.innerHTML = `
+          <div class="section-head"><h2>טאב תזרים - תצוגה יומית</h2><div class="meta">רק ימים עם תנועה</div></div>
+          <div class="daily-list">
+            ${rows.map((row) => `
+              <button class="day-btn ${row.date === state.selectedDay ? "active" : ""}" data-action="pick-day" data-date="${row.date}">
+                ${shortDate(row.date)} | הכנסות ${formatMoney(row.incomeAmount)} | הוצאות ${formatMoney(row.expenseAmount)} | נטו ${formatMoney(row.net)} | יתרה ${formatMoney(row.bank)}
+              </button>
+            `).join("") || '<div class="meta">אין נתוני תזרים.</div>'}
+          </div>
+          ${selected ? `
+            <div class="day-detail">
+              <h3>${shortDate(selected.date)}</h3>
+              <p><strong>הכנסות:</strong> ${formatMoney(selected.incomeAmount)} ${selected.incomeDesc ? `| ${selected.incomeDesc}` : ""}</p>
+              <p><strong>הוצאות:</strong> ${formatMoney(selected.expenseAmount)} ${selected.expenseDesc ? `| ${selected.expenseDesc}` : ""}</p>
+              <p><strong>נטו יומי:</strong> <span class="${selected.net >= 0 ? "income" : "expense"}">${formatMoney(selected.net)}</span></p>
+              <p><strong>יתרת בנק סוף יום:</strong> <span class="${selected.bank >= 0 ? "income" : "expense"}">${formatMoney(selected.bank)}</span></p>
+            </div>
+          ` : ""}
         `;
       }
 
