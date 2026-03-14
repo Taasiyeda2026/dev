@@ -194,10 +194,10 @@
       function excelDateToISO(value) {
         if (value === null || value === undefined || value === "") return "";
         if (typeof value === "number") {
-          const date = new Date(Math.round((value - 25569) * 86400 * 1000));
-          return Number.isNaN(date.getTime()) ? "" : date.toISOString().slice(0, 10);
+          const d = new Date(Math.round((value - 25569) * 86400 * 1000));
+          return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0,10);
         }
-        if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0,10);
         const text = String(value).trim();
         if (!text) return "";
         if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
@@ -207,7 +207,7 @@
           return `${y}-${String(Number(m)).padStart(2, "0")}-${String(Number(d)).padStart(2, "0")}`;
         }
         const parsed = new Date(text);
-        return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0, 10);
+        return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString().slice(0,10);
       }
 
       function normalizeExpenseRecord(raw) {
@@ -227,7 +227,7 @@
         };
       }
 
-      function normalizeIncomeRecord(raw) {
+      function normalizeIncomeRecord(raw){
         const date = excelDateToISO(raw.date);
         if (!date) return null;
         const d = new Date(date);
@@ -248,10 +248,10 @@
         const normalizedHeaders = firstRow.map(normalizeHeader);
         let detailCol = normalizedHeaders.findIndex((h) => h.includes("פירוט") || h.includes("תיאור"));
         if (detailCol < 0) detailCol = 1;
-
+        const dayCol = 0;
         const monthCols = firstRow
-          .map((cell, index) => ({ cell, index }))
-          .map(({ cell, index }) => {
+          .map((cell,index)=>({cell,index}))
+          .map(({cell,index})=>{
             const text = String(cell).trim();
             const numericMonth = /^([1-9]|1[0-2])$/.test(text) ? Number(text) : monthKeyMap[normalizeHeader(text)] || null;
             return { index, month: numericMonth };
@@ -298,15 +298,15 @@
         }).filter(Boolean);
       }
 
-      function parseBankDailySheet(rows) {
-        const headers = (rows[0] || []).map(normalizeHeader);
+      function parseBankDailySheet(rows){
+        const headers = (rows[0]||[]).map(normalizeHeader);
         const col = {
-          date: headers.findIndex((h) => h.includes("תאריך")),
-          incomeAmount: headers.findIndex((h) => h.includes("סכוםהכנסות") || h.includes("הכנסותסכום")),
-          expenseAmount: headers.findIndex((h) => h.includes("סכוםהוצאות") || h.includes("הוצאותסכום")),
-          incomeDesc: headers.findIndex((h) => h.includes("תיאורהכנסה") || h.includes("הכנסהתיאור")),
-          expenseDesc: headers.findIndex((h) => h.includes("תיאורהוצאה") || h.includes("הוצאהתיאור")),
-          bank: headers.findIndex((h) => h.includes("יתרה") || h.includes("בנק"))
+          date: headers.findIndex((h)=>h.includes("תאריך")),
+          incomeAmount: headers.findIndex((h)=>h.includes("סכוםהכנסות") || h.includes("הכנסותסכום")),
+          expenseAmount: headers.findIndex((h)=>h.includes("סכוםהוצאות") || h.includes("הוצאותסכום")),
+          incomeDesc: headers.findIndex((h)=>h.includes("תיאורהכנסה") || h.includes("הכנסהתיאור")),
+          expenseDesc: headers.findIndex((h)=>h.includes("תיאורהוצאה") || h.includes("הוצאהתיאור")),
+          bank: headers.findIndex((h)=>h.includes("יתרה") || h.includes("בנק"))
         };
 
         return rows.slice(1).map((row) => {
@@ -314,17 +314,11 @@
           if (!date) return null;
           const d = new Date(date);
           return {
-            date,
-            year: d.getFullYear(),
-            month: d.getMonth() + 1,
-            day: d.getDate(),
-            incomeAmount: Number(row[col.incomeAmount] || 0),
-            expenseAmount: Number(row[col.expenseAmount] || 0),
-            incomeDesc: String(row[col.incomeDesc] || ""),
-            expenseDesc: String(row[col.expenseDesc] || ""),
-            bank: Number(row[col.bank] || 0)
+            date, year:d.getFullYear(), month:d.getMonth()+1, day:d.getDate(),
+            incomeAmount:Number(row[col.incomeAmount]||0), expenseAmount:Number(row[col.expenseAmount]||0),
+            incomeDesc:String(row[col.incomeDesc]||""), expenseDesc:String(row[col.expenseDesc]||""), bank:Number(row[col.bank]||0)
           };
-        }).filter(Boolean).sort((a, b) => a.date.localeCompare(b.date));
+        }).filter(Boolean).sort((a,b)=>a.date.localeCompare(b.date));
       }
 
       function deriveWorkYear(incomes, bankDaily) {
@@ -361,7 +355,7 @@
         return { opening, months };
       }
 
-      function computeWeeklySummary(month) {
+      function computeWeeklySummary(month){
         if (!month) return [];
         const year = state.workYear;
         const lastDay = new Date(year, month, 0).getDate();
@@ -673,7 +667,40 @@
         `;
       }
 
-      function drawBankChart(series) {
+      function renderDailyFlowSection() {
+        const section = document.querySelector("#dailyFlowSection");
+        const rows = computeDailyFlow();
+
+        if (state.selectedMonth !== FLOW_TAB) {
+          section.innerHTML = "";
+          return;
+        }
+
+        state.selectedDay = rows.some((row) => row.date === state.selectedDay) ? state.selectedDay : rows[0]?.date || null;
+        const selected = rows.find((row) => row.date === state.selectedDay);
+
+        section.innerHTML = `
+          <div class="section-head"><h2>טאב תזרים - תצוגה יומית</h2><div class="meta">רק ימים עם תנועה</div></div>
+          <div class="daily-list">
+            ${rows.map((row) => `
+              <button class="day-btn ${row.date === state.selectedDay ? "active" : ""}" data-action="pick-day" data-date="${row.date}">
+                ${shortDate(row.date)} | הכנסות ${formatMoney(row.incomeAmount)} | הוצאות ${formatMoney(row.expenseAmount)} | נטו ${formatMoney(row.net)} | יתרה ${formatMoney(row.bank)}
+              </button>
+            `).join("") || '<div class="meta">אין נתוני תזרים.</div>'}
+          </div>
+          ${selected ? `
+            <div class="day-detail">
+              <h3>${shortDate(selected.date)}</h3>
+              <p><strong>הכנסות:</strong> ${formatMoney(selected.incomeAmount)} ${selected.incomeDesc ? `| ${selected.incomeDesc}` : ""}</p>
+              <p><strong>הוצאות:</strong> ${formatMoney(selected.expenseAmount)} ${selected.expenseDesc ? `| ${selected.expenseDesc}` : ""}</p>
+              <p><strong>נטו יומי:</strong> <span class="${selected.net >= 0 ? "income" : "expense"}">${formatMoney(selected.net)}</span></p>
+              <p><strong>יתרת בנק סוף יום:</strong> <span class="${selected.bank >= 0 ? "income" : "expense"}">${formatMoney(selected.bank)}</span></p>
+            </div>
+          ` : ""}
+        `;
+      }
+
+      function drawBankChart(series){
         const canvas = document.querySelector("#bankCanvas");
         if (!canvas || !series.length) return;
         const ctx = canvas.getContext("2d");
@@ -732,9 +759,7 @@
                 return `<div class="move-row"><div>${shortDate(row.date)}</div><div>${desc}</div><div class="${net >= 0 ? "income" : "expense"}">${formatMoney(net)}</div><div class="${row.bank >= 0 ? "income" : "expense"}">${formatMoney(row.bank)}</div></div>`;
               }).join("")}
             </div>
-          </div>
-        `;
-
+          </div>`;
         drawBankChart(series);
       }
 
@@ -807,7 +832,7 @@
         modal.innerHTML = "";
       }
 
-      async function handleFileUpload(file) {
+      async function handleFileUpload(file){
         const buffer = await file.arrayBuffer();
         const workbook = XLSX.read(buffer, { type: "array" });
         const sheetRows = (name) => XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: "" });
@@ -834,8 +859,8 @@
         render();
       }
 
-      function bindEvents() {
-        document.querySelector("#fileInput").addEventListener("change", (event) => {
+      function bindEvents(){
+        document.querySelector("#fileInput").addEventListener("change", (event)=>{
           const file = event.target.files?.[0];
           if (file) handleFileUpload(file);
         });
@@ -843,7 +868,6 @@
         document.body.addEventListener("click", (event) => {
           const target = event.target.closest("[data-month],[data-action]");
           if (!target) return;
-
           if (target.dataset.month) {
             state.selectedMonth = target.dataset.month;
             state.selectedWeek = null;
@@ -851,6 +875,17 @@
             render();
             return;
           }
+          const { action, id, week, date } = target.dataset;
+          if (action === "add-expense") return openEditor("expense", null);
+          if (action === "add-income") return openEditor("income", null);
+          if (action === "edit-expense") return openEditor("expense", state.expenses.find((r)=>r.id===id));
+          if (action === "edit-income") return openEditor("income", state.incomes.find((r)=>r.id===id));
+          if (action === "delete-expense") { if (confirm("למחוק הוצאה?")) { state.expenses = state.expenses.filter((r)=>r.id!==id); render(); } return; }
+          if (action === "delete-income") { if (confirm("למחוק הכנסה?")) { state.incomes = state.incomes.filter((r)=>r.id!==id); render(); } return; }
+          if (action === "pick-week") { state.selectedWeek = Number(week); renderWeeklySection(); return; }
+          if (action === "pick-day") { state.selectedDay = date; renderDailyFlowSection(); return; }
+          if (action === "close-modal") closeModal();
+        });
 
           const { action, id, week, date, group } = target.dataset;
           if (action === "close-modal") return closeModal();
