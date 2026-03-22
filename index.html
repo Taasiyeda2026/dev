@@ -1563,9 +1563,11 @@ function normalizePotentialTime(value){
     return `${hhmmMatch[1].padStart(2,'0')}:${hhmmMatch[2]}`;
   }
 
-  const isoTimeMatch = raw.match(/T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?Z$/i);
-  if(isoTimeMatch){
-    return `${isoTimeMatch[1]}:${isoTimeMatch[2]}`;
+  if(raw.match(/^\d{4}-\d{2}-\d{2}T/)){
+    const d = new Date(raw);
+    if(!isNaN(d.getTime())){
+      return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    }
   }
 
   return raw;
