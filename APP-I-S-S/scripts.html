@@ -23,6 +23,9 @@
     incomeSearch: '',
     expenseFilter: 'all',
     incomeFilter: 'all',
+    expenseMonths: [],
+    incomeMonths: [],
+    statusMode: 'income',
     showMonthPicker: false,
     openWeekKey: null,
     openFlowRowKey: null
@@ -53,6 +56,12 @@
       currency: 'ILS',
       maximumFractionDigits: 0
     }).format(num);
+  }
+
+  function formatNumber(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '';
+    return new Intl.NumberFormat('he-IL', { maximumFractionDigits: 0 }).format(num);
   }
 
   function escapeHtml(value) {
@@ -256,10 +265,12 @@
   function getFilteredExpenseRows() {
     const rows = state.payload?.expensesSheetRows || [];
     const search = state.expenseSearch.trim().toLowerCase();
-    const month = getSelectedMonth();
+    const selectedMonths = state.expenseMonths.length
+      ? state.expenseMonths.map(Number)
+      : (getSelectedMonth() ? [getSelectedMonth()] : []);
 
     return rows.filter(row => {
-      const matchMonth = !month || Number(row.month) === month;
+      const matchMonth = !selectedMonths.length || selectedMonths.includes(Number(row.month));
       const matchFilter =
         state.expenseFilter === 'all' || String(row.category || '') === state.expenseFilter;
       const haystack = `${row.group || ''} ${row.category || ''} ${row.detail || ''} ${row.day || ''} ${row.month || ''}`.toLowerCase();
@@ -272,11 +283,13 @@
   function getFilteredIncomeRows() {
     const rows = state.payload?.incomesSheetRows || [];
     const search = state.incomeSearch.trim().toLowerCase();
-    const month = getSelectedMonth();
+    const selectedMonths = state.incomeMonths.length
+      ? state.incomeMonths.map(Number)
+      : (getSelectedMonth() ? [getSelectedMonth()] : []);
 
     return rows.filter(row => {
       const dueMonth = getIncomeMonthNumber(row);
-      const matchMonth = !month || dueMonth === month || Number(row.month) === month;
+      const matchMonth = !selectedMonths.length || selectedMonths.includes(dueMonth) || selectedMonths.includes(Number(row.month));
       const matchFilter =
         state.incomeFilter === 'all' || String(row.fund || '') === state.incomeFilter;
       const haystack = `${row.account || ''} ${row.fund || ''} ${row.detail || ''} ${row.notes || ''} ${row.dueDateLabel || ''}`.toLowerCase();
@@ -538,13 +551,53 @@
     ].join('');
   }
 
+  function getReferenceLists() {
+    const raw = state.payload?.rawData || {};
+    const source = raw.lists || raw.listSheet || raw.referenceLists || {};
+    const categoryPairs = Array.isArray(source.categoryDetailPairs) ? source.categoryDetailPairs : [];
+    const incomeFunds = Array.isArray(source.incomeFunds) ? source.incomeFunds : [];
+
+    const fallbackCategories = [...new Set((state.payload?.expensesSheetRows || [])
+      .map(row => String(row.category || '').trim())
+      .filter(Boolean))];
+    const fallbackDetails = [...new Set((state.payload?.expensesSheetRows || [])
+      .map(row => String(row.detail || '').trim())
+      .filter(Boolean))];
+    const fallbackFunds = [...new Set((state.payload?.incomesSheetRows || [])
+      .map(row => String(row.fund || '').trim())
+      .filter(Boolean))];
+
+    return {
+      categoryPairs: categoryPairs.length ? categoryPairs : fallbackCategories.map(category => ({ category, detail: '' })),
+      details: categoryPairs.length ? [...new Set(categoryPairs.map(p => String(p.detail || '').trim()).filter(Boolean))] : fallbackDetails,
+      funds: incomeFunds.length ? incomeFunds : fallbackFunds
+    };
+  }
+
+  function buildMonthMultiSelectHtml(type) {
+    const options = getAvailableMonths();
+    const selected = type === 'expense' ? state.expenseMonths : state.incomeMonths;
+    const id = type === 'expense' ? 'expense-month-filter' : 'income-month-filter';
+    return `
+      <label class="tiny-filter-label" for="${id}">חודשים</label>
+      <select id="${id}" class="tiny-month-filter" multiple size="2">
+        ${options.map(month => `
+          <option value="${month}" ${selected.includes(Number(month)) ? 'selected' : ''}>
+            ${monthLabel(month)}
+          </option>
+        `).join('')}
+      </select>
+    `;
+  }
+
   function buildTabs() {
     const availableMonths = getAvailableMonths();
     const isAllMonths = state.activeView === 'all' && state.selectedMonth == null;
 
+    const selectedMonthLabel = state.selectedMonth ? monthLabel(state.selectedMonth) : 'שנת 2026';
     yearTabsEl.innerHTML = `
       <button class="tab-btn tab-btn--year ${state.showMonthPicker ? 'active' : ''}" data-view="all" data-role="year-toggle">
-        2026
+        2026 · ${selectedMonthLabel}
       </button>
     `;
 
@@ -552,7 +605,7 @@
       <div class="month-picker-shell">
         ${state.showMonthPicker ? `
           <div class="month-picker-list">
-            <button class="tab-btn tab-btn--month ${isAllMonths ? 'active' : ''}" data-month="all">כל החודשים</button>
+            <button class="tab-btn tab-btn--month ${isAllMonths ? 'active' : ''}" data-month="all">שנת 2026</button>
             ${availableMonths.map(month => `
               <button class="tab-btn tab-btn--month ${Number(state.selectedMonth) === Number(month) ? 'active' : ''}" data-month="${month}">
                 ${monthLabel(month)}
@@ -713,35 +766,11 @@
       <div class="panel-title-row">
         <div>
           <h2>סטטוס פיננסי</h2>
-          <div class="panel-subtext">בכל החודשים מוצגות שתי טבלאות רוחב חצי: הוצאות משמאל והכנסות מימין, עם פתיחה מדורגת של פירוט.</div>
+          <div class="panel-subtext">הטבלה החודשית מופיעה ראשונה, ומתחתיה תיבות לחיצות להכנסות והוצאות.</div>
         </div>
       </div>
 
-      <div class="status-split" style="margin-bottom:16px;">
-        <section class="status-column">
-          <div class="section-head">
-            <div>
-              <h3>קבוצות הוצאות</h3>
-              <div class="section-subtitle">תצוגה היררכית לפי קבוצה ופירוט.</div>
-            </div>
-            <div class="plain-total expense">${formatServerCurrency(totals.totalExpense)}</div>
-          </div>
-          ${renderExpenseAccordion(expenseRows, 'אין הוצאות להצגה בטווח הנבחר.')}
-        </section>
-
-        <section class="status-column">
-          <div class="section-head">
-            <div>
-              <h3>קבוצות הכנסות</h3>
-              <div class="section-subtitle">אותה התנהגות פתיחה כמו בטבלת ההוצאות.</div>
-            </div>
-            <div class="plain-total income">${formatServerCurrency(totals.totalIncome)}</div>
-          </div>
-          ${renderIncomeAccordion(incomeRows, 'אין הכנסות להצגה בטווח הנבחר.')}
-        </section>
-      </div>
-
-      <div class="panel-title-row" style="margin-top:10px;">
+      <div class="panel-title-row" style="margin-top:4px;">
         <div>
           <h2 style="font-size:19px;">סיכום חודשי</h2>
           <div class="panel-subtext">טבלה מרכזת של הכנסות, הוצאות ויתרה.</div>
@@ -752,10 +781,10 @@
         <div class="table-wrap table-wrap--main">
           <table class="summary-table status-table">
             <colgroup>
-              <col style="width: 120px;">
-              <col style="width: 120px;">
-              <col style="width: 120px;">
-              <col style="width: 120px;">
+              <col style="width: 96px;">
+              <col style="width: 90px;">
+              <col style="width: 90px;">
+              <col style="width: 90px;">
             </colgroup>
             <thead>
               <tr>
@@ -778,20 +807,36 @@
           </table>
         </div>
       </div>
+
+      <div class="status-toggle-row">
+        <button type="button" class="status-toggle-card income ${state.statusMode === 'income' ? 'active' : ''}" data-status-mode="income">
+          קבוצות הכנסות · ${formatServerCurrency(totals.totalIncome)}
+        </button>
+        <button type="button" class="status-toggle-card expense ${state.statusMode === 'expense' ? 'active' : ''}" data-status-mode="expense">
+          קבוצות הוצאות · ${formatServerCurrency(totals.totalExpense)}
+        </button>
+      </div>
+
+      <div class="status-detail-wrap">
+        ${state.statusMode === 'income'
+          ? renderIncomeAccordion(incomeRows, 'אין הכנסות להצגה בטווח הנבחר.')
+          : renderExpenseAccordion(expenseRows, 'אין הוצאות להצגה בטווח הנבחר.')}
+      </div>
     `;
   }
 
   function renderExpensesSheet() {
     const rows = state.payload?.expensesSheetRows || [];
     const filtered = getFilteredExpenseRows();
-    const defaultMonth = getSelectedMonth() || getAvailableMonths()[0] || 3;
     const totals = getSummaryTotalsForView();
+    const lists = getReferenceLists();
+    const categoryOptions = [...new Set(lists.categoryPairs.map(pair => String(pair.category || '').trim()).filter(Boolean))];
 
     expensesPanel.innerHTML = `
       <div class="panel-title-row">
         <div>
           <h2>הוצאות</h2>
-          <div class="panel-subtext">התצוגה הראשונה היא לפי קבוצות הוצאות. כל קבוצה נפתחת לרמות נוספות של פירוט.</div>
+          <div class="panel-subtext">תצוגה קומפקטית עם סינון חודשים, ללא פתיחה עמוסה כברירת מחדל.</div>
         </div>
       </div>
 
@@ -800,43 +845,31 @@
         <select class="filter-select" id="expense-filter">${buildExpenseCategoryOptions(rows)}</select>
       </div>
 
-      <div class="management-column" style="margin-bottom:16px;">
-        <div class="section-head">
-          <div>
-            <h3>קבוצות הוצאות</h3>
-            <div class="section-subtitle">רוחב הפריטים הוקטן, בלי לשנות את הגובה.</div>
-          </div>
-          <div class="plain-total expense">${shouldShowPlainTotals('expense') ? formatServerCurrency(totals.totalExpense) : ''}</div>
-        </div>
-        ${renderExpenseAccordion(filtered, 'אין הוצאות להצגה לפי הסינון שנבחר.')}
-        <div class="msg-box">${filtered.length} רשומות מוצגות מתוך ${rows.length}</div>
-      </div>
-
       <details class="toolbox-card">
         <summary class="toolbox-summary">כלי הוספה ועריכה מפורטת</summary>
         <div class="toolbox-body">
           <div class="forms-grid" style="margin-bottom:16px;">
             <section class="mini-panel">
               <h3>הוספת הוצאה חדשה</h3>
-              <p>יוצרת שורה חדשה בגיליון הוצאות וכותבת את הסכום בעמודת החודש הנבחר.</p>
+              <p>שדות קטגוריה/פירוט כרשימות נפתחות בלבד, עם תאריך מלוח שנה.</p>
               <form id="expense-form" class="form-grid">
                 <div class="field">
-                  <label>חודש</label>
-                  <select id="month-input">
-                    ${getAvailableMonths().map(m => `<option value="${m}" ${Number(defaultMonth) === Number(m) ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="field">
-                  <label>יום</label>
-                  <input id="day-input" type="number" min="1" max="31" value="${new Date().getDate()}">
+                  <label>תאריך</label>
+                  <input id="expense-date-input" type="date">
                 </div>
                 <div class="field">
                   <label>קטגוריה</label>
-                  <input id="category-input" type="text" placeholder="שכר, משפטיות, הלוואה...">
+                  <select id="category-input">
+                    <option value="">בחר קטגוריה</option>
+                    ${categoryOptions.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join('')}
+                  </select>
                 </div>
                 <div class="field">
                   <label>פירוט</label>
-                  <input id="detail-input" type="text" placeholder="פירוט השורה">
+                  <select id="detail-input">
+                    <option value="">בחר פירוט</option>
+                    ${lists.details.map(detail => `<option value="${escapeHtml(detail)}">${escapeHtml(detail)}</option>`).join('')}
+                  </select>
                 </div>
                 <div class="field">
                   <label>סכום</label>
@@ -846,12 +879,14 @@
               </form>
               <div class="msg-box" id="form-msg"></div>
             </section>
+          </div>
 
-            <section class="mini-panel">
-              <h3>בקרה מהירה</h3>
-              <p>החיפוש והסינון משפיעים גם על התצוגה הקבוצתית וגם על טבלת העריכה.</p>
-              <div class="msg-box">${filtered.length} רשומות זמינות לעריכה.</div>
-            </section>
+          <div class="table-mini-toolbar">
+            <h3>פירוט הוצאות</h3>
+            <div class="table-mini-filters">
+              ${buildMonthMultiSelectHtml('expense')}
+              <div class="plain-total expense">${shouldShowPlainTotals('expense') ? formatServerCurrency(totals.totalExpense) : ''}</div>
+            </div>
           </div>
 
           <div class="table-shell">
@@ -886,13 +921,21 @@
                         </select>
                       </td>
                       <td><input type="number" value="${escapeAttr(row.day)}" data-id="${row.id}" data-field="day"></td>
-                      <td><input type="text" value="${escapeAttr(row.category || '')}" data-id="${row.id}" data-field="category"></td>
-                      <td><input type="text" value="${escapeAttr(row.detail || '')}" data-id="${row.id}" data-field="detail"></td>
-                      <td>${escapeHtml(row.group || '')}</td>
-                      <td><input type="number" value="${escapeAttr(row.amount || 0)}" data-id="${row.id}" data-field="amount"></td>
                       <td>
-                        <button class="icon-btn" data-action="save-expense-row" data-id="${row.id}" type="button">💾</button>
-                        <button class="icon-btn" data-action="delete-expense-row" data-id="${row.id}" type="button">🗑️</button>
+                        <select data-id="${row.id}" data-field="category" class="expense-category-select">
+                          ${categoryOptions.map(category => `<option value="${escapeHtml(category)}" ${String(row.category || '') === category ? 'selected' : ''}>${escapeHtml(category)}</option>`).join('')}
+                        </select>
+                      </td>
+                      <td>
+                        <select data-id="${row.id}" data-field="detail" class="expense-detail-select">
+                          ${lists.details.map(detail => `<option value="${escapeHtml(detail)}" ${String(row.detail || '') === detail ? 'selected' : ''}>${escapeHtml(detail)}</option>`).join('')}
+                        </select>
+                      </td>
+                      <td>${escapeHtml(row.group || '')}</td>
+                      <td><input type="text" inputmode="numeric" class="amount-text" value="${escapeAttr(formatNumber(row.amount || 0))}" data-id="${row.id}" data-field="amount"></td>
+                      <td>
+                        <button class="icon-btn icon-btn-expense" data-action="save-expense-row" data-id="${row.id}" type="button">💾</button>
+                        <button class="icon-btn icon-btn-expense" data-action="delete-expense-row" data-id="${row.id}" type="button">🗑️</button>
                       </td>
                     </tr>
                   `).join('') || '<tr><td colspan="7">לא נמצאו הוצאות להצגה</td></tr>'}
@@ -914,6 +957,7 @@
     const rows = state.payload?.incomesSheetRows || [];
     const filtered = getFilteredIncomeRows();
     const totals = getSummaryTotalsForView();
+    const lists = getReferenceLists();
 
     incomesPanel.innerHTML = `
       <div class="panel-title-row">
@@ -926,18 +970,6 @@
       <div class="toolbar">
         <input class="search-box" id="income-search" type="search" placeholder="חיפוש בהכנסות..." value="${escapeHtml(state.incomeSearch)}">
         <select class="filter-select" id="income-filter">${buildIncomeFundOptions(rows)}</select>
-      </div>
-
-      <div class="management-column" style="margin-bottom:16px;">
-        <div class="section-head">
-          <div>
-            <h3>קבוצות הכנסות</h3>
-            <div class="section-subtitle">גם כאן הוקטן רק רוחב הפריטים, בלי לפגוע בגובה.</div>
-          </div>
-          <div class="plain-total income">${shouldShowPlainTotals('income') ? formatServerCurrency(totals.totalIncome) : ''}</div>
-        </div>
-        ${renderIncomeAccordion(filtered, 'אין הכנסות להצגה לפי הסינון שנבחר.')}
-        <div class="msg-box">${filtered.length} רשומות מוצגות מתוך ${rows.length}</div>
       </div>
 
       <details class="toolbox-card">
@@ -966,7 +998,10 @@
                 </div>
                 <div class="field">
                   <label>מימון</label>
-                  <input id="fund-input" type="text" placeholder="גפן / רשות / תמיר...">
+                  <select id="fund-input">
+                    <option value="">בחר מקור מימון</option>
+                    ${lists.funds.map(fund => `<option value="${escapeHtml(fund)}">${escapeHtml(fund)}</option>`).join('')}
+                  </select>
                 </div>
                 <div class="field">
                   <label>הערות</label>
@@ -976,12 +1011,14 @@
               </form>
               <div class="msg-box" id="income-form-msg"></div>
             </section>
+          </div>
 
-            <section class="mini-panel">
-              <h3>בקרה מהירה</h3>
-              <p>החיפוש והסינון משפיעים גם על התצוגה הקבוצתית וגם על טבלת העריכה.</p>
-              <div class="msg-box">${filtered.length} רשומות זמינות לעריכה.</div>
-            </section>
+          <div class="table-mini-toolbar">
+            <h3>פירוט הכנסות</h3>
+            <div class="table-mini-filters">
+              ${buildMonthMultiSelectHtml('income')}
+              <div class="plain-total income">${shouldShowPlainTotals('income') ? formatServerCurrency(totals.totalIncome) : ''}</div>
+            </div>
           </div>
 
           <div class="table-shell">
@@ -1012,13 +1049,17 @@
                     <tr>
                       <td><input type="text" value="${escapeAttr(row.account || '')}" data-id="${row.id}" data-field="account"></td>
                       <td><input type="text" value="${escapeAttr(row.detail || '')}" data-id="${row.id}" data-field="detail"></td>
-                      <td><input type="number" value="${escapeAttr(row.amount || 0)}" data-id="${row.id}" data-field="amount"></td>
+                      <td><input type="text" inputmode="numeric" class="amount-text" value="${escapeAttr(formatNumber(row.amount || 0))}" data-id="${row.id}" data-field="amount"></td>
                       <td><input type="date" value="${escapeAttr(row.dueDateISO || '')}" data-id="${row.id}" data-field="dueDate"></td>
-                      <td><input type="text" value="${escapeAttr(row.fund || '')}" data-id="${row.id}" data-field="fund"></td>
+                      <td>
+                        <select data-id="${row.id}" data-field="fund">
+                          ${lists.funds.map(fund => `<option value="${escapeHtml(fund)}" ${String(row.fund || '') === fund ? 'selected' : ''}>${escapeHtml(fund)}</option>`).join('')}
+                        </select>
+                      </td>
                       <td><textarea data-id="${row.id}" data-field="notes">${escapeHtml(row.notes || '')}</textarea></td>
                       <td>
-                        <button class="icon-btn" data-action="save-income-row" data-id="${row.id}" type="button">💾</button>
-                        <button class="icon-btn" data-action="delete-income-row" data-id="${row.id}" type="button">🗑️</button>
+                        <button class="icon-btn icon-btn-income" data-action="save-income-row" data-id="${row.id}" type="button">💾</button>
+                        <button class="icon-btn icon-btn-income" data-action="delete-income-row" data-id="${row.id}" type="button">🗑️</button>
                       </td>
                     </tr>
                   `).join('') || '<tr><td colspan="7">לא נמצאו הכנסות להצגה</td></tr>'}
@@ -1168,9 +1209,16 @@
     google.script.run
       .withSuccessHandler(raw => {
         state.payload = normalizeDashboardData(raw);
+        const available = getAvailableMonths();
 
         if (state.selectedMonth != null && !getAvailableMonths().includes(Number(state.selectedMonth))) {
           state.selectedMonth = null;
+        }
+        if (!state.expenseMonths.length) {
+          state.expenseMonths = state.selectedMonth ? [Number(state.selectedMonth)] : (available[0] ? [Number(available[0])] : []);
+        }
+        if (!state.incomeMonths.length) {
+          state.incomeMonths = state.selectedMonth ? [Number(state.selectedMonth)] : (available[0] ? [Number(available[0])] : []);
         }
 
         renderAll();
@@ -1183,6 +1231,11 @@
   }
 
   document.body.addEventListener('click', event => {
+    if (state.showMonthPicker && !event.target.closest('#year-tabs') && !event.target.closest('#month-tabs')) {
+      state.showMonthPicker = false;
+      buildTabs();
+    }
+
     const viewBtn = event.target.closest('[data-view]');
   if (viewBtn) {
     const view = viewBtn.dataset.view;
@@ -1213,6 +1266,10 @@
       const value = monthBtn.dataset.month;
       state.activeView = 'all';
       state.selectedMonth = value === 'all' ? null : (value ? Number(value) : null);
+      if (state.selectedMonth) {
+        state.expenseMonths = [state.selectedMonth];
+        state.incomeMonths = [state.selectedMonth];
+      }
       state.openWeekKey = null;
       state.openFlowRowKey = null;
       state.showMonthPicker = false;
@@ -1236,6 +1293,13 @@
       return;
     }
 
+    const statusModeBtn = event.target.closest('[data-status-mode]');
+    if (statusModeBtn) {
+      state.statusMode = statusModeBtn.dataset.statusMode === 'expense' ? 'expense' : 'income';
+      renderStatus();
+      return;
+    }
+
     const actionBtn = event.target.closest('[data-action]');
     if (!actionBtn) return;
 
@@ -1247,7 +1311,9 @@
       const data = { id };
 
       document.querySelectorAll(`[data-id="${id}"][data-field]`).forEach(input => {
-        data[input.dataset.field] = input.value;
+        const field = input.dataset.field;
+        const value = input.value;
+        data[field] = field === 'amount' ? String(value).replace(/,/g, '') : value;
       });
 
       actionBtn.textContent = '⏳';
@@ -1290,6 +1356,15 @@
       state.incomeSearch = event.target.value;
       renderIncomesSheet();
     }
+
+    if (event.target.classList.contains('amount-text')) {
+      const raw = String(event.target.value).replace(/[^\d.-]/g, '');
+      if (raw === '' || raw === '-' || raw === '.') return;
+      const num = Number(raw);
+      if (Number.isFinite(num)) {
+        event.target.value = formatNumber(num);
+      }
+    }
   });
 
   document.body.addEventListener('change', event => {
@@ -1302,6 +1377,41 @@
       state.incomeFilter = event.target.value;
       renderIncomesSheet();
     }
+
+    if (event.target.id === 'expense-month-filter') {
+      state.expenseMonths = [...event.target.selectedOptions].map(option => Number(option.value));
+      renderExpensesSheet();
+    }
+
+    if (event.target.id === 'income-month-filter') {
+      state.incomeMonths = [...event.target.selectedOptions].map(option => Number(option.value));
+      renderIncomesSheet();
+    }
+
+    if (event.target.id === 'category-input') {
+      const selected = event.target.value;
+      const detailInput = document.getElementById('detail-input');
+      const lists = getReferenceLists();
+      const matched = lists.categoryPairs.find(pair => String(pair.category || '') === String(selected));
+      if (detailInput && matched && matched.detail) {
+        detailInput.value = matched.detail;
+      }
+    }
+
+    if (event.target.classList.contains('expense-category-select')) {
+      const rowId = event.target.dataset.id;
+      const selected = event.target.value;
+      const detailSelect = document.querySelector(`.expense-detail-select[data-id="${rowId}"]`);
+      const lists = getReferenceLists();
+      const matched = lists.categoryPairs.find(pair => String(pair.category || '') === String(selected));
+      if (detailSelect && matched && matched.detail) {
+        detailSelect.value = matched.detail;
+      }
+    }
+
+    if (event.target.id === 'expense-date-input' || event.target.id === 'due-date-input') {
+      event.target.blur();
+    }
   });
 
   document.body.addEventListener('submit', event => {
@@ -1309,9 +1419,12 @@
       event.preventDefault();
 
       const msg = document.getElementById('form-msg');
+      const selectedDate = event.target.querySelector('#expense-date-input').value;
+      const dateObj = selectedDate ? new Date(selectedDate) : null;
+      const fallbackMonth = getSelectedMonth() || getAvailableMonths()[0] || 3;
       const data = {
-        month: event.target.querySelector('#month-input').value,
-        day: event.target.querySelector('#day-input').value,
+        month: dateObj ? (dateObj.getMonth() + 1) : fallbackMonth,
+        day: dateObj ? dateObj.getDate() : '',
         category: event.target.querySelector('#category-input').value,
         detail: event.target.querySelector('#detail-input').value,
         amount: event.target.querySelector('#amount-input').value
