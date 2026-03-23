@@ -24,7 +24,8 @@
     expenseFilter: 'all',
     incomeFilter: 'all',
     showMonthPicker: false,
-    openWeekKey: null
+    openWeekKey: null,
+    openFlowRowKey: null
   };
 
   const yearTabsEl = document.getElementById('year-tabs');
@@ -564,19 +565,19 @@
 
     managementTabsEl.innerHTML = `
       <button class="tab-btn tab-btn--management ${state.activeView === 'incomes-sheet' ? 'active' : ''}" data-view="incomes-sheet">
-        ניהול הכנסות
+        הכנסות
       </button>
       <button class="tab-btn tab-btn--management ${state.activeView === 'expenses-sheet' ? 'active' : ''}" data-view="expenses-sheet">
-        ניהול הוצאות
+        הוצאות
       </button>
     `;
 
     monitoringTabsEl.innerHTML = `
-      <button class="tab-btn tab-btn--monitoring ${state.activeView === 'flow' ? 'active' : ''}" data-view="flow">
-        תזרים
-      </button>
       <button class="tab-btn tab-btn--monitoring ${state.activeView === 'status' ? 'active' : ''}" data-view="status">
         סטטוס
+      </button>
+      <button class="tab-btn tab-btn--monitoring ${state.activeView === 'flow' ? 'active' : ''}" data-view="flow">
+        תזרים
       </button>
     `;
   }
@@ -789,7 +790,7 @@
     expensesPanel.innerHTML = `
       <div class="panel-title-row">
         <div>
-          <h2>ניהול הוצאות</h2>
+          <h2>הוצאות</h2>
           <div class="panel-subtext">התצוגה הראשונה היא לפי קבוצות הוצאות. כל קבוצה נפתחת לרמות נוספות של פירוט.</div>
         </div>
       </div>
@@ -917,7 +918,7 @@
     incomesPanel.innerHTML = `
       <div class="panel-title-row">
         <div>
-          <h2>ניהול הכנסות</h2>
+          <h2>הכנסות</h2>
           <div class="panel-subtext">התצוגה הראשונה היא לפי קבוצות הכנסה, עם פתיחה מדורגת של פירוט.</div>
         </div>
       </div>
@@ -1044,56 +1045,69 @@
     flowPanel.innerHTML = `
       <div class="panel-title-row">
         <div>
-          <h2>תזרים מזומנים יומי</h2>
-          <div class="panel-subtext">רוחב העמודות הוקטן. בשורות בלי הכנסה או הוצאה נשאר תא ריק בלי טקסטים מיותרים.</div>
+          <h2>תזרים מזומנים</h2>
+          <div class="panel-subtext">התצוגה מבוססת ישירות על גיליון תזרים, ללא חישובים נוספים.</div>
         </div>
       </div>
 
       <div class="table-shell">
-        <div class="table-wrap table-wrap--flow">
-          <table class="flow-table">
+        <div class="table-wrap table-wrap--flow flow-card">
+          <table class="flow-table flow-table--compact">
             <colgroup>
+              <col style="width: 116px;">
+              <col style="width: 88px;">
               <col style="width: 120px;">
+              <col style="width: 88px;">
               <col style="width: 120px;">
-              <col style="width: 120px;">
-              <col style="width: 300px;">
               <col style="width: 120px;">
             </colgroup>
             <thead>
               <tr>
                 <th>תאריך</th>
-                <th>הכנסה</th>
-                <th>הוצאה</th>
-                <th>פירוט</th>
-                <th>יתרה</th>
+                <th>פירוט הכנסות</th>
+                <th>סכום הכנסות</th>
+                <th>פירוט הוצאות</th>
+                <th>סכום הוצאות</th>
+                <th>יתרת בנק</th>
               </tr>
             </thead>
             <tbody>
-              ${rows.map(row => {
-                const incomeAmount = readServerNumber(row.incomeAmount, row.income);
-                const expenseAmount = readServerNumber(row.expenseAmount, row.expense);
-                const combined = buildCombinedDetail(
-                  normalizeInlineText(row.incomeDesc),
-                  normalizeInlineText(row.expenseDesc)
-                );
-                const balance = readServerNumber(row.balance, row.closing, row.closingBalance);
+              ${rows.map((row, index) => {
+                const key = String(row.id || row.rowId || `${row.date || ''}-${index}`);
+                const incomeDetail = String(row.incomeDesc || '').trim();
+                const expenseDetail = String(row.expenseDesc || '').trim();
+                const hasIncomeDetail = Boolean(incomeDetail);
+                const hasExpenseDetail = Boolean(expenseDetail);
+                const isOpen = state.openFlowRowKey === key;
+                const incomeHint = hasIncomeDetail ? '+' : '';
+                const expenseHint = hasExpenseDetail ? '−' : '';
 
                 return `
-                  <tr>
+                  <tr class="flow-main-row ${isOpen ? 'open' : ''}" data-flow-row="${escapeAttr(key)}">
                     <td>${escapeHtml(row.date || '')}</td>
-                    <td class="income">${formatServerCurrency(incomeAmount)}</td>
-                    <td class="expense">${formatServerCurrency(expenseAmount)}</td>
-                    <td class="flow-detail-cell">${escapeHtml(combined)}</td>
-                    <td class="${balance === null ? '' : (balance >= 0 ? 'income' : 'expense')}">${formatServerCurrency(balance)}</td>
+                    <td class="flow-hint-cell">${incomeHint}</td>
+                    <td class="income">${formatServerCurrency(row.incomeAmount)}</td>
+                    <td class="flow-hint-cell">${expenseHint}</td>
+                    <td class="expense">${formatServerCurrency(row.expenseAmount)}</td>
+                    <td>${formatServerCurrency(row.balance)}</td>
+                  </tr>
+                  <tr class="flow-detail-row ${isOpen ? 'open' : ''}">
+                    <td colspan="6">
+                      <div class="flow-detail-box">
+                        ${hasIncomeDetail ? `<div><strong>פירוט הכנסות:</strong> ${escapeHtml(incomeDetail)}</div>` : ''}
+                        ${hasExpenseDetail ? `<div><strong>פירוט הוצאות:</strong> ${escapeHtml(expenseDetail)}</div>` : ''}
+                      </div>
+                    </td>
                   </tr>
                 `;
-              }).join('') || '<tr><td colspan="5">אין נתוני תזרים להצגה כרגע.</td></tr>'}
+              }).join('') || '<tr><td colspan="6"></td></tr>'}
             </tbody>
           </table>
         </div>
       </div>
     `;
   }
+
 
   function renderAll() {
     buildTabs();
@@ -1184,6 +1198,7 @@
     state.activeView = view;
     state.showMonthPicker = false;
     if (view !== 'all') state.openWeekKey = null;
+    if (view !== 'flow') state.openFlowRowKey = null;
 
     if (view === 'all') {
       state.selectedMonth = null;
@@ -1199,6 +1214,7 @@
       state.activeView = 'all';
       state.selectedMonth = value === 'all' ? null : (value ? Number(value) : null);
       state.openWeekKey = null;
+      state.openFlowRowKey = null;
       state.showMonthPicker = false;
       renderAll();
       return;
@@ -1209,6 +1225,14 @@
       const key = weekBtn.dataset.weekKey;
       state.openWeekKey = state.openWeekKey === key ? null : key;
       renderSummary();
+      return;
+    }
+
+    const flowRow = event.target.closest('[data-flow-row]');
+    if (flowRow) {
+      const key = flowRow.dataset.flowRow;
+      state.openFlowRowKey = state.openFlowRowKey === key ? null : key;
+      renderFlow();
       return;
     }
 
