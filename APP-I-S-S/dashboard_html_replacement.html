@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>דשבורד כספים - תעשיידע</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <main class="page">
+    <section class="panel">
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo"></div>
+          <h1>דשבורד כספים</h1>
+        </div>
+      </div>
+      <div class="kpi-grid" id="kpi-grid"></div>
+    </section>
+
+    <section class="panel tabs-panel">
+      <div class="tabs-layout">
+        <div class="tab-group" id="year-group">          <div class="tab-group-body">
+            <div class="year-tabs" id="year-tabs"></div>
+            <div class="month-tabs" id="month-tabs"></div>
+          </div>
+        </div>
+
+        <div class="tab-group" id="management-group">          <div class="tab-group-body">
+            <div class="management-tabs" id="management-tabs"></div>
+          </div>
+        </div>
+
+        <div class="tab-group" id="monitoring-group">          <div class="tab-group-body">
+            <div class="monitoring-tabs" id="monitoring-tabs"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="summary-panel"></section>
+    <section class="panel" id="expenses-panel" hidden></section>
+    <section class="panel" id="incomes-panel" hidden></section>
+    <section class="panel" id="flow-panel" hidden></section>
+    <section class="panel" id="status-panel" hidden></section>
+  </main>
+
+  <?!= include('scripts'); ?>
+</body>
+</html>
