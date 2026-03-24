@@ -17,7 +17,7 @@
     --shadow: 0 16px 40px rgba(20, 38, 66, 0.10);
     --shadow-soft: 0 6px 18px rgba(20, 38, 66, 0.06);
     --radius: 16px;
-    --container: 900px;
+    --container: 980px;
   }
 
   *, *::before, *::after { box-sizing: border-box; }
@@ -46,7 +46,7 @@
   button, input, select, textarea { font: inherit; }
 
   .app-frame {
-    width: min(86vw, 1020px);
+    width: min(88vw, 1120px);
     margin: 0 auto;
     border-radius: 22px;
     padding: 8px;
@@ -202,7 +202,7 @@
     box-shadow: var(--shadow-soft);
     display: grid;
     gap: 4px;
-    min-height: 68px;
+    min-height: 84px;
     min-width: 0;
     align-content: center;
   }
@@ -426,8 +426,7 @@
     font-size: 12px;
     line-height: 1.35;
     display: grid;
-    gap: 4px;
-    align-content: start;
+    gap: 2px;
   }
 
   .week-title { font-size: 12px; font-weight: 800; color: var(--text); }
@@ -683,8 +682,6 @@
     display: inline-flex;
     width: auto;
     max-width: 100%;
-    justify-self: start;
-    align-self: flex-start;
     border: 1px solid #cadbed;
     border-radius: 999px;
     padding: 8px 12px;
@@ -954,8 +951,8 @@
     font-size: 11px;
     text-align: right;
     line-height: 1.45;
-    max-height: none;
-    overflow: visible;
+    max-height: 140px;
+    overflow: auto;
   }
 
   .week-card.open .week-detail {
@@ -1035,20 +1032,12 @@
     font-size: 11px;
   }
 
-  .status-groups {
-    margin-top: 10px;
-    display: grid;
+  .status-toggle-row {
+    display: flex;
+    justify-content: center;
     gap: 10px;
-    width: min(100%, 760px);
-    margin-inline: auto;
-  }
-
-  .status-group-card {
-    border: 1px solid rgba(201, 215, 232, 0.95);
-    border-radius: 10px;
-    background: #fff;
-    box-shadow: var(--shadow-soft);
-    overflow: hidden;
+    margin-top: 10px;
+    flex-wrap: wrap;
   }
 
   .status-toggle-card {
@@ -1056,14 +1045,13 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    width: 100%;
-    border-radius: 0;
-    border: 0;
-    border-bottom: 1px solid var(--line);
+    width: min(100%, 240px);
+    border-radius: 10px;
+    border: 1px solid var(--line);
     padding: 8px 10px;
     font-size: 12px;
     font-weight: 800;
-    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    background: #fff;
     cursor: pointer;
   }
 
@@ -1076,10 +1064,11 @@
   }
 
   .status-detail-wrap {
-    width: 100%;
+    margin-top: 10px;
+    width: min(100%, 760px);
+    margin-inline: auto;
     display: grid;
-    gap: 8px;
-    padding: 8px 10px 10px;
+    gap: 10px;
   }
 
   .status-month-card {
