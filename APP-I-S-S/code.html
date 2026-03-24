@@ -1,0 +1,224 @@
+/**
+ * דשבורד כספים 2026 - קובץ שרת מלא (Code.gs)
+ */
+
+const SHEET_NAMES = {
+  settings: 'הגדרות',
+  expenses: 'הוצאות',
+  incomes: 'גיול',
+  normalizedExpenses: 'הוצאותמסודר',
+  flow: 'תזרים',
+  summary: 'סיכום',
+  lists: 'רשימות'
+};
+
+const EXPENSE_MONTH_COLUMNS = {
+  3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8
+};
+
+const MONTH_LABELS = {
+  1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל', 5: 'מאי', 6: 'יוני',
+  7: 'יולי', 8: 'אוגוסט', 9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר'
+};
+
+// --- פונקציות תשתית ---
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function doGet() {
+  return HtmlService
+    .createTemplateFromFile('index')
+    .evaluate()
+    .setTitle('דשבורד כספים - תעשיידע')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// --- פונקציית הליבה שמושכת את כל הנתונים ---
+
+function getDashboardData() {
+  try {
+    const settings = readSettings_();
+    const months = buildMonthRange_(settings.startMonth, settings.endMonth);
+    
+    // קריאת נתונים גולמיים מהגיליונות
+    const expensesSheetRows = readExpenseEntries_(months);
+    const incomesSheetRows = readIncomeEntries_(settings.timezone);
+
+    // עיבוד הנתונים לתצוגה
+    const monthlySummary = buildMonthlySummaryFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
+    const cashflowDays = buildCashflowDaysFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
+    
+    const totalIncome = monthlySummary.reduce((sum, r) => sum + (Number(r.income) || 0), 0);
+    const totalExpense = monthlySummary.reduce((sum, r) => sum + (Number(r.expense) || 0), 0);
+    const closingBalance = monthlySummary.length ? monthlySummary[monthlySummary.length - 1].closing : settings.openingBalance;
+
+    return {
+      organizationName: settings.organizationName,
+      workYear: settings.workYear,
+      openingBalance: settings.openingBalance,
+      months: months,
+      totalIncome: totalIncome,
+      totalExpense: totalExpense,
+      closingBalance: closingBalance,
+      monthlySummary: monthlySummary,
+      cashflowDays: cashflowDays,
+      expensesSheetRows: expensesSheetRows,
+      incomesSheetRows: incomesSheetRows,
+      startMonth: settings.startMonth,
+      endMonth: settings.endMonth
+    };
+  } catch (e) {
+    throw new Error("שגיאה בעיבוד הנתונים: " + e.message);
+  }
+}
+
+// --- פונקציות קריאה מהגיליונות (Helper Functions) ---
+
+function getRequiredSheet_(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error("לא נמצא גיליון בשם: " + sheetName);
+  return sheet;
+}
+
+function readSettings_() {
+  const sheet = getRequiredSheet_(SHEET_NAMES.settings);
+  const data = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues();
+  const map = {};
+  data.forEach(r => { if(r[0]) map[r[0]] = r[1]; });
+
+  return {
+    workYear: map['שנת עבודה'] || 2026,
+    openingBalance: Number(map['יתרת פתיחה']) || 0,
+    startMonth: Number(map['חודש התחלה']) || 3,
+    endMonth: Number(map['חודש סיום']) || 8,
+    organizationName: map['שם ארגון'] || 'תעשיידע',
+    timezone: Session.getScriptTimeZone()
+  };
+}
+
+function readExpenseEntries_(months) {
+  const sheet = getRequiredSheet_(SHEET_NAMES.expenses);
+  const values = sheet.getDataRange().getValues();
+  const results = [];
+  
+  // מדלגים על כותרת (שורה 1)
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const day = row[0];
+    const category = row[1];
+    const detail = row[8];
+    const group = row[9] || 'כללי';
+
+    months.forEach(m => {
+      const colIdx = EXPENSE_MONTH_COLUMNS[m] - 1;
+      const amount = Number(row[colIdx]);
+      if (amount && amount !== 0) {
+        results.push({
+          id: `exp-${i+1}-${m}`,
+          row: i + 1,
+          month: m,
+          day: day,
+          category: category,
+          detail: detail,
+          group: group,
+          amount: amount
+        });
+      }
+    });
+  }
+  return results;
+}
+
+function readIncomeEntries_(timezone) {
+  const sheet = getRequiredSheet_(SHEET_NAMES.incomes);
+  const values = sheet.getDataRange().getValues();
+  const results = [];
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (!row[2]) continue; // אם אין סכום, דלג
+
+    results.push({
+      id: `inc-${i+1}`,
+      row: i + 1,
+      account: row[0],
+      detail: row[1],
+      amount: Number(row[2]),
+      dueDateLabel: Utilities.formatDate(new Date(row[3]), timezone, "dd/MM/yyyy"),
+      dueDateISO: row[3] instanceof Date ? row[3].toISOString().split('T')[0] : "",
+      notes: row[4],
+      fund: row[5],
+      month: row[3] instanceof Date ? row[3].getMonth() + 1 : null
+    });
+  }
+  return results;
+}
+
+function buildMonthlySummaryFromRaw_(months, expenses, incomes, openingBalance) {
+  let currentBalance = openingBalance;
+  return months.map(m => {
+    const monthIncome = incomes.filter(inc => inc.month === m).reduce((s, r) => s + r.amount, 0);
+    const monthExpense = expenses.filter(exp => exp.month === m).reduce((s, r) => s + r.amount, 0);
+    const closing = currentBalance + monthIncome - monthExpense;
+    const row = {
+      month: m,
+      label: MONTH_LABELS[m],
+      income: monthIncome,
+      expense: monthExpense,
+      closing: closing
+    };
+    currentBalance = closing;
+    return row;
+  });
+}
+
+function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance) {
+  // פונקציית תזרים בסיסית - ניתן להרחיב לפי הצורך
+  return []; 
+}
+
+function buildMonthRange_(start, end) {
+  const range = [];
+  for (let i = start; i <= end; i++) range.push(i);
+  return range;
+}
+
+// --- פונקציות עדכון (Update/Delete) ---
+
+function updateRowData(type, data) {
+  const sheetName = type === 'expense' ? SHEET_NAMES.expenses : SHEET_NAMES.incomes;
+  const sheet = getRequiredSheet_(sheetName);
+  const rowIdx = parseInt(data.id.split('-')[1]);
+  
+  if (type === 'expense') {
+    sheet.getRange(rowIdx, 1).setValue(data.day);
+    sheet.getRange(rowIdx, 2).setValue(data.category);
+    sheet.getRange(rowIdx, 9).setValue(data.detail);
+    const col = EXPENSE_MONTH_COLUMNS[data.month];
+    sheet.getRange(rowIdx, col).setValue(data.amount);
+  } else {
+    sheet.getRange(rowIdx, 1).setValue(data.account);
+    sheet.getRange(rowIdx, 2).setValue(data.detail);
+    sheet.getRange(rowIdx, 3).setValue(data.amount);
+    sheet.getRange(rowIdx, 4).setValue(new Date(data.dueDate));
+    sheet.getRange(rowIdx, 5).setValue(data.notes);
+    sheet.getRange(rowIdx, 6).setValue(data.fund);
+  }
+  return { ok: true };
+}
+
+function deleteExpenseRow(id) {
+  const rowIdx = parseInt(id.split('-')[1]);
+  getRequiredSheet_(SHEET_NAMES.expenses).deleteRow(rowIdx);
+  return { ok: true };
+}
+
+function deleteIncomeRow(id) {
+  const rowIdx = parseInt(id.split('-')[1]);
+  getRequiredSheet_(SHEET_NAMES.incomes).deleteRow(rowIdx);
+  return { ok: true };
+}
