@@ -26,9 +26,15 @@
     expenseMonths: [],
     incomeMonths: [],
     statusMode: 'income',
+    statusIncomeOpen: false,
+    statusExpenseOpen: false,
+    statusIncomeMonthOpen: null,
+    statusExpenseMonthOpen: null,
     showMonthPicker: false,
     openWeekKey: null,
-    openFlowRowKey: null
+    openFlowRowKey: null,
+    expenseToolboxOpen: false,
+    incomeToolboxOpen: false
   };
 
   const yearTabsEl = document.getElementById('year-tabs');
@@ -668,17 +674,27 @@
       ? item.details
       : (Array.isArray(item?.rows) ? item.rows : []);
 
-    if (!detailRows.length) {
-      return '<div class="week-detail-row">אין פירוט נוסף לשבוע זה.</div>';
-    }
-
-    return detailRows.slice(0, 16).map(row => {
+    const incomeRows = detailRows.filter(row => String(row?.type || '').toLowerCase() === 'income');
+    const expenseRows = detailRows.filter(row => String(row?.type || '').toLowerCase() === 'expense');
+    const renderDetailList = rows => rows.slice(0, 16).map(row => {
       const title = escapeHtml(row?.detail || row?.name || row?.label || row?.description || 'רשומה');
       const amount = readServerNumber(row?.amount, row?.incomeAmount, row?.expenseAmount);
       const date = escapeHtml(row?.date || row?.dayLabel || row?.range || '');
       const amountText = amount === null ? '' : formatCurrency(amount);
       return `<div class="week-detail-row">${date ? `${date} · ` : ''}${title}${amountText ? ` · ${amountText}` : ''}</div>`;
     }).join('');
+
+    return `
+      <div class="week-detail-section week-detail-section--income">
+        <div class="week-detail-title">הכנסות</div>
+        ${incomeRows.length ? renderDetailList(incomeRows) : '<div class="week-detail-row week-detail-row--empty">אין הכנסות בשבוע זה</div>'}
+      </div>
+      <div class="week-detail-divider"></div>
+      <div class="week-detail-section week-detail-section--expense">
+        <div class="week-detail-title">הוצאות</div>
+        ${expenseRows.length ? renderDetailList(expenseRows) : '<div class="week-detail-row week-detail-row--empty">אין הוצאות בשבוע זה</div>'}
+      </div>
+    `;
   }
 
   function renderSummary() {
@@ -687,7 +703,7 @@
     const allWeekly = Array.isArray(state.payload?.weekly) ? state.payload.weekly : [];
     const weekly = selectedMonth
       ? allWeekly.filter(item => Number(item.month) === selectedMonth)
-      : allWeekly;
+      : [];
     const totals = getSummaryTotalsForView();
     const weeklyTitle = selectedMonth
       ? `סיכום שבועי · ${monthLabel(selectedMonth)}`
@@ -728,8 +744,6 @@
         </div>
       </div>
 
-      ${weeklySection}
-
       <div class="summary-layout" style="grid-template-columns: 1fr;">
         <div class="table-shell">
           <div class="table-wrap table-wrap--main">
@@ -761,6 +775,84 @@
             </table>
           </div>
         </div>
+      </div>
+      ${weeklySection}
+    `;
+  }
+
+  function buildStatusMonthlyGroups(rows, type) {
+    const byMonth = new Map();
+    rows.forEach(row => {
+      const month = type === 'income' ? getIncomeMonthNumber(row) : Number(row.month);
+      if (!month) return;
+      if (!byMonth.has(month)) byMonth.set(month, []);
+      byMonth.get(month).push(row);
+    });
+
+    return [...byMonth.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([month, monthRows]) => {
+        const byGroup = new Map();
+        monthRows.forEach(row => {
+          const groupName = type === 'income'
+            ? (String(row.fund || row.detail || 'ללא קבוצה').trim() || 'ללא קבוצה')
+            : (String(row.group || row.category || row.detail || 'ללא קבוצה').trim() || 'ללא קבוצה');
+          const current = byGroup.get(groupName) || 0;
+          byGroup.set(groupName, current + Number(row.amount || 0));
+        });
+
+        const groups = [...byGroup.entries()]
+          .map(([name, amount]) => ({ name, amount }))
+          .sort((a, b) => b.amount - a.amount);
+
+        return {
+          month,
+          monthLabelText: monthLabel(month),
+          groups,
+          total: groups.reduce((sum, group) => sum + Number(group.amount || 0), 0)
+        };
+      });
+  }
+
+  function renderStatusMonthAccordion(rows, type, emptyText) {
+    const months = buildStatusMonthlyGroups(rows, type);
+    if (!months.length) return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
+
+    const openMonth = type === 'income' ? state.statusIncomeMonthOpen : state.statusExpenseMonthOpen;
+
+    return `
+      <div class="accordion-list">
+        ${months.map(item => {
+          const isOpen = Number(openMonth) === Number(item.month);
+          return `
+            <div class="status-month-card ${isOpen ? 'open' : ''}">
+              <button type="button" class="status-month-btn" data-status-type="${type}" data-status-month="${item.month}">
+                <span class="status-month-title">
+                  <span class="summary-badge">${item.groups.length}</span>
+                  <span>${escapeHtml(item.monthLabelText)}</span>
+                </span>
+                <span class="status-month-meta">
+                  <span class="plain-total ${type === 'income' ? 'income' : 'expense'}">${formatCurrency(item.total)}</span>
+                  <span class="status-chevron">${isOpen ? '▾' : '▸'}</span>
+                </span>
+              </button>
+              ${isOpen ? `
+                <div class="group-body">
+                  <div class="rows-list">
+                    ${item.groups.map(group => `
+                      <div class="group-row">
+                        <div class="group-row-main">
+                          <div class="group-row-title">${escapeHtml(group.name)}</div>
+                        </div>
+                        <div class="group-row-amount ${type === 'income' ? 'income' : 'expense'}">${formatCurrency(group.amount)}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
       </div>
     `;
   }
@@ -818,18 +910,19 @@
       </div>
 
       <div class="status-toggle-row">
-        <button type="button" class="status-toggle-card income ${state.statusMode === 'income' ? 'active' : ''}" data-status-mode="income">
+        <button type="button" class="status-toggle-card income ${state.statusIncomeOpen ? 'active' : ''}" data-status-toggle="income">
           קבוצות הכנסות · ${formatServerCurrency(totals.totalIncome)}
+          <span class="status-chevron">${state.statusIncomeOpen ? '▾' : '▸'}</span>
         </button>
-        <button type="button" class="status-toggle-card expense ${state.statusMode === 'expense' ? 'active' : ''}" data-status-mode="expense">
+        <button type="button" class="status-toggle-card expense ${state.statusExpenseOpen ? 'active' : ''}" data-status-toggle="expense">
           קבוצות הוצאות · ${formatServerCurrency(totals.totalExpense)}
+          <span class="status-chevron">${state.statusExpenseOpen ? '▾' : '▸'}</span>
         </button>
       </div>
 
       <div class="status-detail-wrap">
-        ${state.statusMode === 'income'
-          ? renderIncomeAccordion(incomeRows, 'אין הכנסות להצגה בטווח הנבחר.')
-          : renderExpenseAccordion(expenseRows, 'אין הוצאות להצגה בטווח הנבחר.')}
+        ${state.statusIncomeOpen ? renderStatusMonthAccordion(incomeRows, 'income', 'אין הכנסות להצגה בטווח הנבחר.') : ''}
+        ${state.statusExpenseOpen ? renderStatusMonthAccordion(expenseRows, 'expense', 'אין הוצאות להצגה בטווח הנבחר.') : ''}
       </div>
     `;
   }
@@ -854,8 +947,8 @@
         <select class="filter-select" id="expense-filter">${buildExpenseCategoryOptions(rows)}</select>
       </div>
 
-      <details class="toolbox-card">
-        <summary class="toolbox-summary">כלי הוספה ועריכה מפורטת</summary>
+      <details class="toolbox-card toolbox-card--compact" data-toolbox="expense" ${state.expenseToolboxOpen ? 'open' : ''}>
+        <summary class="toolbox-summary">כלי הוספה ועריכה</summary>
         <div class="toolbox-body">
           <div class="forms-grid" style="margin-bottom:16px;">
             <section class="mini-panel">
@@ -981,8 +1074,8 @@
         <select class="filter-select" id="income-filter">${buildIncomeFundOptions(rows)}</select>
       </div>
 
-      <details class="toolbox-card">
-        <summary class="toolbox-summary">כלי הוספה ועריכה מפורטת</summary>
+      <details class="toolbox-card toolbox-card--compact" data-toolbox="income" ${state.incomeToolboxOpen ? 'open' : ''}>
+        <summary class="toolbox-summary">כלי הוספה ועריכה</summary>
         <div class="toolbox-body">
           <div class="forms-grid" style="margin-bottom:16px;">
             <section class="mini-panel">
@@ -1131,6 +1224,8 @@
                 const isOpen = state.openFlowRowKey === key;
                 const incomeHint = hasIncomeDetail ? '+' : '';
                 const expenseHint = hasExpenseDetail ? '−' : '';
+                const sanitizedIncome = sanitizeFlowDetail(incomeDetail);
+                const sanitizedExpense = sanitizeFlowDetail(expenseDetail);
 
                 return `
                   <tr class="flow-main-row ${isOpen ? 'open' : ''}" data-flow-row="${escapeAttr(key)}">
@@ -1144,8 +1239,8 @@
                   <tr class="flow-detail-row ${isOpen ? 'open' : ''}">
                     <td colspan="6">
                       <div class="flow-detail-box">
-                        ${hasIncomeDetail ? `<div><strong>פירוט הכנסות:</strong> ${escapeHtml(incomeDetail)}</div>` : ''}
-                        ${hasExpenseDetail ? `<div><strong>פירוט הוצאות:</strong> ${escapeHtml(expenseDetail)}</div>` : ''}
+                        ${hasIncomeDetail ? `<div class="flow-detail-item income">${escapeHtml(sanitizedIncome)} (${formatServerCurrency(row.incomeAmount)})</div>` : ''}
+                        ${hasExpenseDetail ? `<div class="flow-detail-item expense">${escapeHtml(sanitizedExpense)} (${formatServerCurrency(row.expenseAmount)})</div>` : ''}
                       </div>
                     </td>
                   </tr>
@@ -1156,6 +1251,13 @@
         </div>
       </div>
     `;
+  }
+
+  function sanitizeFlowDetail(text) {
+    return String(text || '')
+      .replace(/\b(?:חשבון|קוד)\s*[:#-]?\s*[\w\-/]+/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   }
 
 
@@ -1302,9 +1404,33 @@
       return;
     }
 
-    const statusModeBtn = event.target.closest('[data-status-mode]');
-    if (statusModeBtn) {
-      state.statusMode = statusModeBtn.dataset.statusMode === 'expense' ? 'expense' : 'income';
+    const statusToggleBtn = event.target.closest('[data-status-toggle]');
+    if (statusToggleBtn) {
+      const type = statusToggleBtn.dataset.statusToggle;
+      if (type === 'income') {
+        state.statusIncomeOpen = !state.statusIncomeOpen;
+        if (state.statusIncomeOpen && !state.statusIncomeMonthOpen) {
+          state.statusIncomeMonthOpen = getAvailableMonths()[0] || null;
+        }
+      } else {
+        state.statusExpenseOpen = !state.statusExpenseOpen;
+        if (state.statusExpenseOpen && !state.statusExpenseMonthOpen) {
+          state.statusExpenseMonthOpen = getAvailableMonths()[0] || null;
+        }
+      }
+      renderStatus();
+      return;
+    }
+
+    const statusMonthBtn = event.target.closest('[data-status-month][data-status-type]');
+    if (statusMonthBtn) {
+      const month = Number(statusMonthBtn.dataset.statusMonth);
+      const type = statusMonthBtn.dataset.statusType;
+      if (type === 'income') {
+        state.statusIncomeMonthOpen = Number(state.statusIncomeMonthOpen) === month ? null : month;
+      } else {
+        state.statusExpenseMonthOpen = Number(state.statusExpenseMonthOpen) === month ? null : month;
+      }
       renderStatus();
       return;
     }
@@ -1420,6 +1546,18 @@
 
     if (event.target.id === 'expense-date-input' || event.target.id === 'due-date-input') {
       event.target.blur();
+    }
+  });
+
+  document.body.addEventListener('toggle', event => {
+    const toolbox = event.target;
+    if (!toolbox || !toolbox.matches('details[data-toolbox]')) return;
+    const type = toolbox.dataset.toolbox;
+    if (type === 'expense') {
+      state.expenseToolboxOpen = toolbox.open;
+    }
+    if (type === 'income') {
+      state.incomeToolboxOpen = toolbox.open;
     }
   });
 
