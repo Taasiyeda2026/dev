@@ -671,6 +671,30 @@
     background: linear-gradient(180deg, #fcfdff 0%, #f8fbff 100%);
   }
 
+  .toolbox-card--compact {
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .toolbox-card--compact > .toolbox-summary {
+    display: inline-flex;
+    width: auto;
+    max-width: 100%;
+    border: 1px solid #cadbed;
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
+    box-shadow: var(--shadow-soft);
+  }
+
+  .toolbox-card--compact > .toolbox-body {
+    margin-top: 8px;
+    border: 1px solid rgba(201, 215, 232, 0.95);
+    border-radius: 10px;
+  }
+
   .group-row {
     display: flex;
     align-items: flex-start;
@@ -935,6 +959,26 @@
     display: block;
   }
 
+  .week-detail-section {
+    display: grid;
+    gap: 4px;
+    text-align: right;
+  }
+
+  .week-detail-title {
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .week-detail-divider {
+    border-top: 1px solid #c7d9ea;
+    margin: 8px 0;
+  }
+
+  .week-detail-row--empty {
+    color: var(--muted);
+  }
+
   .status-table th:first-child,
   .status-table td:first-child {
     text-align: right;
@@ -997,6 +1041,10 @@
   }
 
   .status-toggle-card {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     width: min(100%, 240px);
     border-radius: 10px;
     border: 1px solid var(--line);
@@ -1016,9 +1064,44 @@
   }
 
   .status-detail-wrap {
-    margin-top: 8px;
+    margin-top: 10px;
     width: min(100%, 760px);
     margin-inline: auto;
+    display: grid;
+    gap: 10px;
+  }
+
+  .status-month-card {
+    border: 1px solid rgba(201, 215, 232, 0.95);
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: var(--shadow-soft);
+    overflow: hidden;
+  }
+
+  .status-month-btn {
+    width: 100%;
+    border: 0;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    padding: 8px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .status-month-title,
+  .status-month-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-chevron {
+    font-size: 12px;
+    color: var(--muted);
   }
 
 
@@ -1063,6 +1146,12 @@
     gap: 4px;
     font-size: 11px;
     text-align: right;
+  }
+
+  .flow-detail-item {
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.35;
   }
 @media (max-width: 1260px) {
     .forms-grid,

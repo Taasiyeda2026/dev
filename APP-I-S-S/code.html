@@ -49,7 +49,15 @@ function getDashboardData() {
 
     // עיבוד הנתונים לתצוגה
     const monthlySummary = buildMonthlySummaryFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
-    const cashflowDays = buildCashflowDaysFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance, settings.workYear);
+    const cashflowDays = buildCashflowDaysFromRaw_(
+      months,
+      expensesSheetRows,
+      incomesSheetRows,
+      settings.openingBalance,
+      settings.workYear,
+      settings.balanceResetDate,
+      settings.manualOpeningBalance
+    );
     const weekly = buildWeeklyFromCashflow_(cashflowDays);
     
     const totalIncome = monthlySummary.reduce((sum, r) => sum + (Number(r.income) || 0), 0);
@@ -71,6 +79,8 @@ function getDashboardData() {
       incomesSheetRows: incomesSheetRows,
       startMonth: settings.startMonth,
       endMonth: settings.endMonth,
+      balanceResetDate: settings.balanceResetDate ? formatDateLabel_(settings.balanceResetDate) : '',
+      manualOpeningBalance: settings.manualOpeningBalance,
       metadata: {
         cashflowSource: 'derived-from-income-expense-sheets',
         generatedAt: new Date().toISOString()
@@ -99,6 +109,8 @@ function readSettings_() {
   return {
     workYear: map['שנת עבודה'] || 2026,
     openingBalance: Number(map['יתרת פתיחה']) || 0,
+    balanceResetDate: parseSettingsDate_(map['תאריך איפוס יתרה']),
+    manualOpeningBalance: parseOptionalNumber_(map['יתרת פתיחה ידנית']),
     startMonth: Number(map['חודש התחלה']) || 3,
     endMonth: Number(map['חודש סיום']) || 8,
     organizationName: map['שם ארגון'] || 'תעשיידע',
@@ -183,7 +195,7 @@ function buildMonthlySummaryFromRaw_(months, expenses, incomes, openingBalance) 
   });
 }
 
-function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance, workYear) {
+function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance, workYear, balanceResetDate, manualOpeningBalance) {
   const allowedMonths = new Set((months || []).map(Number));
   const year = Number(workYear) || new Date().getFullYear();
   const byDay = new Map();
@@ -231,8 +243,16 @@ function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance, wo
 
   const sorted = [...byDay.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   let runningBalance = toNumber_(openingBalance);
+  const resetKey = balanceResetDate ? toIsoDateKey_(balanceResetDate) : '';
+  const hasManualReset = Boolean(resetKey) && Number.isFinite(Number(manualOpeningBalance));
+  const manualStartBalance = Number(manualOpeningBalance);
+  let manualResetApplied = false;
 
   return sorted.map((row, index) => {
+    if (hasManualReset && !manualResetApplied && row.sortKey >= resetKey) {
+      runningBalance = manualStartBalance;
+      manualResetApplied = true;
+    }
     runningBalance += row.incomeAmount - row.expenseAmount;
     return {
       id: `flow-${index + 1}`,
@@ -432,4 +452,28 @@ function parseDateLabel_(label) {
     month: Number(match[2]),
     year: Number(match[3])
   };
+}
+
+function parseSettingsDate_(value) {
+  if (!value) return null;
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  const normalized = String(value).trim();
+  const slash = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    const date = new Date(Number(slash[3]), Number(slash[2]) - 1, Number(slash[1]));
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  const date = new Date(normalized);
+  if (isNaN(date.getTime())) return null;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function parseOptionalNumber_(value) {
+  if (value === '' || value === null || value === undefined) return NaN;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : NaN;
 }
