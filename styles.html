@@ -1,0 +1,23 @@
+<style>
+  body { font-family: Arial, sans-serif; background: #f5f7fb; margin: 0; }
+  .app { max-width: 1100px; margin: 0 auto; padding: 12px; display: grid; gap: 12px; }
+  .header, .panel { background: #fff; border: 1px solid #dce3ee; border-radius: 12px; padding: 12px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tab { border: 1px solid #becbe0; background: #fff; border-radius: 10px; padding: 6px 10px; cursor: pointer; }
+  .tab.active { background: #1f4f91; color: #fff; }
+  .table { width: 100%; border-collapse: collapse; }
+  .table th, .table td { border-bottom: 1px solid #e7edf7; padding: 8px; text-align: right; }
+  .week-card { border: 1px solid #d8e1f0; border-radius: 10px; margin-bottom: 8px; overflow: hidden; }
+  .week-head { background: #f1f6ff; padding: 8px 10px; cursor: pointer; display:flex; justify-content:space-between; }
+  .week-body { padding: 10px; display:none; }
+  .week-body.open { display:block; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .split > div:first-child { border-left: 2px solid #d9e5f9; padding-left: 10px; }
+  .status-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .accordion-month { margin-top: 6px; border: 1px solid #dfe7f3; border-radius: 8px; }
+  .accordion-title { padding: 6px 8px; background: #f7f9fe; cursor: pointer; }
+  .accordion-body { display:none; padding: 6px 8px; }
+  .accordion-body.open { display:block; }
+  .compact-btn { border:1px solid #b8c8df; border-radius:9px; background:#fff; padding:6px 10px; cursor:pointer; }
+  .toolbox { margin-top: 8px; padding: 8px; border: 1px dashed #bfd0ea; border-radius: 8px; }
+</style>
