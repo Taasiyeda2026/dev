@@ -92,6 +92,7 @@ function getDashboardData() {
     var cashflowDays = readCashflowSheet_(months);
     var closingByMonth = buildClosingBalanceByMonth_(cashflowDays);
     var monthlySummary = readMonthlySummarySheet_(months, closingByMonth, settings.openingBalance);
+    var summaryDetailTables = readSummarySheetDetailTables_(months);
     var weekly = readWeeksSheet_(months);
 
     if (!monthlySummary.length) {
@@ -122,6 +123,7 @@ function getDashboardData() {
       closingBalance: closingBalance,
       balance: closingBalance,
       monthlySummary: monthlySummary,
+      summaryDetailTables: summaryDetailTables,
       cashflowDays: cashflowDays,
       weekly: weekly,
       expensesSheetRows: expensesSheetRows,
@@ -427,6 +429,88 @@ function readMonthlySummarySheet_(allowedMonths, closingByMonth, openingBalance)
   });
 
   return results;
+}
+
+/** פירוט שורות הכנסות/הוצאות מגיליון סיכום (ערכי תצוגה בלבד, לפי עמודות החודשים בטווח) */
+function readSummarySheetDetailTables_(allowedMonths) {
+  var emptyOut = { income: [], expense: [], monthLabels: [] };
+  var sheet = getRequiredSheet_(SHEET_NAMES.summary);
+  var values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 5) return emptyOut;
+
+  var headerRow = values[0] || [];
+  var monthCols = {};
+  var allowed = {};
+  (allowedMonths || []).forEach(function(m) {
+    allowed[Number(m)] = true;
+  });
+
+  for (var mh = 1; mh <= 12; mh++) {
+    var hLabel = MONTH_LABELS[mh];
+    var hIdx = findHeaderIndexExact_(headerRow, hLabel);
+    if (hIdx > -1 && allowed[mh]) monthCols[mh] = hIdx;
+  }
+
+  var incomeTotalRow = findRowIndexByLabel_(values, 'סכום כולל', 1, 15);
+  var expenseHeaderRow = findRowIndexByLabel_(values, 'הוצאות', 10, 20);
+  var expenseTotalRow = findRowIndexByLabel_(values, 'סכום כולל', expenseHeaderRow, expenseHeaderRow + 10);
+
+  if (incomeTotalRow === -1 || expenseHeaderRow === -1 || expenseTotalRow === -1) return emptyOut;
+
+  var monthsOrdered = (allowedMonths || []).map(Number);
+  var monthLabels = monthsOrdered.map(function(m) {
+    return MONTH_LABELS[m] || String(m);
+  });
+
+  function cellsForRow_(rowArr) {
+    var out = [];
+    monthsOrdered.forEach(function(m) {
+      var c = monthCols[m];
+      if (c === undefined) {
+        out.push('');
+        return;
+      }
+      var v = rowArr[c];
+      out.push(v != null && v !== undefined ? String(v) : '');
+    });
+    return out;
+  }
+
+  function rowIsEmpty_(lab, cells) {
+    if (normalizeText_(lab)) return false;
+    for (var i = 0; i < cells.length; i++) {
+      if (normalizeText_(cells[i])) return false;
+    }
+    return true;
+  }
+
+  function pushRow_(target, rowIdx) {
+    var row = values[rowIdx] || [];
+    var lab = normalizeText_(row[0]);
+    var cells = cellsForRow_(row);
+    if (rowIsEmpty_(lab, cells)) return;
+    target.push({ label: lab, cells: cells });
+  }
+
+  var income = [];
+  var r;
+  for (r = 1; r < incomeTotalRow; r++) {
+    pushRow_(income, r);
+  }
+  pushRow_(income, incomeTotalRow);
+
+  var expense = [];
+  var e;
+  for (e = expenseHeaderRow + 1; e < expenseTotalRow; e++) {
+    pushRow_(expense, e);
+  }
+  pushRow_(expense, expenseTotalRow);
+
+  return {
+    income: income,
+    expense: expense,
+    monthLabels: monthLabels
+  };
 }
 
 function readWeeksSheet_(allowedMonths) {

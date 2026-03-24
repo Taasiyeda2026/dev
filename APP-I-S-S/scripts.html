@@ -28,6 +28,7 @@
     showMonthPicker: false,
     openWeekKey: null,
     openFlowRowKey: null,
+    flowSummaryDetailOpen: false,
     expenseToolboxOpen: false,
     incomeToolboxOpen: false
   };
@@ -114,7 +115,19 @@
       totalIncome: raw?.totalIncome,
       totalExpense: raw?.totalExpense,
       closingBalance: raw?.closingBalance,
+      summaryDetailTables: normalizeSummaryDetailTables_(raw?.summaryDetailTables),
       rawData: raw || {}
+    };
+  }
+
+  function normalizeSummaryDetailTables_(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return { income: [], expense: [], monthLabels: [] };
+    }
+    return {
+      income: Array.isArray(raw.income) ? raw.income : [],
+      expense: Array.isArray(raw.expense) ? raw.expense : [],
+      monthLabels: Array.isArray(raw.monthLabels) ? raw.monthLabels : []
     };
   }
 
@@ -824,6 +837,44 @@
     }
   }
 
+  function buildSummaryDetailTablesHtml(detail) {
+    const incomeRows = detail?.income || [];
+    const expenseRows = detail?.expense || [];
+    const monthLabels = detail?.monthLabels || [];
+    if (!incomeRows.length && !expenseRows.length) {
+      return '<div class="flow-summary-detail-empty">אין פירוט להצגה מגיליון הסיכום</div>';
+    }
+    const buildMiniTable = (title, rows) => {
+      if (!rows.length) {
+        return `<div class="flow-summary-mini-wrap flow-summary-mini-wrap--empty"><div class="flow-summary-mini-title">${escapeHtml(title)}</div><div class="flow-summary-detail-empty">אין שורות</div></div>`;
+      }
+      return `
+        <div class="flow-summary-mini-wrap">
+          <div class="flow-summary-mini-title">${escapeHtml(title)}</div>
+          <table class="flow-summary-mini-table">
+            <thead>
+              <tr>
+                <th class="flow-summary-mini-th flow-summary-mini-th--label"></th>
+                ${monthLabels.map(l => `<th class="flow-summary-mini-th flow-summary-mini-th--num">${escapeHtml(l)}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(row => {
+                const cells = Array.isArray(row.cells) ? row.cells : [];
+                const padded = monthLabels.map((_, i) => (cells[i] != null ? cells[i] : ''));
+                return `<tr>
+                  <td class="flow-summary-mini-td flow-summary-mini-td--label">${escapeHtml(row.label || '')}</td>
+                  ${padded.map(c => `<td class="flow-summary-mini-td flow-summary-mini-td--num">${escapeHtml(c)}</td>`).join('')}
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    };
+    return `<div class="flow-summary-twin-grid">${buildMiniTable('הכנסות', incomeRows)}${buildMiniTable('הוצאות', expenseRows)}</div>`;
+  }
+
   function renderFlow() {
     const selectedMonth = getSelectedMonth();
     const monthlyRows = getFilteredMonthlyRows();
@@ -831,6 +882,8 @@
       row => !selectedMonth || Number(row.month) === selectedMonth
     );
     const todayLabel = formatFlowDateLabel(new Date());
+    const summaryDetail = state.payload?.summaryDetailTables;
+    const expandBtnChar = state.flowSummaryDetailOpen ? '−' : '+';
 
     flowPanel.innerHTML = `
       <div class="panel-title-row">
@@ -869,6 +922,13 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div class="flow-summary-expand-row">
+        <button type="button" class="flow-summary-expand-btn" data-flow-summary-toggle="1" aria-expanded="${state.flowSummaryDetailOpen}" title="פירוט מגיליון הסיכום">${expandBtnChar}</button>
+      </div>
+      <div class="flow-summary-detail-panel" ${state.flowSummaryDetailOpen ? '' : 'hidden'}>
+        ${buildSummaryDetailTablesHtml(summaryDetail)}
       </div>
 
       <div class="table-shell">
@@ -1043,7 +1103,10 @@
     state.activeView = view;
     state.showMonthPicker = false;
     if (view !== 'all') state.openWeekKey = null;
-    if (view !== 'flow') state.openFlowRowKey = null;
+    if (view !== 'flow') {
+      state.openFlowRowKey = null;
+      state.flowSummaryDetailOpen = false;
+    }
 
     if (view === 'all') {
       state.selectedMonth = null;
@@ -1081,6 +1144,12 @@
     if (flowRow) {
       const key = flowRow.dataset.flowRow;
       state.openFlowRowKey = state.openFlowRowKey === key ? null : key;
+      renderFlow();
+      return;
+    }
+
+    if (event.target.closest('[data-flow-summary-toggle]')) {
+      state.flowSummaryDetailOpen = !state.flowSummaryDetailOpen;
       renderFlow();
       return;
     }

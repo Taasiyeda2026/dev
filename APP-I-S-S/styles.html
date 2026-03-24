@@ -1112,6 +1112,135 @@
   .flow-table tbody tr.flow-detail-row--today > td {
     background: #fffbf3 !important;
   }
+
+  .flow-summary-expand-row {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 760px;
+    margin: 4px auto 2px;
+    min-width: 0;
+  }
+
+  .flow-summary-expand-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border-radius: 7px;
+    border: 1px solid #c9a41a;
+    background: linear-gradient(180deg, #fff6c8 0%, #ffdf47 100%);
+    color: #4a3d00;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-soft);
+    flex: 0 0 auto;
+  }
+
+  .flow-summary-expand-btn:hover {
+    filter: brightness(1.03);
+  }
+
+  .flow-summary-expand-btn:focus-visible {
+    outline: 3px solid rgba(201, 164, 26, 0.45);
+    outline-offset: 2px;
+  }
+
+  .flow-summary-detail-panel {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto 8px;
+    min-width: 0;
+  }
+
+  .flow-summary-detail-panel[hidden] {
+    display: none !important;
+  }
+
+  .flow-summary-detail-empty {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    padding: 4px 2px;
+    line-height: 1.25;
+  }
+
+  .flow-summary-twin-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 5px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .flow-summary-mini-wrap {
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #fff;
+    padding: 3px 4px 4px;
+  }
+
+  .flow-summary-mini-wrap--empty {
+    display: grid;
+    align-content: start;
+    gap: 2px;
+  }
+
+  .flow-summary-mini-title {
+    font-size: 9px;
+    font-weight: 800;
+    text-align: center;
+    margin: 0 0 2px;
+    color: var(--muted);
+    line-height: 1.1;
+  }
+
+  .flow-summary-mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 7.5px;
+    line-height: 1.12;
+  }
+
+  .flow-summary-mini-th,
+  .flow-summary-mini-td {
+    padding: 1px 2px;
+    border-bottom: 1px solid #e8edf4;
+    vertical-align: middle;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .flow-summary-mini-th--label,
+  .flow-summary-mini-td--label {
+    width: 34%;
+    max-width: 0;
+    text-align: right;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .flow-summary-mini-th--num,
+  .flow-summary-mini-td--num {
+    text-align: center;
+    white-space: nowrap;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .flow-summary-mini-th {
+    background: #f2f7fc;
+    font-size: 7px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
 @media (max-width: 1260px) {
     .forms-grid,
     .management-split,
@@ -1166,6 +1295,14 @@
       width: auto;
       justify-content: center;
       flex-wrap: wrap;
+    }
+
+    .flow-summary-mini-table {
+      font-size: 6.5px;
+    }
+
+    .flow-summary-mini-th {
+      font-size: 6px;
     }
   }
 </style>
