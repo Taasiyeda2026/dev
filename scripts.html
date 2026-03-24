@@ -1,0 +1,155 @@
+<script>
+  const state = {
+    payload: null,
+    selectedMonth: null,
+    openWeekKey: null,
+    incomeStatusOpen: false,
+    expenseStatusOpen: false,
+    openIncomeMonths: new Set(),
+    openExpenseMonths: new Set(),
+    incomeToolboxOpen: false,
+    expenseToolboxOpen: false
+  };
+
+  function fmt(num) {
+    return new Intl.NumberFormat('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }).format(Number(num || 0));
+  }
+
+  function onLoad() {
+    google.script.run
+      .withSuccessHandler((payload) => {
+        state.payload = payload;
+        renderAll();
+      })
+      .withFailureHandler((err) => {
+        document.body.innerHTML = '<pre>' + (err.message || err) + '</pre>';
+      })
+      .getDashboardData();
+
+    document.getElementById('toggle-income-status').onclick = () => {
+      state.incomeStatusOpen = !state.incomeStatusOpen;
+      renderStatus();
+    };
+    document.getElementById('toggle-expense-status').onclick = () => {
+      state.expenseStatusOpen = !state.expenseStatusOpen;
+      renderStatus();
+    };
+    document.getElementById('toggle-income-toolbox').onclick = () => {
+      state.incomeToolboxOpen = !state.incomeToolboxOpen;
+      document.getElementById('income-toolbox').hidden = !state.incomeToolboxOpen;
+    };
+    document.getElementById('toggle-expense-toolbox').onclick = () => {
+      state.expenseToolboxOpen = !state.expenseToolboxOpen;
+      document.getElementById('expense-toolbox').hidden = !state.expenseToolboxOpen;
+    };
+  }
+
+  function renderAll() {
+    renderMeta();
+    renderMonthTabs();
+    renderSnapshot();
+    renderWeeks();
+    renderStatus();
+    renderCashflow();
+    renderIncomes();
+    renderExpenses();
+  }
+
+  function renderMeta() {
+    const m = state.payload.metadata || {};
+    document.getElementById('meta').textContent = `${m.organizationName || ''} | שנת עבודה ${m.workYear || ''}`;
+  }
+
+  function renderMonthTabs() {
+    const tabs = document.getElementById('month-tabs');
+    const months = [...new Set((state.payload.summary || []).map(r => Number(r.month)).filter(Boolean))];
+    tabs.innerHTML = '<button class="tab ' + (state.selectedMonth === null ? 'active' : '') + '" data-month="">כללי/שנתי</button>' +
+      months.map(m => `<button class="tab ${state.selectedMonth === m ? 'active' : ''}" data-month="${m}">חודש ${m}</button>`).join('');
+    tabs.querySelectorAll('button').forEach(btn => {
+      btn.onclick = () => {
+        state.selectedMonth = btn.dataset.month ? Number(btn.dataset.month) : null;
+        renderAll();
+      };
+    });
+  }
+
+  function filteredSummary() {
+    const rows = state.payload.summary || [];
+    return state.selectedMonth ? rows.filter(r => Number(r.month) === state.selectedMonth) : rows;
+  }
+
+  function renderSnapshot() {
+    const rows = filteredSummary();
+    const html = `<table class="table"><thead><tr><th>חודש</th><th>הכנסות</th><th>הוצאות</th><th>נטו</th><th>יתרה</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.monthLabel}</td><td>${fmt(r.income)}</td><td>${fmt(r.expense)}</td><td>${fmt(r.net)}</td><td>${fmt(r.closingBalance)}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('snapshot-table').innerHTML = html;
+  }
+
+  function renderWeeks() {
+    const panel = document.getElementById('weeks-panel');
+    if (!state.selectedMonth) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    const rows = (state.payload.weekly || []).filter(w => Number(w.month) === state.selectedMonth);
+    const html = rows.map(w => {
+      const key = `${w.month}-${w.week}`;
+      const isOpen = state.openWeekKey === key;
+      return `<div class="week-card"><div class="week-head" data-key="${key}"><strong>שבוע ${w.week}</strong><span>${w.range}</span></div><div class="week-body ${isOpen ? 'open' : ''}"><div class="split"><div><h4>הכנסות</h4><div>${w.incomeDetails.join('<br>') || '-'}</div><strong>${fmt(w.income)}</strong></div><div><h4>הוצאות</h4><div>${w.expenseDetails.join('<br>') || '-'}</div><strong>${fmt(w.expense)}</strong></div></div></div></div>`;
+    }).join('');
+    document.getElementById('weeks-list').innerHTML = html || 'אין נתונים לחודש זה';
+    document.querySelectorAll('.week-head').forEach(el => {
+      el.onclick = () => {
+        const key = el.dataset.key;
+        state.openWeekKey = state.openWeekKey === key ? null : key;
+        renderWeeks();
+      };
+    });
+  }
+
+  function renderStatus() {
+    renderStatusGroup('income-status', state.payload.statusIncomeGroupsByMonth || {}, state.incomeStatusOpen, state.openIncomeMonths, 'income');
+    renderStatusGroup('expense-status', state.payload.statusExpenseGroupsByMonth || {}, state.expenseStatusOpen, state.openExpenseMonths, 'expense');
+  }
+
+  function renderStatusGroup(containerId, dataByMonth, topOpen, openSet, type) {
+    const el = document.getElementById(containerId);
+    if (!topOpen) {
+      el.innerHTML = '';
+      return;
+    }
+    const months = Object.keys(dataByMonth).map(Number).sort((a, b) => a - b);
+    el.innerHTML = months.map(month => {
+      const open = openSet.has(month);
+      const rows = dataByMonth[month] || [];
+      return `<div class="accordion-month"><div class="accordion-title" data-type="${type}" data-month="${month}">חודש ${month}</div><div class="accordion-body ${open ? 'open' : ''}">${rows.map(r => `<div>${r.name}: ${fmt(r.amount)}</div>`).join('')}</div></div>`;
+    }).join('');
+    el.querySelectorAll('.accordion-title').forEach(title => {
+      title.onclick = () => {
+        const month = Number(title.dataset.month);
+        if (openSet.has(month)) openSet.delete(month); else openSet.add(month);
+        renderStatus();
+      };
+    });
+  }
+
+  function renderCashflow() {
+    const rows = state.selectedMonth ? (state.payload.cashflowDays || []).filter(r => Number(r.month) === state.selectedMonth) : (state.payload.cashflowDays || []);
+    const html = `<table class="table"><thead><tr><th>תאריך</th><th>הכנסות (מימון + סכום)</th><th>הוצאות (קבוצה/פירוט + סכום)</th><th>יתרת בנק</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.date}</td><td>${r.incomeDetail} — ${fmt(r.incomeAmount)}</td><td>${r.expenseDetail} — ${fmt(r.expenseAmount)}</td><td>${fmt(r.bankBalance)}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('cashflow-table').innerHTML = html;
+  }
+
+  function renderIncomes() {
+    const rows = state.selectedMonth ? (state.payload.incomes || []).filter(r => Number(r.month) === state.selectedMonth) : (state.payload.incomes || []);
+    const html = `<table class="table"><thead><tr><th>חשבון</th><th>פירוט</th><th>סכום</th><th>צפי תשלום</th><th>מימון</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.account}</td><td>${r.detail}</td><td>${fmt(r.amount)}</td><td>${r.dueDate}</td><td>${r.fund}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('incomes-table').innerHTML = html;
+  }
+
+  function renderExpenses() {
+    const rows = state.selectedMonth ? (state.payload.expenses || []).filter(r => Number(r.month) === state.selectedMonth) : (state.payload.expenses || []);
+    const html = `<table class="table"><thead><tr><th>תאריך</th><th>קבוצה</th><th>פירוט</th><th>סכום</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r.date}</td><td>${r.group}</td><td>${r.detail}</td><td>${fmt(r.amount)}</td></tr>`).join('')}</tbody></table>`;
+    document.getElementById('expenses-table').innerHTML = html;
+  }
+
+  window.addEventListener('DOMContentLoaded', onLoad);
+</script>

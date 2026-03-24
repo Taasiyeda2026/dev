@@ -1,111 +1,66 @@
 <!doctype html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>מערכת שיבוץ Zoom</title>
-  <link rel="stylesheet" href="./style.css" />
+  <title>דשבורד פיננסי</title>
+  <?!= include('styles'); ?>
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-left">
-      <h1>מערכת שיבוץ Zoom</h1>
-      <div id="weekLabel" class="week-label"></div>
-    </div>
+  <main class="app">
+    <header class="header">
+      <h1>דשבורד פיננסי</h1>
+      <div id="meta"></div>
+    </header>
 
-    <div class="topbar-right">
-      <div class="week-nav">
-        <button id="prevWeek" class="btn">◀ שבוע קודם</button>
-        <button id="todayWeek" class="btn btn-primary">היום</button>
-        <button id="nextWeek" class="btn">שבוע הבא ▶</button>
-
-        <input id="weekPicker" class="input" type="date" />
-      </div>
-
-      <select id="viewMode" class="input">
-        <option value="schedule">שיבוצים</option>
-        <option value="potential">פוטנציאל</option>
-      </select>
-
-      <input id="searchInput" class="input" type="text" placeholder="חיפוש (רשות/בית ספר/מדריך/תכנית)..." />
-      <button id="reloadBtn" class="btn">רענון</button>
-      <a class="btn btn-primary" href="./finance.html">מעבר לפיננס-דשבורד</a>
-    </div>
-  </header>
-
-  <main class="layout">
-    <section class="board-wrap">
-      <div id="board" class="board"></div>
+    <section class="panel" id="snapshot-panel">
+      <h2>תמונת מצב כללית</h2>
+      <div id="snapshot-table"></div>
     </section>
 
-    <aside id="potentialPanel" class="potential">
-      <div class="panel-title">פוטנציאל</div>
-      <div id="potentialList" class="potential-list"></div>
-    </aside>
+    <section class="panel">
+      <div class="tabs" id="month-tabs"></div>
+    </section>
+
+    <section class="panel" id="weeks-panel" hidden>
+      <h2>שבועות</h2>
+      <div id="weeks-list"></div>
+    </section>
+
+    <section class="panel" id="status-panel">
+      <h2>סטטוס</h2>
+      <div class="status-layout">
+        <div>
+          <button class="compact-btn" id="toggle-income-status">קבוצות הכנסות</button>
+          <div id="income-status"></div>
+        </div>
+        <div>
+          <button class="compact-btn" id="toggle-expense-status">קבוצות הוצאות</button>
+          <div id="expense-status"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="cashflow-panel">
+      <h2>תזרים</h2>
+      <div id="cashflow-table"></div>
+    </section>
+
+    <section class="panel" id="incomes-panel">
+      <h2>הכנסות</h2>
+      <button class="compact-btn" id="toggle-income-toolbox">כלי הוספה/עריכה</button>
+      <div class="toolbox" id="income-toolbox" hidden>אפשר להוסיף/לערוך שורות ישירות בגיליון גיול.</div>
+      <div id="incomes-table"></div>
+    </section>
+
+    <section class="panel" id="expenses-panel">
+      <h2>הוצאות</h2>
+      <button class="compact-btn" id="toggle-expense-toolbox">כלי הוספה/עריכה</button>
+      <div class="toolbox" id="expense-toolbox" hidden>אפשר להוסיף/לערוך שורות ישירות בגיליון הוצאות.</div>
+      <div id="expenses-table"></div>
+    </section>
   </main>
 
-  <!-- MODAL -->
-  <div id="modalOverlay" class="modal-overlay" style="display:none;">
-    <div class="modal">
-      <div class="modal-header">
-        <div id="modalTitle" class="modal-title"></div>
-        <button id="modalCloseBtn" class="btn">סגור</button>
-      </div>
-
-      <div class="modal-grid">
-        <div class="field">
-          <label>תאריך</label>
-          <input id="mDate" class="input" type="text" disabled />
-        </div>
-
-        <div class="field">
-          <label>שעה התחלה</label>
-          <select id="mStart" class="input"></select>
-        </div>
-
-        <div class="field">
-          <label>שעה סיום</label>
-          <select id="mEnd" class="input"></select>
-        </div>
-
-        <div class="field">
-          <label>רשות</label>
-          <input id="mAuthority" class="input" type="text" />
-        </div>
-
-        <div class="field">
-          <label>בית ספר</label>
-          <input id="mSchool" class="input" type="text" />
-        </div>
-
-        <div class="field">
-          <label>תכנית</label>
-          <input id="mProgram" class="input" type="text" />
-        </div>
-
-        <div class="field">
-          <label>מדריך</label>
-          <input id="mEmployee" class="input" type="text" />
-        </div>
-
-        <div class="field">
-          <label>Zoom</label>
-          <select id="mZoom" class="input"></select>
-        </div>
-
-        <div class="field field-wide">
-          <label>הערות</label>
-          <input id="mNotes" class="input" type="text" />
-        </div>
-      </div>
-
-      <div class="modal-actions">
-        <button id="deleteBtn" class="btn btn-danger">מחיקה</button>
-        <button id="saveBtn" class="btn btn-primary">שמירה</button>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="./ui.js"></script>
+  <?!= include('scripts'); ?>
 </body>
 </html>
