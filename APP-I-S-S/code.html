@@ -42,27 +42,42 @@ function getDashboardData() {
   try {
     const settings = readSettings_();
     const months = buildMonthRange_(settings.startMonth, settings.endMonth);
-    
-    // קריאת נתונים גולמיים מהגיליונות
+
+    // נתוני עריכה מהגיליונות המקוריים
     const expensesSheetRows = readExpenseEntries_(months);
     const incomesSheetRows = readIncomeEntries_(settings.timezone);
 
-    // עיבוד הנתונים לתצוגה
-    const monthlySummary = buildMonthlySummaryFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
-    const cashflowDays = buildCashflowDaysFromRaw_(
-      months,
-      expensesSheetRows,
-      incomesSheetRows,
-      settings.openingBalance,
-      settings.workYear,
-      settings.balanceResetDate,
-      settings.manualOpeningBalance
-    );
-    const weekly = buildWeeklyFromCashflow_(cashflowDays);
-    
+    // מקור אמת: גיליונות מחושבים (אם קיימים)
+    const monthlySummaryFromSheets = readMonthlySummarySheet_(months, settings.openingBalance);
+    const cashflowFromSheets = readCashflowSheet_(months);
+    const weeklyFromSheets = readWeeksSheet_(months);
+
+    // נפילה אחורה רק אם גיליון מחושב חסר/ריק
+    const monthlySummary = monthlySummaryFromSheets.length
+      ? monthlySummaryFromSheets
+      : buildMonthlySummaryFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
+
+    const cashflowDays = cashflowFromSheets.length
+      ? cashflowFromSheets
+      : buildCashflowDaysFromRaw_(
+          months,
+          expensesSheetRows,
+          incomesSheetRows,
+          settings.openingBalance,
+          settings.workYear,
+          settings.balanceResetDate,
+          settings.manualOpeningBalance
+        );
+
+    const weekly = weeklyFromSheets.length
+      ? weeklyFromSheets
+      : buildWeeklyFromCashflow_(cashflowDays);
+
     const totalIncome = monthlySummary.reduce((sum, r) => sum + (Number(r.income) || 0), 0);
     const totalExpense = monthlySummary.reduce((sum, r) => sum + (Number(r.expense) || 0), 0);
-    const closingBalance = monthlySummary.length ? monthlySummary[monthlySummary.length - 1].closing : settings.openingBalance;
+    const closingBalance = monthlySummary.length
+      ? Number(monthlySummary[monthlySummary.length - 1].closing || 0)
+      : settings.openingBalance;
 
     return {
       organizationName: settings.organizationName,
@@ -82,12 +97,13 @@ function getDashboardData() {
       balanceResetDate: settings.balanceResetDate ? formatDateLabel_(settings.balanceResetDate) : '',
       manualOpeningBalance: settings.manualOpeningBalance,
       metadata: {
-        cashflowSource: 'derived-from-income-expense-sheets',
+        sourceOfTruth: 'google-sheets-calculated-tabs',
+        fallbackEnabled: true,
         generatedAt: new Date().toISOString()
       }
     };
   } catch (e) {
-    throw new Error("שגיאה בעיבוד הנתונים: " + e.message);
+    throw new Error('שגיאה בעיבוד הנתונים: ' + e.message);
   }
 }
 
@@ -174,6 +190,145 @@ function readIncomeEntries_(timezone) {
     });
   }
   return results;
+}
+
+
+function readMonthlySummarySheet_(allowedMonths, openingBalance) {
+  const rows = readSheetObjectsSafe_(SHEET_NAMES.summary);
+  if (!rows.length) return [];
+
+  const allowed = new Set((allowedMonths || []).map(Number));
+  const result = rows.map(row => {
+    const month = Number(firstDefined_(row['מספר חודש'], row['חודש']));
+    if (!month || (allowed.size && !allowed.has(month))) return null;
+
+    const income = toNumber_(firstDefined_(row['סך הכנסות'], row['הכנסות'], row['הכנסה']));
+    const expense = toNumber_(firstDefined_(row['סך הוצאות'], row['הוצאות'], row['הוצאה']));
+    const closing = toNumber_(firstDefined_(row['יתרת סגירה סוף חודש'], row['יתרה'], row['סגירה']));
+
+    return {
+      month: month,
+      label: MONTH_LABELS[month] || String(row['חודש'] || month),
+      income: income,
+      expense: expense,
+      closing: closing,
+      balance: closing
+    };
+  }).filter(Boolean);
+
+  if (!result.length) return [];
+
+  let running = toNumber_(openingBalance);
+  return result.map(item => {
+    const closing = Number.isFinite(Number(item.closing)) && item.closing !== 0
+      ? item.closing
+      : (running + item.income - item.expense);
+    running = closing;
+    return Object.assign({}, item, { closing: closing, balance: closing });
+  });
+}
+
+function readCashflowSheet_(allowedMonths) {
+  const rows = readSheetObjectsSafe_(SHEET_NAMES.flow);
+  if (!rows.length) return [];
+  const allowed = new Set((allowedMonths || []).map(Number));
+
+  return rows.map((row, index) => {
+    const dateText = String(firstDefined_(row['תאריך'], row['date']) || '').trim();
+    if (!dateText) return null;
+
+    const month = monthFromDateValue_(dateText);
+    if (allowed.size && month && !allowed.has(month)) return null;
+
+    return {
+      id: `flow-${index + 1}`,
+      date: dateText,
+      month: month,
+      incomeDesc: normalizeText_(firstDefined_(row['פירוט הכנסות'], row['הכנסות'], row['incomeDetail']) || ''),
+      incomeAmount: toNumber_(firstDefined_(row['סכום הכנסות'], row['incomeAmount'])),
+      expenseDesc: normalizeText_(firstDefined_(row['פירוט הוצאות'], row['הוצאות'], row['expenseDetail']) || ''),
+      expenseAmount: toNumber_(firstDefined_(row['סכום הוצאות'], row['expenseAmount'])),
+      balance: toNumber_(firstDefined_(row['יתרת בנק'], row['יתרה'], row['balance']))
+    };
+  }).filter(Boolean);
+}
+
+function readWeeksSheet_(allowedMonths) {
+  const rows = readSheetObjectsSafe_('שבועות');
+  if (!rows.length) return [];
+
+  const allowed = new Set((allowedMonths || []).map(Number));
+
+  return rows.map((row, index) => {
+    const month = Number(firstDefined_(row['מספר חודש'], row['חודש']));
+    if (!month || (allowed.size && !allowed.has(month))) return null;
+
+    const week = Number(firstDefined_(row['שבוע'], row['מספר שבוע'])) || (index + 1);
+    const start = String(firstDefined_(row['מתאריך'], row['מתאריך '], row['תאריך התחלה']) || '').trim();
+    const end = String(firstDefined_(row['עד תאריך'], row['עד תאריך '], row['תאריך סיום']) || '').trim();
+    const incomeDetails = splitDetails_(firstDefined_(row['פירוט הכנסות'], row['הכנסות פירוט']) || '');
+    const expenseDetails = splitDetails_(firstDefined_(row['פירוט הוצאות'], row['הוצאות פירוט']) || '');
+
+    return {
+      key: String(firstDefined_(row['מזהה'], row['id']) || `${month}-w${week}`),
+      month: month,
+      week: week,
+      label: `שבוע ${week}`,
+      range: start && end ? `${start} - ${end}` : String(firstDefined_(row['טווח']) || ''),
+      income: toNumber_(firstDefined_(row['סך הכנסות'], row['הכנסות'])),
+      expense: toNumber_(firstDefined_(row['סך הוצאות'], row['הוצאות'])),
+      details: [
+        ...incomeDetails.map(detail => ({ type: 'income', detail: detail, amount: null })),
+        ...expenseDetails.map(detail => ({ type: 'expense', detail: detail, amount: null }))
+      ]
+    };
+  }).filter(Boolean);
+}
+
+function readSheetObjectsSafe_(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return [];
+
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+
+  const values = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  const headers = values[0].map(h => String(h || '').trim());
+
+  return values.slice(1).map(row => {
+    const out = {};
+    headers.forEach((header, idx) => {
+      if (header) out[header] = row[idx];
+    });
+    return out;
+  });
+}
+
+function firstDefined_() {
+  for (let i = 0; i < arguments.length; i++) {
+    const value = arguments[i];
+    if (value !== undefined && value !== null && value !== '') return value;
+  }
+  return '';
+}
+
+function monthFromDateValue_(value) {
+  if (!value) return null;
+  const text = String(value).trim();
+  const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (match) return Number(match[2]);
+  const date = new Date(text);
+  if (!isNaN(date.getTime())) return date.getMonth() + 1;
+  return null;
+}
+
+function splitDetails_(value) {
+  return String(value || '')
+    .split(/\s*[|,]\s*/)
+    .map(item => normalizeText_(item))
+    .filter(Boolean);
 }
 
 function buildMonthlySummaryFromRaw_(months, expenses, incomes, openingBalance) {

@@ -707,9 +707,11 @@
     const totals = getSummaryTotalsForView();
     const weeklyTitle = selectedMonth
       ? `סיכום שבועי · ${monthLabel(selectedMonth)}`
-      : 'סיכום שבועי שנתי';
+      : '';
 
-    const weeklySection = weekly.length ? `
+    const weeklySection = !selectedMonth
+      ? ''
+      : (weekly.length ? `
       <div style="display:flex; justify-content:center; margin: 6px 0 18px; width:100%;">
         <div style="width:100%; max-width:760px;">
           <div class="panel-subtext" style="text-align:center; margin-bottom:8px;">${weeklyTitle}</div>
@@ -734,7 +736,7 @@
       <div class="empty-state" style="margin-bottom:18px;">
         אין נתוני שבועות להצגה בטווח הנבחר.
       </div>
-    `;
+    `);
 
     summaryPanel.innerHTML = `
       <div class="panel-title-row">
@@ -1239,8 +1241,8 @@
                   <tr class="flow-detail-row ${isOpen ? 'open' : ''}">
                     <td colspan="6">
                       <div class="flow-detail-box">
-                        ${hasIncomeDetail ? `<div class="flow-detail-item income">${escapeHtml(sanitizedIncome)} (${formatServerCurrency(row.incomeAmount)})</div>` : ''}
-                        ${hasExpenseDetail ? `<div class="flow-detail-item expense">${escapeHtml(sanitizedExpense)} (${formatServerCurrency(row.expenseAmount)})</div>` : ''}
+                        ${hasIncomeDetail ? `<div class="flow-detail-item income">מימון: ${escapeHtml(formatFlowIncomeDetail(sanitizedIncome))} (${formatServerCurrency(row.incomeAmount)})</div>` : ''}
+                        ${hasExpenseDetail ? `<div class="flow-detail-item expense">הוצאה: ${escapeHtml(formatFlowExpenseDetail(sanitizedExpense))} (${formatServerCurrency(row.expenseAmount)})</div>` : ''}
                       </div>
                     </td>
                   </tr>
@@ -1258,6 +1260,23 @@
       .replace(/\b(?:חשבון|קוד)\s*[:#-]?\s*[\w\-/]+/gi, '')
       .replace(/\s{2,}/g, ' ')
       .trim();
+  }
+
+
+  function formatFlowIncomeDetail(text) {
+    const cleaned = String(text || '')
+      .replace(/\b\d{6,}\b/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return cleaned || 'ללא פירוט מימון';
+  }
+
+  function formatFlowExpenseDetail(text) {
+    const cleaned = String(text || '')
+      .replace(/\b\d{6,}\b/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    return cleaned || 'ללא פירוט הוצאה';
   }
 
 
