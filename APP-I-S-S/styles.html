@@ -1205,12 +1205,22 @@
     border-collapse: collapse;
     table-layout: fixed;
     font-size: 7.5px;
-    line-height: 1.12;
+    line-height: 1.2;
+  }
+
+  .flow-summary-mini-col-label {
+    width: 2.95rem;
+    min-width: 2.75rem;
+    max-width: 3.05rem;
+  }
+
+  .flow-summary-mini-col-month {
+    width: auto;
   }
 
   .flow-summary-mini-th,
   .flow-summary-mini-td {
-    padding: 1px 2px;
+    padding: 3px 2px;
     border-bottom: 1px solid #e8edf4;
     vertical-align: middle;
     overflow: hidden;
@@ -1219,11 +1229,12 @@
 
   .flow-summary-mini-th--label,
   .flow-summary-mini-td--label {
-    width: 34%;
-    max-width: 0;
     text-align: right;
-    font-weight: 700;
+    font-weight: 600;
     white-space: nowrap;
+    font-size: 6.5px;
+    padding-left: 1px;
+    padding-right: 2px;
   }
 
   .flow-summary-mini-th--num,
@@ -1232,13 +1243,32 @@
     white-space: nowrap;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
+    padding-left: 2px;
+    padding-right: 2px;
   }
 
   .flow-summary-mini-th {
     background: #f2f7fc;
     font-size: 7px;
-    padding-top: 2px;
-    padding-bottom: 2px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .flow-summary-mini-tr--total .flow-summary-mini-td {
+    font-weight: 700;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    background: rgba(37, 95, 154, 0.07);
+    border-top: 1px solid #c5d2e3;
+  }
+
+  .flow-summary-mini-tr--total .flow-summary-mini-td--label {
+    font-weight: 800;
+    font-size: 7px;
+  }
+
+  .flow-summary-mini-tr--total .flow-summary-mini-td--num {
+    font-weight: 700;
   }
 
 @media (max-width: 1260px) {
@@ -1303,6 +1333,22 @@
 
     .flow-summary-mini-th {
       font-size: 6px;
+      padding-top: 3px;
+      padding-bottom: 3px;
+    }
+
+    .flow-summary-mini-td--label {
+      font-size: 6px;
+    }
+
+    .flow-summary-mini-col-label {
+      width: 2.7rem;
+      min-width: 2.5rem;
+      max-width: 2.85rem;
+    }
+
+    .flow-summary-mini-tr--total .flow-summary-mini-td--label {
+      font-size: 6.5px;
     }
   }
 </style>

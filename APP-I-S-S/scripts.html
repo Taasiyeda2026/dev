@@ -837,6 +837,16 @@
     }
   }
 
+  function isSummarySheetTotalRowLabel(label) {
+    const t = String(label ?? '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!t) return false;
+    if (t === 'סכום כולל') return true;
+    if (t === 'סה"כ' || t === 'סה״כ') return true;
+    return false;
+  }
+
   function buildSummaryDetailTablesHtml(detail) {
     const incomeRows = detail?.income || [];
     const expenseRows = detail?.expense || [];
@@ -848,10 +858,16 @@
       if (!rows.length) {
         return `<div class="flow-summary-mini-wrap flow-summary-mini-wrap--empty"><div class="flow-summary-mini-title">${escapeHtml(title)}</div><div class="flow-summary-detail-empty">אין שורות</div></div>`;
       }
+      const colgroup = `
+        <colgroup>
+          <col class="flow-summary-mini-col-label" />
+          ${monthLabels.map(() => '<col class="flow-summary-mini-col-month" />').join('')}
+        </colgroup>`;
       return `
         <div class="flow-summary-mini-wrap">
           <div class="flow-summary-mini-title">${escapeHtml(title)}</div>
           <table class="flow-summary-mini-table">
+            ${colgroup}
             <thead>
               <tr>
                 <th class="flow-summary-mini-th flow-summary-mini-th--label"></th>
@@ -862,7 +878,10 @@
               ${rows.map(row => {
                 const cells = Array.isArray(row.cells) ? row.cells : [];
                 const padded = monthLabels.map((_, i) => (cells[i] != null ? cells[i] : ''));
-                return `<tr>
+                const trClass = isSummarySheetTotalRowLabel(row.label)
+                  ? 'flow-summary-mini-tr flow-summary-mini-tr--total'
+                  : 'flow-summary-mini-tr';
+                return `<tr class="${trClass}">
                   <td class="flow-summary-mini-td flow-summary-mini-td--label">${escapeHtml(row.label || '')}</td>
                   ${padded.map(c => `<td class="flow-summary-mini-td flow-summary-mini-td--num">${escapeHtml(c)}</td>`).join('')}
                 </tr>`;
