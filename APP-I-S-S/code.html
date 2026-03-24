@@ -1,6 +1,11 @@
 /**
  * דשבורד כספים 2026 - Code.gs
- * התאמת שכבת הנתונים ללקוח הקיים, ללא שינוי בעיצוב או בלוגיקה של הממשק.
+ * מקור אמת: Google Sheets בלבד.
+ * הדשבורד אינו מחשב סיכומים פיננסיים בעצמו, אלא קורא:
+ * - סיכום מתוך גיליון "סיכום"
+ * - תזרים מתוך גיליון "תזרים"
+ * - שבועות מתוך גיליון "שבועות"
+ * גיליונות "הכנסות" ו"הוצאות" משמשים לעריכה / הוספה / מחיקה / סינון בלבד.
  */
 
 const SHEET_NAMES = {
@@ -13,16 +18,40 @@ const SHEET_NAMES = {
   weeks: 'שבועות'
 };
 
-const EXPENSE_MONTH_COLUMNS = {
-  3: 3, 4: 4, 5: 5, 6: 6, 7: 7, 8: 8
-};
-
 const MONTH_LABELS = {
-  1: 'ינואר', 2: 'פברואר', 3: 'מרץ', 4: 'אפריל', 5: 'מאי', 6: 'יוני',
-  7: 'יולי', 8: 'אוגוסט', 9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר'
+  1: 'ינואר',
+  2: 'פברואר',
+  3: 'מרץ',
+  4: 'אפריל',
+  5: 'מאי',
+  6: 'יוני',
+  7: 'יולי',
+  8: 'אוגוסט',
+  9: 'ספטמבר',
+  10: 'אוקטובר',
+  11: 'נובמבר',
+  12: 'דצמבר'
 };
 
-// --- פונקציות תשתית ---
+const SUMMARY_EXPENSE_GROUP_MAP = {
+  'שכר': 'שכר',
+  'שכר מדריכים': 'שכר',
+  'נלוות לשכר': 'שכר',
+  'עובדים': 'שכר',
+  'עמלות': 'עמלות',
+  'משפטיות': 'ספקים',
+  'ביטוח': 'ספקים',
+  'תקשורת': 'ספקים',
+  'פעילויות': 'ספקים',
+  'קשרי חוץ': 'ספקים',
+  'משרדיות': 'ספקים',
+  'אגרות ובנקים': 'ספקים',
+  'נותני שירות': 'ספקים',
+  'הלוואה': 'הלוואה',
+  'חובות ישנים': 'חובות ישנים'
+};
+
+// --- תשתית ---
 
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
@@ -37,49 +66,51 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// --- פונקציית הליבה ---
+function getRequiredSheet_(sheetName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error('לא נמצא גיליון בשם: ' + sheetName);
+  return sheet;
+}
+
+function getOptionalSheet_(sheetName) {
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
+}
+
+// --- ליבה ---
 
 function getDashboardData() {
   try {
-    const settings = readSettings_();
-    const months = buildMonthRange_(settings.startMonth, settings.endMonth);
+    var settings = readSettings_();
+    var months = buildMonthRange_(settings.startMonth, settings.endMonth);
 
-    const expensesSheetRows = readExpenseEntries_(months);
-    const incomesSheetRows = readIncomeEntries_(settings.timezone);
+    // גיליונות מקור לעריכה / טפסים
+    var expensesSheetRows = readExpenseEntries_(months);
+    var incomesSheetRows = readIncomeEntries_(settings.timezone);
 
-    const monthlySummaryFromSheets = readMonthlySummarySheet_(months, settings.openingBalance);
-    const cashflowFromSheets = readCashflowSheet_(months);
-    const weeklyFromSheets = readWeeksSheet_(months);
+    // גיליונות מחושבים = מקור אמת פיננסי
+    var cashflowDays = readCashflowSheet_(months);
+    var closingByMonth = buildClosingBalanceByMonth_(cashflowDays);
+    var monthlySummary = readMonthlySummarySheet_(months, closingByMonth, settings.openingBalance);
+    var weekly = readWeeksSheet_(months);
 
-    const monthlySummary = monthlySummaryFromSheets.length
-      ? monthlySummaryFromSheets
-      : buildMonthlySummaryFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
+    if (!monthlySummary.length) {
+      throw new Error('לא נקראו נתונים תקינים מגיליון סיכום');
+    }
+    if (!cashflowDays.length) {
+      throw new Error('לא נקראו נתונים תקינים מגיליון תזרים');
+    }
+    if (!weekly.length) {
+      throw new Error('לא נקראו נתונים תקינים מגיליון שבועות');
+    }
 
-    const cashflowDays = cashflowFromSheets.length
-      ? cashflowFromSheets
-      : buildCashflowDaysFromRaw_(
-          months,
-          expensesSheetRows,
-          incomesSheetRows,
-          settings.openingBalance,
-          settings.workYear,
-          settings.balanceResetDate,
-          settings.manualOpeningBalance
-        );
-
-    const weekly = weeklyFromSheets.length
-      ? weeklyFromSheets
-      : buildWeeklyFromCashflow_(cashflowDays);
-
-    const totalIncome = monthlySummary.reduce((sum, row) => sum + toNumber_(row.income), 0);
-    const totalExpense = monthlySummary.reduce((sum, row) => sum + toNumber_(row.expense), 0);
-    const closingBalance = monthlySummary.length
+    var totalIncome = monthlySummary.reduce(function(sum, row) { return sum + toNumber_(row.income); }, 0);
+    var totalExpense = monthlySummary.reduce(function(sum, row) { return sum + toNumber_(row.expense); }, 0);
+    var closingBalance = monthlySummary.length
       ? toNumber_(monthlySummary[monthlySummary.length - 1].closing)
       : toNumber_(settings.openingBalance);
 
-    const referenceLists = readListsSheet_();
-    const expenseGroups = buildExpenseGroups_(expensesSheetRows);
-    const incomeGroups = buildIncomeGroups_(incomesSheetRows);
+    var referenceLists = readListsSheet_();
 
     return {
       organizationName: settings.organizationName,
@@ -93,8 +124,6 @@ function getDashboardData() {
       monthlySummary: monthlySummary,
       cashflowDays: cashflowDays,
       weekly: weekly,
-      expenseGroups: expenseGroups,
-      incomeGroups: incomeGroups,
       expensesSheetRows: expensesSheetRows,
       incomesSheetRows: incomesSheetRows,
       startMonth: settings.startMonth,
@@ -105,8 +134,8 @@ function getDashboardData() {
       listSheet: referenceLists,
       referenceLists: referenceLists,
       metadata: {
-        sourceOfTruth: 'google-sheets-calculated-tabs',
-        fallbackEnabled: true,
+        sourceOfTruth: 'google-sheets-only',
+        fallbackEnabled: false,
         generatedAt: new Date().toISOString()
       }
     };
@@ -117,23 +146,12 @@ function getDashboardData() {
 
 // --- קריאת גיליונות ---
 
-function getRequiredSheet_(sheetName) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) throw new Error('לא נמצא גיליון בשם: ' + sheetName);
-  return sheet;
-}
-
-function getOptionalSheet_(sheetName) {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
-}
-
 function readSettings_() {
-  const sheet = getRequiredSheet_(SHEET_NAMES.settings);
-  const data = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues();
-  const map = {};
+  var sheet = getRequiredSheet_(SHEET_NAMES.settings);
+  var values = sheet.getRange(1, 1, sheet.getLastRow(), 2).getValues();
+  var map = {};
 
-  data.forEach(function(row) {
+  values.forEach(function(row) {
     if (row[0] !== '' && row[0] !== null && row[0] !== undefined) {
       map[String(row[0]).trim()] = row[1];
     }
@@ -152,29 +170,34 @@ function readSettings_() {
 }
 
 function readExpenseEntries_(months) {
-  const layout = getExpenseSheetLayout_();
-  const values = layout.values;
-  const allowedMonths = new Set((months || []).map(Number));
-  const results = [];
+  var layout = getExpenseSheetLayout_();
+  var values = layout.values;
+  var allowedMonths = {};
+  (months || []).forEach(function(m) { allowedMonths[Number(m)] = true; });
 
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
+  var results = [];
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
 
     if (layout.isFlat) {
-      const amount = toNumberFlexible_(readCellByIndex_(row, layout.amountCol, ''));
+      var amount = toNumberFlexible_(readCellByIndex_(row, layout.amountCol, ''));
       if (!amount) continue;
 
-      const dateObj = parseAnyDate_(readCellByIndex_(row, layout.dateCol, ''));
+      var dateObj = parseAnyDate_(readCellByIndex_(row, layout.dateCol, ''));
       if (!dateObj) continue;
 
-      const month = dateObj.getMonth() + 1;
-      if (allowedMonths.size && !allowedMonths.has(month)) continue;
+      var month = dateObj.getMonth() + 1;
+      if (Object.keys(allowedMonths).length && !allowedMonths[month]) continue;
 
-      const category = normalizeText_(readCellByIndex_(row, layout.categoryCol, ''));
-      const detail = normalizeText_(readCellByIndex_(row, layout.detailCol, ''));
-      const group = layout.groupCol > -1
+      var category = normalizeText_(readCellByIndex_(row, layout.categoryCol, ''));
+      var subcategory = layout.subcategoryCol > -1
+        ? normalizeText_(readCellByIndex_(row, layout.subcategoryCol, ''))
+        : '';
+      var detail = normalizeText_(readCellByIndex_(row, layout.detailsCol, ''));
+      var group = layout.groupCol > -1
         ? normalizeText_(readCellByIndex_(row, layout.groupCol, ''))
-        : (category || 'כללי');
+        : mapExpenseCategoryToSummaryGroup_(category);
 
       results.push({
         id: 'exp-' + (i + 1) + '-' + month,
@@ -182,35 +205,38 @@ function readExpenseEntries_(months) {
         month: month,
         day: dateObj.getDate(),
         category: category,
+        subcategory: subcategory,
         detail: detail,
-        group: group || 'כללי',
+        group: group || mapExpenseCategoryToSummaryGroup_(category),
         amount: amount
       });
 
       continue;
     }
 
-    const day = readCellByIndex_(row, layout.dayCol, '');
-    const category = normalizeText_(readCellByIndex_(row, layout.categoryCol, ''));
-    const detail = normalizeText_(readCellByIndex_(row, layout.detailCol, ''));
-    const group = normalizeText_(readCellByIndex_(row, layout.groupCol, '')) || 'כללי';
+    // תאימות למבנה רחב ישן
+    var day = readCellByIndex_(row, layout.dayCol, '');
+    var categoryLegacy = normalizeText_(readCellByIndex_(row, layout.categoryCol, ''));
+    var detailLegacy = normalizeText_(readCellByIndex_(row, layout.detailsCol, ''));
+    var groupLegacy = normalizeText_(readCellByIndex_(row, layout.groupCol, '')) || mapExpenseCategoryToSummaryGroup_(categoryLegacy);
 
-    months.forEach(function(month) {
-      const colIdx = layout.monthCols[month];
+    (months || []).forEach(function(monthNum) {
+      var colIdx = layout.monthCols[monthNum];
       if (colIdx === -1 || colIdx === undefined || colIdx === null) return;
 
-      const amount = toNumberFlexible_(row[colIdx]);
-      if (!amount) return;
+      var amountLegacy = toNumberFlexible_(row[colIdx]);
+      if (!amountLegacy) return;
 
       results.push({
-        id: 'exp-' + (i + 1) + '-' + month,
+        id: 'exp-' + (i + 1) + '-' + monthNum,
         row: i + 1,
-        month: Number(month),
+        month: Number(monthNum),
         day: day,
-        category: category,
-        detail: detail,
-        group: group,
-        amount: amount
+        category: categoryLegacy,
+        subcategory: '',
+        detail: detailLegacy,
+        group: groupLegacy,
+        amount: amountLegacy
       });
     });
   }
@@ -219,18 +245,18 @@ function readExpenseEntries_(months) {
 }
 
 function readIncomeEntries_(timezone) {
-  const layout = getIncomeSheetLayout_();
-  const values = layout.values;
-  const results = [];
+  var layout = getIncomeSheetLayout_();
+  var values = layout.values;
+  var results = [];
 
-  for (let i = 1; i < values.length; i++) {
-    const row = values[i];
-    const amount = toNumberFlexible_(readCellByIndex_(row, layout.amountCol, ''));
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var amount = toNumberFlexible_(readCellByIndex_(row, layout.amountCol, ''));
     if (!amount) continue;
 
-    const dueDate = parseAnyDate_(readCellByIndex_(row, layout.dueDateCol, ''));
-    const dueDateLabel = dueDate ? Utilities.formatDate(dueDate, timezone, 'dd/MM/yyyy') : '';
-    const dueDateISO = dueDate ? Utilities.formatDate(dueDate, 'GMT', 'yyyy-MM-dd') : '';
+    var dueDate = parseAnyDate_(readCellByIndex_(row, layout.dueDateCol, ''));
+    var dueDateLabel = dueDate ? Utilities.formatDate(dueDate, timezone, 'dd/MM/yyyy') : '';
+    var dueDateISO = dueDate ? Utilities.formatDate(dueDate, 'GMT', 'yyyy-MM-dd') : '';
 
     results.push({
       id: 'inc-' + (i + 1),
@@ -250,808 +276,623 @@ function readIncomeEntries_(timezone) {
 }
 
 function readListsSheet_() {
-  const sheet = getOptionalSheet_(SHEET_NAMES.lists);
+  var sheet = getOptionalSheet_(SHEET_NAMES.lists);
   if (!sheet) {
     return {
       categoryDetailPairs: [],
+      categorySubcategoryPairs: [],
       incomeFunds: []
     };
   }
 
-  const values = sheet.getDataRange().getDisplayValues();
+  var values = sheet.getDataRange().getDisplayValues();
   if (values.length < 2) {
     return {
       categoryDetailPairs: [],
+      categorySubcategoryPairs: [],
       incomeFunds: []
     };
   }
 
-  const headers = values[0];
-  const incomeIdx = fallbackHeaderIndex_(headers, ['הכנסות', 'מימון', 'מקור מימון', 'קרן', 'fund'], 0);
-  const categoryIdx = fallbackHeaderIndex_(headers, ['קטגוריה', 'סוג הוצאה', 'סוג', 'category'], 2);
-  const detailIdx = fallbackHeaderIndex_(headers, ['תת קטגוריה', 'פירוט', 'פריט', 'תיאור', 'detail'], 3);
+  var headers = values[0];
+  var incomeIdx = fallbackHeaderIndex_(headers, ['הכנסות', 'מימון', 'מקור מימון', 'קרן', 'fund'], 0);
+  var categoryIdx = fallbackHeaderIndex_(headers, ['קטגוריה', 'סוג הוצאה', 'סוג', 'category'], 2);
+  var subcategoryIdx = headerIndex_(headers, ['תת קטגוריה', 'תת-קטגוריה', 'subcategory']);
+  if (subcategoryIdx < 0) {
+    subcategoryIdx = fallbackHeaderIndex_(headers, ['פירוט', 'פריט', 'תיאור', 'detail'], 3);
+  }
 
-  const pairs = [];
-  const funds = [];
+  var pairs = [];
+  var funds = [];
 
   values.slice(1).forEach(function(row) {
-    const fund = normalizeText_(readCellByIndex_(row, incomeIdx, ''));
-    const category = normalizeText_(readCellByIndex_(row, categoryIdx, ''));
-    const detail = normalizeText_(readCellByIndex_(row, detailIdx, ''));
+    var fund = normalizeText_(readCellByIndex_(row, incomeIdx, ''));
+    var category = normalizeText_(readCellByIndex_(row, categoryIdx, ''));
+    var subcategory = normalizeText_(readCellByIndex_(row, subcategoryIdx, ''));
 
-    if (fund) {
-      funds.push(fund);
-    }
-
-    if (category || detail) {
+    if (fund) funds.push(fund);
+    if (category || subcategory) {
       pairs.push({
         category: category,
-        detail: detail
+        subcategory: subcategory
       });
     }
   });
 
+  var deduped = dedupeCategorySubcategoryPairs_(pairs);
   return {
-    categoryDetailPairs: dedupePairs_(pairs),
+    categorySubcategoryPairs: deduped,
+    categoryDetailPairs: deduped.map(function(p) {
+      return { category: p.category, detail: p.subcategory };
+    }),
     incomeFunds: uniqueStrings_(funds)
   };
 }
 
-function readMonthlySummarySheet_(allowedMonths, openingBalance) {
-  const rows = readSheetObjectsSafe_(SHEET_NAMES.summary);
-  if (!rows.length) return [];
+function readCashflowSheet_(allowedMonths) {
+  var sheet = getRequiredSheet_(SHEET_NAMES.flow);
+  var lastRow = sheet.getLastRow();
+  var lastCol = Math.max(sheet.getLastColumn(), 6);
+  if (lastRow < 2) return [];
 
-  const allowed = new Set((allowedMonths || []).map(Number));
-  const result = rows.map(function(row) {
-    const month = Number(firstDefined_(row['מספר חודש'], row['חודש']));
-    if (!month || (allowed.size && !allowed.has(month))) return null;
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var display = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  var headers = display[0].map(function(h) { return String(h || '').trim(); });
 
-    const income = toNumber_(firstDefined_(row['סך הכנסות'], row['הכנסות'], row['הכנסה']));
-    const expense = toNumber_(firstDefined_(row['סך הוצאות'], row['הוצאות'], row['הוצאה']));
-    const closing = toNumber_(firstDefined_(row['יתרת סגירה סוף חודש'], row['יתרה'], row['סגירה']));
+  var dateIdx = fallbackHeaderIndex_(headers, ['תאריך', 'date'], 0);
+  var incomeDescIdx = fallbackHeaderIndex_(headers, ['פירוט הכנסות', 'הכנסות', 'incomeDetail'], 1);
+  var incomeAmountIdx = fallbackHeaderIndex_(headers, ['סכום הכנסות', 'incomeAmount'], 2);
+  var expenseDescIdx = fallbackHeaderIndex_(headers, ['פירוט הוצאות', 'הוצאות', 'expenseDetail'], 3);
+  var expenseAmountIdx = fallbackHeaderIndex_(headers, ['סכום הוצאות', 'expenseAmount'], 4);
+  var balanceIdx = fallbackHeaderIndex_(headers, ['יתרת בנק', 'יתרה', 'balance'], 5);
 
-    return {
+  var allowed = {};
+  (allowedMonths || []).forEach(function(m) { allowed[Number(m)] = true; });
+
+  var rows = [];
+  for (var i = 1; i < values.length; i++) {
+    var rawDate = values[i][dateIdx];
+    var displayDate = display[i][dateIdx];
+    var dateObj = parseAnyDate_(rawDate || displayDate);
+    if (!dateObj) continue;
+
+    var month = dateObj.getMonth() + 1;
+    if (Object.keys(allowed).length && !allowed[month]) continue;
+
+    rows.push({
+      id: 'flow-' + (i + 1),
+      date: formatDateLabel_(dateObj),
       month: month,
-      label: MONTH_LABELS[month] || String(row['חודש'] || month),
+      incomeDesc: normalizeText_(display[i][incomeDescIdx] || values[i][incomeDescIdx] || ''),
+      incomeAmount: toNumberFlexible_(values[i][incomeAmountIdx] || display[i][incomeAmountIdx]),
+      expenseDesc: normalizeText_(display[i][expenseDescIdx] || values[i][expenseDescIdx] || ''),
+      expenseAmount: toNumberFlexible_(values[i][expenseAmountIdx] || display[i][expenseAmountIdx]),
+      balance: toNumberFlexible_(values[i][balanceIdx] || display[i][balanceIdx])
+    });
+  }
+
+  return rows;
+}
+
+function readMonthlySummarySheet_(allowedMonths, closingByMonth, openingBalance) {
+  var sheet = getRequiredSheet_(SHEET_NAMES.summary);
+  var values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 20) return [];
+
+  var headerRow = values[0] || [];
+  var monthCols = {};
+  var allowed = {};
+  (allowedMonths || []).forEach(function(m) { allowed[Number(m)] = true; });
+
+  for (var month = 1; month <= 12; month++) {
+    var label = MONTH_LABELS[month];
+    var idx = findHeaderIndexExact_(headerRow, label);
+    if (idx > -1 && (!Object.keys(allowed).length || allowed[month])) {
+      monthCols[month] = idx;
+    }
+  }
+
+  var incomeTotalRow = findRowIndexByLabel_(values, 'סכום כולל', 1, 15);
+  var expenseHeaderRow = findRowIndexByLabel_(values, 'הוצאות', 10, 20);
+  var expenseTotalRow = findRowIndexByLabel_(values, 'סכום כולל', expenseHeaderRow, expenseHeaderRow + 10);
+
+  if (incomeTotalRow === -1 || expenseHeaderRow === -1 || expenseTotalRow === -1) {
+    return [];
+  }
+
+  var results = [];
+  (allowedMonths || []).forEach(function(month) {
+    var col = monthCols[month];
+    if (col === undefined) return;
+
+    var income = toNumberFlexible_(values[incomeTotalRow][col]);
+    var expense = toNumberFlexible_(values[expenseTotalRow][col]);
+    var closing = closingByMonth && closingByMonth[month] !== undefined
+      ? toNumberFlexible_(closingByMonth[month])
+      : null;
+
+    if (closing === null || closing === undefined || closing === '') {
+      // אם אין יתרה חודשית בגיליון תזרים - לא נחשב תזרים מלא, רק נסמן יתרת פתיחה/אפס
+      closing = results.length ? results[results.length - 1].closing : toNumber_(openingBalance);
+    }
+
+    results.push({
+      month: Number(month),
+      label: MONTH_LABELS[month],
       income: income,
       expense: expense,
       closing: closing,
       balance: closing
-    };
-  }).filter(Boolean);
-
-  if (!result.length) return [];
-
-  let running = toNumber_(openingBalance);
-  return result.map(function(item) {
-    const closing = item.closing !== 0 ? item.closing : (running + item.income - item.expense);
-    running = closing;
-    return Object.assign({}, item, { closing: closing, balance: closing });
+    });
   });
-}
 
-function readCashflowSheet_(allowedMonths) {
-  const rows = readSheetObjectsSafe_(SHEET_NAMES.flow);
-  if (!rows.length) return [];
-
-  const allowed = new Set((allowedMonths || []).map(Number));
-  return rows.map(function(row, index) {
-    const dateText = String(firstDefined_(row['תאריך'], row['date']) || '').trim();
-    if (!dateText) return null;
-
-    const month = monthFromDateValue_(dateText);
-    if (allowed.size && month && !allowed.has(month)) return null;
-
-    return {
-      id: 'flow-' + (index + 1),
-      date: dateText,
-      month: month,
-      incomeDesc: normalizeText_(firstDefined_(row['פירוט הכנסות'], row['הכנסות'], row['incomeDetail']) || ''),
-      incomeAmount: toNumber_(firstDefined_(row['סכום הכנסות'], row['incomeAmount'])),
-      expenseDesc: normalizeText_(firstDefined_(row['פירוט הוצאות'], row['הוצאות'], row['expenseDetail']) || ''),
-      expenseAmount: toNumber_(firstDefined_(row['סכום הוצאות'], row['expenseAmount'])),
-      balance: toNumber_(firstDefined_(row['יתרת בנק'], row['יתרה'], row['balance']))
-    };
-  }).filter(Boolean);
+  return results;
 }
 
 function readWeeksSheet_(allowedMonths) {
-  const rows = readSheetObjectsSafe_(SHEET_NAMES.weeks);
-  if (!rows.length) return [];
+  var sheet = getRequiredSheet_(SHEET_NAMES.weeks);
+  var values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 3) return [];
 
-  const allowed = new Set((allowedMonths || []).map(Number));
-  return rows.map(function(row, index) {
-    const month = Number(firstDefined_(row['מספר חודש'], row['חודש']));
-    if (!month || (allowed.size && !allowed.has(month))) return null;
+  var allowed = {};
+  (allowedMonths || []).forEach(function(m) { allowed[Number(m)] = true; });
 
-    const week = Number(firstDefined_(row['שבוע'], row['מספר שבוע'])) || (index + 1);
-    const start = String(firstDefined_(row['מתאריך'], row['מתאריך '], row['תאריך התחלה']) || '').trim();
-    const end = String(firstDefined_(row['עד תאריך'], row['עד תאריך '], row['תאריך סיום']) || '').trim();
-    const incomeDetails = splitDetails_(firstDefined_(row['פירוט הכנסות'], row['הכנסות פירוט']) || '');
-    const expenseDetails = splitDetails_(firstDefined_(row['פירוט הוצאות'], row['הוצאות פירוט']) || '');
+  var out = [];
+  var row = 0;
 
-    return {
-      key: String(firstDefined_(row['מזהה'], row['id']) || (month + '-w' + week)),
-      month: month,
-      week: week,
-      label: 'שבוע ' + week,
-      range: start && end ? (start + ' - ' + end) : String(firstDefined_(row['טווח']) || ''),
-      income: toNumber_(firstDefined_(row['סך הכנסות'], row['הכנסות'])),
-      expense: toNumber_(firstDefined_(row['סך הוצאות'], row['הוצאות'])),
-      details: [].concat(
-        incomeDetails.map(function(detail) { return { type: 'income', detail: detail, amount: null }; }),
-        expenseDetails.map(function(detail) { return { type: 'expense', detail: detail, amount: null }; })
-      )
-    };
-  }).filter(Boolean);
-}
-
-function readSheetObjectsSafe_(sheetName) {
-  const sheet = getOptionalSheet_(sheetName);
-  if (!sheet) return [];
-
-  const lastRow = sheet.getLastRow();
-  const lastCol = sheet.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) return [];
-
-  const values = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
-  const headers = values[0].map(function(h) { return String(h || '').trim(); });
-
-  return values.slice(1).map(function(row) {
-    const out = {};
-    headers.forEach(function(header, idx) {
-      if (header) out[header] = row[idx];
-    });
-    return out;
-  });
-}
-
-// --- בניית נתונים מחישוב מקומי ---
-
-function buildMonthlySummaryFromRaw_(months, expenses, incomes, openingBalance) {
-  let currentBalance = toNumber_(openingBalance);
-
-  return months.map(function(month) {
-    const monthIncome = incomes
-      .filter(function(row) { return Number(row.month) === Number(month); })
-      .reduce(function(sum, row) { return sum + toNumber_(row.amount); }, 0);
-
-    const monthExpense = expenses
-      .filter(function(row) { return Number(row.month) === Number(month); })
-      .reduce(function(sum, row) { return sum + toNumber_(row.amount); }, 0);
-
-    const closing = currentBalance + monthIncome - monthExpense;
-    currentBalance = closing;
-
-    return {
-      month: month,
-      label: MONTH_LABELS[month] || String(month),
-      income: monthIncome,
-      expense: monthExpense,
-      closing: closing,
-      balance: closing
-    };
-  });
-}
-
-function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance, workYear, balanceResetDate, manualOpeningBalance) {
-  const allowedMonths = new Set((months || []).map(Number));
-  const year = Number(workYear) || new Date().getFullYear();
-  const byDay = new Map();
-
-  (incomes || []).forEach(function(inc) {
-    const month = toMonthNumber_(inc.month);
-    if (!month || !allowedMonths.has(month)) return;
-
-    const dateObj = parseDateFromIncome_(inc, year, month);
-    if (!dateObj) return;
-
-    const key = toIsoDateKey_(dateObj);
-    if (!byDay.has(key)) {
-      byDay.set(key, createEmptyFlowDay_(key, month, dateObj));
+  while (row < values.length) {
+    var title = normalizeText_(values[row][0]);
+    var month = extractMonthNumberFromBlockTitle_(title);
+    if (!month) {
+      row++;
+      continue;
     }
 
-    const day = byDay.get(key);
-    const amount = toNumber_(inc.amount);
-    if (!amount) return;
+    var nextRow = row + 1;
+    if (nextRow >= values.length) break;
 
-    day.incomeAmount += amount;
-    if (inc.detail) day.incomeDescParts.push(normalizeText_(inc.detail));
-  });
-
-  (expenses || []).forEach(function(exp) {
-    const month = toMonthNumber_(exp.month);
-    if (!month || !allowedMonths.has(month)) return;
-
-    const dayNumber = Number(exp.day);
-    if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 31) return;
-
-    const dateObj = new Date(year, month - 1, dayNumber);
-    if (dateObj.getMonth() + 1 !== month) return;
-
-    const key = toIsoDateKey_(dateObj);
-    if (!byDay.has(key)) {
-      byDay.set(key, createEmptyFlowDay_(key, month, dateObj));
+    var incomeHeader = values[nextRow] || [];
+    var incomeHeaderTitle = normalizeText_(incomeHeader[0]);
+    if (incomeHeaderTitle !== 'הכנסות') {
+      row++;
+      continue;
     }
 
-    const day = byDay.get(key);
-    const amount = toNumber_(exp.amount);
-    if (!amount) return;
-
-    day.expenseAmount += amount;
-    const detailText = normalizeText_(exp.detail || exp.category || '');
-    if (detailText) day.expenseDescParts.push(detailText);
-  });
-
-  const sorted = Array.from(byDay.values()).sort(function(a, b) {
-    return String(a.sortKey).localeCompare(String(b.sortKey));
-  });
-
-  let runningBalance = toNumber_(openingBalance);
-  const resetKey = balanceResetDate ? toIsoDateKey_(balanceResetDate) : '';
-  const hasManualReset = Boolean(resetKey) && Number.isFinite(Number(manualOpeningBalance));
-  const manualStartBalance = Number(manualOpeningBalance);
-  let manualResetApplied = false;
-
-  return sorted.map(function(row, index) {
-    if (hasManualReset && !manualResetApplied && row.sortKey >= resetKey) {
-      runningBalance = manualStartBalance;
-      manualResetApplied = true;
+    var weekColumns = extractWeekColumnsFromRow_(incomeHeader);
+    if (!weekColumns.length) {
+      row++;
+      continue;
     }
 
-    runningBalance += row.incomeAmount - row.expenseAmount;
+    var incomeStart = nextRow + 1;
+    var incomeTotalRow = findRowIndexByLabel_(values, 'סכום כולל', incomeStart, incomeStart + 20);
+    if (incomeTotalRow === -1) {
+      row++;
+      continue;
+    }
 
-    return {
-      id: 'flow-' + (index + 1),
-      date: formatDateLabel_(row.dateObj),
-      month: row.month,
-      incomeDesc: dedupeAndJoin_(row.incomeDescParts),
-      incomeAmount: row.incomeAmount,
-      expenseDesc: dedupeAndJoin_(row.expenseDescParts),
-      expenseAmount: row.expenseAmount,
-      balance: runningBalance
-    };
-  });
-}
+    var expenseHeaderRow = findRowIndexByLabel_(values, 'הוצאות', incomeTotalRow + 1, incomeTotalRow + 5);
+    if (expenseHeaderRow === -1) {
+      row++;
+      continue;
+    }
 
-function buildWeeklyFromCashflow_(cashflowDays) {
-  const byWeek = new Map();
+    var expenseStart = expenseHeaderRow + 1;
+    var expenseTotalRow = findRowIndexByLabel_(values, 'סכום כולל', expenseStart, expenseStart + 20);
+    if (expenseTotalRow === -1) {
+      row++;
+      continue;
+    }
 
-  (cashflowDays || []).forEach(function(day) {
-    const month = toMonthNumber_(day.month);
-    const dateParts = parseDateLabel_(day.date);
-    if (!month || !dateParts) return;
+    if (!allowed[month]) {
+      row = expenseTotalRow + 1;
+      continue;
+    }
 
-    const week = Math.floor((dateParts.day - 1) / 7) + 1;
-    const key = month + '-w' + week;
+    weekColumns.forEach(function(weekInfo, idx) {
+      var details = [];
 
-    if (!byWeek.has(key)) {
-      byWeek.set(key, {
-        key: key,
+      for (var r = incomeStart; r < incomeTotalRow; r++) {
+        var label = normalizeText_(values[r][0]);
+        if (!label) continue;
+        var amount = toNumberFlexible_(values[r][weekInfo.col]);
+        if (!amount) continue;
+        details.push({
+          type: 'income',
+          detail: label,
+          amount: amount
+        });
+      }
+
+      for (var e = expenseStart; e < expenseTotalRow; e++) {
+        var expenseLabel = normalizeText_(values[e][0]);
+        if (!expenseLabel) continue;
+        var expenseAmount = toNumberFlexible_(values[e][weekInfo.col]);
+        if (!expenseAmount) continue;
+        details.push({
+          type: 'expense',
+          detail: expenseLabel,
+          amount: expenseAmount
+        });
+      }
+
+      out.push({
+        key: month + '-w' + weekInfo.week,
         month: month,
-        week: week,
-        startDay: dateParts.day,
-        endDay: dateParts.day,
-        startDate: day.date,
-        endDate: day.date,
-        income: 0,
-        expense: 0,
-        details: []
+        week: weekInfo.week,
+        label: weekInfo.label,
+        range: weekInfo.range,
+        income: toNumberFlexible_(values[incomeTotalRow][weekInfo.col]),
+        expense: toNumberFlexible_(values[expenseTotalRow][weekInfo.col]),
+        details: details
       });
-    }
-
-    const weekItem = byWeek.get(key);
-    weekItem.startDay = Math.min(weekItem.startDay, dateParts.day);
-    weekItem.endDay = Math.max(weekItem.endDay, dateParts.day);
-
-    if (dateParts.day <= weekItem.startDay) weekItem.startDate = day.date;
-    if (dateParts.day >= weekItem.endDay) weekItem.endDate = day.date;
-
-    weekItem.income += toNumber_(day.incomeAmount);
-    weekItem.expense += toNumber_(day.expenseAmount);
-
-    if (day.incomeDesc) {
-      weekItem.details.push({
-        date: day.date,
-        type: 'income',
-        detail: day.incomeDesc,
-        amount: toNumber_(day.incomeAmount)
-      });
-    }
-
-    if (day.expenseDesc) {
-      weekItem.details.push({
-        date: day.date,
-        type: 'expense',
-        detail: day.expenseDesc,
-        amount: toNumber_(day.expenseAmount)
-      });
-    }
-  });
-
-  return Array.from(byWeek.values())
-    .sort(function(a, b) { return (a.month - b.month) || (a.week - b.week); })
-    .map(function(item) {
-      return {
-        key: item.key,
-        month: item.month,
-        week: item.week,
-        label: 'שבוע ' + item.week,
-        range: item.startDate + ' - ' + item.endDate,
-        income: item.income,
-        expense: item.expense,
-        details: item.details
-      };
     });
+
+    row = expenseTotalRow + 1;
+  }
+
+  return out;
 }
 
-// --- עדכונים / הוספות / מחיקות ---
+function normalizeDashPayload_(data) {
+  if (data == null) return {};
+  if (typeof data === 'string') {
+    try {
+      var parsed = JSON.parse(data);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+  return typeof data === 'object' ? data : {};
+}
+
+// --- CRUD (כתיבה לתאים ספציפיים בלבד — עמודות נוספות בגיליון, נוסחאות ועזרים מחוץ לטווח אינם נדרסים) ---
 
 function updateRowData(type, data) {
+  data = normalizeDashPayload_(data);
+  var sheetName = type === 'expense' ? SHEET_NAMES.expenses : SHEET_NAMES.incomes;
+  var sheet = getRequiredSheet_(sheetName);
+  var rowIdx = Number(String(data.id || '').split('-')[1]);
+  if (!rowIdx || rowIdx < 2) throw new Error('מזהה שורה לא תקין');
+
   if (type === 'expense') {
-    return updateExpenseRow_(data);
-  }
-  if (type === 'income') {
-    return updateIncomeRow_(data);
-  }
-  throw new Error('סוג עדכון לא נתמך: ' + type);
-}
+    var month = Number(data.month);
+    var day = Number(data.day);
+    var amount = toNumberFlexible_(data.amount);
+    var settings = readSettings_();
+    var dateObj = new Date(Number(settings.workYear) || new Date().getFullYear(), month - 1, day);
 
-function updateExpenseRow_(data) {
-  const layout = getExpenseSheetLayout_();
-  const sheet = layout.sheet;
-  const parts = String(data.id || '').split('-');
-  const rowIdx = Number(parts[1]);
-  const oldMonth = Number(parts[2]);
-  const newMonth = Number(data.month) || oldMonth;
-
-  if (!rowIdx || rowIdx < 2) throw new Error('מזהה שורת הוצאה לא תקין');
-
-  if (layout.isFlat) {
-    const settings = readSettings_();
-    const day = Number(data.day);
-    if (!newMonth || newMonth < 1 || newMonth > 12) {
-      throw new Error('חודש ההוצאה אינו תקין');
-    }
-    if (!day || day < 1 || day > 31) {
-      throw new Error('יום ההוצאה אינו תקין');
-    }
-
-    const dateObj = new Date(Number(settings.workYear) || new Date().getFullYear(), newMonth - 1, day);
-    if (dateObj.getMonth() + 1 !== newMonth || dateObj.getDate() !== day) {
-      throw new Error('תאריך ההוצאה אינו תקין');
-    }
-
-    setCellByIndex_(sheet, rowIdx, layout.dateCol, dateObj);
-    setCellByIndex_(sheet, rowIdx, layout.categoryCol, data.category || '');
-    setCellByIndex_(sheet, rowIdx, layout.detailCol, data.detail || '');
-    setCellByIndex_(sheet, rowIdx, layout.amountCol, toNumberFlexible_(data.amount));
-
-    if (layout.groupCol > -1) {
-      const currentGroup = sheet.getRange(rowIdx, layout.groupCol + 1).getValue();
-      if (!currentGroup) {
-        setCellByIndex_(sheet, rowIdx, layout.groupCol, data.category || 'כללי');
-      }
-    }
-
-    return { ok: true };
-  }
-
-  if (!layout.monthCols[newMonth] && layout.monthCols[newMonth] !== 0) {
-    throw new Error('לא נמצאה עמודת חודש עבור הוצאה');
-  }
-
-  setCellByIndex_(sheet, rowIdx, layout.dayCol, data.day === '' ? '' : Number(data.day));
-  setCellByIndex_(sheet, rowIdx, layout.categoryCol, data.category || '');
-  setCellByIndex_(sheet, rowIdx, layout.detailCol, data.detail || '');
-
-  if (layout.groupCol > -1) {
-    const currentGroup = sheet.getRange(rowIdx, layout.groupCol + 1).getValue();
-    if (!currentGroup) {
-      setCellByIndex_(sheet, rowIdx, layout.groupCol, 'כללי');
-    }
-  }
-
-  if (oldMonth && layout.monthCols[oldMonth] > -1 && oldMonth !== newMonth) {
-    setCellByIndex_(sheet, rowIdx, layout.monthCols[oldMonth], '');
-  }
-
-  setCellByIndex_(sheet, rowIdx, layout.monthCols[newMonth], toNumberFlexible_(data.amount));
-  return { ok: true };
-}
-
-function updateIncomeRow_(data) {
-  const layout = getIncomeSheetLayout_();
-  const rowIdx = Number(String(data.id || '').split('-')[1]);
-  if (!rowIdx || rowIdx < 2) throw new Error('מזהה שורת הכנסה לא תקין');
-
-  const sheet = layout.sheet;
-  setCellByIndex_(sheet, rowIdx, layout.accountCol, data.account || '');
-  setCellByIndex_(sheet, rowIdx, layout.detailCol, data.detail || '');
-  setCellByIndex_(sheet, rowIdx, layout.amountCol, toNumberFlexible_(data.amount));
-
-  const dueDate = parseAnyDate_(data.dueDate);
-  setCellByIndex_(sheet, rowIdx, layout.dueDateCol, dueDate || '');
-  setCellByIndex_(sheet, rowIdx, layout.notesCol, data.notes || '');
-  setCellByIndex_(sheet, rowIdx, layout.fundCol, data.fund || '');
-
-  return { ok: true };
-}
-
-function addExpenseFromDash(data) {
-  const layout = getExpenseSheetLayout_();
-  const month = Number(data.month);
-  const day = Number(data.day);
-  const amount = toNumberFlexible_(data.amount);
-
-  if (!amount) throw new Error('יש להזין סכום הוצאה תקין');
-
-  if (layout.isFlat) {
     if (!month || month < 1 || month > 12) throw new Error('חודש ההוצאה אינו תקין');
     if (!day || day < 1 || day > 31) throw new Error('יום ההוצאה אינו תקין');
-
-    const settings = readSettings_();
-    const dateObj = new Date(Number(settings.workYear) || new Date().getFullYear(), month - 1, day);
+    if (!amount) throw new Error('יש להזין סכום הוצאה תקין');
     if (dateObj.getMonth() + 1 !== month || dateObj.getDate() !== day) {
       throw new Error('תאריך ההוצאה אינו תקין');
     }
 
-    const rowLength = Math.max(layout.lastCol, layout.detailCol + 1, layout.categoryCol + 1, layout.amountCol + 1, layout.dateCol + 1);
-    const row = buildEmptyRow_(rowLength);
-
-    writeArrayCell_(row, layout.dateCol, dateObj);
-    writeArrayCell_(row, layout.amountCol, amount);
-    writeArrayCell_(row, layout.categoryCol, data.category || '');
-    writeArrayCell_(row, layout.detailCol, data.detail || '');
-    if (layout.groupCol > -1) {
-      writeArrayCell_(row, layout.groupCol, data.category || 'כללי');
-    }
-
-    layout.sheet.appendRow(row);
+    sheet.getRange(rowIdx, 1).setValue(dateObj);
+    sheet.getRange(rowIdx, 2).setValue(amount);
+    sheet.getRange(rowIdx, 3).setValue(data.category != null ? String(data.category) : '');
+    sheet.getRange(rowIdx, 4).setValue(data.subcategory != null ? String(data.subcategory) : '');
+    sheet.getRange(rowIdx, 5).setValue(data.detail != null ? String(data.detail) : '');
     return { ok: true };
   }
 
-  if (!month || layout.monthCols[month] === -1 || layout.monthCols[month] === undefined) {
-    throw new Error('חודש ההוצאה אינו תקין');
+  sheet.getRange(rowIdx, 1).setValue(data.account || '');
+  sheet.getRange(rowIdx, 2).setValue(data.detail || '');
+  sheet.getRange(rowIdx, 3).setValue(toNumberFlexible_(data.amount));
+  sheet.getRange(rowIdx, 4).setValue(parseAnyDate_(data.dueDate) || '');
+  sheet.getRange(rowIdx, 5).setValue(data.notes || '');
+  sheet.getRange(rowIdx, 6).setValue(data.fund || '');
+  return { ok: true };
+}
+
+function addExpenseFromDash(data) {
+  data = normalizeDashPayload_(data);
+  var sheet = getRequiredSheet_(SHEET_NAMES.expenses);
+  var month = Number(data.month);
+  var day = Number(data.day);
+  var amount = toNumberFlexible_(data.amount);
+  var settings = readSettings_();
+  var dateObj = new Date(Number(settings.workYear) || new Date().getFullYear(), month - 1, day);
+
+  if (!month || month < 1 || month > 12) throw new Error('חודש ההוצאה אינו תקין');
+  if (!day || day < 1 || day > 31) throw new Error('יום ההוצאה אינו תקין');
+  if (!amount) throw new Error('יש להזין סכום הוצאה תקין');
+  if (dateObj.getMonth() + 1 !== month || dateObj.getDate() !== day) {
+    throw new Error('תאריך ההוצאה אינו תקין');
   }
 
-  const rowLength = Math.max(layout.lastCol, layout.monthCols[month] + 1, layout.detailCol + 1, layout.groupCol + 1);
-  const row = buildEmptyRow_(rowLength);
-
-  writeArrayCell_(row, layout.dayCol, data.day === '' ? '' : Number(data.day));
-  writeArrayCell_(row, layout.categoryCol, data.category || '');
-  writeArrayCell_(row, layout.detailCol, data.detail || '');
-  if (layout.groupCol > -1) {
-    writeArrayCell_(row, layout.groupCol, 'כללי');
-  }
-  writeArrayCell_(row, layout.monthCols[month], amount);
-
-  layout.sheet.appendRow(row);
+  // שורה חדשה: רק עמודות 1–N מתמלאות; שאר העמודות בשורה נשארות ריקות (נוסחאות בעמודות אחרות לא נמחקות משורות קיימות)
+  sheet.appendRow([
+    dateObj,
+    amount,
+    data.category != null ? String(data.category) : '',
+    data.subcategory != null ? String(data.subcategory) : '',
+    data.detail != null ? String(data.detail) : ''
+  ]);
   return { ok: true };
 }
 
 function addIncomeFromDash(data) {
-  const layout = getIncomeSheetLayout_();
-  const amount = toNumberFlexible_(data.amount);
+  data = normalizeDashPayload_(data);
+  var sheet = getRequiredSheet_(SHEET_NAMES.incomes);
+  var amount = toNumberFlexible_(data.amount);
   if (!amount) throw new Error('יש להזין סכום הכנסה תקין');
 
-  const dueDate = parseAnyDate_(data.dueDate);
-  const rowLength = Math.max(layout.lastCol, layout.fundCol + 1, layout.notesCol + 1);
-  const row = buildEmptyRow_(rowLength);
-
-  writeArrayCell_(row, layout.accountCol, data.account || '');
-  writeArrayCell_(row, layout.detailCol, data.detail || '');
-  writeArrayCell_(row, layout.amountCol, amount);
-  writeArrayCell_(row, layout.dueDateCol, dueDate || '');
-  writeArrayCell_(row, layout.notesCol, data.notes || '');
-  writeArrayCell_(row, layout.fundCol, data.fund || '');
-
-  layout.sheet.appendRow(row);
+  var dueDate = parseAnyDate_(data.dueDate);
+  // שורה חדשה: רק 6 שדות; עמודות נוספות בשורה החדשה לא נכתבות על ידי הקוד
+  sheet.appendRow([
+    data.account || '',
+    data.detail || '',
+    amount,
+    dueDate || '',
+    data.notes || '',
+    data.fund || ''
+  ]);
   return { ok: true };
 }
 
 function deleteExpenseRow(id) {
-  const rowIdx = Number(String(id || '').split('-')[1]);
+  var rowIdx = Number(String(id || '').split('-')[1]);
   if (!rowIdx || rowIdx < 2) throw new Error('מזהה שורת הוצאה לא תקין');
   getRequiredSheet_(SHEET_NAMES.expenses).deleteRow(rowIdx);
   return { ok: true };
 }
 
 function deleteIncomeRow(id) {
-  const rowIdx = Number(String(id || '').split('-')[1]);
+  var rowIdx = Number(String(id || '').split('-')[1]);
   if (!rowIdx || rowIdx < 2) throw new Error('מזהה שורת הכנסה לא תקין');
   getRequiredSheet_(SHEET_NAMES.incomes).deleteRow(rowIdx);
   return { ok: true };
 }
 
-// --- עזרי פריסה / עמודות ---
+// --- עזרי מבנה / קבוצות ---
 
 function getExpenseSheetLayout_() {
-  const sheet = getRequiredSheet_(SHEET_NAMES.expenses);
-  const lastRow = Math.max(sheet.getLastRow(), 1);
-  const lastCol = Math.max(sheet.getLastColumn(), 4);
-  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const headers = values[0] || [];
+  var sheet = getRequiredSheet_(SHEET_NAMES.expenses);
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var lastCol = Math.max(sheet.getLastColumn(), 5);
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var headers = values[0] || [];
 
-  const dateCol = fallbackHeaderIndex_(headers, ['תאריך', 'יום', 'יום בחודש', 'date'], 0);
-  const amountCol = findHeaderIndex_(headers, ['סכום', 'amount']);
-  const categoryCol = fallbackHeaderIndex_(headers, ['קטגוריה', 'סוג הוצאה', 'סוג', 'קטגורית הוצאה'], 2);
-  const detailCol = fallbackHeaderIndex_(headers, ['פרטים', 'פירוט', 'פריט', 'תיאור', 'שם'], 3);
-  const groupCol = findHeaderIndex_(headers, ['קבוצה', 'אשכול', 'קבוצת הוצאה', 'group']);
+  var dateCol = headerIndex_(headers, ['תאריך', 'date']);
+  var amountCol = headerIndex_(headers, ['סכום', 'amount']);
+  var categoryCol = headerIndex_(headers, ['קטגוריה', 'category']);
+  var subcategoryCol = headerIndex_(headers, ['תת קטגוריה', 'תת-קטגוריה', 'subcategory']);
+  var detailsCol = headerIndex_(headers, ['פרטים', 'details']);
+  if (detailsCol < 0) {
+    detailsCol = headerIndex_(headers, ['פירוט', 'detail']);
+  }
+  var groupCol = headerIndex_(headers, ['קבוצה', 'group']);
 
-  const monthCols = {};
-  let monthHeadersFound = 0;
-  Object.keys(EXPENSE_MONTH_COLUMNS).forEach(function(monthKey) {
-    const month = Number(monthKey);
-    const found = findMonthColumnIndex_(headers, month);
-    if (found > -1) monthHeadersFound += 1;
-    monthCols[month] = found > -1 ? found : (EXPENSE_MONTH_COLUMNS[month] - 1);
-  });
+  var isFlat = dateCol > -1 && amountCol > -1 && categoryCol > -1 && detailsCol > -1;
 
-  const isFlat = amountCol > -1 && monthHeadersFound === 0;
+  if (isFlat) {
+    return {
+      sheet: sheet,
+      values: values,
+      headers: headers,
+      isFlat: true,
+      lastCol: lastCol,
+      dateCol: dateCol,
+      amountCol: amountCol,
+      categoryCol: categoryCol,
+      subcategoryCol: subcategoryCol,
+      detailsCol: detailsCol,
+      detailCol: detailsCol,
+      groupCol: groupCol
+    };
+  }
+
+  var monthCols = {};
+  for (var month = 3; month <= 8; month++) {
+    monthCols[month] = month - 1;
+  }
 
   return {
     sheet: sheet,
     values: values,
     headers: headers,
+    isFlat: false,
     lastCol: lastCol,
-    isFlat: isFlat,
-    dateCol: dateCol,
-    amountCol: amountCol,
-    dayCol: dateCol,
-    categoryCol: categoryCol,
-    detailCol: detailCol,
-    groupCol: groupCol,
+    dayCol: 0,
+    categoryCol: 1,
+    subcategoryCol: -1,
+    detailsCol: 8,
+    detailCol: 8,
+    groupCol: 9,
     monthCols: monthCols
   };
 }
 
 function getIncomeSheetLayout_() {
-  const sheet = getRequiredSheet_(SHEET_NAMES.incomes);
-  const lastRow = Math.max(sheet.getLastRow(), 1);
-  const lastCol = Math.max(sheet.getLastColumn(), 6);
-  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
-  const headers = values[0] || [];
+  var sheet = getRequiredSheet_(SHEET_NAMES.incomes);
+  var lastRow = Math.max(sheet.getLastRow(), 1);
+  var lastCol = Math.max(sheet.getLastColumn(), 6);
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  var headers = values[0] || [];
 
   return {
     sheet: sheet,
     values: values,
     headers: headers,
     lastCol: lastCol,
-    accountCol: fallbackHeaderIndex_(headers, ['חשבון', 'מספר חשבון', 'מזהה', 'account'], 0),
-    detailCol: fallbackHeaderIndex_(headers, ['פירוט', 'שם', 'תיאור', 'detail'], 1),
+    accountCol: fallbackHeaderIndex_(headers, ['מספר חשבון', 'חשבון', 'account'], 0),
+    detailCol: fallbackHeaderIndex_(headers, ['פירוט', 'detail'], 1),
     amountCol: fallbackHeaderIndex_(headers, ['סכום', 'amount'], 2),
-    dueDateCol: fallbackHeaderIndex_(headers, ['צפי תשלום', 'תאריך', 'תאריך יעד', 'due date'], 3),
-    notesCol: fallbackHeaderIndex_(headers, ['הערות', 'סטטוס', 'notes'], 4),
-    fundCol: fallbackHeaderIndex_(headers, ['מימון', 'מקור מימון', 'קרן', 'fund'], 5)
+    dueDateCol: fallbackHeaderIndex_(headers, ['תאריך', 'צפי תשלום', 'dueDate'], 3),
+    notesCol: fallbackHeaderIndex_(headers, ['הערות', 'notes'], 4),
+    fundCol: fallbackHeaderIndex_(headers, ['מימון', 'fund'], 5)
   };
 }
 
-function fallbackHeaderIndex_(headers, candidates, fallbackIdx) {
-  const idx = findHeaderIndex_(headers, candidates);
-  return idx > -1 ? idx : fallbackIdx;
+function buildClosingBalanceByMonth_(cashflowDays) {
+  var map = {};
+  (cashflowDays || []).forEach(function(row) {
+    if (!row || !row.month) return;
+    map[Number(row.month)] = toNumber_(row.balance);
+  });
+  return map;
 }
 
-function findHeaderIndex_(headers, candidates) {
-  const normalizedHeaders = (headers || []).map(normalizeHeader_);
+function mapExpenseCategoryToSummaryGroup_(category) {
+  var normalized = normalizeText_(category);
+  return SUMMARY_EXPENSE_GROUP_MAP[normalized] || normalized || 'כללי';
+}
 
-  for (let i = 0; i < candidates.length; i++) {
-    const target = normalizeHeader_(candidates[i]);
-    const exactIdx = normalizedHeaders.indexOf(target);
-    if (exactIdx > -1) return exactIdx;
+function extractMonthNumberFromBlockTitle_(title) {
+  var normalized = normalizeText_(title);
+  if (!normalized) return null;
+
+  for (var month = 1; month <= 12; month++) {
+    if (normalized.indexOf(MONTH_LABELS[month]) === 0) return month;
   }
+  return null;
+}
 
-  for (let i = 0; i < candidates.length; i++) {
-    const target = normalizeHeader_(candidates[i]);
-    const containsIdx = normalizedHeaders.findIndex(function(header) {
-      return header && (header.indexOf(target) > -1 || target.indexOf(header) > -1);
+function extractWeekColumnsFromRow_(headerRow) {
+  var out = [];
+  for (var c = 1; c < headerRow.length; c++) {
+    var text = String(headerRow[c] || '').trim();
+    if (!text || text === 'סה"כ') continue;
+    if (text.indexOf('שבוע') === -1) continue;
+
+    var lines = text.split(/\n+/).map(function(part) { return String(part || '').trim(); }).filter(Boolean);
+    var label = lines[0] || ('שבוע ' + out.length + 1);
+    var range = lines.length > 1 ? lines[1] : '';
+    var weekMatch = label.match(/(\d+)/);
+
+    out.push({
+      col: c,
+      week: weekMatch ? Number(weekMatch[1]) : (out.length + 1),
+      label: label,
+      range: range
     });
-    if (containsIdx > -1) return containsIdx;
   }
+  return out;
+}
 
+function findRowIndexByLabel_(matrix, label, startRow, endRow) {
+  var start = Math.max(0, Number(startRow) || 0);
+  var end = Math.min(matrix.length - 1, Number(endRow) || (matrix.length - 1));
+  for (var r = start; r <= end; r++) {
+    if (normalizeText_(matrix[r][0]) === normalizeText_(label)) return r;
+  }
   return -1;
 }
 
-function findMonthColumnIndex_(headers, month) {
-  const candidates = [
-    MONTH_LABELS[month],
-    String(month),
-    'חודש ' + month,
-    'חודש' + month,
-    MONTH_LABELS[month] + ' 2026',
-    MONTH_LABELS[month] + ' 26'
-  ];
-  return findHeaderIndex_(headers, candidates);
-}
-
-// --- בניית קבוצות ---
-
-function buildExpenseGroups_(rows) {
-  return buildNamedGroups_(rows, function(row) {
-    return normalizeText_(row.group || row.category || 'ללא קבוצה') || 'ללא קבוצה';
-  });
-}
-
-function buildIncomeGroups_(rows) {
-  return buildNamedGroups_(rows, function(row) {
-    return normalizeText_(row.fund || row.detail || 'ללא מקור הכנסה') || 'ללא מקור הכנסה';
-  });
-}
-
-function buildNamedGroups_(rows, keyGetter) {
-  const map = new Map();
-
-  (rows || []).forEach(function(row) {
-    const key = keyGetter(row);
-    if (!map.has(key)) map.set(key, []);
-    map.get(key).push(row);
-  });
-
-  return Array.from(map.entries()).map(function(entry) {
-    return {
-      name: entry[0],
-      items: entry[1]
-    };
-  });
-}
-
-// --- פונקציות עזר כלליות ---
-
-function firstDefined_() {
-  for (let i = 0; i < arguments.length; i++) {
-    const value = arguments[i];
-    if (value !== undefined && value !== null && value !== '') return value;
+function findHeaderIndexExact_(headers, expected) {
+  var target = normalizeText_(expected);
+  for (var i = 0; i < headers.length; i++) {
+    if (normalizeText_(headers[i]) === target) return i;
   }
-  return '';
+  return -1;
 }
 
-function readCellByIndex_(row, idx, fallback) {
-  if (idx === null || idx === undefined || idx < 0) return fallback;
-  return row[idx] !== undefined ? row[idx] : fallback;
+function headerIndex_(headers, aliases) {
+  var normalized = (aliases || []).map(function(item) { return normalizeText_(item); });
+  for (var i = 0; i < headers.length; i++) {
+    var header = normalizeText_(headers[i]);
+    if (normalized.indexOf(header) > -1) return i;
+  }
+  return -1;
 }
 
-function setCellByIndex_(sheet, rowIdx, colIdx, value) {
-  if (colIdx === null || colIdx === undefined || colIdx < 0) return;
-  sheet.getRange(rowIdx, colIdx + 1).setValue(value);
+function fallbackHeaderIndex_(headers, aliases, fallbackIndex) {
+  var idx = headerIndex_(headers, aliases);
+  return idx > -1 ? idx : fallbackIndex;
 }
 
-function writeArrayCell_(row, colIdx, value) {
-  if (colIdx === null || colIdx === undefined || colIdx < 0) return;
-  while (row.length <= colIdx) row.push('');
-  row[colIdx] = value;
+function readCellByIndex_(row, idx, fallbackValue) {
+  if (!row || idx === undefined || idx === null || idx < 0 || idx >= row.length) return fallbackValue;
+  return row[idx];
 }
 
-function buildEmptyRow_(length) {
-  const row = [];
-  for (let i = 0; i < length; i++) row.push('');
-  return row;
-}
+// --- עזרי נתונים ---
 
-function normalizeHeader_(value) {
-  return String(value || '')
-    .replace(/[\s'"`״׳:;,.()\-_/\\]/g, '')
-    .toLowerCase()
-    .trim();
-}
-
-function monthFromDateValue_(value) {
-  const date = parseAnyDate_(value);
-  return date ? (date.getMonth() + 1) : null;
-}
-
-function splitDetails_(value) {
-  return String(value || '')
-    .split(/\s*[|,]\s*/)
-    .map(normalizeText_)
-    .filter(Boolean);
-}
-
-function createEmptyFlowDay_(key, month, dateObj) {
-  return {
-    sortKey: key,
-    month: month,
-    dateObj: dateObj,
-    incomeAmount: 0,
-    expenseAmount: 0,
-    incomeDescParts: [],
-    expenseDescParts: []
-  };
+function buildMonthRange_(start, end) {
+  var range = [];
+  var from = Number(start) || 3;
+  var to = Number(end) || 8;
+  for (var i = from; i <= to; i++) range.push(i);
+  return range;
 }
 
 function toNumber_(value) {
-  const num = Number(value);
+  var num = Number(value);
   return Number.isFinite(num) ? num : 0;
 }
 
+function toNumberOrDefault_(value, fallbackValue) {
+  var num = Number(value);
+  return Number.isFinite(num) ? num : fallbackValue;
+}
+
+function parseOptionalNumber_(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  var num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
 function toNumberFlexible_(value) {
-  if (value === null || value === undefined || value === '') return 0;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-
-  let text = String(value).trim();
+  if (value === '' || value === null || value === undefined) return 0;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  var text = String(value).replace(/[₪,\s]/g, '').trim();
   if (!text) return 0;
-
-  const isNegativeParens = /^\(.*\)$/.test(text);
-  text = text
-    .replace(/[₪,\s]/g, '')
-    .replace(/[^\d.\-]/g, '');
-  if (!text) return 0;
-
-  let num = Number(text);
-  if (!Number.isFinite(num)) return 0;
-  if (isNegativeParens) num = -Math.abs(num);
-  return num;
-}
-
-function toNumberOrDefault_(value, fallback) {
-  const num = toNumberFlexible_(value);
-  return value === '' || value === null || value === undefined ? fallback : num;
-}
-
-function toMonthNumber_(value) {
-  const month = Number(value);
-  return Number.isFinite(month) && month >= 1 && month <= 12 ? month : null;
-}
-
-function parseDateFromIncome_(incomeRow, fallbackYear, fallbackMonth) {
-  const date = parseAnyDate_(incomeRow && (incomeRow.dueDateISO || incomeRow.dueDateLabel));
-  if (date) return date;
-
-  const fallback = new Date(fallbackYear, fallbackMonth - 1, 1);
-  return isNaN(fallback.getTime()) ? null : fallback;
+  var num = Number(text);
+  return Number.isFinite(num) ? num : 0;
 }
 
 function parseAnyDate_(value) {
   if (!value && value !== 0) return null;
 
-  if (value instanceof Date && !isNaN(value.getTime())) {
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) {
     return new Date(value.getFullYear(), value.getMonth(), value.getDate());
   }
 
   if (typeof value === 'number' && Number.isFinite(value)) {
-    const millis = Math.round((value - 25569) * 86400 * 1000);
-    const dateFromSerial = new Date(millis);
+    var millis = Math.round((value - 25569) * 86400 * 1000);
+    var dateFromSerial = new Date(millis);
     if (!isNaN(dateFromSerial.getTime())) {
       return new Date(dateFromSerial.getFullYear(), dateFromSerial.getMonth(), dateFromSerial.getDate());
     }
   }
 
-  const text = String(value).trim();
+  var text = String(value).trim();
   if (!text) return null;
 
-  const dmy = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  var dmy = text.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (dmy) {
-    let year = Number(dmy[3]);
+    var year = Number(dmy[3]);
     if (year < 100) year += 2000;
-    const date = new Date(year, Number(dmy[2]) - 1, Number(dmy[1]));
+    var date = new Date(year, Number(dmy[2]) - 1, Number(dmy[1]));
     if (!isNaN(date.getTime())) {
       return new Date(date.getFullYear(), date.getMonth(), date.getDate());
     }
   }
 
-  const ymd = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  var ymd = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (ymd) {
-    const date = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
-    if (!isNaN(date.getTime())) {
-      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    var isoDate = new Date(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+    if (!isNaN(isoDate.getTime())) {
+      return new Date(isoDate.getFullYear(), isoDate.getMonth(), isoDate.getDate());
     }
   }
 
-  const date = new Date(text);
-  if (isNaN(date.getTime())) return null;
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  var genericDate = new Date(text);
+  if (isNaN(genericDate.getTime())) return null;
+  return new Date(genericDate.getFullYear(), genericDate.getMonth(), genericDate.getDate());
 }
 
-function toIsoDateKey_(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return y + '-' + m + '-' + d;
+function parseSettingsDate_(value) {
+  return parseAnyDate_(value);
 }
 
 function formatDateLabel_(date) {
-  const d = String(date.getDate()).padStart(2, '0');
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const y = date.getFullYear();
+  var d = String(date.getDate()).padStart(2, '0');
+  var m = String(date.getMonth() + 1).padStart(2, '0');
+  var y = date.getFullYear();
   return d + '/' + m + '/' + y;
 }
 
@@ -1062,64 +903,49 @@ function normalizeText_(value) {
     .trim();
 }
 
-function dedupeAndJoin_(list) {
-  return uniqueStrings_(list).join(', ');
-}
-
 function uniqueStrings_(list) {
-  const cleaned = (list || []).map(normalizeText_).filter(Boolean);
-  return Array.from(new Set(cleaned));
-}
-
-function dedupePairs_(pairs) {
-  const seen = new Set();
-  const out = [];
-
-  (pairs || []).forEach(function(pair) {
-    const category = normalizeText_(pair && pair.category);
-    const detail = normalizeText_(pair && pair.detail);
-    if (!category && !detail) return;
-
-    const key = category + '||' + detail;
-    if (seen.has(key)) return;
-    seen.add(key);
-    out.push({ category: category, detail: detail });
+  var cleaned = (list || []).map(normalizeText_).filter(Boolean);
+  var map = {};
+  var out = [];
+  cleaned.forEach(function(item) {
+    if (!map[item]) {
+      map[item] = true;
+      out.push(item);
+    }
   });
-
   return out;
 }
 
-function parseDateLabel_(label) {
-  const match = String(label || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  if (!match) return null;
-  return {
-    day: Number(match[1]),
-    month: Number(match[2]),
-    year: Number(match[3])
-  };
+function dedupePairs_(pairs) {
+  var seen = {};
+  var out = [];
+  (pairs || []).forEach(function(pair) {
+    var category = normalizeText_(pair && pair.category);
+    var detail = normalizeText_(pair && pair.detail);
+    var key = category + '||' + detail;
+    if (seen[key]) return;
+    seen[key] = true;
+    out.push({
+      category: category,
+      detail: detail
+    });
+  });
+  return out;
 }
 
-function parseSettingsDate_(value) {
-  return parseAnyDate_(value);
-}
-
-function parseOptionalNumber_(value) {
-  if (value === '' || value === null || value === undefined) return NaN;
-  const num = toNumberFlexible_(value);
-  return Number.isFinite(num) ? num : NaN;
-}
-
-function buildMonthRange_(start, end) {
-  const startMonth = Number(start || 3);
-  const endMonth = Number(end || 8);
-
-  if (!Number.isFinite(startMonth) || !Number.isFinite(endMonth) || startMonth > endMonth) {
-    return [3, 4, 5, 6, 7, 8];
-  }
-
-  const range = [];
-  for (let month = startMonth; month <= endMonth; month++) {
-    range.push(month);
-  }
-  return range;
+function dedupeCategorySubcategoryPairs_(pairs) {
+  var seen = {};
+  var out = [];
+  (pairs || []).forEach(function(pair) {
+    var category = normalizeText_(pair && pair.category);
+    var subcategory = normalizeText_(pair && pair.subcategory);
+    var key = category + '||' + subcategory;
+    if (seen[key]) return;
+    seen[key] = true;
+    out.push({
+      category: category,
+      subcategory: subcategory
+    });
+  });
+  return out;
 }

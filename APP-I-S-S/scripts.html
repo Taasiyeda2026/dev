@@ -25,11 +25,6 @@
     incomeFilter: 'all',
     expenseMonths: [],
     incomeMonths: [],
-    statusMode: 'income',
-    statusIncomeOpen: false,
-    statusExpenseOpen: false,
-    statusIncomeMonthOpen: null,
-    statusExpenseMonthOpen: null,
     showMonthPicker: false,
     openWeekKey: null,
     openFlowRowKey: null,
@@ -46,7 +41,6 @@
   const expensesPanel = document.getElementById('expenses-panel');
   const incomesPanel = document.getElementById('incomes-panel');
   const flowPanel = document.getElementById('flow-panel');
-  const statusPanel = document.getElementById('status-panel');
 
   const kpiGrid = document.getElementById('kpi-grid');
 
@@ -114,8 +108,6 @@
       balance: raw?.balance,
       monthlySummary: Array.isArray(raw?.monthlySummary) ? raw.monthlySummary : [],
       weekly: Array.isArray(raw?.weekly) ? raw.weekly : [],
-      expenseGroups: Array.isArray(raw?.expenseGroups) ? raw.expenseGroups : [],
-      incomeGroups: Array.isArray(raw?.incomeGroups) ? raw.incomeGroups : [],
       cashflowDays: Array.isArray(raw?.cashflowDays) ? raw.cashflowDays : [],
       expensesSheetRows: Array.isArray(raw?.expensesSheetRows) ? raw.expensesSheetRows : [],
       incomesSheetRows: Array.isArray(raw?.incomesSheetRows) ? raw.incomesSheetRows : [],
@@ -143,6 +135,15 @@
 
   function formatServerCurrency(value) {
     return value === null || value === undefined || value === '' ? '' : formatCurrency(value);
+  }
+
+  /** תאריך מקומי בפורמט dd/MM/yyyy כמו בגיליון התזרים */
+  function formatFlowDateLabel(date) {
+    const d = date instanceof Date ? date : new Date(date);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const y = d.getFullYear();
+    return `${dd}/${mm}/${y}`;
   }
 
   function getAvailableMonths() {
@@ -220,38 +221,6 @@
     return getSummaryTotalsForView();
   }
 
-  function normalizeInlineText(value) {
-    return String(value ?? '')
-      .replace(/[\r\n]+/g, ', ')
-      .replace(/[•·]+/g, ', ')
-      .replace(/\s*\|\s*/g, ', ')
-      .replace(/\s{2,}/g, ' ')
-      .replace(/,\s*,+/g, ', ')
-      .replace(/^,\s*|\s*,$/g, '')
-      .trim();
-  }
-
-  function buildCombinedDetail(incomeText, expenseText) {
-    const parts = [];
-    if (incomeText) parts.push(incomeText);
-    if (expenseText) parts.push(expenseText);
-    return parts.join(' | ');
-  }
-
-  function groupBy(array, keyGetter) {
-    const map = new Map();
-
-    array.forEach(item => {
-      const key = keyGetter(item);
-      if (!map.has(key)) {
-        map.set(key, []);
-      }
-      map.get(key).push(item);
-    });
-
-    return [...map.entries()].map(([key, items]) => ({ key, items }));
-  }
-
   function getIncomeMonthNumber(row) {
     if (Number(row?.month)) return Number(row.month);
 
@@ -279,7 +248,7 @@
       const matchMonth = !selectedMonths.length || selectedMonths.includes(Number(row.month));
       const matchFilter =
         state.expenseFilter === 'all' || String(row.category || '') === state.expenseFilter;
-      const haystack = `${row.group || ''} ${row.category || ''} ${row.detail || ''} ${row.day || ''} ${row.month || ''}`.toLowerCase();
+      const haystack = `${row.group || ''} ${row.category || ''} ${row.subcategory || ''} ${row.detail || ''} ${row.day || ''} ${row.month || ''}`.toLowerCase();
       const matchSearch = !search || haystack.includes(search);
 
       return matchMonth && matchFilter && matchSearch;
@@ -315,235 +284,32 @@
     return true;
   }
 
-  function getExpenseHierarchy(rows) {
-    const selectedMonth = getSelectedMonth();
-    const useServerGroups =
-      !selectedMonth &&
-      !state.expenseSearch.trim() &&
-      state.expenseFilter === 'all' &&
-      Array.isArray(state.payload?.expenseGroups);
-
-    if (useServerGroups) {
-      return state.payload.expenseGroups.map(group => ({
-        key: String(group.name || 'ללא קבוצה'),
-        total: null,
-        count: Array.isArray(group.items) ? group.items.length : 0,
-        subgroups: [
-          {
-            key: 'פירוט',
-            total: null,
-            rows: Array.isArray(group.items) ? group.items : []
-          }
-        ]
-      }));
-    }
-
-    const grouped = groupBy(
-      rows,
-      row => String(row.group || row.category || 'ללא קבוצה').trim() || 'ללא קבוצה'
-    );
-
-    return grouped.map(group => ({
-      key: group.key,
-      total: null,
-      count: group.items.length,
-      subgroups: groupBy(group.items, row => {
-        if (!selectedMonth) return monthLabel(Number(row.month) || 0) || 'ללא חודש';
-        return String(row.category || 'ללא קטגוריה').trim() || 'ללא קטגוריה';
-      }).map(subgroup => ({
-        key: subgroup.key,
-        total: null,
-        rows: subgroup.items
-      }))
-    }));
-  }
-
-  function getIncomeHierarchy(rows) {
-    const selectedMonth = getSelectedMonth();
-    const useServerGroups =
-      !selectedMonth &&
-      !state.incomeSearch.trim() &&
-      state.incomeFilter === 'all' &&
-      Array.isArray(state.payload?.incomeGroups);
-
-    if (useServerGroups) {
-      return state.payload.incomeGroups.map(group => ({
-        key: String(group.name || 'ללא מקור הכנסה'),
-        total: null,
-        count: Array.isArray(group.items) ? group.items.length : 0,
-        subgroups: [
-          {
-            key: 'פירוט',
-            total: null,
-            rows: Array.isArray(group.items) ? group.items : []
-          }
-        ]
-      }));
-    }
-
-    const grouped = groupBy(
-      rows,
-      row => String(row.fund || 'ללא מקור הכנסה').trim() || 'ללא מקור הכנסה'
-    );
-
-    return grouped.map(group => ({
-      key: group.key,
-      total: null,
-      count: group.items.length,
-      subgroups: groupBy(group.items, row => {
-        if (!selectedMonth) return monthLabel(getIncomeMonthNumber(row) || 0) || 'ללא חודש';
-        return String(row.account || row.detail || 'רשומות').trim() || 'רשומות';
-      }).map(subgroup => ({
-        key: subgroup.key,
-        total: null,
-        rows: subgroup.items
-      }))
-    }));
-  }
-
-  function formatExpenseRowTitle(row) {
-    if (row.detail) return row.detail;
-    if (row.category) return row.category;
-    return 'רשומת הוצאה';
-  }
-
-  function formatExpenseRowMeta(row) {
-    const parts = [];
-    if (row.month && !getSelectedMonth()) parts.push(monthLabel(row.month));
-    if (row.day) parts.push(`יום ${row.day}`);
-    if (row.category) parts.push(row.category);
-    if (row.group) parts.push(row.group);
-    return parts.join(' · ');
-  }
-
-  function formatIncomeRowTitle(row) {
-    if (row.fund) return row.fund;
-    if (row.detail) return row.detail;
-    if (row.account) return `חשבון ${row.account}`;
-    return 'רשומת הכנסה';
-  }
-
-  function formatIncomeRowMeta(row) {
-    const parts = [];
-    if (row.account && row.detail) parts.push(`חשבון ${row.account}`);
-    if (row.dueDateLabel) parts.push(row.dueDateLabel);
-    if (row.notes) parts.push(normalizeInlineText(row.notes));
-    return parts.join(' · ');
-  }
-
-  function renderExpenseAccordion(rows, emptyText) {
-    const hierarchy = getExpenseHierarchy(rows);
-
-    if (!hierarchy.length) {
-      return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
-    }
-
-    return `
-      <div class="accordion-list">
-        ${hierarchy.map((group, index) => `
-          <details class="group-card" ${index === 0 ? 'open' : ''}>
-            <summary class="group-summary">
-              <span class="group-summary-title">
-                <span class="summary-badge">${group.count}</span>
-                <span>${escapeHtml(group.key)}</span>
-              </span>
-              <span class="plain-total expense">${formatServerCurrency(group.total)}</span>
-            </summary>
-            <div class="group-body">
-              <div class="nested-list">
-                ${group.subgroups.map((subgroup, subIndex) => `
-                  <details class="subgroup-card" ${group.subgroups.length === 1 || subIndex === 0 ? 'open' : ''}>
-                    <summary class="subgroup-summary">
-                      <span class="subgroup-summary-title">
-                        <span class="summary-badge">${subgroup.rows.length}</span>
-                        <span>${escapeHtml(subgroup.key)}</span>
-                      </span>
-                      <span class="plain-total expense">${formatServerCurrency(subgroup.total)}</span>
-                    </summary>
-                    <div class="group-body">
-                      <div class="rows-list">
-                        ${subgroup.rows.map(row => `
-                          <div class="group-row">
-                            <div class="group-row-main">
-                              <div class="group-row-title">${escapeHtml(formatExpenseRowTitle(row))}</div>
-                              <div class="group-row-meta">${escapeHtml(formatExpenseRowMeta(row))}</div>
-                            </div>
-                            <div class="group-row-amount expense">${formatCurrency(row.amount)}</div>
-                          </div>
-                        `).join('')}
-                      </div>
-                    </div>
-                  </details>
-                `).join('')}
-              </div>
-            </div>
-          </details>
-        `).join('')}
-      </div>
-    `;
-  }
-
-  function renderIncomeAccordion(rows, emptyText) {
-    const hierarchy = getIncomeHierarchy(rows);
-
-    if (!hierarchy.length) {
-      return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
-    }
-
-    return `
-      <div class="accordion-list">
-        ${hierarchy.map((group, index) => `
-          <details class="group-card" ${index === 0 ? 'open' : ''}>
-            <summary class="group-summary">
-              <span class="group-summary-title">
-                <span class="summary-badge">${group.count}</span>
-                <span>${escapeHtml(group.key)}</span>
-              </span>
-              <span class="plain-total income">${formatServerCurrency(group.total)}</span>
-            </summary>
-            <div class="group-body">
-              <div class="nested-list">
-                ${group.subgroups.map((subgroup, subIndex) => `
-                  <details class="subgroup-card" ${group.subgroups.length === 1 || subIndex === 0 ? 'open' : ''}>
-                    <summary class="subgroup-summary">
-                      <span class="subgroup-summary-title">
-                        <span class="summary-badge">${subgroup.rows.length}</span>
-                        <span>${escapeHtml(subgroup.key)}</span>
-                      </span>
-                      <span class="plain-total income">${formatServerCurrency(subgroup.total)}</span>
-                    </summary>
-                    <div class="group-body">
-                      <div class="rows-list">
-                        ${subgroup.rows.map(row => `
-                          <div class="group-row">
-                            <div class="group-row-main">
-                              <div class="group-row-title">${escapeHtml(formatIncomeRowTitle(row))}</div>
-                              <div class="group-row-meta">${escapeHtml(formatIncomeRowMeta(row))}</div>
-                            </div>
-                            <div class="group-row-amount income">${formatCurrency(row.amount)}</div>
-                          </div>
-                        `).join('')}
-                      </div>
-                    </div>
-                  </details>
-                `).join('')}
-              </div>
-            </div>
-          </details>
-        `).join('')}
-      </div>
-    `;
-  }
-
   function buildExpenseCategoryOptions(rows) {
-    const categories = [
-      ...new Set(rows.map(row => String(row.category || '').trim()).filter(Boolean))
-    ].sort();
+    const lists = getReferenceLists();
+    const fromSheet = Array.isArray(lists.expenseCategories) ? lists.expenseCategories : [];
+    const fromRows = [...new Set(rows.map(row => String(row.category || '').trim()).filter(Boolean))];
+    const categories = [...new Set([...fromSheet, ...fromRows])].sort();
 
     return [
       '<option value="all">כל הקטגוריות</option>',
       ...categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
     ].join('');
+  }
+
+  function buildExpenseSubcategorySelectHtml(rowId, category, currentSubcategory, pairs, isAddForm) {
+    const cat = String(category || '').trim();
+    const cur = String(currentSubcategory || '').trim();
+    let opts = getSubcategoriesForCategory(cat, pairs);
+    if (cur && !opts.includes(cur)) opts = [...opts, cur].sort();
+    const emptyLabel = isAddForm ? 'תת קטגוריה (אופציונלי)' : '—';
+    const options = [
+      `<option value="" ${!cur ? 'selected' : ''}>${escapeHtml(emptyLabel)}</option>`,
+      ...opts.map(s => `<option value="${escapeAttr(s)}" ${cur === s ? 'selected' : ''}>${escapeHtml(s)}</option>`)
+    ];
+    const idAttr = isAddForm ? ' id="subcategory-input"' : '';
+    const cls = isAddForm ? 'subcategory-input' : 'expense-subcategory-select';
+    const dataIdAttr = rowId !== '' && rowId != null ? ` data-id="${escapeAttr(rowId)}"` : '';
+    return `<select${idAttr}${dataIdAttr} data-field="subcategory" class="${cls}">${options.join('')}</select>`;
   }
 
   function buildIncomeFundOptions(rows) {
@@ -557,26 +323,48 @@
     ].join('');
   }
 
+  function normalizeCategorySubcategoryPairs(source) {
+    const raw = Array.isArray(source.categorySubcategoryPairs) && source.categorySubcategoryPairs.length
+      ? source.categorySubcategoryPairs
+      : (Array.isArray(source.categoryDetailPairs) ? source.categoryDetailPairs : []);
+    return raw.map(p => ({
+      category: String(p.category || '').trim(),
+      subcategory: String(p.subcategory != null ? p.subcategory : p.detail || '').trim()
+    }));
+  }
+
+  function getSubcategoriesForCategory(category, pairs) {
+    const cat = String(category || '').trim();
+    const subs = new Set();
+    (pairs || []).forEach(p => {
+      if (String(p.category || '').trim() !== cat) return;
+      const s = String(p.subcategory || '').trim();
+      if (s) subs.add(s);
+    });
+    return [...subs].sort();
+  }
+
   function getReferenceLists() {
     const raw = state.payload?.rawData || {};
     const source = raw.lists || raw.listSheet || raw.referenceLists || {};
-    const categoryPairs = Array.isArray(source.categoryDetailPairs) ? source.categoryDetailPairs : [];
+    const categorySubcategoryPairs = normalizeCategorySubcategoryPairs(source);
     const incomeFunds = Array.isArray(source.incomeFunds) ? source.incomeFunds : [];
 
     const fallbackCategories = [...new Set((state.payload?.expensesSheetRows || [])
       .map(row => String(row.category || '').trim())
       .filter(Boolean))];
-    const fallbackDetails = [...new Set((state.payload?.expensesSheetRows || [])
-      .map(row => String(row.detail || '').trim())
-      .filter(Boolean))];
     const fallbackFunds = [...new Set((state.payload?.incomesSheetRows || [])
       .map(row => String(row.fund || '').trim())
       .filter(Boolean))];
 
+    const pairCategories = [...new Set(categorySubcategoryPairs.map(p => p.category).filter(Boolean))];
+    const categoriesUnion = [...new Set([...pairCategories, ...fallbackCategories])].sort();
+
     return {
-      categoryPairs: categoryPairs.length ? categoryPairs : fallbackCategories.map(category => ({ category, detail: '' })),
-      details: categoryPairs.length ? [...new Set(categoryPairs.map(p => String(p.detail || '').trim()).filter(Boolean))] : fallbackDetails,
-      funds: incomeFunds.length ? incomeFunds : fallbackFunds
+      categorySubcategoryPairs,
+      categoryPairs: categorySubcategoryPairs.map(p => ({ category: p.category, subcategory: p.subcategory })),
+      funds: incomeFunds.length ? incomeFunds : fallbackFunds,
+      expenseCategories: categoriesUnion
     };
   }
 
@@ -632,9 +420,6 @@
     `;
 
     monitoringTabsEl.innerHTML = `
-      <button class="tab-btn tab-btn--monitoring ${state.activeView === 'status' ? 'active' : ''}" data-view="status">
-        סטטוס
-      </button>
       <button class="tab-btn tab-btn--monitoring ${state.activeView === 'flow' ? 'active' : ''}" data-view="flow">
         תזרים
       </button>
@@ -780,159 +565,14 @@
     `;
   }
 
-  function buildStatusMonthlyGroups(rows, type) {
-    const byMonth = new Map();
-    rows.forEach(row => {
-      const month = type === 'income' ? getIncomeMonthNumber(row) : Number(row.month);
-      if (!month) return;
-      if (!byMonth.has(month)) byMonth.set(month, []);
-      byMonth.get(month).push(row);
-    });
-
-    return [...byMonth.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([month, monthRows]) => {
-        const byGroup = new Map();
-        monthRows.forEach(row => {
-          const groupName = type === 'income'
-            ? (String(row.fund || row.detail || 'ללא קבוצה').trim() || 'ללא קבוצה')
-            : (String(row.group || row.category || row.detail || 'ללא קבוצה').trim() || 'ללא קבוצה');
-          const current = byGroup.get(groupName) || 0;
-          byGroup.set(groupName, current + Number(row.amount || 0));
-        });
-
-        const groups = [...byGroup.entries()]
-          .map(([name, amount]) => ({ name, amount }))
-          .sort((a, b) => b.amount - a.amount);
-
-        return {
-          month,
-          monthLabelText: monthLabel(month),
-          groups,
-          total: groups.reduce((sum, group) => sum + Number(group.amount || 0), 0)
-        };
-      });
-  }
-
-  function renderStatusMonthAccordion(rows, type, emptyText) {
-    const months = buildStatusMonthlyGroups(rows, type);
-    if (!months.length) return `<div class="empty-state">${escapeHtml(emptyText)}</div>`;
-
-    const openMonth = type === 'income' ? state.statusIncomeMonthOpen : state.statusExpenseMonthOpen;
-
-    return `
-      <div class="accordion-list">
-        ${months.map(item => {
-          const isOpen = Number(openMonth) === Number(item.month);
-          return `
-            <div class="status-month-card ${isOpen ? 'open' : ''}">
-              <button type="button" class="status-month-btn" data-status-type="${type}" data-status-month="${item.month}">
-                <span class="status-month-title">
-                  <span class="summary-badge">${item.groups.length}</span>
-                  <span>${escapeHtml(item.monthLabelText)}</span>
-                </span>
-                <span class="status-month-meta">
-                  <span class="plain-total ${type === 'income' ? 'income' : 'expense'}">${formatCurrency(item.total)}</span>
-                  <span class="status-chevron">${isOpen ? '▾' : '▸'}</span>
-                </span>
-              </button>
-              ${isOpen ? `
-                <div class="group-body">
-                  <div class="rows-list">
-                    ${item.groups.map(group => `
-                      <div class="group-row">
-                        <div class="group-row-main">
-                          <div class="group-row-title">${escapeHtml(group.name)}</div>
-                        </div>
-                        <div class="group-row-amount ${type === 'income' ? 'income' : 'expense'}">${formatCurrency(group.amount)}</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  }
-
-  function renderStatus() {
-    const expenseRows = getFilteredExpenseRows();
-    const incomeRows = getFilteredIncomeRows();
-    const monthlyRows = getFilteredMonthlyRows();
-    const totals = getSummaryTotalsForView();
-
-    statusPanel.innerHTML = `
-      <div class="panel-title-row">
-        <div>
-          <h2>סטטוס פיננסי</h2>
-          <div class="panel-subtext">הטבלה החודשית מופיעה ראשונה, ומתחתיה תיבות לחיצות להכנסות והוצאות.</div>
-        </div>
-      </div>
-
-      <div class="panel-title-row" style="margin-top:4px;">
-        <div>
-          <h2 style="font-size:19px;">סיכום חודשי</h2>
-          <div class="panel-subtext">טבלה מרכזת של הכנסות, הוצאות ויתרה.</div>
-        </div>
-      </div>
-
-      <div class="table-shell">
-        <div class="table-wrap table-wrap--main">
-          <table class="summary-table status-table">
-            <colgroup>
-              <col style="width: 96px;">
-              <col style="width: 90px;">
-              <col style="width: 90px;">
-              <col style="width: 90px;">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>חודש</th>
-                <th>הכנסות</th>
-                <th>הוצאות</th>
-                <th>יתרה</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${monthlyRows.map(row => `
-                <tr>
-                  <td>${row.label}</td>
-                  <td class="income">${formatCurrency(row.income)}</td>
-                  <td class="expense">${formatCurrency(row.expense)}</td>
-                  <td class="${Number(row.closing) >= 0 ? 'income' : 'expense'}">${formatCurrency(row.closing)}</td>
-                </tr>
-              `).join('') || '<tr><td colspan="4">אין נתונים להצגה</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="status-toggle-row">
-        <button type="button" class="status-toggle-card income ${state.statusIncomeOpen ? 'active' : ''}" data-status-toggle="income">
-          קבוצות הכנסות · ${formatServerCurrency(totals.totalIncome)}
-          <span class="status-chevron">${state.statusIncomeOpen ? '▾' : '▸'}</span>
-        </button>
-        <button type="button" class="status-toggle-card expense ${state.statusExpenseOpen ? 'active' : ''}" data-status-toggle="expense">
-          קבוצות הוצאות · ${formatServerCurrency(totals.totalExpense)}
-          <span class="status-chevron">${state.statusExpenseOpen ? '▾' : '▸'}</span>
-        </button>
-      </div>
-
-      <div class="status-detail-wrap">
-        ${state.statusIncomeOpen ? renderStatusMonthAccordion(incomeRows, 'income', 'אין הכנסות להצגה בטווח הנבחר.') : ''}
-        ${state.statusExpenseOpen ? renderStatusMonthAccordion(expenseRows, 'expense', 'אין הוצאות להצגה בטווח הנבחר.') : ''}
-      </div>
-    `;
-  }
-
   function renderExpensesSheet() {
     const rows = state.payload?.expensesSheetRows || [];
     const filtered = getFilteredExpenseRows();
     const totals = getSummaryTotalsForView();
     const lists = getReferenceLists();
-    const categoryOptions = [...new Set(lists.categoryPairs.map(pair => String(pair.category || '').trim()).filter(Boolean))];
+    const pairs = lists.categorySubcategoryPairs || [];
+    const rowCats = [...new Set(rows.map(r => String(r.category || '').trim()).filter(Boolean))];
+    const categoryOptions = [...new Set([...(lists.expenseCategories || []), ...rowCats])].sort();
 
     expensesPanel.innerHTML = `
       <div class="panel-title-row">
@@ -953,7 +593,7 @@
           <div class="forms-grid" style="margin-bottom:16px;">
             <section class="mini-panel">
               <h3>הוספת הוצאה חדשה</h3>
-              <p>שדות קטגוריה/פירוט כרשימות נפתחות בלבד, עם תאריך מלוח שנה.</p>
+              <p>קטגוריה ותת קטגוריה מרשימה סגורה (גיליון רשימות). פרטים — טקסט חופשי בלבד.</p>
               <form id="expense-form" class="form-grid">
                 <div class="field">
                   <label>תאריך</label>
@@ -962,16 +602,17 @@
                 <div class="field">
                   <label>קטגוריה</label>
                   <select id="category-input">
-                    <option value="">בחר קטגוריה</option>
+                    <option value="">בחר קטגוריה (אופציונלי)</option>
                     ${categoryOptions.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join('')}
                   </select>
                 </div>
                 <div class="field">
-                  <label>פירוט</label>
-                  <select id="detail-input">
-                    <option value="">בחר פירוט</option>
-                    ${lists.details.map(detail => `<option value="${escapeHtml(detail)}">${escapeHtml(detail)}</option>`).join('')}
-                  </select>
+                  <label>תת קטגוריה</label>
+                  ${buildExpenseSubcategorySelectHtml('', '', '', pairs, true)}
+                </div>
+                <div class="field">
+                  <label>פרטים</label>
+                  <input id="expense-details-input" type="text" placeholder="טקסט חופשי (אופציונלי)" autocomplete="off">
                 </div>
                 <div class="field">
                   <label>סכום</label>
@@ -997,10 +638,11 @@
                 <colgroup>
                   <col style="width: 90px;">
                   <col style="width: 80px;">
-                  <col style="width: 150px;">
-                  <col style="width: 220px;">
-                  <col style="width: 150px;">
-                  <col style="width: 110px;">
+                  <col style="width: 140px;">
+                  <col style="width: 140px;">
+                  <col style="width: 180px;">
+                  <col style="width: 120px;">
+                  <col style="width: 100px;">
                   <col style="width: 90px;">
                 </colgroup>
                 <thead>
@@ -1008,7 +650,8 @@
                     <th>חודש</th>
                     <th>יום</th>
                     <th>קטגוריה</th>
-                    <th>פירוט</th>
+                    <th>תת קטגוריה</th>
+                    <th>פרטים</th>
                     <th>קבוצה</th>
                     <th>סכום</th>
                     <th>פעולות</th>
@@ -1025,13 +668,15 @@
                       <td><input type="number" value="${escapeAttr(row.day)}" data-id="${row.id}" data-field="day"></td>
                       <td>
                         <select data-id="${row.id}" data-field="category" class="expense-category-select">
+                          <option value="" ${!String(row.category || '').trim() ? 'selected' : ''}>${escapeHtml('—')}</option>
                           ${categoryOptions.map(category => `<option value="${escapeHtml(category)}" ${String(row.category || '') === category ? 'selected' : ''}>${escapeHtml(category)}</option>`).join('')}
                         </select>
                       </td>
                       <td>
-                        <select data-id="${row.id}" data-field="detail" class="expense-detail-select">
-                          ${lists.details.map(detail => `<option value="${escapeHtml(detail)}" ${String(row.detail || '') === detail ? 'selected' : ''}>${escapeHtml(detail)}</option>`).join('')}
-                        </select>
+                        ${buildExpenseSubcategorySelectHtml(row.id, row.category, row.subcategory, pairs, false)}
+                      </td>
+                      <td>
+                        <input type="text" value="${escapeAttr(row.detail || '')}" data-id="${row.id}" data-field="detail" placeholder="פרטים" autocomplete="off">
                       </td>
                       <td>${escapeHtml(row.group || '')}</td>
                       <td><input type="text" inputmode="numeric" class="amount-text" value="${escapeAttr(formatNumber(row.amount || 0))}" data-id="${row.id}" data-field="amount"></td>
@@ -1040,7 +685,7 @@
                         <button class="icon-btn icon-btn-expense" data-action="delete-expense-row" data-id="${row.id}" type="button">🗑️</button>
                       </td>
                     </tr>
-                  `).join('') || '<tr><td colspan="7">לא נמצאו הוצאות להצגה</td></tr>'}
+                  `).join('') || '<tr><td colspan="8">לא נמצאו הוצאות להצגה</td></tr>'}
                 </tbody>
               </table>
             </div>
@@ -1181,15 +826,48 @@
 
   function renderFlow() {
     const selectedMonth = getSelectedMonth();
+    const monthlyRows = getFilteredMonthlyRows();
     const rows = (state.payload?.cashflowDays || []).filter(
       row => !selectedMonth || Number(row.month) === selectedMonth
     );
+    const todayLabel = formatFlowDateLabel(new Date());
 
     flowPanel.innerHTML = `
       <div class="panel-title-row">
         <div>
           <h2>תזרים מזומנים</h2>
           <div class="panel-subtext">התצוגה מחושבת מנתוני ההכנסות וההוצאות בגיליונות המקור.</div>
+        </div>
+      </div>
+
+      <div class="table-shell">
+        <div class="table-wrap table-wrap--main">
+          <table class="summary-table status-table">
+            <colgroup>
+              <col style="width: 96px;">
+              <col style="width: 90px;">
+              <col style="width: 90px;">
+              <col style="width: 90px;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>חודש</th>
+                <th>הכנסות</th>
+                <th>הוצאות</th>
+                <th>יתרה</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${monthlyRows.map(row => `
+                <tr>
+                  <td>${row.label}</td>
+                  <td class="income">${formatCurrency(row.income)}</td>
+                  <td class="expense">${formatCurrency(row.expense)}</td>
+                  <td class="${Number(row.closing) >= 0 ? 'income' : 'expense'}">${formatCurrency(row.closing)}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="4">אין נתונים להצגה</td></tr>'}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -1226,17 +904,23 @@
                 const expenseHint = hasExpenseDetail ? '−' : '';
                 const sanitizedIncome = sanitizeFlowDetail(incomeDetail);
                 const sanitizedExpense = sanitizeFlowDetail(expenseDetail);
+                const balanceNum = readServerNumber(row.balance);
+                const balanceNegClass =
+                  balanceNum !== null && balanceNum < 0 ? ' flow-bank-balance--negative' : '';
+                const isTodayRow = String(row.date || '').trim() === todayLabel;
+                const todayMainClass = isTodayRow ? ' flow-main-row--today' : '';
+                const todayDetailClass = isTodayRow ? ' flow-detail-row--today' : '';
 
                 return `
-                  <tr class="flow-main-row ${isOpen ? 'open' : ''}" data-flow-row="${escapeAttr(key)}">
+                  <tr class="flow-main-row ${isOpen ? 'open' : ''}${todayMainClass}" data-flow-row="${escapeAttr(key)}">
                     <td>${escapeHtml(row.date || '')}</td>
                     <td class="flow-hint-cell">${incomeHint}</td>
                     <td class="income">${formatServerCurrency(row.incomeAmount)}</td>
                     <td class="flow-hint-cell">${expenseHint}</td>
                     <td class="expense">${formatServerCurrency(row.expenseAmount)}</td>
-                    <td>${formatServerCurrency(row.balance)}</td>
+                    <td class="flow-bank-balance${balanceNegClass}">${formatServerCurrency(row.balance)}</td>
                   </tr>
-                  <tr class="flow-detail-row ${isOpen ? 'open' : ''}">
+                  <tr class="flow-detail-row ${isOpen ? 'open' : ''}${todayDetailClass}">
                     <td colspan="6">
                       <div class="flow-detail-box">
                         ${hasIncomeDetail ? `<div class="flow-detail-item income">${escapeHtml(sanitizedIncome)} (${formatServerCurrency(row.incomeAmount)})</div>` : ''}
@@ -1262,18 +946,15 @@
 
 
   function renderAll() {
+    const validViews = { all: true, flow: true, 'incomes-sheet': true, 'expenses-sheet': true };
+    if (!validViews[state.activeView]) state.activeView = 'all';
+
     buildTabs();
     renderHero();
 
-    [summaryPanel, expensesPanel, incomesPanel, flowPanel, statusPanel].forEach(panel => {
-      panel.hidden = true;
+    [summaryPanel, expensesPanel, incomesPanel, flowPanel].forEach(panel => {
+      if (panel) panel.hidden = true;
     });
-
-    if (state.activeView === 'status') {
-      renderStatus();
-      statusPanel.hidden = false;
-      return;
-    }
 
     if (state.activeView === 'expenses-sheet') {
       renderExpensesSheet();
@@ -1298,8 +979,8 @@
   }
 
   function showLoadError(err) {
-    [summaryPanel, expensesPanel, incomesPanel, flowPanel, statusPanel].forEach(panel => {
-      panel.hidden = true;
+    [summaryPanel, expensesPanel, incomesPanel, flowPanel].forEach(panel => {
+      if (panel) panel.hidden = true;
     });
 
     summaryPanel.hidden = false;
@@ -1404,37 +1085,6 @@
       return;
     }
 
-    const statusToggleBtn = event.target.closest('[data-status-toggle]');
-    if (statusToggleBtn) {
-      const type = statusToggleBtn.dataset.statusToggle;
-      if (type === 'income') {
-        state.statusIncomeOpen = !state.statusIncomeOpen;
-        if (state.statusIncomeOpen && !state.statusIncomeMonthOpen) {
-          state.statusIncomeMonthOpen = getAvailableMonths()[0] || null;
-        }
-      } else {
-        state.statusExpenseOpen = !state.statusExpenseOpen;
-        if (state.statusExpenseOpen && !state.statusExpenseMonthOpen) {
-          state.statusExpenseMonthOpen = getAvailableMonths()[0] || null;
-        }
-      }
-      renderStatus();
-      return;
-    }
-
-    const statusMonthBtn = event.target.closest('[data-status-month][data-status-type]');
-    if (statusMonthBtn) {
-      const month = Number(statusMonthBtn.dataset.statusMonth);
-      const type = statusMonthBtn.dataset.statusType;
-      if (type === 'income') {
-        state.statusIncomeMonthOpen = Number(state.statusIncomeMonthOpen) === month ? null : month;
-      } else {
-        state.statusExpenseMonthOpen = Number(state.statusExpenseMonthOpen) === month ? null : month;
-      }
-      renderStatus();
-      return;
-    }
-
     const actionBtn = event.target.closest('[data-action]');
     if (!actionBtn) return;
 
@@ -1525,22 +1175,36 @@
 
     if (event.target.id === 'category-input') {
       const selected = event.target.value;
-      const detailInput = document.getElementById('detail-input');
+      const subInput = document.getElementById('subcategory-input');
       const lists = getReferenceLists();
-      const matched = lists.categoryPairs.find(pair => String(pair.category || '') === String(selected));
-      if (detailInput && matched && matched.detail) {
-        detailInput.value = matched.detail;
+      const pairs = lists.categorySubcategoryPairs || [];
+      if (subInput) {
+        const opts = getSubcategoriesForCategory(selected, pairs);
+        const prev = subInput.value;
+        const keep = opts.includes(prev) ? prev : '';
+        subInput.innerHTML = `
+          <option value="">${escapeHtml('תת קטגוריה (אופציונלי)')}</option>
+          ${opts.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join('')}
+        `;
+        subInput.value = keep;
       }
     }
 
     if (event.target.classList.contains('expense-category-select')) {
       const rowId = event.target.dataset.id;
       const selected = event.target.value;
-      const detailSelect = document.querySelector(`.expense-detail-select[data-id="${rowId}"]`);
+      const subSel = document.querySelector(`.expense-subcategory-select[data-id="${rowId}"]`);
       const lists = getReferenceLists();
-      const matched = lists.categoryPairs.find(pair => String(pair.category || '') === String(selected));
-      if (detailSelect && matched && matched.detail) {
-        detailSelect.value = matched.detail;
+      const pairs = lists.categorySubcategoryPairs || [];
+      if (subSel) {
+        const opts = getSubcategoriesForCategory(selected, pairs);
+        const prev = subSel.value;
+        const keep = opts.includes(prev) ? prev : '';
+        subSel.innerHTML = `
+          <option value="">${escapeHtml('—')}</option>
+          ${opts.map(s => `<option value="${escapeAttr(s)}">${escapeHtml(s)}</option>`).join('')}
+        `;
+        subSel.value = keep;
       }
     }
 
@@ -1549,17 +1213,18 @@
     }
   });
 
-  document.body.addEventListener('toggle', event => {
-    const toolbox = event.target;
-    if (!toolbox || !toolbox.matches('details[data-toolbox]')) return;
-    const type = toolbox.dataset.toolbox;
-    if (type === 'expense') {
-      state.expenseToolboxOpen = toolbox.open;
-    }
-    if (type === 'income') {
-      state.incomeToolboxOpen = toolbox.open;
-    }
-  });
+ document.addEventListener('toggle', event => {
+  const toolbox = event.target;
+  if (!toolbox || !toolbox.matches || !toolbox.matches('details[data-toolbox]')) return;
+
+  const type = toolbox.dataset.toolbox;
+  if (type === 'expense') {
+    state.expenseToolboxOpen = toolbox.open;
+  }
+  if (type === 'income') {
+    state.incomeToolboxOpen = toolbox.open;
+  }
+}, true);
 
   document.body.addEventListener('submit', event => {
     if (event.target.id === 'expense-form') {
@@ -1573,7 +1238,8 @@
         month: dateObj ? (dateObj.getMonth() + 1) : fallbackMonth,
         day: dateObj ? dateObj.getDate() : '',
         category: event.target.querySelector('#category-input').value,
-        detail: event.target.querySelector('#detail-input').value,
+        subcategory: (event.target.querySelector('#subcategory-input') || {}).value || '',
+        detail: (event.target.querySelector('#expense-details-input') || {}).value || '',
         amount: event.target.querySelector('#amount-input').value
       };
 
