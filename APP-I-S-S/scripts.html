@@ -684,17 +684,22 @@
   function renderSummary() {
     const rows = getFilteredMonthlyRows();
     const selectedMonth = getSelectedMonth();
+    const allWeekly = Array.isArray(state.payload?.weekly) ? state.payload.weekly : [];
     const weekly = selectedMonth
-      ? (state.payload?.weekly || []).filter(item => Number(item.month) === selectedMonth)
-      : [];
+      ? allWeekly.filter(item => Number(item.month) === selectedMonth)
+      : allWeekly;
     const totals = getSummaryTotalsForView();
+    const weeklyTitle = selectedMonth
+      ? `סיכום שבועי · ${monthLabel(selectedMonth)}`
+      : 'סיכום שבועי שנתי';
 
     const weeklySection = weekly.length ? `
       <div style="display:flex; justify-content:center; margin: 6px 0 18px; width:100%;">
         <div style="width:100%; max-width:760px;">
+          <div class="panel-subtext" style="text-align:center; margin-bottom:8px;">${weeklyTitle}</div>
           <div class="weekly-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 220px)); gap:12px; justify-content:center;">
             ${weekly.map((item, index) => {
-              const key = `${selectedMonth}-${item.week || index + 1}`;
+              const key = String(item.key || `${item.month || 'all'}-${item.week || index + 1}`);
               const isOpen = state.openWeekKey === key;
               return `
                 <button class="week-card ${isOpen ? 'open' : ''}" data-week-key="${key}" type="button" style="text-align:center; min-height:120px; display:grid; gap:6px; align-content:start;">
@@ -709,7 +714,11 @@
           </div>
         </div>
       </div>
-    ` : '';
+    ` : `
+      <div class="empty-state" style="margin-bottom:18px;">
+        אין נתוני שבועות להצגה בטווח הנבחר.
+      </div>
+    `;
 
     summaryPanel.innerHTML = `
       <div class="panel-title-row">
@@ -1087,7 +1096,7 @@
       <div class="panel-title-row">
         <div>
           <h2>תזרים מזומנים</h2>
-          <div class="panel-subtext">התצוגה מבוססת ישירות על גיליון תזרים, ללא חישובים נוספים.</div>
+          <div class="panel-subtext">התצוגה מחושבת מנתוני ההכנסות וההוצאות בגיליונות המקור.</div>
         </div>
       </div>
 
@@ -1141,7 +1150,7 @@
                     </td>
                   </tr>
                 `;
-              }).join('') || '<tr><td colspan="6"></td></tr>'}
+              }).join('') || '<tr><td colspan="6">אין נתוני תזרים בטווח הנבחר</td></tr>'}
             </tbody>
           </table>
         </div>

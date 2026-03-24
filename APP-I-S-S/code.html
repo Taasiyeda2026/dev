@@ -49,7 +49,8 @@ function getDashboardData() {
 
     // עיבוד הנתונים לתצוגה
     const monthlySummary = buildMonthlySummaryFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
-    const cashflowDays = buildCashflowDaysFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance);
+    const cashflowDays = buildCashflowDaysFromRaw_(months, expensesSheetRows, incomesSheetRows, settings.openingBalance, settings.workYear);
+    const weekly = buildWeeklyFromCashflow_(cashflowDays);
     
     const totalIncome = monthlySummary.reduce((sum, r) => sum + (Number(r.income) || 0), 0);
     const totalExpense = monthlySummary.reduce((sum, r) => sum + (Number(r.expense) || 0), 0);
@@ -65,10 +66,15 @@ function getDashboardData() {
       closingBalance: closingBalance,
       monthlySummary: monthlySummary,
       cashflowDays: cashflowDays,
+      weekly: weekly,
       expensesSheetRows: expensesSheetRows,
       incomesSheetRows: incomesSheetRows,
       startMonth: settings.startMonth,
-      endMonth: settings.endMonth
+      endMonth: settings.endMonth,
+      metadata: {
+        cashflowSource: 'derived-from-income-expense-sheets',
+        generatedAt: new Date().toISOString()
+      }
     };
   } catch (e) {
     throw new Error("שגיאה בעיבוד הנתונים: " + e.message);
@@ -169,16 +175,141 @@ function buildMonthlySummaryFromRaw_(months, expenses, incomes, openingBalance) 
       label: MONTH_LABELS[m],
       income: monthIncome,
       expense: monthExpense,
-      closing: closing
+      closing: closing,
+      balance: closing
     };
     currentBalance = closing;
     return row;
   });
 }
 
-function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance) {
-  // פונקציית תזרים בסיסית - ניתן להרחיב לפי הצורך
-  return []; 
+function buildCashflowDaysFromRaw_(months, expenses, incomes, openingBalance, workYear) {
+  const allowedMonths = new Set((months || []).map(Number));
+  const year = Number(workYear) || new Date().getFullYear();
+  const byDay = new Map();
+
+  (incomes || []).forEach(inc => {
+    const month = toMonthNumber_(inc.month);
+    if (!month || !allowedMonths.has(month)) return;
+
+    const dateObj = parseDateFromIncome_(inc, year, month);
+    if (!dateObj) return;
+
+    const key = toIsoDateKey_(dateObj);
+    if (!byDay.has(key)) {
+      byDay.set(key, createEmptyFlowDay_(key, month, dateObj));
+    }
+    const day = byDay.get(key);
+    const amount = toNumber_(inc.amount);
+    if (!amount) return;
+
+    day.incomeAmount += amount;
+    if (inc.detail) day.incomeDescParts.push(normalizeText_(inc.detail));
+  });
+
+  (expenses || []).forEach(exp => {
+    const month = toMonthNumber_(exp.month);
+    if (!month || !allowedMonths.has(month)) return;
+
+    const dayNumber = Number(exp.day);
+    if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 31) return;
+    const dateObj = new Date(year, month - 1, dayNumber);
+    if (dateObj.getMonth() + 1 !== month) return;
+
+    const key = toIsoDateKey_(dateObj);
+    if (!byDay.has(key)) {
+      byDay.set(key, createEmptyFlowDay_(key, month, dateObj));
+    }
+    const day = byDay.get(key);
+    const amount = toNumber_(exp.amount);
+    if (!amount) return;
+
+    day.expenseAmount += amount;
+    const detailText = normalizeText_(exp.detail || exp.category || '');
+    if (detailText) day.expenseDescParts.push(detailText);
+  });
+
+  const sorted = [...byDay.values()].sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  let runningBalance = toNumber_(openingBalance);
+
+  return sorted.map((row, index) => {
+    runningBalance += row.incomeAmount - row.expenseAmount;
+    return {
+      id: `flow-${index + 1}`,
+      date: formatDateLabel_(row.dateObj),
+      month: row.month,
+      incomeDesc: dedupeAndJoin_(row.incomeDescParts),
+      incomeAmount: row.incomeAmount,
+      expenseDesc: dedupeAndJoin_(row.expenseDescParts),
+      expenseAmount: row.expenseAmount,
+      balance: runningBalance
+    };
+  });
+}
+
+function buildWeeklyFromCashflow_(cashflowDays) {
+  const byWeek = new Map();
+
+  (cashflowDays || []).forEach(day => {
+    const month = toMonthNumber_(day.month);
+    const dateParts = parseDateLabel_(day.date);
+    if (!month || !dateParts) return;
+
+    const week = Math.floor((dateParts.day - 1) / 7) + 1;
+    const key = `${month}-w${week}`;
+    if (!byWeek.has(key)) {
+      byWeek.set(key, {
+        key: key,
+        month: month,
+        week: week,
+        startDay: dateParts.day,
+        endDay: dateParts.day,
+        startDate: day.date,
+        endDate: day.date,
+        income: 0,
+        expense: 0,
+        details: []
+      });
+    }
+
+    const weekItem = byWeek.get(key);
+    weekItem.startDay = Math.min(weekItem.startDay, dateParts.day);
+    weekItem.endDay = Math.max(weekItem.endDay, dateParts.day);
+    if (dateParts.day <= weekItem.startDay) weekItem.startDate = day.date;
+    if (dateParts.day >= weekItem.endDay) weekItem.endDate = day.date;
+    weekItem.income += toNumber_(day.incomeAmount);
+    weekItem.expense += toNumber_(day.expenseAmount);
+
+    if (day.incomeDesc) {
+      weekItem.details.push({
+        date: day.date,
+        type: 'income',
+        detail: day.incomeDesc,
+        amount: toNumber_(day.incomeAmount)
+      });
+    }
+    if (day.expenseDesc) {
+      weekItem.details.push({
+        date: day.date,
+        type: 'expense',
+        detail: day.expenseDesc,
+        amount: toNumber_(day.expenseAmount)
+      });
+    }
+  });
+
+  return [...byWeek.values()]
+    .sort((a, b) => (a.month - b.month) || (a.week - b.week))
+    .map(item => ({
+      key: item.key,
+      month: item.month,
+      week: item.week,
+      label: `שבוע ${item.week}`,
+      range: `${item.startDate} - ${item.endDate}`,
+      income: item.income,
+      expense: item.expense,
+      details: item.details
+    }));
 }
 
 function buildMonthRange_(start, end) {
@@ -221,4 +352,84 @@ function deleteIncomeRow(id) {
   const rowIdx = parseInt(id.split('-')[1]);
   getRequiredSheet_(SHEET_NAMES.incomes).deleteRow(rowIdx);
   return { ok: true };
+}
+
+function createEmptyFlowDay_(key, month, dateObj) {
+  return {
+    sortKey: key,
+    month: month,
+    dateObj: dateObj,
+    incomeAmount: 0,
+    expenseAmount: 0,
+    incomeDescParts: [],
+    expenseDescParts: []
+  };
+}
+
+function toNumber_(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function toMonthNumber_(value) {
+  const month = Number(value);
+  return Number.isFinite(month) && month >= 1 && month <= 12 ? month : null;
+}
+
+function parseDateFromIncome_(incomeRow, fallbackYear, fallbackMonth) {
+  if (incomeRow && incomeRow.dueDateISO) {
+    const date = new Date(incomeRow.dueDateISO);
+    if (!isNaN(date.getTime())) return date;
+  }
+
+  if (incomeRow && incomeRow.dueDateLabel) {
+    const parts = String(incomeRow.dueDateLabel).split('/');
+    if (parts.length === 3) {
+      const day = Number(parts[0]);
+      const month = Number(parts[1]);
+      const year = Number(parts[2]);
+      const date = new Date(year, month - 1, day);
+      if (!isNaN(date.getTime())) return date;
+    }
+  }
+
+  const date = new Date(fallbackYear, fallbackMonth - 1, 1);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+function toIsoDateKey_(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDateLabel_(date) {
+  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const y = date.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+
+function normalizeText_(value) {
+  return String(value || '')
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function dedupeAndJoin_(list) {
+  const cleaned = (list || []).map(normalizeText_).filter(Boolean);
+  const unique = [...new Set(cleaned)];
+  return unique.join(', ');
+}
+
+function parseDateLabel_(label) {
+  const match = String(label || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  return {
+    day: Number(match[1]),
+    month: Number(match[2]),
+    year: Number(match[3])
+  };
 }
