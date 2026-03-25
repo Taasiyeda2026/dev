@@ -895,12 +895,26 @@
   }
 
   function renderFlow() {
-    const selectedMonth = getSelectedMonth();
-    const monthlyRows = getFilteredMonthlyRows();
-    const rows = (state.payload?.cashflowDays || []).filter(
-      row => !selectedMonth || Number(row.month) === selectedMonth
-    );
-    const todayLabel = formatFlowDateLabel(new Date());
+const selectedMonth = getSelectedMonth();
+const monthlyRows = getFilteredMonthlyRows();
+const todayLabel = formatFlowDateLabel(new Date());
+
+const rows = (state.payload?.cashflowDays || []).filter(
+  row => !selectedMonth || Number(row.month) === selectedMonth
+);
+
+const visibleRows = rows.filter(row => {
+  const incomeAmount = readServerNumber(row.incomeAmount);
+  const expenseAmount = readServerNumber(row.expenseAmount);
+  const isTodayRow = String(row.date || '').trim() === todayLabel;
+
+  return (
+    isTodayRow ||
+    (incomeAmount !== null && incomeAmount !== 0) ||
+    (expenseAmount !== null && expenseAmount !== 0)
+  );
+});
+
     const summaryDetail = state.payload?.summaryDetailTables;
     const expandBtnChar = state.flowSummaryDetailOpen ? '−' : '+';
 
@@ -972,7 +986,7 @@
               </tr>
             </thead>
             <tbody>
-              ${rows.map((row, index) => {
+              ${visibleRows.map((row, index) => {
                 const key = String(row.id || row.rowId || `${row.date || ''}-${index}`);
                 const incomeDetail = String(row.incomeDesc || '').trim();
                 const expenseDetail = String(row.expenseDesc || '').trim();
