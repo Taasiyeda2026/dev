@@ -21,8 +21,8 @@
     payload: null,
     expenseSearch: '',
     incomeSearch: '',
-    expenseFilter: 'all',
-    incomeFilter: 'all',
+    expenseFilter: [],
+    incomeFilter: [],
     expenseMonths: [],
     incomeMonths: [],
     showMonthPicker: false,
@@ -264,7 +264,7 @@
     return rows.filter(row => {
       const matchMonth = !selectedMonths.length || selectedMonths.includes(Number(row.month));
       const matchFilter =
-        state.expenseFilter === 'all' || String(row.category || '') === state.expenseFilter;
+        !state.expenseFilter.length || state.expenseFilter.includes(String(row.category || ''));
       const haystack = `${row.group || ''} ${row.category || ''} ${row.subcategory || ''} ${row.detail || ''} ${row.day || ''} ${row.month || ''}`.toLowerCase();
       const matchSearch = !search || haystack.includes(search);
 
@@ -283,7 +283,7 @@
       const dueMonth = getIncomeMonthNumber(row);
       const matchMonth = !selectedMonths.length || selectedMonths.includes(dueMonth) || selectedMonths.includes(Number(row.month));
       const matchFilter =
-        state.incomeFilter === 'all' || String(row.fund || '') === state.incomeFilter;
+        !state.incomeFilter.length || state.incomeFilter.includes(String(row.fund || ''));
       const haystack = `${row.account || ''} ${row.fund || ''} ${row.detail || ''} ${row.notes || ''} ${row.dueDateLabel || ''}`.toLowerCase();
       const matchSearch = !search || haystack.includes(search);
 
@@ -293,10 +293,10 @@
 
   function shouldShowPlainTotals(type) {
     if (type === 'expense') {
-      return !state.expenseSearch.trim() && state.expenseFilter === 'all';
+      return !state.expenseSearch.trim() && !state.expenseFilter.length;
     }
     if (type === 'income') {
-      return !state.incomeSearch.trim() && state.incomeFilter === 'all';
+      return !state.incomeSearch.trim() && !state.incomeFilter.length;
     }
     return true;
   }
@@ -307,10 +307,9 @@
     const fromRows = [...new Set(rows.map(row => String(row.category || '').trim()).filter(Boolean))];
     const categories = [...new Set([...fromSheet, ...fromRows])].sort();
 
-    return [
-      '<option value="all">כל הקטגוריות</option>',
-      ...categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`)
-    ].join('');
+    return categories.map(category =>
+      `<option value="${escapeHtml(category)}" ${state.expenseFilter.includes(category) ? 'selected' : ''}>${escapeHtml(category)}</option>`
+    ).join('');
   }
 
   function buildExpenseSubcategorySelectHtml(rowId, category, currentSubcategory, pairs, isAddForm) {
@@ -334,10 +333,9 @@
       ...new Set(rows.map(row => String(row.fund || '').trim()).filter(Boolean))
     ].sort();
 
-    return [
-      '<option value="all">כל מקורות המימון</option>',
-      ...funds.map(fund => `<option value="${escapeHtml(fund)}">${escapeHtml(fund)}</option>`)
-    ].join('');
+    return funds.map(fund =>
+      `<option value="${escapeHtml(fund)}" ${state.incomeFilter.includes(fund) ? 'selected' : ''}>${escapeHtml(fund)}</option>`
+    ).join('');
   }
 
   function normalizeCategorySubcategoryPairs(source) {
@@ -605,7 +603,7 @@
 
       <div class="toolbar">
         <input class="search-box" id="expense-search" type="search" placeholder="חיפוש בהוצאות..." value="${escapeHtml(state.expenseSearch)}">
-        <select class="filter-select" id="expense-filter">${buildExpenseCategoryOptions(rows)}</select>
+        <select class="filter-select filter-select--multi" id="expense-filter" multiple>${buildExpenseCategoryOptions(rows)}</select>
       </div>
 
       <details class="toolbox-card toolbox-card--compact" data-toolbox="expense" ${state.expenseToolboxOpen ? 'open' : ''}>
@@ -715,10 +713,6 @@
       </details>
     `;
 
-    const expenseFilterEl = document.getElementById('expense-filter');
-    if (expenseFilterEl) {
-      expenseFilterEl.value = state.expenseFilter;
-    }
   }
 
   function renderIncomesSheet() {
@@ -737,7 +731,7 @@
 
       <div class="toolbar">
         <input class="search-box" id="income-search" type="search" placeholder="חיפוש בהכנסות..." value="${escapeHtml(state.incomeSearch)}">
-        <select class="filter-select" id="income-filter">${buildIncomeFundOptions(rows)}</select>
+        <select class="filter-select filter-select--multi" id="income-filter" multiple>${buildIncomeFundOptions(rows)}</select>
       </div>
 
       <details class="toolbox-card toolbox-card--compact" data-toolbox="income" ${state.incomeToolboxOpen ? 'open' : ''}>
@@ -839,10 +833,6 @@
       </details>
     `;
 
-    const incomeFilterEl = document.getElementById('income-filter');
-    if (incomeFilterEl) {
-      incomeFilterEl.value = state.incomeFilter;
-    }
   }
 
   function isSummarySheetTotalRowLabel(label) {
@@ -1280,12 +1270,12 @@ const visibleRows = rows.filter(row => {
 
   document.body.addEventListener('change', event => {
     if (event.target.id === 'expense-filter') {
-      state.expenseFilter = event.target.value;
+      state.expenseFilter = [...event.target.selectedOptions].map(opt => opt.value);
       renderExpensesSheet();
     }
 
     if (event.target.id === 'income-filter') {
-      state.incomeFilter = event.target.value;
+      state.incomeFilter = [...event.target.selectedOptions].map(opt => opt.value);
       renderIncomesSheet();
     }
 
