@@ -35,15 +35,15 @@
           showLoading(false);
 
           if (!result || !result.success) {
-            setError((result && result.message) || 'טעינת הדשבורד נכשלה.');
+            setError(formatServerError(result && (result.error || result.message || result), 'טעינת הדשבורד נכשלה.'));
             return;
           }
 
           renderDashboard(result.dashboard);
         })
-        .withFailureHandler(function () {
+        .withFailureHandler(function (err) {
           showLoading(false);
-          setError('אירעה שגיאה בטעינת הדשבורד.');
+          setError(formatServerError(err, 'אירעה שגיאה בטעינת הדשבורד.'));
         })
         .getDashboardDataAction();
     }
@@ -102,6 +102,32 @@
       if (!el) return;
       el.style.display = isLoading ? 'block' : 'none';
     }
+
+
+    function formatServerError(err, fallback) {
+      if (UtilsLike.isEmpty(err)) return fallback;
+
+      if (typeof err === 'string') return err;
+
+      if (err && typeof err.message === 'string' && err.message) {
+        var details = [];
+        if (err.name) details.push('סוג: ' + err.name);
+        if (err.stack) details.push('Stack: ' + err.stack);
+        return [err.message].concat(details).join('\n');
+      }
+
+      try {
+        return JSON.stringify(err, null, 2);
+      } catch (jsonErr) {
+        return String(err);
+      }
+    }
+
+    var UtilsLike = {
+      isEmpty: function (v) {
+        return v === null || v === undefined || v === '';
+      }
+    };
 
     function setError(msg) {
       var el = document.getElementById('dashboard-error');

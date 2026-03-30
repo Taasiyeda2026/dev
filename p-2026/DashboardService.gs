@@ -5,14 +5,14 @@ var DashboardService = (function () {
         return { success: false, message: 'אין התחברות פעילה. יש להתחבר מחדש.' };
       }
 
-      var dataMaster = SheetService.getRecords(CONFIG.SHEETS.DATA_MASTER, true);
+      var dataMaster = SheetService.getRecords(CONFIG.SHEETS.DATA_MASTER, true, { headerRow: 1, dataStartRow: 3 });
       var headers = dataMaster.headers;
       var idx = SheetService.resolveFieldIndexes(headers, CONFIG.FIELD_ALIASES);
 
       var dateColumnIndexes = findDateColumnIndexes(headers);
       var summary = buildSummary(dataMaster.rows, idx, dateColumnIndexes);
 
-      var reviewCount = SheetService.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED);
+      var reviewCount = SheetService.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED, { headerRow: 1, dataStartRow: 3 });
       var pendingEdits = SheetService.hasSheet(CONFIG.SHEETS.EDIT_REQUESTS)
         ? SheetService.countDataRows(CONFIG.SHEETS.EDIT_REQUESTS)
         : null;
@@ -35,7 +35,7 @@ var DashboardService = (function () {
       return {
         success: true,
         dashboard: {
-          generatedAt: new Date(),
+          generatedAt: new Date().toISOString(),
           userProfile: userProfile,
           kpis: kpis,
           summary: {
