@@ -13,11 +13,13 @@
       setMessage('login-error', '');
       setMessage('login-success', '');
       loginBtn.disabled = true;
+      loginBtn.classList.add('is-loading');
       loginBtn.textContent = 'מתחבר...';
 
       google.script.run
         .withSuccessHandler(function (result) {
           loginBtn.disabled = false;
+          loginBtn.classList.remove('is-loading');
           loginBtn.textContent = 'התחבר';
 
           if (!result || !result.success) {
@@ -30,6 +32,7 @@
         })
         .withFailureHandler(function () {
           loginBtn.disabled = false;
+          loginBtn.classList.remove('is-loading');
           loginBtn.textContent = 'התחבר';
           setMessage('login-error', 'אירעה שגיאה בתהליך ההתחברות. נסה שוב.');
         })

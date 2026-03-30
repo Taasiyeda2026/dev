@@ -1,0 +1,21 @@
+<script>
+  (function () {
+    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'mycourses') return;
+
+    setUiState('table');
+
+    function setUiState(state) {
+      var panel = document.getElementById('mycourses-panel');
+      var loading = document.getElementById('mycourses-loading');
+      var error = document.getElementById('mycourses-error');
+      var table = document.getElementById('mycourses-table-wrapper');
+      var empty = document.getElementById('mycourses-empty');
+
+      if (panel) panel.classList.toggle('panel-loading', state === 'loading');
+      if (loading) loading.style.display = state === 'loading' ? 'block' : 'none';
+      if (error) error.style.display = state === 'error' ? 'block' : 'none';
+      if (table) table.style.display = state === 'table' ? 'block' : 'none';
+      if (empty) empty.style.display = state === 'empty' ? 'block' : 'none';
+    }
+  })();
+</script>
