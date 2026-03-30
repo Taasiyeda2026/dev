@@ -1,0 +1,38 @@
+<!doctype html>
+<html dir="rtl" lang="he">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?= pageTitle ?></title>
+    <?!= include('Styles'); ?>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <h1>מערכת ניהול ארצית</h1>
+        <p class="subtitle">שלד ראשוני – Google Apps Script + Google Sheets</p>
+      </div>
+      <div id="user-pill" class="user-pill" style="display:none;"></div>
+    </header>
+
+    <main class="app-main">
+      <section id="view-login" class="view <?!= currentView === 'login' ? 'active' : ''; ?>">
+        <?!= include('Login'); ?>
+      </section>
+
+      <section id="view-dashboard" class="view <?!= currentView === 'dashboard' ? 'active' : ''; ?>">
+        <?!= include('Dashboard'); ?>
+      </section>
+    </main>
+
+    <script>
+      window.APP_BOOT = {
+        currentView: '<?= currentView ?>',
+        userProfile: <?!= JSON.stringify(userProfile || null); ?>
+      };
+    </script>
+
+    <?!= include('LoginScripts'); ?>
+    <?!= include('DashboardScripts'); ?>
+  </body>
+</html>
