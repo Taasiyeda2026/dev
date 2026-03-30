@@ -1214,6 +1214,15 @@ const visibleRows = rows.filter(row => {
               state.expenseMonths = [newMonth];
             }
           }
+          if (type === 'income' && data.dueDate) {
+            const dueParts = String(data.dueDate).match(/^\d{4}-(\d{1,2})-/);
+            if (dueParts) {
+              const newMonth = Number(dueParts[1]);
+              if (newMonth && !state.incomeMonths.includes(newMonth)) {
+                state.incomeMonths = [newMonth];
+              }
+            }
+          }
           setTimeout(loadDashboard, 350);
         })
         .withFailureHandler(err => {

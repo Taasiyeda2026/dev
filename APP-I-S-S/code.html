@@ -669,6 +669,7 @@ function updateRowData(type, data) {
   sheet.getRange(rowIdx, 4).setValue(parseAnyDate_(data.dueDate) || '');
   sheet.getRange(rowIdx, 5).setValue(data.notes || '');
   sheet.getRange(rowIdx, 6).setValue(data.fund || '');
+  SpreadsheetApp.flush();
   return { ok: true };
 }
 
