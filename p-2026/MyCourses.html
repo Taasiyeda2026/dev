@@ -1,33 +1,62 @@
-<section class="card my-courses-card">
-  <div class="dashboard-header-row">
-    <h2>הקורסים שלי</h2>
-    <div class="actions-row">
-      <a class="nav-link-button" href="?view=dashboard">חזרה לדשבורד</a>
-      <button id="my-courses-logout-btn" class="secondary">התנתקות</button>
+<section class="card" id="mycourses-panel">
+  <div class="mycourses-header">
+    <div>
+      <h2 class="card-title">הקורסים שלי</h2>
+      <p class="card-subtitle">תצוגת קורסים אישית בפורמט קריא ומסודר.</p>
+    </div>
+    <div class="dashboard-tools">
+      <button class="btn-secondary" type="button" disabled>רענון</button>
     </div>
   </div>
 
-  <div class="filters-grid">
-    <input id="courses-search" type="text" placeholder="חיפוש חופשי..." />
-    <select id="courses-program-filter">
-      <option value="">כל התוכניות</option>
+  <div class="filters-row" aria-label="אזור חיפוש וסינון">
+    <input id="mycourses-search" type="search" placeholder="חיפוש לפי שם קורס / מזהה" disabled>
+    <select id="mycourses-status" disabled>
+      <option>סטטוס: הכל</option>
     </select>
-    <select id="courses-status-filter">
-      <option value="">כל הסטטוסים</option>
+    <select id="mycourses-district" disabled>
+      <option>מחוז: הכל</option>
     </select>
-    <button id="courses-refresh-btn" type="button">רענון</button>
   </div>
 
-  <div id="my-courses-loading" class="message">טוען קורסים...</div>
-  <div id="my-courses-error" class="message message-error" style="display:none;"></div>
-  <div id="my-courses-info" class="message" style="display:none;"></div>
+  <div id="mycourses-loading" class="message" role="status" aria-live="polite" style="display:none;">טוען נתוני קורסים...</div>
+  <div id="mycourses-error" class="message message-error" style="display:none;">לא ניתן לטעון קורסים כרגע. ניתן לנסות שוב בעוד מספר דקות.</div>
 
-  <div class="table-wrapper">
-    <table class="data-table" id="my-courses-table" style="display:none;">
-      <thead id="my-courses-head"></thead>
-      <tbody id="my-courses-body"></tbody>
-    </table>
+  <div id="mycourses-table-wrapper" class="table-card" aria-live="polite">
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>קורס</th>
+            <th>סטטוס</th>
+            <th>מדריך</th>
+            <th>מתוכנן</th>
+            <th>בוצע</th>
+            <th>פעולות</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>ניהול צוותים</td>
+            <td>פעיל</td>
+            <td>י. כהן</td>
+            <td>40</td>
+            <td>24</td>
+            <td>
+              <div class="table-actions">
+                <button class="btn-link" type="button" disabled>צפייה</button>
+                <button class="btn-secondary" type="button" disabled>פרטים</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <div id="my-courses-empty" class="message" style="display:none;">אין נתונים להצגה.</div>
+  <div id="mycourses-empty" class="empty-state" style="display:none; margin-top:12px;">אין נתונים להצגה כרגע. לאחר טעינה יוצגו כאן הקורסים שלך.</div>
+
+  <div class="helper-row muted">
+    <span>מצבי תצוגה נתמכים: טעינה · שגיאה · ללא נתונים · טבלה מלאה.</span>
+  </div>
 </section>

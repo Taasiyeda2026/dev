@@ -1,25 +1,29 @@
 <section class="card dashboard-card">
   <div class="dashboard-header-row">
-    <h2>דשבורד ניהולי (קריאה בלבד)</h2>
-    <div class="actions-row">
-      <a class="nav-link-button" href="?view=my-courses">הקורסים שלי</a>
+    <div>
+      <h2 class="card-title">דשבורד ניהולי</h2>
+      <p class="card-subtitle">תצוגת מצב מערכת בזמן אמת (קריאה בלבד).</p>
+    </div>
+    <div class="dashboard-tools">
       <button id="logout-btn" class="secondary">התנתקות</button>
     </div>
   </div>
 
-  <div id="dashboard-loading" class="message">טוען נתוני דשבורד...</div>
+  <div id="dashboard-loading" class="message" role="status" aria-live="polite">טוען נתוני דשבורד...</div>
   <div id="dashboard-error" class="message message-error" style="display:none;"></div>
 
   <div id="kpi-grid" class="kpi-grid"></div>
 
-  <section class="summary-box">
-    <h3>סיכום כללי</h3>
-    <ul id="summary-list"></ul>
-  </section>
+  <div class="summary-grid">
+    <section class="summary-box">
+      <h3>סיכום כללי</h3>
+      <ul id="summary-list" class="summary-list"></ul>
+    </section>
 
-  <section class="summary-box">
-    <h3>הערות מערכת</h3>
-    <ul id="assumptions-list"></ul>
-    <ul id="missing-fields-list"></ul>
-  </section>
+    <section class="summary-box">
+      <h3>הערות מערכת</h3>
+      <ul id="assumptions-list" class="notes-list"></ul>
+      <ul id="missing-fields-list" class="notes-list"></ul>
+    </section>
+  </div>
 </section>

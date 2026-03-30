@@ -59,6 +59,11 @@
       var grid = document.getElementById('kpi-grid');
       grid.innerHTML = '';
 
+      if (!kpis.length) {
+        grid.innerHTML = '<div class="empty-state">לא נמצאו מדדים להצגה כרגע.</div>';
+        return;
+      }
+
       kpis.forEach(function (kpi) {
         var card = document.createElement('article');
         card.className = 'kpi-card';
@@ -101,6 +106,8 @@
 
     function showLoading(isLoading) {
       var el = document.getElementById('dashboard-loading');
+      var card = document.querySelector('.dashboard-card');
+      if (card) card.classList.toggle('panel-loading', !!isLoading);
       if (!el) return;
       el.style.display = isLoading ? 'block' : 'none';
     }
