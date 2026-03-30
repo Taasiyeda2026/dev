@@ -42,3 +42,18 @@ function getSessionProfileAction() {
     userProfile: profile
   };
 }
+
+function getMyCoursesDataAction(filters) {
+  var profile = AuthService.getSession();
+  return CoursesService.getMyCoursesData(profile, filters || {});
+}
+
+function getEditFormDataAction(sourceRowNumber) {
+  var profile = AuthService.getSession();
+  return FormService.getEditFormData(profile, sourceRowNumber);
+}
+
+function submitEditRequestAction(payload) {
+  var profile = AuthService.getSession();
+  return FormService.submitEditRequest(profile, payload || {});
+}

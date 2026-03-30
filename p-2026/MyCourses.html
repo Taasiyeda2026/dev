@@ -1,0 +1,33 @@
+<section class="card my-courses-card">
+  <div class="dashboard-header-row">
+    <h2>הקורסים שלי</h2>
+    <div class="actions-row">
+      <a class="nav-link-button" href="?view=dashboard">חזרה לדשבורד</a>
+      <button id="my-courses-logout-btn" class="secondary">התנתקות</button>
+    </div>
+  </div>
+
+  <div class="filters-grid">
+    <input id="courses-search" type="text" placeholder="חיפוש חופשי..." />
+    <select id="courses-program-filter">
+      <option value="">כל התוכניות</option>
+    </select>
+    <select id="courses-status-filter">
+      <option value="">כל הסטטוסים</option>
+    </select>
+    <button id="courses-refresh-btn" type="button">רענון</button>
+  </div>
+
+  <div id="my-courses-loading" class="message">טוען קורסים...</div>
+  <div id="my-courses-error" class="message message-error" style="display:none;"></div>
+  <div id="my-courses-info" class="message" style="display:none;"></div>
+
+  <div class="table-wrapper">
+    <table class="data-table" id="my-courses-table" style="display:none;">
+      <thead id="my-courses-head"></thead>
+      <tbody id="my-courses-body"></tbody>
+    </table>
+  </div>
+
+  <div id="my-courses-empty" class="message" style="display:none;">אין נתונים להצגה.</div>
+</section>

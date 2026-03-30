@@ -42,7 +42,8 @@
   }
 
   .form-grid { display: grid; gap: 10px; max-width: 460px; }
-  input {
+  input,
+  select {
     padding: 10px;
     border-radius: 8px;
     border: 1px solid var(--border);
@@ -108,4 +109,67 @@
   .summary-box { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
   .muted { color: var(--muted); }
   .user-pill { background: #dbeafe; color: #1e3a8a; padding: 8px 12px; border-radius: 999px; font-size: 13px; }
+  .actions-row { display: flex; gap: 8px; align-items: center; }
+  .nav-link-button {
+    background: #0f766e;
+    color: #fff;
+    border-radius: 8px;
+    padding: 10px 14px;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 15px;
+  }
+  .nav-link-button.small-link { padding: 6px 10px; font-size: 13px; }
+  .secondary-link { background: #475569; }
+  .filters-grid {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: 1.4fr 1fr 1fr auto;
+    margin-bottom: 14px;
+  }
+  .table-wrapper { overflow-x: auto; }
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border: 1px solid var(--border);
+  }
+  .data-table th,
+  .data-table td {
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    padding: 10px;
+    font-size: 14px;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .data-table th {
+    background: #f8fafc;
+    font-weight: bold;
+  }
+  .edit-fields-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  }
+  .field-box {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    background: #fafafa;
+  }
+  .field-label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .field-readonly {
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 20px;
+  }
+  .small-text { font-size: 12px; margin-top: 6px; }
 </style>

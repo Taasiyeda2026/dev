@@ -1,0 +1,192 @@
+<script>
+  (function () {
+    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'my-courses') return;
+
+    var state = {
+      columns: [],
+      rows: []
+    };
+
+    bindEvents();
+    hydrateUserPill(window.APP_BOOT.userProfile);
+    loadCourses();
+
+    function bindEvents() {
+      var logoutBtn = document.getElementById('my-courses-logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          google.script.run
+            .withSuccessHandler(function () {
+              window.location.search = '';
+            })
+            .withFailureHandler(function () {
+              setError('לא ניתן להתנתק כרגע. נסה שוב.');
+            })
+            .logoutAction();
+        });
+      }
+
+      var refreshBtn = document.getElementById('courses-refresh-btn');
+      if (refreshBtn) {
+        refreshBtn.addEventListener('click', loadCourses);
+      }
+
+      ['courses-search', 'courses-program-filter', 'courses-status-filter'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', debounce(loadCourses, 250));
+        el.addEventListener('change', loadCourses);
+      });
+    }
+
+    function loadCourses() {
+      showLoading(true);
+      setError('');
+      setInfo('');
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          showLoading(false);
+
+          if (!result || !result.success || !result.data) {
+            setError(formatServerError(result && (result.error || result.message || result), 'טעינת הקורסים נכשלה.'));
+            renderTable([], []);
+            return;
+          }
+
+          var data = result.data;
+          state.columns = data.columns || [];
+          state.rows = data.rows || [];
+
+          renderSelectOptions('courses-program-filter', data.programs || [], 'כל התוכניות');
+          renderSelectOptions('courses-status-filter', data.statuses || [], 'כל הסטטוסים');
+          renderTable(state.columns, state.rows);
+
+          var assumptions = (data.assumptions || []).join(' | ');
+          var filtering = data.filtering ? ('שיטת סינון: ' + (data.filtering.fieldUsed || 'לא צוין')) : '';
+          var infoText = [filtering, assumptions].filter(Boolean).join(' | ');
+          setInfo(infoText);
+        })
+        .withFailureHandler(function (err) {
+          showLoading(false);
+          setError(formatServerError(err, 'אירעה שגיאה בטעינת הקורסים.'));
+          renderTable([], []);
+        })
+        .getMyCoursesDataAction({
+          query: getValue('courses-search'),
+          program: getValue('courses-program-filter'),
+          status: getValue('courses-status-filter')
+        });
+    }
+
+    function renderSelectOptions(selectId, options, defaultLabel) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var currentValue = select.value || '';
+
+      select.innerHTML = '<option value="">' + escapeHtml(defaultLabel) + '</option>' + options.map(function (value) {
+        return '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>';
+      }).join('');
+
+      if (currentValue) select.value = currentValue;
+    }
+
+    function renderTable(columns, rows) {
+      var table = document.getElementById('my-courses-table');
+      var head = document.getElementById('my-courses-head');
+      var body = document.getElementById('my-courses-body');
+      var empty = document.getElementById('my-courses-empty');
+      var visibleColumns = columns.filter(function (col) {
+        return String(col.key || '').indexOf('_') !== 0;
+      });
+
+      if (!visibleColumns.length || !rows.length) {
+        table.style.display = 'none';
+        head.innerHTML = '';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      head.innerHTML = '<tr>' + visibleColumns.map(function (col) {
+        return '<th>' + escapeHtml(col.label || col.key) + '</th>';
+      }).join('') + '<th>פעולות</th></tr>';
+
+      body.innerHTML = rows.map(function (row) {
+        return '<tr>' + visibleColumns.map(function (col) {
+          return '<td>' + escapeHtml(String(row[col.key] === undefined || row[col.key] === null ? '' : row[col.key])) + '</td>';
+        }).join('') + '<td>' + buildActionCell(row) + '</td></tr>';
+      }).join('');
+    }
+
+    function buildActionCell(row) {
+      if (!row._canRequestEdit || !row._sourceRowNumber) {
+        return '<span class="muted">ללא פעולה</span>';
+      }
+      var target = '?view=edit-form&row=' + encodeURIComponent(String(row._sourceRowNumber));
+      return '<a class="nav-link-button small-link" href="' + target + '">בקשת עריכה</a>';
+    }
+
+    function showLoading(isLoading) {
+      var el = document.getElementById('my-courses-loading');
+      if (!el) return;
+      el.style.display = isLoading ? 'block' : 'none';
+    }
+
+    function setError(msg) {
+      var el = document.getElementById('my-courses-error');
+      if (!el) return;
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg || '';
+    }
+
+    function setInfo(msg) {
+      var el = document.getElementById('my-courses-info');
+      if (!el) return;
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg || '';
+    }
+
+    function getValue(id) {
+      var el = document.getElementById(id);
+      return el ? el.value : '';
+    }
+
+    function hydrateUserPill(userProfile) {
+      var pill = document.getElementById('user-pill');
+      if (!pill || !userProfile) return;
+      pill.style.display = 'inline-block';
+      pill.textContent = 'מחובר/ת: ' + (userProfile.EmployeeName || userProfile.EmployeeID || 'משתמש');
+    }
+
+    function formatServerError(err, fallback) {
+      if (!err) return fallback;
+      if (typeof err === 'string') return err;
+      if (err && err.message) return err.message;
+      try {
+        return JSON.stringify(err, null, 2);
+      } catch (jsonErr) {
+        return fallback;
+      }
+    }
+
+    function debounce(fn, delay) {
+      var timer = null;
+      return function () {
+        clearTimeout(timer);
+        timer = setTimeout(fn, delay);
+      };
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  })();
+</script>
