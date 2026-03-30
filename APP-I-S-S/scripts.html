@@ -601,10 +601,13 @@
         </div>
       </div>
 
-      <div class="toolbar">
-        <input class="search-box" id="expense-search" type="search" placeholder="חיפוש בהוצאות..." value="${escapeHtml(state.expenseSearch)}">
-        <select class="filter-select filter-select--multi" id="expense-filter" multiple size="4" title="ניתן לבחור כמה קטגוריות">   ${buildExpenseCategoryOptions(rows)} </select> <div class="filter-help">לבחירה מרובה: Ctrl + קליק</div>
-      </div>
+<div class="toolbar">
+  <label><input type="checkbox" id="expense-multi-toggle"> בחירה מרובה</label>
+  <input class="search-box" id="expense-search" type="search" placeholder="חיפוש בהוצאות..." value="${escapeHtml(state.expenseSearch)}">
+  <select class="filter-select filter-select--multi" id="expense-filter" multiple size="4" title="ניתן לבחור כמה קטגוריות">
+    ${buildExpenseCategoryOptions(rows)}
+  </select>
+</div>
 
       <details class="toolbox-card toolbox-card--compact" data-toolbox="expense" ${state.expenseToolboxOpen ? 'open' : ''}>
         <summary class="toolbox-summary">כלי הוספה ועריכה</summary>
@@ -729,10 +732,13 @@
         </div>
       </div>
 
-      <div class="toolbar">
-        <input class="search-box" id="income-search" type="search" placeholder="חיפוש בהכנסות..." value="${escapeHtml(state.incomeSearch)}">
-        <select class="filter-select filter-select--multi" id="income-filter" multiple size="4" title="ניתן לבחור כמה ערכי מימון">   ${buildIncomeFundOptions(rows)} </select> <div class="filter-help">לבחירה מרובה: Ctrl + קליק</div>
-      </div>
+<div class="toolbar">
+  <label><input type="checkbox" id="income-multi-toggle"> בחירה מרובה</label>
+  <input class="search-box" id="income-search" type="search" placeholder="חיפוש בהכנסות..." value="${escapeHtml(state.incomeSearch)}">
+  <select class="filter-select filter-select--multi" id="income-filter" multiple size="4" title="ניתן לבחור כמה ערכי מימון">
+    ${buildIncomeFundOptions(rows)}
+  </select>
+</div>
 
       <details class="toolbox-card toolbox-card--compact" data-toolbox="income" ${state.incomeToolboxOpen ? 'open' : ''}>
         <summary class="toolbox-summary">כלי הוספה ועריכה</summary>
