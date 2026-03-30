@@ -82,8 +82,8 @@ var SheetService = (function () {
     };
   }
 
-  function countDataRows(sheetName) {
-    var data = getRecords(sheetName, false);
+  function countDataRows(sheetName, options) {
+    var data = getRecords(sheetName, false, options);
     return data.rows.length;
   }
 
