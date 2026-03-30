@@ -120,6 +120,10 @@ function getDashboardData() {
       months: months,
       totalIncome: totalIncome,
       totalExpense: totalExpense,
+      totalIncomeLabel:  settings.totalIncomeLabel,
+      totalIncomeValue:  settings.totalIncomeValue,
+      totalExpenseLabel: settings.totalExpenseLabel,
+      totalExpenseValue: settings.totalExpenseValue,
       closingBalance: closingBalance,
       balance: closingBalance,
       monthlySummary: monthlySummary,
@@ -167,7 +171,11 @@ function readSettings_() {
     startMonth: toNumberOrDefault_(map['חודש התחלה'], 3),
     endMonth: toNumberOrDefault_(map['חודש סיום'], 8),
     organizationName: String(map['שם ארגון'] || 'תעשיידע'),
-    timezone: Session.getScriptTimeZone()
+    timezone: Session.getScriptTimeZone(),
+    totalIncomeLabel:  values[9]  ? String(values[9][0]  || '').trim() : '',
+    totalIncomeValue:  values[9]  ? toNumberFlexible_(values[9][1])    : null,
+    totalExpenseLabel: values[10] ? String(values[10][0] || '').trim() : '',
+    totalExpenseValue: values[10] ? toNumberFlexible_(values[10][1])   : null
   };
 }
 
@@ -659,6 +667,7 @@ function updateRowData(type, data) {
     sheet.getRange(rowIdx, 3).setValue(data.category != null ? String(data.category) : '');
     sheet.getRange(rowIdx, 4).setValue(data.subcategory != null ? String(data.subcategory) : '');
     sheet.getRange(rowIdx, 5).setValue(data.detail != null ? String(data.detail) : '');
+    SpreadsheetApp.flush();
     return { ok: true };
   }
 
@@ -668,6 +677,7 @@ function updateRowData(type, data) {
   sheet.getRange(rowIdx, 4).setValue(parseAnyDate_(data.dueDate) || '');
   sheet.getRange(rowIdx, 5).setValue(data.notes || '');
   sheet.getRange(rowIdx, 6).setValue(data.fund || '');
+  SpreadsheetApp.flush();
   return { ok: true };
 }
 

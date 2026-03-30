@@ -114,6 +114,10 @@
       incomesSheetRows: Array.isArray(raw?.incomesSheetRows) ? raw.incomesSheetRows : [],
       totalIncome: raw?.totalIncome,
       totalExpense: raw?.totalExpense,
+      totalIncomeLabel:  raw?.totalIncomeLabel  || '',
+      totalIncomeValue:  raw?.totalIncomeValue  ?? null,
+      totalExpenseLabel: raw?.totalExpenseLabel || '',
+      totalExpenseValue: raw?.totalExpenseValue ?? null,
       closingBalance: raw?.closingBalance,
       summaryDetailTables: normalizeSummaryDetailTables_(raw?.summaryDetailTables),
       rawData: raw || {}
@@ -440,20 +444,24 @@
   }
 
   function renderHero() {
-    const { totalIncome, totalExpense } = getTotals();
     const showMonthKpis = state.activeView === 'all' && getSelectedMonth() !== null;
+
+    const settingsIncome  = state.payload?.totalIncomeValue  ?? null;
+    const settingsExpense = state.payload?.totalExpenseValue ?? null;
+    const incomeLabel  = state.payload?.totalIncomeLabel  || 'סה״כ הכנסות';
+    const expenseLabel = state.payload?.totalExpenseLabel || 'סה״כ הוצאות';
 
     const kpis = showMonthKpis
       ? [
           {
-            label: 'סה״כ הכנסות',
-            value: totalIncome,
-            className: totalIncome === null ? '' : 'income'
+            label: incomeLabel,
+            value: settingsIncome,
+            className: settingsIncome === null ? '' : 'income'
           },
           {
-            label: 'סה״כ הוצאות',
-            value: totalExpense,
-            className: totalExpense === null ? '' : 'expense'
+            label: expenseLabel,
+            value: settingsExpense,
+            className: settingsExpense === null ? '' : 'expense'
           }
         ]
       : [];
@@ -1208,11 +1216,27 @@ const visibleRows = rows.filter(row => {
       google.script.run
         .withSuccessHandler(() => {
           actionBtn.textContent = '✅';
+          if (type === 'expense' && data.month) {
+            const newMonth = Number(data.month);
+            if (!state.expenseMonths.includes(newMonth)) {
+              state.expenseMonths = [newMonth];
+            }
+          }
+          if (type === 'income' && data.dueDate) {
+            const dueParts = String(data.dueDate).match(/^\d{4}-(\d{1,2})-/);
+            if (dueParts) {
+              const newMonth = Number(dueParts[1]);
+              if (newMonth && !state.incomeMonths.includes(newMonth)) {
+                state.incomeMonths = [newMonth];
+              }
+            }
+          }
           setTimeout(loadDashboard, 350);
         })
         .withFailureHandler(err => {
           console.error(err);
           actionBtn.textContent = '⚠️';
+          alert('שגיאה בשמירה: ' + (err.message || err));
         })
         .updateRowData(type, data);
 
