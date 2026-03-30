@@ -78,6 +78,8 @@
         'סה"כ מתוכנן: ' + (summary.totalPlanned || 0),
         'סה"כ בוצע: ' + (summary.totalActual || 0),
         'פער ביצוע: ' + (summary.executionGap || 0),
+        'ממתינים לבדיקה: ' + (summary.reviewRequired || 0),
+        'סה"כ שעות מדריכים: ' + Number(summary.totalHoursBase || 0).toFixed(2),
         'עמודות תאריך דינמיות שנמצאו: ' + (summary.dynamicDateColumnsFound || 0)
       ];
 

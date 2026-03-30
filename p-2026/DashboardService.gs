@@ -1,35 +1,37 @@
 var DashboardService = (function () {
+  var SHEET_READ_OPTIONS = { headerRow: 1, dataStartRow: 3 };
+
   function getDashboardData(userProfile) {
     try {
       if (!userProfile) {
         return { success: false, message: 'אין התחברות פעילה. יש להתחבר מחדש.' };
       }
 
-      var dataMaster = SheetService.getRecords(CONFIG.SHEETS.DATA_MASTER, true, { headerRow: 1, dataStartRow: 3 });
+      var dataMaster = SheetService.getRecords(CONFIG.SHEETS.DATA_MASTER, true, SHEET_READ_OPTIONS);
       var headers = dataMaster.headers;
       var idx = SheetService.resolveFieldIndexes(headers, CONFIG.FIELD_ALIASES);
 
       var dateColumnIndexes = findDateColumnIndexes(headers);
       var summary = buildSummary(dataMaster.rows, idx, dateColumnIndexes);
 
-      var reviewCount = SheetService.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED, { headerRow: 1, dataStartRow: 3 });
+      var reviewMeta = getReviewRequiredMeta();
       var pendingEdits = SheetService.hasSheet(CONFIG.SHEETS.EDIT_REQUESTS)
-        ? SheetService.countDataRows(CONFIG.SHEETS.EDIT_REQUESTS)
+        ? SheetService.countDataRows(CONFIG.SHEETS.EDIT_REQUESTS, SHEET_READ_OPTIONS)
         : null;
 
       var kpis = [
         { key: 'activePrograms', label: 'תוכניות פעילות', value: summary.activePrograms },
         { key: 'activeCourses', label: 'קורסים פעילים', value: summary.activeCourses },
         { key: 'activeInstructors', label: 'מדריכים פעילים', value: summary.activeInstructors },
-        { key: 'plannedVsActual', label: 'מתוכנן מול בוצע', value: summary.totalActual + ' / ' + summary.totalPlanned },
+        { key: 'plannedVsActual', label: 'מתוכנן מול בוצע', value: summary.totalPlanned + ' / ' + summary.totalActual },
         { key: 'executionGap', label: 'פער ביצוע', value: summary.executionGap },
-        { key: 'reviewRequired', label: 'רשומות דורשות בדיקה', value: reviewCount },
+        { key: 'reviewRequired', label: 'פריטים ממתינים לבדיקה', value: reviewMeta.count },
         {
           key: 'pendingRequests',
           label: 'בקשות ממתינות לאישור',
           value: pendingEdits === null ? 'לא קיים גיליון EDIT_REQUESTS' : pendingEdits
         },
-        { key: 'instructorsHoursBase', label: 'בסיס שעות מדריכים', value: summary.totalHoursBase.toFixed(2) }
+        { key: 'instructorsHoursBase', label: 'סה״כ שעות מדריכים', value: summary.totalHoursBase.toFixed(2) }
       ];
 
       return {
@@ -45,18 +47,32 @@ var DashboardService = (function () {
             totalPlanned: summary.totalPlanned,
             totalActual: summary.totalActual,
             executionGap: summary.executionGap,
-            reviewRequired: reviewCount,
+            reviewRequired: reviewMeta.count,
             pendingRequests: pendingEdits,
             totalHoursBase: summary.totalHoursBase,
             dynamicDateColumnsFound: dateColumnIndexes.length
           },
-          assumptions: summary.assumptions,
+          assumptions: summary.assumptions.concat(reviewMeta.assumptions),
           missingFields: summary.missingFields
         }
       };
     } catch (err) {
       return { success: false, message: 'שגיאה בטעינת נתוני הדשבורד: ' + err.message };
     }
+  }
+
+  function getReviewRequiredMeta() {
+    if (!SheetService.hasSheet(CONFIG.SHEETS.REVIEW_REQUIRED)) {
+      return {
+        count: 0,
+        assumptions: ['הגיליון REVIEW_REQUIRED לא נמצא, ולכן הוגדרו 0 פריטים לבדיקה.']
+      };
+    }
+
+    return {
+      count: SheetService.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED, SHEET_READ_OPTIONS),
+      assumptions: []
+    };
   }
 
   function buildSummary(rows, idx, dateColumnIndexes) {

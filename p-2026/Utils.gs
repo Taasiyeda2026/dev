@@ -18,17 +18,26 @@ var Utils = (function () {
       return value.getHours() * 60 + value.getMinutes();
     }
 
+    if (typeof value === 'number' && !isNaN(value)) {
+      var dayFraction = value % 1;
+      if (dayFraction < 0) dayFraction += 1;
+      var totalMinutes = Math.round(dayFraction * 24 * 60);
+      if (totalMinutes >= 24 * 60) totalMinutes = 0;
+      return totalMinutes;
+    }
+
     var text = normalize(value);
     if (!text) return null;
 
-    var match = text.match(/^(\d{1,2}):(\d{1,2})$/);
+    var match = text.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
     if (!match) return null;
 
     var h = Number(match[1]);
     var m = Number(match[2]);
-    if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+    var s = Number(match[3] || 0);
+    if (isNaN(h) || isNaN(m) || isNaN(s) || h < 0 || h > 23 || m < 0 || m > 59 || s < 0 || s > 59) return null;
 
-    return h * 60 + m;
+    return h * 60 + m + (s >= 30 ? 1 : 0);
   }
 
   function durationHours(startTime, endTime) {

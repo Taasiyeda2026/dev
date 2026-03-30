@@ -23,6 +23,14 @@
       <section id="view-dashboard" class="view <?!= currentView === 'dashboard' ? 'active' : ''; ?>">
         <?!= include('Dashboard'); ?>
       </section>
+
+      <section id="view-my-courses" class="view <?!= currentView === 'my-courses' ? 'active' : ''; ?>">
+        <?!= include('MyCourses'); ?>
+      </section>
+
+      <section id="view-edit-form" class="view <?!= currentView === 'edit-form' ? 'active' : ''; ?>">
+        <?!= include('EditForm'); ?>
+      </section>
     </main>
 
     <script>
@@ -34,5 +42,7 @@
 
     <?!= include('LoginScripts'); ?>
     <?!= include('DashboardScripts'); ?>
+    <?!= include('MyCoursesScripts'); ?>
+    <?!= include('EditFormScripts'); ?>
   </body>
 </html>
