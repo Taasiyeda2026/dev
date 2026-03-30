@@ -1358,7 +1358,11 @@ const visibleRows = rows.filter(row => {
 
       const msg = document.getElementById('form-msg');
       const selectedDate = event.target.querySelector('#expense-date-input').value;
-      const dateObj = selectedDate ? new Date(selectedDate) : null;
+      let dateObj = null;
+      if (selectedDate) {
+        const parts = selectedDate.split('-');
+        dateObj = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      }
       const fallbackMonth = getSelectedMonth() || getAvailableMonths()[0] || 3;
       const data = {
         month: dateObj ? (dateObj.getMonth() + 1) : fallbackMonth,

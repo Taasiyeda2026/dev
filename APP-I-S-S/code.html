@@ -266,7 +266,7 @@ function readIncomeEntries_(timezone) {
 
     var dueDate = parseAnyDate_(readCellByIndex_(row, layout.dueDateCol, ''));
     var dueDateLabel = dueDate ? Utilities.formatDate(dueDate, timezone, 'dd/MM/yyyy') : '';
-    var dueDateISO = dueDate ? Utilities.formatDate(dueDate, 'GMT', 'yyyy-MM-dd') : '';
+    var dueDateISO = dueDate ? Utilities.formatDate(dueDate, timezone, 'yyyy-MM-dd') : '';
 
     results.push({
       id: 'inc-' + (i + 1),
