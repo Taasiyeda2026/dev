@@ -14,7 +14,7 @@ var CONFIG = (function () {
     BaseRole: ['BaseRole', 'תפקיד בסיס', 'Role'],
     SystemRole: ['SystemRole', 'תפקיד מערכת'],
     AccessScope: ['AccessScope', 'תחום גישה', 'Scope'],
-    LoginCode: ['LoginCode', 'קוד כניסה', 'Password', 'סיסמה'],
+    LoginCode: ['EntryCode', 'LoginCode', 'קוד כניסה', 'Password', 'סיסמה'],
     Program: ['Program', 'תוכנית', 'שם תוכנית'],
     CourseID: ['CourseID', 'CourseId', 'קורס', 'מזהה קורס'],
     PlannedMeetings: ['PlannedMeetings', 'מתוכנן', 'מפגשים מתוכננים'],

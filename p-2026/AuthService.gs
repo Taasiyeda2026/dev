@@ -7,7 +7,7 @@ var AuthService = (function () {
       return { success: false, message: 'יש למלא שם משתמש/מספר עובד וקוד כניסה.' };
     }
 
-    var table = SheetService.getRecords(CONFIG.SHEETS.PERMISSIONS, true);
+    var table = SheetService.getRecords(CONFIG.SHEETS.PERMISSIONS, true, { headerRow: 1, dataStartRow: 4 });
     var idx = SheetService.resolveFieldIndexes(table.headers, CONFIG.FIELD_ALIASES);
 
     if (idx.EmployeeID === -1 && idx.EmployeeName === -1) {

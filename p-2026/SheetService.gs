@@ -11,16 +11,17 @@ var SheetService = (function () {
     return sheet;
   }
 
-  function getHeaders(sheet) {
+  function getHeaders(sheet, headerRow) {
+    var rowNumber = headerRow || 1;
     var lastColumn = sheet.getLastColumn();
     if (lastColumn === 0) return [];
-    return sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function (h) {
+    return sheet.getRange(rowNumber, 1, 1, lastColumn).getValues()[0].map(function (h) {
       return Utils.normalize(h);
     });
   }
 
-  function getHeaderMap(sheet) {
-    var headers = getHeaders(sheet);
+  function getHeaderMap(sheet, headerRow) {
+    var headers = getHeaders(sheet, headerRow);
     var map = {};
     headers.forEach(function (header, idx) {
       if (header) map[header] = idx;
@@ -45,16 +46,26 @@ var SheetService = (function () {
     return resolved;
   }
 
-  function getRecords(sheetName, required) {
+  function getRecords(sheetName, required, options) {
     var sheet = getSheetByName(sheetName, required);
     if (!sheet) return { headers: [], rows: [], records: [] };
 
-    var range = sheet.getDataRange();
-    var values = range.getValues();
-    if (values.length <= 1) return { headers: getHeaders(sheet), rows: [], records: [] };
+    var opts = options || {};
+    var headerRow = opts.headerRow || 1;
+    var dataStartRow = opts.dataStartRow || (headerRow + 1);
 
-    var headers = values[0].map(function (h) { return Utils.normalize(h); });
-    var rows = values.slice(1);
+    var lastRow = sheet.getLastRow();
+    var lastColumn = sheet.getLastColumn();
+    var headers = getHeaders(sheet, headerRow);
+
+    if (lastColumn === 0 || lastRow < dataStartRow) {
+      return { headers: headers, rows: [], records: [] };
+    }
+
+    var numRows = lastRow - dataStartRow + 1;
+    var rows = sheet.getRange(dataStartRow, 1, numRows, lastColumn).getValues().filter(function (row) {
+      return row.some(function (cell) { return !Utils.isEmpty(cell); });
+    });
 
     var records = rows.map(function (row) {
       var obj = {};
