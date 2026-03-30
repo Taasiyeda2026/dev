@@ -1208,11 +1208,18 @@ const visibleRows = rows.filter(row => {
       google.script.run
         .withSuccessHandler(() => {
           actionBtn.textContent = '✅';
+          if (type === 'expense' && data.month) {
+            const newMonth = Number(data.month);
+            if (!state.expenseMonths.includes(newMonth)) {
+              state.expenseMonths = [newMonth];
+            }
+          }
           setTimeout(loadDashboard, 350);
         })
         .withFailureHandler(err => {
           console.error(err);
           actionBtn.textContent = '⚠️';
+          alert('שגיאה בשמירה: ' + (err.message || err));
         })
         .updateRowData(type, data);
 

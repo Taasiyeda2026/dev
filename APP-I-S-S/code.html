@@ -659,6 +659,7 @@ function updateRowData(type, data) {
     sheet.getRange(rowIdx, 3).setValue(data.category != null ? String(data.category) : '');
     sheet.getRange(rowIdx, 4).setValue(data.subcategory != null ? String(data.subcategory) : '');
     sheet.getRange(rowIdx, 5).setValue(data.detail != null ? String(data.detail) : '');
+    SpreadsheetApp.flush();
     return { ok: true };
   }
 
