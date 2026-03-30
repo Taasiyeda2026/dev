@@ -1,0 +1,34 @@
+<section class="card my-requests-card">
+  <div class="dashboard-header-row">
+    <h2>הבקשות שלי</h2>
+    <div class="actions-row">
+      <a class="nav-link-button" href="?view=dashboard">חזרה לדשבורד</a>
+      <a class="nav-link-button secondary-link" href="?view=my-courses">הקורסים שלי</a>
+      <button id="my-requests-logout-btn" class="secondary">התנתקות</button>
+    </div>
+  </div>
+
+  <div class="filters-grid my-requests-filters">
+    <input id="requests-search" type="text" placeholder="חיפוש בבקשות..." />
+    <select id="requests-status-filter">
+      <option value="">כל הסטטוסים</option>
+    </select>
+    <select id="requests-type-filter">
+      <option value="">כל סוגי הבקשה</option>
+    </select>
+    <button id="requests-refresh-btn" type="button">רענון</button>
+  </div>
+
+  <div id="my-requests-loading" class="message">טוען בקשות...</div>
+  <div id="my-requests-error" class="message message-error" style="display:none;"></div>
+  <div id="my-requests-info" class="message" style="display:none;"></div>
+
+  <div class="table-wrapper">
+    <table class="data-table" id="my-requests-table" style="display:none;">
+      <thead id="my-requests-head"></thead>
+      <tbody id="my-requests-body"></tbody>
+    </table>
+  </div>
+
+  <div id="my-requests-empty" class="message" style="display:none;">לא נמצאו בקשות להצגה.</div>
+</section>

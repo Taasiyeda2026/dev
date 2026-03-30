@@ -1,0 +1,188 @@
+<script>
+  (function () {
+    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'my-requests') return;
+
+    var columns = [
+      { key: 'requestType', label: 'סוג בקשה' },
+      { key: 'createdAt', label: 'תאריך יצירה' },
+      { key: 'status', label: 'סטטוס' },
+      { key: 'sourceRowNumber', label: 'שורת מקור' },
+      { key: 'programOrCourse', label: 'תוכנית / קורס' },
+      { key: 'requestedSummary', label: 'תקציר שינויים' },
+      { key: 'systemNote', label: 'הערת מערכת' },
+      { key: 'updatedBy', label: 'עודכן על ידי' },
+      { key: 'reviewedBy', label: 'נבדק על ידי' }
+    ];
+
+    bindEvents();
+    hydrateUserPill(window.APP_BOOT.userProfile);
+    loadRequests();
+
+    function bindEvents() {
+      var logoutBtn = document.getElementById('my-requests-logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function () {
+          google.script.run
+            .withSuccessHandler(function () {
+              window.location.search = '';
+            })
+            .withFailureHandler(function () {
+              setError('לא ניתן להתנתק כרגע. נסה שוב.');
+            })
+            .logoutAction();
+        });
+      }
+
+      var refreshBtn = document.getElementById('requests-refresh-btn');
+      if (refreshBtn) refreshBtn.addEventListener('click', loadRequests);
+
+      ['requests-search', 'requests-status-filter', 'requests-type-filter'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', debounce(loadRequests, 250));
+        el.addEventListener('change', loadRequests);
+      });
+    }
+
+    function loadRequests() {
+      showLoading(true);
+      setError('');
+      setInfo('');
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          showLoading(false);
+
+          if (!result || !result.success || !result.data) {
+            setError(formatServerError(result && (result.error || result.message || result), 'טעינת הבקשות נכשלה.'));
+            renderTable([]);
+            return;
+          }
+
+          var data = result.data;
+          renderSelectOptions('requests-status-filter', data.statuses || [], 'כל הסטטוסים');
+          renderSelectOptions('requests-type-filter', data.requestTypes || [], 'כל סוגי הבקשה');
+          renderTable(data.rows || []);
+
+          var assumptions = (data.assumptions || []).join(' | ');
+          var filtering = data.filtering ? ('שיטת סינון: ' + (data.filtering.fieldUsed || 'לא צוין')) : '';
+          var infoText = [filtering, assumptions].filter(Boolean).join(' | ');
+          setInfo(infoText);
+        })
+        .withFailureHandler(function (err) {
+          showLoading(false);
+          setError(formatServerError(err, 'אירעה שגיאה בטעינת הבקשות.'));
+          renderTable([]);
+        })
+        .getMyRequestsDataAction({
+          query: getValue('requests-search'),
+          status: getValue('requests-status-filter'),
+          requestType: getValue('requests-type-filter')
+        });
+    }
+
+    function renderSelectOptions(selectId, options, defaultLabel) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var currentValue = select.value || '';
+
+      select.innerHTML = '<option value="">' + escapeHtml(defaultLabel) + '</option>' + options.map(function (value) {
+        return '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>';
+      }).join('');
+
+      if (currentValue) select.value = currentValue;
+    }
+
+    function renderTable(rows) {
+      var table = document.getElementById('my-requests-table');
+      var head = document.getElementById('my-requests-head');
+      var body = document.getElementById('my-requests-body');
+      var empty = document.getElementById('my-requests-empty');
+
+      if (!rows.length) {
+        table.style.display = 'none';
+        head.innerHTML = '';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      table.style.display = 'table';
+      head.innerHTML = '<tr>' + columns.map(function (col) {
+        return '<th>' + escapeHtml(col.label) + '</th>';
+      }).join('') + '</tr>';
+
+      body.innerHTML = rows.map(function (row) {
+        return '<tr>' + columns.map(function (col) {
+          return '<td class="cell-wrap">' + escapeHtml(readCell(row, col.key)) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    }
+
+    function readCell(row, key) {
+      var value = row && row[key] !== undefined && row[key] !== null ? String(row[key]) : '';
+      return value || '-';
+    }
+
+    function showLoading(isLoading) {
+      var el = document.getElementById('my-requests-loading');
+      if (!el) return;
+      el.style.display = isLoading ? 'block' : 'none';
+    }
+
+    function setError(msg) {
+      var el = document.getElementById('my-requests-error');
+      if (!el) return;
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg || '';
+    }
+
+    function setInfo(msg) {
+      var el = document.getElementById('my-requests-info');
+      if (!el) return;
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg || '';
+    }
+
+    function getValue(id) {
+      var el = document.getElementById(id);
+      return el ? el.value : '';
+    }
+
+    function hydrateUserPill(userProfile) {
+      var pill = document.getElementById('user-pill');
+      if (!pill || !userProfile) return;
+      pill.style.display = 'inline-block';
+      pill.textContent = 'מחובר/ת: ' + (userProfile.EmployeeName || userProfile.EmployeeID || 'משתמש');
+    }
+
+    function formatServerError(err, fallback) {
+      if (!err) return fallback;
+      if (typeof err === 'string') return err;
+      if (err && err.message) return err.message;
+      try {
+        return JSON.stringify(err, null, 2);
+      } catch (jsonErr) {
+        return fallback;
+      }
+    }
+
+    function debounce(fn, delay) {
+      var timer = null;
+      return function () {
+        clearTimeout(timer);
+        timer = setTimeout(fn, delay);
+      };
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  })();
+</script>

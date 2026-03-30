@@ -57,3 +57,8 @@ function submitEditRequestAction(payload) {
   var profile = AuthService.getSession();
   return FormService.submitEditRequest(profile, payload || {});
 }
+
+function getMyRequestsDataAction(filters) {
+  var profile = AuthService.getSession();
+  return RequestsService.getMyRequestsData(profile, filters || {});
+}
