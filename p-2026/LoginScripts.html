@@ -1,0 +1,53 @@
+<script>
+  (function () {
+    var form = document.getElementById('login-form');
+    if (!form) return;
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      var loginId = document.getElementById('login-id').value;
+      var loginCode = document.getElementById('login-code').value;
+      var loginBtn = document.getElementById('login-btn');
+
+      setMessage('login-error', '');
+      setMessage('login-success', '');
+      loginBtn.disabled = true;
+      loginBtn.textContent = 'מתחבר...';
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'התחבר';
+
+          if (!result || !result.success) {
+            setMessage('login-error', (result && result.message) || 'ההתחברות נכשלה.');
+            return;
+          }
+
+          setMessage('login-success', result.message || 'התחברת בהצלחה.');
+          window.location.search = '?view=dashboard';
+        })
+        .withFailureHandler(function () {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'התחבר';
+          setMessage('login-error', 'אירעה שגיאה בתהליך ההתחברות. נסה שוב.');
+        })
+        .loginAction(loginId, loginCode);
+    });
+
+    function setMessage(elementId, text) {
+      var element = document.getElementById(elementId);
+      if (!element) return;
+
+      if (!text) {
+        element.style.display = 'none';
+        element.textContent = '';
+        return;
+      }
+
+      element.style.display = 'block';
+      element.textContent = text;
+    }
+  })();
+</script>
