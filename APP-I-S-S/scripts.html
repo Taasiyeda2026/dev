@@ -655,7 +655,6 @@
             <div class="table-wrap table-wrap--editor">
               <table class="compact-table">
                 <colgroup>
-                  <col style="width: 48px;">
                   <col style="width: 90px;">
                   <col style="width: 80px;">
                   <col style="width: 140px;">
@@ -667,7 +666,6 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th></th>
                     <th>חודש</th>
                     <th>יום</th>
                     <th>קטגוריה</th>
@@ -681,7 +679,6 @@
                 <tbody>
                   ${filtered.map(row => `
                     <tr>
-                      <td><input type="checkbox" data-id="${row.id}" aria-label="בחר שורת הוצאה"></td>
                       <td>
                         <select data-id="${row.id}" data-field="month">
                           ${getAvailableMonths().map(m => `<option value="${m}" ${Number(row.month) === Number(m) ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}
@@ -707,7 +704,7 @@
                         <button class="icon-btn icon-btn-expense" data-action="delete-expense-row" data-id="${row.id}" type="button">🗑️</button>
                       </td>
                     </tr>
-                  `).join('') || '<tr><td colspan="9">לא נמצאו הוצאות להצגה</td></tr>'}
+                  `).join('') || '<tr><td colspan="8">לא נמצאו הוצאות להצגה</td></tr>'}
                 </tbody>
               </table>
             </div>
@@ -790,7 +787,6 @@
             <div class="table-wrap table-wrap--editor">
               <table class="compact-table">
                 <colgroup>
-                  <col style="width: 48px;">
                   <col style="width: 130px;">
                   <col style="width: 220px;">
                   <col style="width: 120px;">
@@ -801,7 +797,6 @@
                 </colgroup>
                 <thead>
                   <tr>
-                    <th></th>
                     <th>חשבון</th>
                     <th>פירוט</th>
                     <th>סכום</th>
@@ -814,7 +809,6 @@
                 <tbody>
                   ${filtered.map(row => `
                     <tr>
-                      <td><input type="checkbox" data-id="${row.id}" aria-label="בחר שורת הכנסה"></td>
                       <td><input type="text" value="${escapeAttr(row.account || '')}" data-id="${row.id}" data-field="account"></td>
                       <td><input type="text" value="${escapeAttr(row.detail || '')}" data-id="${row.id}" data-field="detail"></td>
                       <td><input type="text" inputmode="numeric" class="amount-text" value="${escapeAttr(formatNumber(row.amount || 0))}" data-id="${row.id}" data-field="amount"></td>
@@ -830,7 +824,7 @@
                         <button class="icon-btn icon-btn-income" data-action="delete-income-row" data-id="${row.id}" type="button">🗑️</button>
                       </td>
                     </tr>
-                  `).join('') || '<tr><td colspan="8">לא נמצאו הכנסות להצגה</td></tr>'}
+                  `).join('') || '<tr><td colspan="7">לא נמצאו הכנסות להצגה</td></tr>'}
                 </tbody>
               </table>
             </div>
