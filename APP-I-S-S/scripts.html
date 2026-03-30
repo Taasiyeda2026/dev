@@ -30,7 +30,9 @@
     openFlowRowKey: null,
     flowSummaryDetailOpen: false,
     expenseToolboxOpen: false,
-    incomeToolboxOpen: false
+    incomeToolboxOpen: false,
+    expenseFilterOpen: false,
+    incomeFilterOpen: false
   };
 
   const yearTabsEl = document.getElementById('year-tabs');
@@ -602,13 +604,18 @@
 
       <div class="toolbar">
         <input class="search-box" id="expense-search" type="search" placeholder="חיפוש בהוצאות..." value="${escapeHtml(state.expenseSearch)}">
-        <div class="filter-checkbox-list" id="expense-filter">
-          ${categoryOptions.map(category => `
-            <label class="filter-checkbox-item">
-              <input type="checkbox" value="${escapeHtml(category)}" ${state.expenseFilter.includes(category) ? 'checked' : ''}>
-              <span>${escapeHtml(category)}</span>
-            </label>
-          `).join('')}
+        <div class="filter-dropdown" id="expense-filter-dropdown" style="position:relative;">
+          <button class="search-box" id="expense-filter-toggle" type="button" aria-expanded="${state.expenseFilterOpen ? 'true' : 'false'}">
+            ${state.expenseFilter.length ? `קטגוריות: ${escapeHtml(state.expenseFilter.join(', '))}` : 'סינון קטגוריות'}
+          </button>
+          <div class="filter-checkbox-list" id="expense-filter" style="position:absolute; top:100%; inset-inline-start:0; z-index:20; min-width:260px; background:#fff; border:1px solid #d8dbe2; border-radius:10px; padding:8px; box-shadow:0 10px 24px rgba(15,23,42,.12); max-height:260px; overflow:auto; display:${state.expenseFilterOpen ? 'block' : 'none'};">
+            ${categoryOptions.map(category => `
+              <label class="filter-checkbox-item">
+                <input type="checkbox" value="${escapeHtml(category)}" ${state.expenseFilter.includes(category) ? 'checked' : ''}>
+                <span>${escapeHtml(category)}</span>
+              </label>
+            `).join('')}
+          </div>
         </div>
       </div>
 
@@ -736,13 +743,18 @@
 
       <div class="toolbar">
         <input class="search-box" id="income-search" type="search" placeholder="חיפוש בהכנסות..." value="${escapeHtml(state.incomeSearch)}">
-        <div class="filter-checkbox-list" id="income-filter">
-          ${lists.funds.map(fund => `
-            <label class="filter-checkbox-item">
-              <input type="checkbox" value="${escapeHtml(fund)}" ${state.incomeFilter.includes(fund) ? 'checked' : ''}>
-              <span>${escapeHtml(fund)}</span>
-            </label>
-          `).join('')}
+        <div class="filter-dropdown" id="income-filter-dropdown" style="position:relative;">
+          <button class="search-box" id="income-filter-toggle" type="button" aria-expanded="${state.incomeFilterOpen ? 'true' : 'false'}">
+            ${state.incomeFilter.length ? `מימון: ${escapeHtml(state.incomeFilter.join(', '))}` : 'סינון מקורות מימון'}
+          </button>
+          <div class="filter-checkbox-list" id="income-filter" style="position:absolute; top:100%; inset-inline-start:0; z-index:20; min-width:260px; background:#fff; border:1px solid #d8dbe2; border-radius:10px; padding:8px; box-shadow:0 10px 24px rgba(15,23,42,.12); max-height:260px; overflow:auto; display:${state.incomeFilterOpen ? 'block' : 'none'};">
+            ${lists.funds.map(fund => `
+              <label class="filter-checkbox-item">
+                <input type="checkbox" value="${escapeHtml(fund)}" ${state.incomeFilter.includes(fund) ? 'checked' : ''}>
+                <span>${escapeHtml(fund)}</span>
+              </label>
+            `).join('')}
+          </div>
         </div>
       </div>
 
@@ -1127,6 +1139,34 @@ const visibleRows = rows.filter(row => {
     if (state.showMonthPicker && !event.target.closest('#year-tabs') && !event.target.closest('#month-tabs')) {
       state.showMonthPicker = false;
       buildTabs();
+    }
+
+    const expenseFilterToggle = event.target.closest('#expense-filter-toggle');
+    if (expenseFilterToggle) {
+      state.expenseFilterOpen = !state.expenseFilterOpen;
+      if (state.expenseFilterOpen) state.incomeFilterOpen = false;
+      renderExpensesSheet();
+      return;
+    }
+
+    const incomeFilterToggle = event.target.closest('#income-filter-toggle');
+    if (incomeFilterToggle) {
+      state.incomeFilterOpen = !state.incomeFilterOpen;
+      if (state.incomeFilterOpen) state.expenseFilterOpen = false;
+      renderIncomesSheet();
+      return;
+    }
+
+    if (state.expenseFilterOpen && !event.target.closest('#expense-filter-dropdown')) {
+      state.expenseFilterOpen = false;
+      renderExpensesSheet();
+      return;
+    }
+
+    if (state.incomeFilterOpen && !event.target.closest('#income-filter-dropdown')) {
+      state.incomeFilterOpen = false;
+      renderIncomesSheet();
+      return;
     }
 
     const viewBtn = event.target.closest('[data-view]');
