@@ -1,0 +1,127 @@
+<script>
+  (function () {
+    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'dashboard') return;
+
+    var logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', function () {
+        google.script.run
+          .withSuccessHandler(function () {
+            window.location.search = '';
+          })
+          .withFailureHandler(function () {
+            alert('לא ניתן להתנתק כרגע. נסה שוב.');
+          })
+          .logoutAction();
+      });
+    }
+
+    hydrateUserPill(window.APP_BOOT.userProfile);
+    loadDashboard();
+
+    function hydrateUserPill(userProfile) {
+      var pill = document.getElementById('user-pill');
+      if (!pill || !userProfile) return;
+      pill.style.display = 'inline-block';
+      pill.textContent = 'מחובר/ת: ' + (userProfile.EmployeeName || userProfile.EmployeeID || 'משתמש');
+    }
+
+    function loadDashboard() {
+      showLoading(true);
+      setError('');
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          showLoading(false);
+
+          if (!result || !result.success) {
+            setError((result && result.message) || 'טעינת הדשבורד נכשלה.');
+            return;
+          }
+
+          renderDashboard(result.dashboard);
+        })
+        .withFailureHandler(function () {
+          showLoading(false);
+          setError('אירעה שגיאה בטעינת הדשבורד.');
+        })
+        .getDashboardDataAction();
+    }
+
+    function renderDashboard(data) {
+      renderKpis(data.kpis || []);
+      renderSummary(data.summary || {});
+      renderNotes('assumptions-list', data.assumptions || [], 'אין הערות מערכת.');
+      renderNotes('missing-fields-list', data.missingFields || [], 'לא זוהו שדות חסרים קריטיים.');
+    }
+
+    function renderKpis(kpis) {
+      var grid = document.getElementById('kpi-grid');
+      grid.innerHTML = '';
+
+      kpis.forEach(function (kpi) {
+        var card = document.createElement('article');
+        card.className = 'kpi-card';
+        card.innerHTML =
+          '<div class="kpi-label">' + escapeHtml(kpi.label) + '</div>' +
+          '<div class="kpi-value">' + escapeHtml(String(kpi.value)) + '</div>';
+        grid.appendChild(card);
+      });
+    }
+
+    function renderSummary(summary) {
+      var list = document.getElementById('summary-list');
+      var rows = [
+        'תוכניות פעילות: ' + (summary.activePrograms || 0),
+        'קורסים פעילים: ' + (summary.activeCourses || 0),
+        'מדריכים פעילים: ' + (summary.activeInstructors || 0),
+        'סה"כ מתוכנן: ' + (summary.totalPlanned || 0),
+        'סה"כ בוצע: ' + (summary.totalActual || 0),
+        'פער ביצוע: ' + (summary.executionGap || 0),
+        'עמודות תאריך דינמיות שנמצאו: ' + (summary.dynamicDateColumnsFound || 0)
+      ];
+
+      list.innerHTML = rows.map(function (row) {
+        return '<li>' + escapeHtml(row) + '</li>';
+      }).join('');
+    }
+
+    function renderNotes(listId, notes, emptyText) {
+      var list = document.getElementById(listId);
+      if (!notes.length) {
+        list.innerHTML = '<li>' + escapeHtml(emptyText) + '</li>';
+        return;
+      }
+      list.innerHTML = notes.map(function (note) {
+        return '<li>' + escapeHtml(note) + '</li>';
+      }).join('');
+    }
+
+    function showLoading(isLoading) {
+      var el = document.getElementById('dashboard-loading');
+      if (!el) return;
+      el.style.display = isLoading ? 'block' : 'none';
+    }
+
+    function setError(msg) {
+      var el = document.getElementById('dashboard-error');
+      if (!el) return;
+      if (!msg) {
+        el.style.display = 'none';
+        el.textContent = '';
+        return;
+      }
+      el.style.display = 'block';
+      el.textContent = msg;
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  })();
+</script>

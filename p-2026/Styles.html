@@ -1,0 +1,111 @@
+<style>
+  :root {
+    --bg: #f6f8fb;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --primary: #1d4ed8;
+    --danger: #b91c1c;
+    --success: #15803d;
+    --border: #e5e7eb;
+  }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    direction: rtl;
+  }
+
+  .app-header {
+    padding: 16px 24px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .app-header h1 { margin: 0 0 4px 0; font-size: 22px; }
+  .subtitle { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .app-main { padding: 24px; max-width: 1100px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .form-grid { display: grid; gap: 10px; max-width: 460px; }
+  input {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 15px;
+  }
+
+  button {
+    background: var(--primary);
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 15px;
+  }
+
+  button.secondary { background: #334155; }
+
+  .message {
+    margin-top: 8px;
+    border-radius: 8px;
+    padding: 10px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+  }
+
+  .message-error {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: var(--danger);
+  }
+
+  .message-success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: var(--success);
+  }
+
+  .dashboard-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .kpi-grid {
+    margin: 16px 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .kpi-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    background: #fafafa;
+  }
+
+  .kpi-label { color: var(--muted); font-size: 13px; }
+  .kpi-value { font-size: 22px; font-weight: bold; margin-top: 6px; }
+
+  .summary-box { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .muted { color: var(--muted); }
+  .user-pill { background: #dbeafe; color: #1e3a8a; padding: 8px 12px; border-radius: 999px; font-size: 13px; }
+</style>

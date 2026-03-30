@@ -1,0 +1,16 @@
+<section class="card login-card">
+  <h2>התחברות למערכת</h2>
+  <p class="muted">יש להזין שם עובד/מספר עובד וקוד כניסה כפי שהוגדרו בגיליון ההרשאות.</p>
+
+  <form id="login-form" class="form-grid">
+    <label for="login-id">שם משתמש או מספר עובד</label>
+    <input id="login-id" name="login-id" type="text" placeholder="למשל: 12345 או ישראל ישראלי" required>
+
+    <label for="login-code">קוד כניסה</label>
+    <input id="login-code" name="login-code" type="password" placeholder="הזן קוד כניסה" required>
+
+    <button id="login-btn" type="submit">התחבר</button>
+    <div id="login-error" class="message message-error" style="display:none;"></div>
+    <div id="login-success" class="message message-success" style="display:none;"></div>
+  </form>
+</section>
