@@ -120,6 +120,10 @@ function getDashboardData() {
       months: months,
       totalIncome: totalIncome,
       totalExpense: totalExpense,
+      totalIncomeLabel:  settings.totalIncomeLabel,
+      totalIncomeValue:  settings.totalIncomeValue,
+      totalExpenseLabel: settings.totalExpenseLabel,
+      totalExpenseValue: settings.totalExpenseValue,
       closingBalance: closingBalance,
       balance: closingBalance,
       monthlySummary: monthlySummary,
@@ -167,7 +171,11 @@ function readSettings_() {
     startMonth: toNumberOrDefault_(map['חודש התחלה'], 3),
     endMonth: toNumberOrDefault_(map['חודש סיום'], 8),
     organizationName: String(map['שם ארגון'] || 'תעשיידע'),
-    timezone: Session.getScriptTimeZone()
+    timezone: Session.getScriptTimeZone(),
+    totalIncomeLabel:  values[9]  ? String(values[9][0]  || '').trim() : '',
+    totalIncomeValue:  values[9]  ? toNumberFlexible_(values[9][1])    : null,
+    totalExpenseLabel: values[10] ? String(values[10][0] || '').trim() : '',
+    totalExpenseValue: values[10] ? toNumberFlexible_(values[10][1])   : null
   };
 }
 
