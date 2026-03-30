@@ -471,7 +471,7 @@
         <div class="kpi-label">${item.label}</div>
         <div class="kpi-value ${item.className}">${item.value === null ? '—' : formatCurrency(item.value)}</div>
       </article>
-    `).join('');
+    `).join('') + (kpis.length ? `<div class="kpi-footnote">*החישוב כולל ביצוע בפועל + תחזית להמשך</div>` : '');
   }
 
 
