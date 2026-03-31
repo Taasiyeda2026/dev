@@ -4,6 +4,54 @@ function doGet() {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function doPost(e) {
+  try {
+    var body = parseBody_(e);
+    var action = Utils.normalize(body.action);
+    var payload = Utils.asObject(body.payload, {});
+
+    if (!action) {
+      return jsonOutput_({ success: false, message: 'פעולה לא תקינה.' });
+    }
+
+    var actions = {
+      loginAction: function () { return loginAction(payload.userId, payload.code); },
+      logoutAction: function () { return logoutAction(); },
+      getSessionProfileAction: function () { return getSessionProfileAction(); },
+      getDashboardDataAction: function () { return getDashboardDataAction(); },
+      getMyCoursesDataAction: function () { return getMyCoursesDataAction(payload); },
+      submitEditRequestAction: function () { return submitEditRequestAction(payload); },
+      getMyRequestsDataAction: function () { return getMyRequestsDataAction(); },
+      getApprovalsDataAction: function () { return getApprovalsDataAction(); },
+      approveRequestAction: function () { return approveRequestAction(payload); },
+      rejectRequestAction: function () { return rejectRequestAction(payload); }
+    };
+
+    if (!actions[action]) {
+      return jsonOutput_({ success: false, message: 'פעולה לא מוכרת.' });
+    }
+
+    return jsonOutput_(actions[action]());
+  } catch (err) {
+    return jsonOutput_({ success: false, message: 'הפעולה נכשלה.' });
+  }
+}
+
+function parseBody_(e) {
+  if (!e || !e.postData || !e.postData.contents) return {};
+  try {
+    return JSON.parse(e.postData.contents);
+  } catch (err) {
+    return {};
+  }
+}
+
+function jsonOutput_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj || {}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 function loginAction(userId, code) {
   return AuthService.login(userId, code);
 }
