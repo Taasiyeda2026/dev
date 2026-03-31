@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= pageTitle ?></title>
-    <?!= include('Styles'); ?>
+    <?!= includeSafe('Styles'); ?>
   </head>
   <body>
     <div class="app-shell">
@@ -32,27 +32,27 @@
         </div>
 
         <section id="view-login" class="view <?!= currentView === 'login' ? 'active' : ''; ?>">
-          <?!= include('Login'); ?>
+          <?!= includeSafe('Login', '<div class="message message-error">שגיאה בטעינת מסך ההתחברות.</div>'); ?>
         </section>
 
         <section id="view-dashboard" class="view <?!= currentView === 'dashboard' ? 'active' : ''; ?>">
-          <?!= include('Dashboard'); ?>
+          <?!= includeSafe('Dashboard', '<div class="message message-error">שגיאה בטעינת מסך הדשבורד.</div>'); ?>
         </section>
 
         <section id="view-mycourses" class="view <?!= currentView === 'mycourses' ? 'active' : ''; ?>">
-          <?!= include('MyCourses'); ?>
+          <?!= includeSafe('MyCourses', '<div class="message message-error">שגיאה בטעינת מסך הקורסים.</div>'); ?>
         </section>
 
         <section id="view-edit-form" class="view <?!= currentView === 'edit-form' ? 'active' : ''; ?>">
-          <?!= include('EditForm'); ?>
+          <?!= includeSafe('EditForm', '<div class="message message-error">שגיאה בטעינת מסך בקשת העריכה.</div>'); ?>
         </section>
 
         <section id="view-myrequests" class="view <?!= currentView === 'myrequests' ? 'active' : ''; ?>">
-          <?!= include('MyRequests'); ?>
+          <?!= includeSafe('MyRequests', '<div class="message message-error">שגיאה בטעינת מסך הבקשות שלי.</div>'); ?>
         </section>
 
         <section id="view-approvals" class="view <?!= currentView === 'approvals' ? 'active' : ''; ?>">
-          <?!= include('Approvals'); ?>
+          <?!= includeSafe('Approvals', '<div class="message message-error">שגיאה בטעינת מסך האישורים.</div>'); ?>
         </section>
       </main>
 
@@ -70,12 +70,12 @@
       };
     </script>
 
-    <?!= include('LoginScripts'); ?>
-    <?!= include('DashboardScripts'); ?>
-    <?!= include('MyCoursesScripts'); ?>
-    <?!= include('EditFormScripts'); ?>
-    <?!= include('MyRequestsScripts'); ?>
-    <?!= include('ApprovalsScripts'); ?>
-    <?!= include('RuntimeScripts'); ?>
+    <?!= includeSafe('LoginScripts'); ?>
+    <?!= includeSafe('DashboardScripts'); ?>
+    <?!= includeSafe('MyCoursesScripts'); ?>
+    <?!= includeSafe('EditFormScripts'); ?>
+    <?!= includeSafe('MyRequestsScripts'); ?>
+    <?!= includeSafe('ApprovalsScripts'); ?>
+    <?!= includeSafe('RuntimeScripts'); ?>
   </body>
 </html>

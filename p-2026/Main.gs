@@ -8,7 +8,7 @@ function doGet(e) {
   template.pageTitle = CONFIG.SETTINGS.DEFAULT_PAGE_TITLE;
   template.currentView = currentView;
   template.userProfile = userProfile;
-  template.buildLabel = CONFIG.SETTINGS.BUILD_LABEL;
+  template.buildLabel = CONFIG.SETTINGS.BUILD_LABEL || 'unknown-build';
 
   return template
     .evaluate()
@@ -42,6 +42,15 @@ function resolveSafeView(requestedView, userProfile, sourceRowNumber) {
 
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function includeSafe(filename, fallbackHtml) {
+  try {
+    return include(filename);
+  } catch (err) {
+    Logger.log('includeSafe failed for "%s": %s', filename, err && err.message ? err.message : err);
+    return fallbackHtml || '';
+  }
 }
 
 function loginAction(loginInput, codeInput) {
