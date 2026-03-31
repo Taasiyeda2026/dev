@@ -1,0 +1,39 @@
+<script>
+  (function () {
+    var healthEl = document.getElementById('runtime-health');
+    if (!healthEl || !window.APP_BOOT || !window.APP_BOOT.userProfile) {
+      if (healthEl) healthEl.textContent = 'Runtime check: login required';
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(function (result) {
+        if (!result || !result.success || !result.health) {
+          setWarn('Runtime check failed');
+          return;
+        }
+
+        var health = result.health;
+        var missing = health.missingIncludes || [];
+        if (missing.length) {
+          setWarn('Runtime check: missing include(s): ' + missing.join(', '));
+          return;
+        }
+
+        var label = health.buildLabel || window.APP_BOOT.buildLabel || '-';
+        healthEl.classList.remove('runtime-warn');
+        healthEl.classList.add('runtime-ok');
+        healthEl.textContent = 'Runtime check: OK · ' + label;
+      })
+      .withFailureHandler(function () {
+        setWarn('Runtime check: server unavailable');
+      })
+      .getRuntimeHealthAction();
+
+    function setWarn(text) {
+      healthEl.classList.remove('runtime-ok');
+      healthEl.classList.add('runtime-warn');
+      healthEl.textContent = text;
+    }
+  })();
+</script>
