@@ -23,6 +23,7 @@ function resolveSafeView(requestedView, userProfile) {
     login: true,
     dashboard: true,
     mycourses: true,
+    'edit-form': true,
     myrequests: true,
     approvals: true
   };

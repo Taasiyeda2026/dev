@@ -2,20 +2,204 @@
   (function () {
     if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'mycourses') return;
 
-    setUiState('table');
+    var state = {
+      columns: [],
+      programOptionsLoaded: false,
+      statusOptionsLoaded: false
+    };
 
-    function setUiState(state) {
+    bindEvents();
+    hydrateUserPill(window.APP_BOOT.userProfile);
+    loadCourses();
+
+    function bindEvents() {
+      var refreshBtn = document.getElementById('mycourses-refresh-btn');
+      if (refreshBtn) refreshBtn.addEventListener('click', loadCourses);
+
+      ['mycourses-search', 'mycourses-program', 'mycourses-status'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', debounce(loadCourses, 250));
+        el.addEventListener('change', loadCourses);
+      });
+    }
+
+    function loadCourses() {
+      setUiState('loading');
+      setError('');
+      setInfo('');
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          if (!result || !result.success || !result.data) {
+            setUiState('error');
+            setError(formatServerError(result && (result.error || result.message || result), 'טעינת הקורסים נכשלה.'));
+            return;
+          }
+
+          var data = result.data;
+          state.columns = (data.columns || []).slice();
+
+          renderSelectOptions('mycourses-program', data.programs || [], 'תוכנית: הכל', state.programOptionsLoaded);
+          renderSelectOptions('mycourses-status', data.statuses || [], 'סטטוס: הכל', state.statusOptionsLoaded);
+          state.programOptionsLoaded = true;
+          state.statusOptionsLoaded = true;
+
+          renderTable(data.columns || [], data.rows || []);
+
+          var infoText = [];
+          if (data.filtering && data.filtering.fieldUsed) infoText.push('שיטת סינון: ' + data.filtering.fieldUsed);
+          if (data.assumptions && data.assumptions.length) infoText.push(data.assumptions.join(' | '));
+          setInfo(infoText.join(' | '));
+
+          setUiState((data.rows || []).length ? 'table' : 'empty');
+        })
+        .withFailureHandler(function (err) {
+          setUiState('error');
+          setError(formatServerError(err, 'אירעה שגיאה בטעינת הקורסים.'));
+        })
+        .getMyCoursesDataAction({
+          query: getValue('mycourses-search'),
+          program: getValue('mycourses-program'),
+          status: getValue('mycourses-status')
+        });
+    }
+
+    function renderSelectOptions(selectId, options, defaultLabel, preserveCurrentValue) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+
+      var currentValue = preserveCurrentValue ? select.value : '';
+      select.innerHTML = '<option value="">' + escapeHtml(defaultLabel) + '</option>' + options.map(function (value) {
+        return '<option value="' + escapeHtml(String(value)) + '">' + escapeHtml(String(value)) + '</option>';
+      }).join('');
+
+      if (currentValue) select.value = currentValue;
+    }
+
+    function renderTable(columns, rows) {
+      var head = document.getElementById('mycourses-head');
+      var body = document.getElementById('mycourses-body');
+
+      if (!head || !body) return;
+
+      var visibleColumns = (columns || []).filter(function (col) {
+        return col && col.key && col.key.charAt(0) !== '_';
+      });
+
+      head.innerHTML = '<tr>' + visibleColumns.map(function (col) {
+        return '<th>' + escapeHtml(col.label || col.key) + '</th>';
+      }).join('') + '<th>פעולות</th></tr>';
+
+      body.innerHTML = (rows || []).map(function (row) {
+        return '<tr>' + visibleColumns.map(function (col) {
+          return '<td class="cell-wrap">' + formatCell(col.key, row[col.key]) + '</td>';
+        }).join('') + '<td><div class="table-actions">' + renderActions(row) + '</div></td></tr>';
+      }).join('');
+    }
+
+    function renderActions(row) {
+      var sourceRow = Number(row && row._sourceRowNumber);
+      if (!sourceRow) return '<span class="muted small-text">לא זמינה פעולה</span>';
+
+      if (row && row._canRequestEdit) {
+        return '<a class="btn-link" href="?view=edit-form&row=' + sourceRow + '">בקשת עריכה</a>';
+      }
+
+      return '<span class="muted small-text">אין הרשאה לעריכה</span>';
+    }
+
+    function formatCell(key, value) {
+      if (isStatusField(key)) return formatStatusBadge(value);
+      return escapeHtml(readValue(value));
+    }
+
+    function isStatusField(key) {
+      var normalized = String(key || '').toLowerCase();
+      return normalized.indexOf('status') !== -1 || normalized.indexOf('סטטוס') !== -1;
+    }
+
+    function formatStatusBadge(statusText) {
+      var label = readValue(statusText);
+      var normalized = String(label).toLowerCase();
+      var cls = 'badge-default';
+
+      if (normalized.indexOf('pending') !== -1 || normalized.indexOf('ממתין') !== -1) cls = 'badge-pending';
+      else if (normalized.indexOf('approved') !== -1 || normalized.indexOf('מאושר') !== -1 || normalized.indexOf('active') !== -1 || normalized.indexOf('פעיל') !== -1) cls = 'badge-approved';
+      else if (normalized.indexOf('rejected') !== -1 || normalized.indexOf('נדחה') !== -1 || normalized.indexOf('cancel') !== -1 || normalized.indexOf('בוטל') !== -1) cls = 'badge-rejected';
+      else if (normalized.indexOf('applied') !== -1 || normalized.indexOf('יושם') !== -1) cls = 'badge-applied';
+
+      return '<span class="badge ' + cls + '">' + escapeHtml(label) + '</span>';
+    }
+
+    function setUiState(stateName) {
       var panel = document.getElementById('mycourses-panel');
       var loading = document.getElementById('mycourses-loading');
       var error = document.getElementById('mycourses-error');
       var table = document.getElementById('mycourses-table-wrapper');
       var empty = document.getElementById('mycourses-empty');
 
-      if (panel) panel.classList.toggle('panel-loading', state === 'loading');
-      if (loading) loading.style.display = state === 'loading' ? 'block' : 'none';
-      if (error) error.style.display = state === 'error' ? 'block' : 'none';
-      if (table) table.style.display = state === 'table' ? 'block' : 'none';
-      if (empty) empty.style.display = state === 'empty' ? 'block' : 'none';
+      if (panel) panel.classList.toggle('panel-loading', stateName === 'loading');
+      if (loading) loading.style.display = stateName === 'loading' ? 'block' : 'none';
+      if (error) error.style.display = stateName === 'error' ? 'block' : 'none';
+      if (table) table.style.display = stateName === 'table' ? 'block' : 'none';
+      if (empty) empty.style.display = stateName === 'empty' ? 'block' : 'none';
+    }
+
+    function setError(msg) {
+      var el = document.getElementById('mycourses-error');
+      if (!el) return;
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg || '';
+    }
+
+    function setInfo(msg) {
+      var el = document.getElementById('mycourses-info');
+      if (!el) return;
+      el.style.display = msg ? 'block' : 'none';
+      el.textContent = msg || '';
+    }
+
+    function getValue(id) {
+      var el = document.getElementById(id);
+      return el ? el.value : '';
+    }
+
+    function hydrateUserPill(userProfile) {
+      var pill = document.getElementById('user-pill');
+      if (!pill || !userProfile) return;
+      pill.style.display = 'inline-block';
+      pill.textContent = 'מחובר/ת: ' + (userProfile.EmployeeName || userProfile.EmployeeID || 'משתמש');
+    }
+
+    function readValue(value) {
+      if (value === null || value === undefined || value === '') return '-';
+      return String(value);
+    }
+
+    function formatServerError(err, fallback) {
+      if (!err) return fallback;
+      if (typeof err === 'string') return err;
+      if (err && err.message) return err.message;
+      try { return JSON.stringify(err, null, 2); } catch (_err) { return fallback; }
+    }
+
+    function debounce(fn, delay) {
+      var timer = null;
+      return function () {
+        clearTimeout(timer);
+        timer = setTimeout(fn, delay);
+      };
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\"/g, '&quot;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
   })();
 </script>
