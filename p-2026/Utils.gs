@@ -60,6 +60,13 @@ var Utils = (function () {
     return CONFIG.SETTINGS.ACTIVE_VALUE_CANDIDATES.indexOf(normalized) !== -1;
   }
 
+  function isPlainObject(value) {
+    if (!value || typeof value !== 'object') return false;
+    if (Array.isArray(value)) return false;
+    var proto = Object.getPrototypeOf(value);
+    return proto === Object.prototype || proto === null;
+  }
+
   return {
     isEmpty: isEmpty,
     normalize: normalize,
@@ -68,6 +75,7 @@ var Utils = (function () {
     durationHours: durationHours,
     formatNumber: formatNumber,
     formatHours: formatHours,
-    isTruthyActive: isTruthyActive
+    isTruthyActive: isTruthyActive,
+    isPlainObject: isPlainObject
   };
 })();

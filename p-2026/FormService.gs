@@ -47,13 +47,19 @@ var FormService = (function () {
       if (!userProfile) {
         return { success: false, message: 'אין התחברות פעילה. יש להתחבר מחדש.' };
       }
+      if (!Utils.isPlainObject(payload)) {
+        return { success: false, message: 'מבנה הבקשה אינו תקין.' };
+      }
 
-      var rowNumber = Number(payload && payload.sourceRowNumber);
+      var rowNumber = Number(payload.sourceRowNumber);
       if (isNaN(rowNumber) || rowNumber < SHEET_READ_OPTIONS.dataStartRow) {
         return { success: false, message: 'מזהה רשומה לא תקין לשמירת בקשה.' };
       }
 
-      var updates = (payload && payload.updates) || {};
+      var updates = payload.updates;
+      if (!Utils.isPlainObject(updates)) {
+        return { success: false, message: 'שדות העדכון אינם בפורמט תקין.' };
+      }
       var masterData = loadDataMaster();
       var rowItem = findRowByNumber(masterData.items, rowNumber);
       if (!rowItem) {
@@ -140,8 +146,9 @@ var FormService = (function () {
 
     if (isManager) {
       var scope = Utils.normalize(userProfile.AccessScope).toLowerCase();
-      if (!scope || scope === 'all') return { allowed: true };
-      if (idx.Program === -1) return { allowed: true };
+      if (!scope) return { allowed: false, message: 'אין הרשאה לעריכה: AccessScope חסר בפרופיל המשתמש.' };
+      if (scope === 'all') return { allowed: true };
+      if (idx.Program === -1) return { allowed: false, message: 'לא ניתן לאמת הרשאה ללא עמודת Program.' };
       var program = Utils.normalize(rowValues[idx.Program]).toLowerCase();
       var allowedPrograms = scope.split(',').map(function (s) { return Utils.normalize(s).toLowerCase(); });
       return allowedPrograms.indexOf(program) !== -1
@@ -246,14 +253,19 @@ var FormService = (function () {
   function sanitizeUpdates(updates, fields) {
     var allowedMap = {};
     fields.forEach(function (field) {
-      if (field.editable) allowedMap[field.requestKey] = true;
+      if (field.editable) allowedMap[normalizeRequestKey(field.requestKey)] = field.requestKey;
     });
 
     var allowed = {};
     var ignored = [];
     Object.keys(updates).forEach(function (key) {
-      if (allowedMap[key]) {
-        allowed[key] = updates[key];
+      var normalizedKey = normalizeRequestKey(key);
+      if (!normalizedKey) {
+        ignored.push(key);
+        return;
+      }
+      if (allowedMap[normalizedKey]) {
+        allowed[allowedMap[normalizedKey]] = updates[key];
       } else {
         ignored.push(key);
       }
@@ -354,6 +366,10 @@ var FormService = (function () {
       if (idx > -1) return idx;
     }
     return -1;
+  }
+
+  function normalizeRequestKey(value) {
+    return Utils.normalize(value).toLowerCase().replace(/[\s_\-]/g, '');
   }
 
   return {
