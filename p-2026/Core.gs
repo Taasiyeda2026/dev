@@ -1,7 +1,8 @@
 function doGet() {
-  return ContentService
-    .createTextOutput(JSON.stringify({ success: true, message: 'Backend API בלבד' }))
-    .setMimeType(ContentService.MimeType.JSON);
+  return HtmlService
+    .createHtmlOutputFromFile('index')
+    .setTitle('DASHBOARD2026')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
 }
 
 function doPost(e) {

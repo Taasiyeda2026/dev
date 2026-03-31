@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbybNpyIUVnMz_wm4rMxQOCd6gx6Nmg7QDwmaj95Lkjnagje8_U1hFWUB-hNCp-PG4cL/exec';
+const API_BASE_URL = '';
 
 function buildRequestBody(action, payload) {
   return JSON.stringify({

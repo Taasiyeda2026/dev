@@ -2,7 +2,7 @@
 
 מערכת ניהול עברית מלאה (RTL) עם:
 - Backend ב-Google Apps Script
-- Frontend סטטי בתיקיית `frontend`
+- Frontend מוגש מ-Apps Script באותו Web App (same-origin)
 - מקור יחיד לבקשות עריכה: `EDIT_REQUESTS`
 
 ## מבנה Backend סופי
@@ -12,13 +12,10 @@
 - `Utils.gs`
 
 ## מבנה Frontend
-- `frontend/index.html`
-- `frontend/styles.css`
-- `frontend/app.js`
-- `frontend/api.js`
-- `frontend/state.js`
+- `index.html` (מסך מלא + CSS + JS, מוגש דרך `doGet`)
+- `frontend/` (עותק פיתוח סטטי לצורכי תחזוקה בלבד)
 
 ## הערות
-- אין HtmlService פעיל.
-- אין קבצי UI בתוך Apps Script.
+- נקודת הכניסה הפעילה היא ה-Web App של Apps Script בלבד.
+- אין תלות runtime ב-GitHub Pages עבור פעולת המערכת.
 - כל הקריאות והכתיבות ל-Sheets מתחילות מנתונים בשורה 3 (אחרי שורות כותרת 1–2).
