@@ -1,227 +1,37 @@
 var DashboardService = (function () {
-  var SHEET_READ_OPTIONS = { headerRow: 1, dataStartRow: 3 };
-
-  function getDashboardData(userProfile) {
+  function getDashboard(profile) {
     try {
-      if (!userProfile) {
-        return { success: false, message: 'אין התחברות פעילה. יש להתחבר מחדש.' };
-      }
+      if (!profile) return Utils.safeMessage('אין גישה.');
 
-      var dataMaster = SheetService.getRecords(CONFIG.SHEETS.DATA_MASTER, true, SHEET_READ_OPTIONS);
-      var headers = dataMaster.headers;
-      var idx = SheetService.resolveFieldIndexes(headers, CONFIG.FIELD_ALIASES);
-      var roleMeta = resolveRoleMeta(userProfile);
-      var permissionResult = filterRowsByPermission(dataMaster.rows, idx, userProfile, roleMeta);
+      var dataMaster = SheetService.readTable(CONFIG.SHEETS.DATA_MASTER, false);
+      var reviewRequired = SheetService.readTable(CONFIG.SHEETS.REVIEW_REQUIRED, false);
+      var editRequests = SheetService.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
+      var exportSheet = SheetService.readTable(CONFIG.SHEETS.DASHBOARD_EXPORT, false);
 
-      var dateColumnIndexes = findDateColumnIndexes(headers);
-      var summary = buildSummary(permissionResult.rows, idx, dateColumnIndexes);
-
-      var reviewMeta = getReviewRequiredMeta();
-      var pendingEdits = SheetService.hasSheet(CONFIG.SHEETS.EDIT_REQUESTS)
-        ? SheetService.countDataRows(CONFIG.SHEETS.EDIT_REQUESTS, SHEET_READ_OPTIONS)
-        : null;
-
-      var kpis = [
-        { key: 'activePrograms', label: 'תוכניות פעילות', value: summary.activePrograms },
-        { key: 'activeCourses', label: 'קורסים פעילים', value: summary.activeCourses },
-        { key: 'activeInstructors', label: 'מדריכים פעילים', value: summary.activeInstructors },
-        { key: 'plannedVsActual', label: 'מתוכנן מול בוצע', value: summary.totalPlanned + ' / ' + summary.totalActual },
-        { key: 'executionGap', label: 'פער ביצוע', value: summary.executionGap },
-        { key: 'reviewRequired', label: 'פריטים ממתינים לבדיקה', value: reviewMeta.count },
-        {
-          key: 'pendingRequests',
-          label: 'בקשות ממתינות לאישור',
-          value: pendingEdits === null ? 'לא קיים גיליון EDIT_REQUESTS' : pendingEdits
-        },
-        { key: 'instructorsHoursBase', label: 'סה״כ שעות מדריכים', value: summary.totalHoursBase.toFixed(2) }
-      ];
-
+      var pendingCount = countByStatus(editRequests, 'pending');
       return {
         success: true,
-        dashboard: {
-          generatedAt: new Date().toISOString(),
-          userProfile: userProfile,
-          kpis: kpis,
-          summary: {
-            activePrograms: summary.activePrograms,
-            activeCourses: summary.activeCourses,
-            activeInstructors: summary.activeInstructors,
-            totalPlanned: summary.totalPlanned,
-            totalActual: summary.totalActual,
-            executionGap: summary.executionGap,
-            reviewRequired: reviewMeta.count,
-            pendingRequests: pendingEdits,
-            totalHoursBase: summary.totalHoursBase,
-            dynamicDateColumnsFound: dateColumnIndexes.length
-          },
-          assumptions: summary.assumptions.concat(reviewMeta.assumptions).concat(permissionResult.assumptions),
-          missingFields: summary.missingFields
+        data: {
+          totalDataMaster: dataMaster.rows.length,
+          reviewRequiredCount: reviewRequired.rows.length,
+          pendingRequests: pendingCount,
+          exportRows: exportSheet.rows.length
         }
       };
     } catch (err) {
-      return { success: false, message: 'שגיאה בטעינת נתוני הדשבורד: ' + err.message };
+      return Utils.safeMessage('לא ניתן לטעון דשבורד.');
     }
   }
 
-  function getReviewRequiredMeta() {
-    if (!SheetService.hasSheet(CONFIG.SHEETS.REVIEW_REQUIRED)) {
-      return {
-        count: 0,
-        assumptions: ['הגיליון REVIEW_REQUIRED לא נמצא, ולכן הוגדרו 0 פריטים לבדיקה.']
-      };
-    }
-
-    return {
-      count: SheetService.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED, SHEET_READ_OPTIONS),
-      assumptions: []
-    };
-  }
-
-  function buildSummary(rows, idx, dateColumnIndexes) {
-    var programs = {};
-    var courses = {};
-    var instructors = {};
-
-    var totalPlanned = 0;
-    var totalActual = 0;
-    var totalHoursBase = 0;
-    var missingFields = [];
-    var assumptions = [];
-
-    trackMissing(idx, 'Program', missingFields);
-    trackMissing(idx, 'CourseID', missingFields);
-    trackMissing(idx, 'EmployeeID', missingFields);
-    trackMissing(idx, 'PlannedMeetings', missingFields);
-    trackMissing(idx, 'ActualMeetings', missingFields);
-    trackMissing(idx, 'StartTime', missingFields);
-    trackMissing(idx, 'EndTime', missingFields);
-
-    if (dateColumnIndexes.length === 0) {
-      assumptions.push('לא זוהו עמודות תאריך באופן דינמי בכותרות DATA_MASTER.');
-    }
-
-    rows.forEach(function (row) {
-      var program = valueAt(row, idx.Program);
-      var courseId = valueAt(row, idx.CourseID);
-      var employeeId = valueAt(row, idx.EmployeeID);
-      var statusValue = valueAt(row, idx.Status);
-      var activeValue = valueAt(row, idx.Active);
-
-      var isRowActive = isActiveRow(statusValue, activeValue);
-
-      if (isRowActive && program) programs[program] = true;
-      if (isRowActive && courseId) courses[courseId] = true;
-      if (isRowActive && employeeId) instructors[employeeId] = true;
-
-      totalPlanned += Utils.toNumber(valueAt(row, idx.PlannedMeetings));
-      totalActual += Utils.toNumber(valueAt(row, idx.ActualMeetings));
-
-      var rowHours = Utils.durationHours(valueAt(row, idx.StartTime), valueAt(row, idx.EndTime));
-      if (dateColumnIndexes.length > 0) {
-        rowHours *= countNonEmptyDateCells(row, dateColumnIndexes);
-      }
-      totalHoursBase += rowHours;
-    });
-
-    return {
-      activePrograms: Object.keys(programs).length,
-      activeCourses: Object.keys(courses).length,
-      activeInstructors: Object.keys(instructors).length,
-      totalPlanned: totalPlanned,
-      totalActual: totalActual,
-      executionGap: totalPlanned - totalActual,
-      totalHoursBase: totalHoursBase,
-      missingFields: missingFields,
-      assumptions: assumptions
-    };
-  }
-
-  function resolveRoleMeta(profile) {
-    var roleText = [profile.SystemRole, profile.BaseRole].map(function (v) {
-      return Utils.normalize(v).toLowerCase();
-    }).join(' ');
-    var isMasterAdmin = /(master|מאסטר)/.test(roleText) && /(admin|אדמין)/.test(roleText);
-    var isManagement = isMasterAdmin || /(admin|אדמין|manager|ניהול|הנהלה)/.test(roleText);
-    return { isMasterAdmin: isMasterAdmin, isManagement: isManagement };
-  }
-
-  function filterRowsByPermission(rows, idx, userProfile, roleMeta) {
-    var assumptions = [];
-    if (roleMeta.isMasterAdmin) return { rows: rows, assumptions: assumptions };
-
-    if (roleMeta.isManagement) {
-      var scope = Utils.normalize(userProfile.AccessScope).toLowerCase();
-      if (!scope) {
-        assumptions.push('AccessScope חסר ולכן הדשבורד מציג 0 רשומות למשתמש הנהלה.');
-        return { rows: [], assumptions: assumptions };
-      }
-      if (scope === 'all') return { rows: rows, assumptions: assumptions };
-      if (idx.Program === -1) {
-        assumptions.push('לא נמצאה עמודת Program ולכן הדשבורד מציג 0 רשומות למשתמש הנהלה.');
-        return { rows: [], assumptions: assumptions };
-      }
-      var allowedPrograms = scope.split(',').map(function (x) { return Utils.normalize(x).toLowerCase(); }).filter(Boolean);
-      return {
-        rows: rows.filter(function (row) {
-          var program = Utils.normalize(row[idx.Program]).toLowerCase();
-          return allowedPrograms.indexOf(program) !== -1;
-        }),
-        assumptions: assumptions
-      };
-    }
-
-    if (idx.EmployeeID === -1 && idx.EmployeeName === -1) {
-      assumptions.push('לא נמצאו עמודות שיוך משתמש ולכן הדשבורד מציג 0 רשומות למשתמש קצה.');
-      return { rows: [], assumptions: assumptions };
-    }
-
-    var userId = Utils.normalize(userProfile.EmployeeID).toLowerCase();
-    var userName = Utils.normalize(userProfile.EmployeeName).toLowerCase();
-    return {
-      rows: rows.filter(function (row) {
-        var employeeId = idx.EmployeeID > -1 ? Utils.normalize(row[idx.EmployeeID]).toLowerCase() : '';
-        var employeeName = idx.EmployeeName > -1 ? Utils.normalize(row[idx.EmployeeName]).toLowerCase() : '';
-        return (employeeId && userId && employeeId === userId) || (employeeName && userName && employeeName === userName);
-      }),
-      assumptions: assumptions
-    };
-  }
-
-  function valueAt(row, idx) {
-    return idx > -1 ? row[idx] : '';
-  }
-
-  function isActiveRow(statusValue, activeValue) {
-    var statusText = Utils.normalize(statusValue).toLowerCase();
-    if (Utils.isTruthyActive(activeValue)) return true;
-    if (!statusText) return true;
-    return ['פעיל', 'active', 'in progress', 'פתוח'].indexOf(statusText) !== -1;
-  }
-
-  function findDateColumnIndexes(headers) {
-    var datePattern = /(date|תאריך|\d{1,2}[\/\.-]\d{1,2}|day)/i;
-    var indexes = [];
-    headers.forEach(function (header, idx) {
-      if (datePattern.test(Utils.normalize(header))) {
-        indexes.push(idx);
-      }
-    });
-    return indexes;
-  }
-
-  function countNonEmptyDateCells(row, dateColumnIndexes) {
-    var count = 0;
-    dateColumnIndexes.forEach(function (idx) {
-      if (!Utils.isEmpty(row[idx])) count += 1;
-    });
-    return count || 1;
-  }
-
-  function trackMissing(idx, key, bag) {
-    if (idx[key] === -1) bag.push(key);
+  function countByStatus(table, statusText) {
+    if (!table || !table.headers || !table.rows) return 0;
+    var idx = SheetService.resolveIndex(table.headers, CONFIG.FIELDS.APPROVAL_STATUS.concat(CONFIG.FIELDS.STATUS));
+    if (idx === -1) return 0;
+    var target = Utils.toKey(statusText);
+    return table.rows.filter(function (row) { return Utils.toKey(row[idx]) === target; }).length;
   }
 
   return {
-    getDashboardData: getDashboardData
+    getDashboard: getDashboard
   };
 })();
