@@ -22,16 +22,16 @@ function doPost(e) {
 }
 
 function routeAction_(action, payload) {
-  if (action === 'loginAction' || action === 'login') return loginAction(payload.userId, payload.code);
-  if (action === 'logoutAction' || action === 'logout') return logoutAction();
-  if (action === 'getSessionProfileAction' || action === 'getSessionProfile') return getSessionProfileAction();
-  if (action === 'getDashboardDataAction' || action === 'getDashboard') return getDashboardDataAction();
-  if (action === 'getMyCoursesDataAction' || action === 'getMyCourses') return getMyCoursesDataAction(payload);
-  if (action === 'submitEditRequestAction' || action === 'submitEditRequest') return submitEditRequestAction(payload);
-  if (action === 'getMyRequestsDataAction' || action === 'getMyRequests') return getMyRequestsDataAction();
-  if (action === 'getApprovalsDataAction' || action === 'getApprovals') return getApprovalsDataAction();
-  if (action === 'approveRequestAction' || action === 'approveRequest') return approveRequestAction(payload);
-  if (action === 'rejectRequestAction' || action === 'rejectRequest') return rejectRequestAction(payload);
+  if (action === 'loginAction') return loginAction(payload.userId, payload.code);
+  if (action === 'logoutAction') return logoutAction();
+  if (action === 'getSessionProfileAction') return getSessionProfileAction();
+  if (action === 'getDashboardDataAction') return getDashboardDataAction();
+  if (action === 'getMyCoursesDataAction') return getMyCoursesDataAction(payload);
+  if (action === 'submitEditRequestAction') return submitEditRequestAction(payload);
+  if (action === 'getMyRequestsDataAction') return getMyRequestsDataAction(payload);
+  if (action === 'getApprovalsDataAction') return getApprovalsDataAction(payload);
+  if (action === 'approveRequestAction') return approveRequestAction(payload);
+  if (action === 'rejectRequestAction') return rejectRequestAction(payload);
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
@@ -59,12 +59,12 @@ function submitEditRequestAction(payload) {
   return Logic.submitEditRequest(payload || {});
 }
 
-function getMyRequestsDataAction() {
-  return Logic.getMyRequestsData();
+function getMyRequestsDataAction(payload) {
+  return Logic.getMyRequestsData(payload || {});
 }
 
-function getApprovalsDataAction() {
-  return Logic.getApprovalsData();
+function getApprovalsDataAction(payload) {
+  return Logic.getApprovalsData(payload || {});
 }
 
 function approveRequestAction(payload) {

@@ -54,22 +54,19 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
-      var dataMaster = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, false);
-      var reviewRequired = Utils.readTable(CONFIG.SHEETS.REVIEW_REQUIRED, false);
-      var editRequests = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
-      var dashboardExport = Utils.readTable(CONFIG.SHEETS.DASHBOARD_EXPORT, false);
-      var idxStatus = Utils.resolveIndex(editRequests.headers, CONFIG.FIELDS.ApprovalStatus);
-      var pending = idxStatus === -1 ? 0 : editRequests.rows.filter(function (row) {
-        return Utils.toKey(row[idxStatus]) === Utils.toKey(CONFIG.STATUSES.PENDING);
-      }).length;
+      var pending = Utils.countMatchingInColumn(
+        CONFIG.SHEETS.EDIT_REQUESTS,
+        CONFIG.FIELDS.ApprovalStatus,
+        CONFIG.STATUSES.PENDING
+      );
 
       return {
         success: true,
         data: {
-          totalDataMaster: dataMaster.rows.length,
-          reviewRequiredCount: reviewRequired.rows.length,
+          totalDataMaster: Utils.countDataRows(CONFIG.SHEETS.DATA_MASTER),
+          reviewRequiredCount: Utils.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED),
           pendingRequests: pending,
-          exportRows: dashboardExport.rows.length
+          exportRows: Utils.countDataRows(CONFIG.SHEETS.DASHBOARD_EXPORT)
         }
       };
     } catch (err) {
@@ -152,7 +149,7 @@ var Logic = (function () {
     }
   }
 
-  function getMyRequestsData() {
+  function getMyRequestsData(payload) {
     var session = requireSession_();
     if (!session.success) return session;
 
@@ -161,11 +158,14 @@ var Logic = (function () {
       var idx = resolveRequestIndexes_(table.headers);
       if (idx.requestedBy === -1) return { success: true, data: { items: [] } };
 
+      var query = Utils.asObject(payload, {});
+      var limit = Math.max(1, Math.min(Number(query.limit || 250), 500));
+      var offset = Math.max(0, Number(query.offset || 0));
       var items = table.rows.filter(function (row) {
         return Utils.toKey(row[idx.requestedBy]) === Utils.toKey(session.user.userId);
       }).map(function (row) {
         return projectRequestForFrontend_(row, idx);
-      });
+      }).slice(offset, offset + limit);
 
       return { success: true, data: { items: items } };
     } catch (err) {
@@ -173,7 +173,7 @@ var Logic = (function () {
     }
   }
 
-  function getApprovalsData() {
+  function getApprovalsData(payload) {
     var session = requireSession_();
     if (!session.success) return session;
     if (!canApprove_(session.user)) return Utils.safeMessage('אין הרשאה.');
@@ -183,11 +183,14 @@ var Logic = (function () {
       var idx = resolveRequestIndexes_(table.headers);
       if (idx.approvalStatus === -1) return { success: true, data: { items: [] } };
 
+      var query = Utils.asObject(payload, {});
+      var limit = Math.max(1, Math.min(Number(query.limit || 250), 500));
+      var offset = Math.max(0, Number(query.offset || 0));
       var items = table.rows.filter(function (row) {
         return Utils.toKey(row[idx.approvalStatus]) === Utils.toKey(CONFIG.STATUSES.PENDING);
       }).map(function (row) {
         return projectRequestForFrontend_(row, idx);
-      });
+      }).slice(offset, offset + limit);
 
       return { success: true, data: { items: items } };
     } catch (err) {

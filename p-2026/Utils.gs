@@ -89,6 +89,27 @@ var Utils = (function () {
     return { sheet: sheet, headers: headers, displayHeaders: displayHeaders, rows: rows, rowNumbers: rowNumbers };
   }
 
+  function countDataRows(sheetName) {
+    var sheet = getSheet(sheetName, false);
+    if (!sheet) return 0;
+    var lastRow = sheet.getLastRow();
+    if (lastRow < CONFIG.STRUCTURE.DATA_START_ROW) return 0;
+    return lastRow - CONFIG.STRUCTURE.DATA_START_ROW + 1;
+  }
+
+  function countMatchingInColumn(sheetName, fieldAliases, expectedValue) {
+    var table = readTable(sheetName, false);
+    if (!table.sheet || !table.headers.length) return 0;
+    var index = resolveIndex(table.headers, fieldAliases);
+    if (index === -1) return 0;
+    var wanted = toKey(expectedValue);
+    var count = 0;
+    table.rows.forEach(function (row) {
+      if (toKey(row[index]) === wanted) count += 1;
+    });
+    return count;
+  }
+
   function rowsToObjects(table) {
     return table.rows.map(function (row, i) {
       var obj = { _rowNumber: table.rowNumbers[i] };
@@ -153,6 +174,8 @@ var Utils = (function () {
     getSheet: getSheet,
     resolveIndex: resolveIndex,
     readTable: readTable,
+    countDataRows: countDataRows,
+    countMatchingInColumn: countMatchingInColumn,
     rowsToObjects: rowsToObjects,
     appendRow: appendRow,
     updateRow: updateRow,
