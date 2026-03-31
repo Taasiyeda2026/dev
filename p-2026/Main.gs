@@ -49,8 +49,9 @@ function logoutAction() {
 }
 
 function getDashboardDataAction() {
-  var profile = AuthService.getSession();
-  return DashboardService.getDashboardData(profile);
+  var session = requireSession_();
+  if (!session.success) return session;
+  return DashboardService.getDashboardData(session.userProfile);
 }
 
 function getSessionProfileAction() {
@@ -62,31 +63,45 @@ function getSessionProfileAction() {
 }
 
 function getMyCoursesDataAction(filters) {
-  var profile = AuthService.getSession();
-  return CoursesService.getMyCoursesData(profile, filters || {});
+  var session = requireSession_();
+  if (!session.success) return session;
+  return CoursesService.getMyCoursesData(session.userProfile, filters || {});
 }
 
 function getEditFormDataAction(sourceRowNumber) {
-  var profile = AuthService.getSession();
-  return FormService.getEditFormData(profile, sourceRowNumber);
+  var session = requireSession_();
+  if (!session.success) return session;
+  return FormService.getEditFormData(session.userProfile, sourceRowNumber);
 }
 
 function submitEditRequestAction(payload) {
-  var profile = AuthService.getSession();
-  return FormService.submitEditRequest(profile, payload || {});
+  var session = requireSession_();
+  if (!session.success) return session;
+  return FormService.submitEditRequest(session.userProfile, payload || {});
 }
 
 function getMyRequestsDataAction(filters) {
-  var profile = AuthService.getSession();
-  return RequestsService.getMyRequestsData(profile, filters || {});
+  var session = requireSession_();
+  if (!session.success) return session;
+  return RequestsService.getMyRequestsData(session.userProfile, filters || {});
 }
 
 function getApprovalsDataAction(filters) {
-  var profile = AuthService.getSession();
-  return ApprovalService.getApprovalsData(profile, filters || {});
+  var session = requireSession_();
+  if (!session.success) return session;
+  return ApprovalService.getApprovalsData(session.userProfile, filters || {});
 }
 
 function submitApprovalDecisionAction(payload) {
+  var session = requireSession_();
+  if (!session.success) return session;
+  return ApprovalService.submitApprovalDecision(session.userProfile, payload || {});
+}
+
+function requireSession_() {
   var profile = AuthService.getSession();
-  return ApprovalService.submitApprovalDecision(profile, payload || {});
+  if (!profile || !AuthService.isValidSessionProfile(profile)) {
+    return { success: false, message: 'ה-session אינו תקין או שפג תוקף. יש להתחבר מחדש.' };
+  }
+  return { success: true, userProfile: profile };
 }

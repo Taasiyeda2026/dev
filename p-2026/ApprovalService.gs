@@ -51,6 +51,8 @@ var ApprovalService = (function () {
       if (!userProfile) return { success: false, message: 'אין התחברות פעילה. יש להתחבר מחדש.' };
       if (!canAccessApprovals(userProfile)) return { success: false, message: 'אין הרשאה לפעולת אישור/דחייה.' };
 
+      if (!Utils.isPlainObject(payload)) return { success: false, message: 'מבנה הבקשה אינו תקין.' };
+
       var decision = Utils.normalize(payload.decision).toLowerCase();
       var sheetRowNumber = Number(payload.requestRowNumber);
       var reviewerNote = Utils.normalize(payload.reviewerNote);
@@ -67,12 +69,16 @@ var ApprovalService = (function () {
 
       var row = requestSheet.getRange(sheetRowNumber, 1, 1, lastColumn).getValues()[0];
       if (!hasAnyValue(row)) return { success: false, message: 'שורת הבקשה ריקה.' };
+      var beforeDecisionRow = row.slice();
 
       var permission = canReviewerHandleRequest(row, indexes, userProfile);
       if (!permission.allowed) return { success: false, message: permission.message };
 
       var statusNow = readCell(row, indexes.status);
-      if (statusNow && statusNow.toLowerCase() !== STATUS_PENDING.toLowerCase()) {
+      if (!statusNow) {
+        return { success: false, message: 'לא ניתן לטפל בבקשה ללא סטטוס.' };
+      }
+      if (statusNow.toLowerCase() !== STATUS_PENDING.toLowerCase()) {
         return { success: false, message: 'ניתן לטפל רק בבקשות במצב Pending. סטטוס נוכחי: ' + statusNow };
       }
 
@@ -87,10 +93,9 @@ var ApprovalService = (function () {
 
       var applyResult = applyApprovedRequest(row, indexes, userProfile);
       if (!applyResult.success) {
-        row = requestSheet.getRange(sheetRowNumber, 1, 1, lastColumn).getValues()[0];
-        setStatus(row, indexes, STATUS_PENDING);
-        appendSystemNote(row, indexes, 'האישור בוטל עקב כשל בהחלה: ' + applyResult.message);
-        requestSheet.getRange(sheetRowNumber, 1, 1, lastColumn).setValues([row]);
+        var rollbackRow = beforeDecisionRow.slice();
+        appendSystemNote(rollbackRow, indexes, 'האישור בוטל עקב כשל בהחלה: ' + applyResult.message);
+        requestSheet.getRange(sheetRowNumber, 1, 1, lastColumn).setValues([rollbackRow]);
         return { success: false, message: 'האישור לא הושלם: ' + applyResult.message };
       }
 
@@ -112,6 +117,11 @@ var ApprovalService = (function () {
   }
 
   function applyApprovedRequest(requestRow, requestIndexes, reviewerProfile) {
+    var statusBeforeApply = readCell(requestRow, requestIndexes.status);
+    if (statusBeforeApply.toLowerCase() !== STATUS_APPROVED.toLowerCase()) {
+      return { success: false, message: 'לא ניתן לבצע apply לבקשה שאינה במצב Approved.' };
+    }
+
     var sourceRowNumber = Number(readCell(requestRow, requestIndexes.sourceRowNumber));
     if (isNaN(sourceRowNumber) || sourceRowNumber < SHEET_READ_OPTIONS.dataStartRow) {
       return { success: false, message: 'SourceRowNumber חסר או לא תקין.' };
@@ -219,7 +229,8 @@ var ApprovalService = (function () {
     if (!role.isManagement) return { allowed: false, message: 'רק הנהלה או מאסטר אדמין יכולים לאשר בקשות.' };
 
     var scope = Utils.normalize(userProfile.AccessScope).toLowerCase();
-    if (!scope || scope === 'all') return { allowed: true };
+    if (!scope) return { allowed: false, message: 'אין הרשאה לאישור: AccessScope חסר בפרופיל המשתמש.' };
+    if (scope === 'all') return { allowed: true };
 
     var program = readCell(row, indexes.sourceProgram).toLowerCase();
     if (!program) return { allowed: false, message: 'לא ניתן לאשר בקשה ללא שיוך Program תחת AccessScope מוגבל.' };
@@ -237,11 +248,15 @@ var ApprovalService = (function () {
     if (role.isMasterAdmin) return rows;
 
     var scope = Utils.normalize(userProfile.AccessScope).toLowerCase();
-    if (!scope || scope === 'all') return rows;
+    if (!scope) {
+      assumptions.push('AccessScope חסר ולכן למשתמש הנהלה הוחזרו 0 בקשות לשמירה על אבטחה.');
+      return [];
+    }
+    if (scope === 'all') return rows;
 
     if (indexes.sourceProgram === -1) {
-      assumptions.push('אין עמודת SourceProgram ולכן בוצע סינון ל-Pending בלבד עבור הנהלה.');
-      return rows.filter(function (item) { return readCell(item.values, indexes.status) === STATUS_PENDING; });
+      assumptions.push('אין עמודת SourceProgram ולכן למשתמש הנהלה הוחזרו 0 בקשות לשמירה על אבטחה.');
+      return [];
     }
 
     var allowedPrograms = scope.split(',').map(function (x) { return Utils.normalize(x).toLowerCase(); }).filter(Boolean);

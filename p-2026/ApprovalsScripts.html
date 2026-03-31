@@ -1,6 +1,7 @@
 <script>
   (function () {
     if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'approvals') return;
+    var pendingRequestRows = {};
 
     hydrateUserPill(window.APP_BOOT.userProfile);
     bindEvents();
@@ -63,6 +64,7 @@
 
     function submitDecision(btn) {
       var requestRowNumber = Number(btn.getAttribute('data-request-row'));
+      if (pendingRequestRows[requestRowNumber]) return;
       var action = btn.getAttribute('data-action');
       var noteInput = document.getElementById('approval-note-' + requestRowNumber);
       var reviewerNote = noteInput ? noteInput.value : '';
@@ -70,13 +72,15 @@
       var approveText = action === 'approve' ? 'אישור' : 'דחייה';
       if (!confirm('האם לבצע ' + approveText + ' לבקשה #' + requestRowNumber + '?')) return;
 
-      btn.disabled = true;
+      pendingRequestRows[requestRowNumber] = true;
+      setRowActionState(requestRowNumber, true);
       setError('');
       setInfo('מעבד בקשה...');
 
       google.script.run
         .withSuccessHandler(function (result) {
-          btn.disabled = false;
+          pendingRequestRows[requestRowNumber] = false;
+          setRowActionState(requestRowNumber, false);
           if (!result || !result.success) {
             setError(formatServerError(result && (result.error || result.message || result), 'הפעולה נכשלה.'));
             return;
@@ -86,7 +90,8 @@
           loadApprovals();
         })
         .withFailureHandler(function (err) {
-          btn.disabled = false;
+          pendingRequestRows[requestRowNumber] = false;
+          setRowActionState(requestRowNumber, false);
           setError(formatServerError(err, 'אירעה שגיאה בזמן פעולה על בקשה.'));
         })
         .submitApprovalDecisionAction({
@@ -94,6 +99,13 @@
           decision: action,
           reviewerNote: reviewerNote
         });
+    }
+
+    function setRowActionState(requestRowNumber, isBusy) {
+      var buttons = document.querySelectorAll('button[data-request-row="' + requestRowNumber + '"]');
+      Array.prototype.forEach.call(buttons, function (button) {
+        button.disabled = !!isBusy;
+      });
     }
 
     function renderTable(rows) {

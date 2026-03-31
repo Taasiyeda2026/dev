@@ -18,7 +18,7 @@ var AuthService = (function () {
     }
 
     var userLower = userText.toLowerCase();
-    var matchRow = null;
+    var matchedRows = [];
 
     table.rows.some(function (row) {
       var employeeId = idx.EmployeeID > -1 ? Utils.normalize(row[idx.EmployeeID]) : '';
@@ -29,16 +29,18 @@ var AuthService = (function () {
       var nameMatch = employeeName && employeeName.toLowerCase() === userLower;
       var codeMatch = loginCode === codeText;
 
-      if ((idMatch || nameMatch) && codeMatch) {
-        matchRow = row;
-        return true;
-      }
+      if ((idMatch || nameMatch) && codeMatch) matchedRows.push(row);
       return false;
     });
 
-    if (!matchRow) {
+    if (!matchedRows.length) {
       return { success: false, message: 'שם המשתמש או קוד הכניסה שגויים.' };
     }
+    if (matchedRows.length > 1) {
+      return { success: false, message: 'נמצאו מספר התאמות לאותו משתמש. יש לפנות למנהל המערכת להסדרת ההרשאות.' };
+    }
+
+    var matchRow = matchedRows[0];
 
     var profile = {
       EmployeeName: idx.EmployeeName > -1 ? Utils.normalize(matchRow[idx.EmployeeName]) : '',
@@ -91,11 +93,23 @@ var AuthService = (function () {
         logout();
         return null;
       }
-      return parsed.userProfile || null;
+      var profile = parsed.userProfile || null;
+      if (!isValidSessionProfile(profile)) {
+        logout();
+        return null;
+      }
+      return profile;
     } catch (err) {
       logout();
       return null;
     }
+  }
+
+  function isValidSessionProfile(profile) {
+    if (!profile || typeof profile !== 'object') return false;
+    var hasIdentity = !Utils.isEmpty(profile.EmployeeID) || !Utils.isEmpty(profile.EmployeeName);
+    var hasRole = !Utils.isEmpty(profile.SystemRole) || !Utils.isEmpty(profile.BaseRole);
+    return hasIdentity && hasRole;
   }
 
   function isLoggedIn() {
@@ -110,6 +124,7 @@ var AuthService = (function () {
   return {
     login: login,
     getSession: getSession,
+    isValidSessionProfile: isValidSessionProfile,
     isLoggedIn: isLoggedIn,
     logout: logout
   };

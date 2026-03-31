@@ -96,15 +96,20 @@ var CoursesService = (function () {
 
     if (roleMeta.isManager) {
       var scope = Utils.normalize(profile.AccessScope);
-      if (!scope || scope.toLowerCase() === 'all') {
+      if (!scope) {
+        assumptions.push('AccessScope חסר ולכן למשתמש הנהלה הוחזרו 0 רשומות לשמירה על אבטחה.');
+        filtering.fieldUsed = 'AccessScope חסר';
+        return { items: [], assumptions: assumptions, filtering: filtering };
+      }
+      if (scope.toLowerCase() === 'all') {
         filtering.fieldUsed = 'AccessScope=ALL (ללא צמצום)';
         return { items: items, assumptions: assumptions, filtering: filtering };
       }
 
       if (idx.Program === -1) {
-        assumptions.push('לא נמצאה עמודת Program ולכן לא בוצע צמצום לפי AccessScope להנהלה.');
+        assumptions.push('לא נמצאה עמודת Program ולכן למשתמש הנהלה הוחזרו 0 רשומות לשמירה על אבטחה.');
         filtering.fieldUsed = 'AccessScope ללא Program';
-        return { items: items, assumptions: assumptions, filtering: filtering };
+        return { items: [], assumptions: assumptions, filtering: filtering };
       }
 
       var allowed = scope.split(',').map(function (s) {

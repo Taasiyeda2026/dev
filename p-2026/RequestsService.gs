@@ -88,15 +88,20 @@ var RequestsService = (function () {
 
     if (roleMeta.isManagement) {
       var scope = Utils.normalize(userProfile.AccessScope).toLowerCase();
-      if (!scope || scope === 'all') {
+      if (!scope) {
+        assumptions.push('AccessScope חסר ולכן למשתמש הנהלה הוחזרו 0 בקשות לשמירה על אבטחה.');
+        filtering.fieldUsed = 'AccessScope חסר';
+        return { rows: [], assumptions: assumptions, filtering: filtering };
+      }
+      if (scope === 'all') {
         filtering.fieldUsed = 'הנהלה עם AccessScope=ALL';
         return { rows: rows, assumptions: assumptions, filtering: filtering };
       }
 
       if (indexes.sourceProgram === -1) {
-        assumptions.push('לא נמצאה עמודת Program/SourceProgram ולכן הופעל fallback לשיוך משתמש בלבד.');
-        filtering.fieldUsed = 'שיוך משתמש (fallback)';
-        return filterRowsByRequester(rows, indexes, userProfile, filtering, assumptions);
+        assumptions.push('לא נמצאה עמודת Program/SourceProgram ולכן למשתמש הנהלה הוחזרו 0 בקשות לשמירה על אבטחה.');
+        filtering.fieldUsed = 'AccessScope ללא Program';
+        return { rows: [], assumptions: assumptions, filtering: filtering };
       }
 
       var scopeValues = scope.split(',').map(function (v) { return Utils.normalize(v).toLowerCase(); }).filter(Boolean);

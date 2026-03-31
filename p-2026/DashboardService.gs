@@ -10,9 +10,11 @@ var DashboardService = (function () {
       var dataMaster = SheetService.getRecords(CONFIG.SHEETS.DATA_MASTER, true, SHEET_READ_OPTIONS);
       var headers = dataMaster.headers;
       var idx = SheetService.resolveFieldIndexes(headers, CONFIG.FIELD_ALIASES);
+      var roleMeta = resolveRoleMeta(userProfile);
+      var permissionResult = filterRowsByPermission(dataMaster.rows, idx, userProfile, roleMeta);
 
       var dateColumnIndexes = findDateColumnIndexes(headers);
-      var summary = buildSummary(dataMaster.rows, idx, dateColumnIndexes);
+      var summary = buildSummary(permissionResult.rows, idx, dateColumnIndexes);
 
       var reviewMeta = getReviewRequiredMeta();
       var pendingEdits = SheetService.hasSheet(CONFIG.SHEETS.EDIT_REQUESTS)
@@ -52,7 +54,7 @@ var DashboardService = (function () {
             totalHoursBase: summary.totalHoursBase,
             dynamicDateColumnsFound: dateColumnIndexes.length
           },
-          assumptions: summary.assumptions.concat(reviewMeta.assumptions),
+          assumptions: summary.assumptions.concat(reviewMeta.assumptions).concat(permissionResult.assumptions),
           missingFields: summary.missingFields
         }
       };
@@ -130,6 +132,57 @@ var DashboardService = (function () {
       executionGap: totalPlanned - totalActual,
       totalHoursBase: totalHoursBase,
       missingFields: missingFields,
+      assumptions: assumptions
+    };
+  }
+
+  function resolveRoleMeta(profile) {
+    var roleText = [profile.SystemRole, profile.BaseRole].map(function (v) {
+      return Utils.normalize(v).toLowerCase();
+    }).join(' ');
+    var isMasterAdmin = /(master|מאסטר)/.test(roleText) && /(admin|אדמין)/.test(roleText);
+    var isManagement = isMasterAdmin || /(admin|אדמין|manager|ניהול|הנהלה)/.test(roleText);
+    return { isMasterAdmin: isMasterAdmin, isManagement: isManagement };
+  }
+
+  function filterRowsByPermission(rows, idx, userProfile, roleMeta) {
+    var assumptions = [];
+    if (roleMeta.isMasterAdmin) return { rows: rows, assumptions: assumptions };
+
+    if (roleMeta.isManagement) {
+      var scope = Utils.normalize(userProfile.AccessScope).toLowerCase();
+      if (!scope) {
+        assumptions.push('AccessScope חסר ולכן הדשבורד מציג 0 רשומות למשתמש הנהלה.');
+        return { rows: [], assumptions: assumptions };
+      }
+      if (scope === 'all') return { rows: rows, assumptions: assumptions };
+      if (idx.Program === -1) {
+        assumptions.push('לא נמצאה עמודת Program ולכן הדשבורד מציג 0 רשומות למשתמש הנהלה.');
+        return { rows: [], assumptions: assumptions };
+      }
+      var allowedPrograms = scope.split(',').map(function (x) { return Utils.normalize(x).toLowerCase(); }).filter(Boolean);
+      return {
+        rows: rows.filter(function (row) {
+          var program = Utils.normalize(row[idx.Program]).toLowerCase();
+          return allowedPrograms.indexOf(program) !== -1;
+        }),
+        assumptions: assumptions
+      };
+    }
+
+    if (idx.EmployeeID === -1 && idx.EmployeeName === -1) {
+      assumptions.push('לא נמצאו עמודות שיוך משתמש ולכן הדשבורד מציג 0 רשומות למשתמש קצה.');
+      return { rows: [], assumptions: assumptions };
+    }
+
+    var userId = Utils.normalize(userProfile.EmployeeID).toLowerCase();
+    var userName = Utils.normalize(userProfile.EmployeeName).toLowerCase();
+    return {
+      rows: rows.filter(function (row) {
+        var employeeId = idx.EmployeeID > -1 ? Utils.normalize(row[idx.EmployeeID]).toLowerCase() : '';
+        var employeeName = idx.EmployeeName > -1 ? Utils.normalize(row[idx.EmployeeName]).toLowerCase() : '';
+        return (employeeId && userId && employeeId === userId) || (employeeName && userName && employeeName === userName);
+      }),
       assumptions: assumptions
     };
   }

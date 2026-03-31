@@ -4,7 +4,8 @@
 
     var state = {
       sourceRowNumber: null,
-      fields: []
+      fields: [],
+      isSubmitting: false
     };
 
     hydrateUserPill(window.APP_BOOT.userProfile);
@@ -53,6 +54,7 @@
     }
 
     function submitRequest() {
+      if (state.isSubmitting) return;
       clearMessages();
 
       var updates = {};
@@ -63,8 +65,14 @@
         updates[field.requestKey] = input.value;
       });
 
+      var submitBtn = document.querySelector('#edit-request-form button[type="submit"]');
+      state.isSubmitting = true;
+      setSubmitState(submitBtn, true);
+
       google.script.run
         .withSuccessHandler(function (result) {
+          state.isSubmitting = false;
+          setSubmitState(submitBtn, false);
           if (!result || !result.success) {
             setError(formatServerError(result && (result.error || result.message || result), 'שמירת הבקשה נכשלה.'));
             return;
@@ -72,12 +80,20 @@
           setSuccess(result.message || 'הבקשה נשמרה בהצלחה.');
         })
         .withFailureHandler(function (err) {
+          state.isSubmitting = false;
+          setSubmitState(submitBtn, false);
           setError(formatServerError(err, 'אירעה שגיאה בשמירת הבקשה.'));
         })
         .submitEditRequestAction({
           sourceRowNumber: state.sourceRowNumber,
           updates: updates
         });
+    }
+
+    function setSubmitState(btn, isBusy) {
+      if (!btn) return;
+      btn.disabled = !!isBusy;
+      btn.textContent = isBusy ? 'שומר...' : 'שמור בקשה';
     }
 
     function renderSummary(summary) {
