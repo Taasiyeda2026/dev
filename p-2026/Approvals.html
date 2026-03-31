@@ -1,4 +1,4 @@
-<section class="card approvals-card">
+<section class="card approvals-card" id="approvals-panel">
   <div class="dashboard-header-row">
     <div>
       <h2 class="card-title">אישורים</h2>
@@ -11,14 +11,16 @@
     </div>
   </div>
 
-  <div class="filters-grid approvals-filters">
-    <input id="approvals-search" type="text" placeholder="חיפוש בבקשות..." />
-    <select id="approvals-status-filter">
-      <option value="">כל הסטטוסים</option>
-    </select>
-    <select id="approvals-type-filter">
-      <option value="">כל סוגי הבקשה</option>
-    </select>
+  <div class="toolbar-card">
+    <div class="filters-grid approvals-filters">
+      <input id="approvals-search" type="text" placeholder="חיפוש בבקשות..." />
+      <select id="approvals-status-filter">
+        <option value="">כל הסטטוסים</option>
+      </select>
+      <select id="approvals-type-filter">
+        <option value="">כל סוגי הבקשה</option>
+      </select>
+    </div>
   </div>
 
   <div id="approvals-loading" class="message">טוען בקשות לאישור...</div>
@@ -47,5 +49,5 @@
     </table>
   </div>
 
-  <div id="approvals-empty" class="message" style="display:none;">אין כרגע בקשות להצגה במסך האישורים.</div>
+  <div id="approvals-empty" class="empty-state" style="display:none; margin-top: 12px;">אין כרגע בקשות להצגה במסך האישורים.</div>
 </section>

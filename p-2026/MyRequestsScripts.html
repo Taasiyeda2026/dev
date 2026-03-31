@@ -103,9 +103,27 @@
 
       body.innerHTML = rows.map(function (row) {
         return '<tr>' + columns.map(function (col) {
-          return '<td class="cell-wrap">' + escapeHtml(readCell(row, col.key)) + '</td>';
+          return '<td class="cell-wrap">' + formatCell(col.key, row) + '</td>';
         }).join('') + '</tr>';
       }).join('');
+    }
+
+
+
+    function formatCell(key, row) {
+      var value = escapeHtml(readCell(row, key));
+      if (key === 'status') return formatStatusBadge(value);
+      return value;
+    }
+
+    function formatStatusBadge(statusText) {
+      var normalized = String(statusText || '').toLowerCase();
+      var cls = 'badge-default';
+      if (normalized.indexOf('pending') !== -1 || normalized.indexOf('ממתין') !== -1) cls = 'badge-pending';
+      if (normalized.indexOf('approved') !== -1 || normalized.indexOf('מאושר') !== -1) cls = 'badge-approved';
+      if (normalized.indexOf('rejected') !== -1 || normalized.indexOf('נדחה') !== -1) cls = 'badge-rejected';
+      if (normalized.indexOf('applied') !== -1 || normalized.indexOf('יושם') !== -1) cls = 'badge-applied';
+      return '<span class="badge ' + cls + '">' + statusText + '</span>';
     }
 
     function readCell(row, key) {
@@ -115,6 +133,8 @@
 
     function showLoading(isLoading) {
       var el = document.getElementById('my-requests-loading');
+      var panel = document.getElementById('my-requests-panel');
+      if (panel) panel.classList.toggle('panel-loading', !!isLoading);
       if (el) el.style.display = isLoading ? 'block' : 'none';
     }
 

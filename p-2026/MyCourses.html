@@ -9,14 +9,16 @@
     </div>
   </div>
 
-  <div class="filters-row" aria-label="אזור חיפוש וסינון">
-    <input id="mycourses-search" type="search" placeholder="חיפוש לפי שם קורס / מזהה" disabled>
-    <select id="mycourses-status" disabled>
-      <option>סטטוס: הכל</option>
-    </select>
-    <select id="mycourses-district" disabled>
-      <option>מחוז: הכל</option>
-    </select>
+  <div class="toolbar-card">
+    <div class="filters-row" aria-label="אזור חיפוש וסינון">
+      <input id="mycourses-search" type="search" placeholder="חיפוש לפי שם קורס / מזהה" disabled>
+      <select id="mycourses-status" disabled>
+        <option>סטטוס: הכל</option>
+      </select>
+      <select id="mycourses-district" disabled>
+        <option>מחוז: הכל</option>
+      </select>
+    </div>
   </div>
 
   <div id="mycourses-loading" class="message" role="status" aria-live="polite" style="display:none;">טוען נתוני קורסים...</div>
@@ -38,14 +40,14 @@
         <tbody>
           <tr>
             <td>ניהול צוותים</td>
-            <td>פעיל</td>
+            <td><span class="badge badge-approved">פעיל</span></td>
             <td>י. כהן</td>
             <td>40</td>
             <td>24</td>
             <td>
               <div class="table-actions">
                 <button class="btn-link" type="button" disabled>צפייה</button>
-                <button class="btn-secondary" type="button" disabled>פרטים</button>
+                <button class="btn-secondary" type="button" disabled>בקשת עריכה</button>
               </div>
             </td>
           </tr>

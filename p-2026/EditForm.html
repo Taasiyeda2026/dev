@@ -1,6 +1,9 @@
 <section class="card edit-form-card">
   <div class="dashboard-header-row">
-    <h2>בקשת עריכה</h2>
+    <div>
+      <h2 class="card-title">בקשת עריכה</h2>
+      <p class="card-subtitle">עדכון מבוקר בלבד, ללא שינוי נתון מקור.</p>
+    </div>
     <a class="nav-link-button" href="?view=mycourses">חזרה לקורסים שלי</a>
   </div>
 
@@ -8,14 +11,14 @@
   <div id="edit-form-error" class="message message-error" style="display:none;"></div>
   <div id="edit-form-success" class="message message-success" style="display:none;"></div>
 
-  <section id="edit-form-summary" class="summary-box" style="display:none;">
+  <section id="edit-form-summary" class="summary-box" style="display:none; margin-bottom: 12px;">
     <h3>פרטי רשומה</h3>
-    <ul id="edit-form-summary-list"></ul>
+    <ul id="edit-form-summary-list" class="summary-list"></ul>
   </section>
 
   <form id="edit-request-form" class="form-grid" style="display:none; max-width:100%;">
     <div id="edit-form-fields" class="edit-fields-grid"></div>
-    <div class="actions-row">
+    <div class="actions-row sticky-actions">
       <button type="submit">שמור בקשה</button>
       <a class="nav-link-button secondary-link" href="?view=mycourses">ביטול</a>
     </div>
