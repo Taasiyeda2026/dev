@@ -1,14 +1,13 @@
-const API_BASE_URL = (window.P2026_API_BASE_URL || '').trim();
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbybNpyIUVnMz_wm4rMxQOCd6gx6Nmg7QDwmaj95Lkjnagje8_U1hFWUB-hNCp-PG4cL/exec';
 
 function buildRequestBody(action, payload) {
-  return JSON.stringify({ action, payload: payload || {} });
+  return JSON.stringify({
+    action,
+    payload: payload && typeof payload === 'object' ? payload : {}
+  });
 }
 
 async function callAction(action, payload) {
-  if (!API_BASE_URL) {
-    return { success: false, message: 'כתובת השירות אינה מוגדרת.' };
-  }
-
   try {
     const response = await fetch(API_BASE_URL, {
       method: 'POST',
