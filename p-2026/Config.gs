@@ -36,7 +36,25 @@ var CONFIG = (function () {
     SESSION_KEY: 'APP_SESSION_V1',
     SESSION_TTL_MINUTES: 240,
     DEFAULT_PAGE_TITLE: 'מערכת ניהול ארצית',
-    ACTIVE_VALUE_CANDIDATES: ['פעיל', 'active', 'כן', 'true', '1']
+    ACTIVE_VALUE_CANDIDATES: ['פעיל', 'active', 'כן', 'true', '1'],
+    BUILD_LABEL: 'main-2026-03-31-01',
+    REQUIRED_HTML_INCLUDES: [
+      'Styles',
+      'Layout',
+      'Login',
+      'Dashboard',
+      'MyCourses',
+      'EditForm',
+      'MyRequests',
+      'Approvals',
+      'LoginScripts',
+      'DashboardScripts',
+      'MyCoursesScripts',
+      'EditFormScripts',
+      'MyRequestsScripts',
+      'ApprovalsScripts',
+      'RuntimeScripts'
+    ]
   };
 
   return {

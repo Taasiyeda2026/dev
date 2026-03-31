@@ -55,12 +55,18 @@
           <?!= include('Approvals'); ?>
         </section>
       </main>
+
+      <footer class="app-footer">
+        <span>Build: <strong id="build-label"><?= buildLabel ?></strong></span>
+        <span id="runtime-health" class="muted">Runtime check: pending...</span>
+      </footer>
     </div>
 
     <script>
       window.APP_BOOT = {
         currentView: '<?= currentView ?>',
-        userProfile: <?!= JSON.stringify(userProfile || null); ?>
+        userProfile: <?!= JSON.stringify(userProfile || null); ?>,
+        buildLabel: '<?= buildLabel ?>'
       };
     </script>
 
@@ -70,5 +76,6 @@
     <?!= include('EditFormScripts'); ?>
     <?!= include('MyRequestsScripts'); ?>
     <?!= include('ApprovalsScripts'); ?>
+    <?!= include('RuntimeScripts'); ?>
   </body>
 </html>

@@ -1,16 +1,14 @@
 function doGet(e) {
   var view = (e && e.parameter && e.parameter.view) ? e.parameter.view : '';
+  var sourceRowNumber = (e && e.parameter && e.parameter.row) ? e.parameter.row : '';
   var userProfile = AuthService.getSession();
-
-  var currentView = 'login';
-  if (userProfile) {
-    currentView = resolveSafeView(view || 'dashboard', userProfile);
-  }
+  var currentView = resolveSafeView(view || 'dashboard', userProfile, sourceRowNumber);
 
   var template = HtmlService.createTemplateFromFile('Layout');
   template.pageTitle = CONFIG.SETTINGS.DEFAULT_PAGE_TITLE;
   template.currentView = currentView;
   template.userProfile = userProfile;
+  template.buildLabel = CONFIG.SETTINGS.BUILD_LABEL;
 
   return template
     .evaluate()
@@ -18,7 +16,7 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function resolveSafeView(requestedView, userProfile) {
+function resolveSafeView(requestedView, userProfile, sourceRowNumber) {
   var allowedViews = {
     login: true,
     dashboard: true,
@@ -29,9 +27,14 @@ function resolveSafeView(requestedView, userProfile) {
   };
 
   var normalizedView = allowedViews[requestedView] ? requestedView : 'dashboard';
+  if (!userProfile) return 'login';
+  if (normalizedView === 'login') return 'dashboard';
 
   if (normalizedView === 'approvals' && !ApprovalService.canAccessApprovals(userProfile)) {
     return 'dashboard';
+  }
+  if (normalizedView === 'edit-form' && !sourceRowNumber) {
+    return 'mycourses';
   }
 
   return normalizedView;
@@ -97,6 +100,29 @@ function submitApprovalDecisionAction(payload) {
   var session = requireSession_();
   if (!session.success) return session;
   return ApprovalService.submitApprovalDecision(session.userProfile, payload || {});
+}
+
+function getRuntimeHealthAction() {
+  var session = requireSession_();
+  if (!session.success) return session;
+
+  var missingIncludes = [];
+  (CONFIG.SETTINGS.REQUIRED_HTML_INCLUDES || []).forEach(function (filename) {
+    try {
+      HtmlService.createHtmlOutputFromFile(filename).getContent();
+    } catch (err) {
+      missingIncludes.push(filename);
+    }
+  });
+
+  return {
+    success: true,
+    health: {
+      buildLabel: CONFIG.SETTINGS.BUILD_LABEL,
+      missingIncludes: missingIncludes,
+      checkedAt: new Date().toISOString()
+    }
+  };
 }
 
 function requireSession_() {
