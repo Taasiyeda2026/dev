@@ -1,5 +1,3 @@
-const API_BASE_URL = '';
-
 function buildRequestBody(action, payload) {
   return JSON.stringify({
     action,
@@ -9,7 +7,7 @@ function buildRequestBody(action, payload) {
 
 async function callAction(action, payload) {
   try {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetch('.', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: buildRequestBody(action, payload)

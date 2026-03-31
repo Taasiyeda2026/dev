@@ -1,8 +1,10 @@
 function doGet() {
   return HtmlService
-    .createHtmlOutputFromFile('index')
+    .createTemplateFromFile('index')
+    .evaluate()
     .setTitle('DASHBOARD2026')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 function doPost(e) {
