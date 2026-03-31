@@ -12,19 +12,21 @@
     </div>
   </div>
 
-  <div id="dashboard-loading" class="message" role="status" aria-live="polite">טוען נתוני דשבורד...</div>
-  <div id="dashboard-error" class="message message-error" style="display:none;"></div>
+  <div class="status-stack">
+    <div id="dashboard-loading" class="message" role="status" aria-live="polite">טוען נתוני דשבורד...</div>
+    <div id="dashboard-error" class="message message-error" style="display:none;"></div>
+  </div>
 
   <div id="kpi-grid" class="kpi-grid"></div>
 
   <div class="dashboard-sections">
     <section class="summary-box">
-      <h3>סיכום כללי</h3>
+      <h3 class="section-title">סיכום כללי</h3>
       <ul id="summary-list" class="summary-list"></ul>
     </section>
 
     <section class="summary-box">
-      <h3>הערות מערכת ושדות חסרים</h3>
+      <h3 class="section-title">הערות מערכת ושדות חסרים</h3>
       <ul id="assumptions-list" class="notes-list"></ul>
       <ul id="missing-fields-list" class="notes-list"></ul>
     </section>
