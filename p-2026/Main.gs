@@ -4,7 +4,7 @@ function doGet(e) {
 
   var currentView = 'login';
   if (userProfile) {
-    currentView = view || 'dashboard';
+    currentView = resolveSafeView(view || 'dashboard', userProfile);
   }
 
   var template = HtmlService.createTemplateFromFile('Layout');
@@ -16,6 +16,24 @@ function doGet(e) {
     .evaluate()
     .setTitle(CONFIG.SETTINGS.DEFAULT_PAGE_TITLE)
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function resolveSafeView(requestedView, userProfile) {
+  var allowedViews = {
+    login: true,
+    dashboard: true,
+    mycourses: true,
+    myrequests: true,
+    approvals: true
+  };
+
+  var normalizedView = allowedViews[requestedView] ? requestedView : 'dashboard';
+
+  if (normalizedView === 'approvals' && !ApprovalService.canAccessApprovals(userProfile)) {
+    return 'dashboard';
+  }
+
+  return normalizedView;
 }
 
 function include(filename) {
@@ -61,4 +79,14 @@ function submitEditRequestAction(payload) {
 function getMyRequestsDataAction(filters) {
   var profile = AuthService.getSession();
   return RequestsService.getMyRequestsData(profile, filters || {});
+}
+
+function getApprovalsDataAction(filters) {
+  var profile = AuthService.getSession();
+  return ApprovalService.getApprovalsData(profile, filters || {});
+}
+
+function submitApprovalDecisionAction(payload) {
+  var profile = AuthService.getSession();
+  return ApprovalService.submitApprovalDecision(profile, payload || {});
 }

@@ -1,0 +1,209 @@
+<script>
+  (function () {
+    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'approvals') return;
+
+    hydrateUserPill(window.APP_BOOT.userProfile);
+    bindEvents();
+    loadApprovals();
+
+    function bindEvents() {
+      var refreshBtn = document.getElementById('approvals-refresh-btn');
+      if (refreshBtn) refreshBtn.addEventListener('click', loadApprovals);
+
+      ['approvals-search', 'approvals-status-filter', 'approvals-type-filter'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', debounce(loadApprovals, 250));
+        el.addEventListener('change', loadApprovals);
+      });
+
+      var body = document.getElementById('approvals-body');
+      if (body) {
+        body.addEventListener('click', function (event) {
+          var btn = event.target.closest('button[data-action]');
+          if (!btn) return;
+          submitDecision(btn);
+        });
+      }
+    }
+
+    function loadApprovals() {
+      showLoading(true);
+      setError('');
+      setInfo('');
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          showLoading(false);
+          if (!result || !result.success || !result.data) {
+            setError(formatServerError(result && (result.error || result.message || result), 'טעינת האישורים נכשלה.'));
+            renderTable([]);
+            return;
+          }
+
+          renderFilterOptions('approvals-status-filter', result.data.statuses || [], 'כל הסטטוסים');
+          renderFilterOptions('approvals-type-filter', result.data.requestTypes || [], 'כל סוגי הבקשה');
+          renderTable(result.data.rows || []);
+
+          if (result.data.assumptions && result.data.assumptions.length) {
+            setInfo(result.data.assumptions.join(' | '));
+          }
+        })
+        .withFailureHandler(function (err) {
+          showLoading(false);
+          setError(formatServerError(err, 'אירעה שגיאה בטעינת האישורים.'));
+          renderTable([]);
+        })
+        .getApprovalsDataAction({
+          query: getValue('approvals-search'),
+          status: getValue('approvals-status-filter'),
+          requestType: getValue('approvals-type-filter')
+        });
+    }
+
+    function submitDecision(btn) {
+      var requestRowNumber = Number(btn.getAttribute('data-request-row'));
+      var action = btn.getAttribute('data-action');
+      var noteInput = document.getElementById('approval-note-' + requestRowNumber);
+      var reviewerNote = noteInput ? noteInput.value : '';
+
+      var approveText = action === 'approve' ? 'אישור' : 'דחייה';
+      if (!confirm('האם לבצע ' + approveText + ' לבקשה #' + requestRowNumber + '?')) return;
+
+      btn.disabled = true;
+      setError('');
+      setInfo('מעבד בקשה...');
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          btn.disabled = false;
+          if (!result || !result.success) {
+            setError(formatServerError(result && (result.error || result.message || result), 'הפעולה נכשלה.'));
+            return;
+          }
+
+          setInfo(result.message || 'הפעולה בוצעה בהצלחה.');
+          loadApprovals();
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          setError(formatServerError(err, 'אירעה שגיאה בזמן פעולה על בקשה.'));
+        })
+        .submitApprovalDecisionAction({
+          requestRowNumber: requestRowNumber,
+          decision: action,
+          reviewerNote: reviewerNote
+        });
+    }
+
+    function renderTable(rows) {
+      var table = document.getElementById('approvals-table');
+      var body = document.getElementById('approvals-body');
+      var empty = document.getElementById('approvals-empty');
+
+      if (!rows.length) {
+        table.style.display = 'none';
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      table.style.display = 'table';
+      empty.style.display = 'none';
+
+      body.innerHTML = rows.map(function (row) {
+        var changes = (row.changes || []).map(function (change) {
+          return '<div class="change-line"><strong>' + esc(change.field) + '</strong>: ' + esc(change.from || '-') + ' → ' + esc(change.to || '-') + '</div>';
+        }).join('');
+
+        var noteId = 'approval-note-' + Number(row.requestRowNumber);
+        return '<tr>' +
+          td(row.requestRowNumber) +
+          td(row.requestType) +
+          td(row.requester) +
+          td(row.createdAt) +
+          td(row.status) +
+          td(row.sourceRowNumber) +
+          td(row.programOrCourse) +
+          td(row.requestedSummary) +
+          '<td class="cell-wrap">' + (changes || '-') + '</td>' +
+          td(row.systemNote) +
+          '<td><textarea id="' + noteId + '" class="approval-note" placeholder="הערת מאשר (אופציונלי)"></textarea></td>' +
+          '<td class="table-actions">' +
+            '<button type="button" class="approve-btn" data-action="approve" data-request-row="' + Number(row.requestRowNumber) + '">אישור</button>' +
+            '<button type="button" class="reject-btn" data-action="reject" data-request-row="' + Number(row.requestRowNumber) + '">דחייה</button>' +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    function renderFilterOptions(selectId, options, defaultLabel) {
+      var select = document.getElementById(selectId);
+      if (!select) return;
+      var current = select.value || '';
+      select.innerHTML = '<option value="">' + esc(defaultLabel) + '</option>' + options.map(function (opt) {
+        return '<option value="' + esc(opt) + '">' + esc(opt) + '</option>';
+      }).join('');
+      if (current) select.value = current;
+    }
+
+    function td(value) {
+      return '<td class="cell-wrap">' + esc(value || '-') + '</td>';
+    }
+
+    function showLoading(isLoading) {
+      var el = document.getElementById('approvals-loading');
+      if (el) el.style.display = isLoading ? 'block' : 'none';
+    }
+
+    function setError(message) {
+      var el = document.getElementById('approvals-error');
+      if (!el) return;
+      el.style.display = message ? 'block' : 'none';
+      el.textContent = message || '';
+    }
+
+    function setInfo(message) {
+      var el = document.getElementById('approvals-info');
+      if (!el) return;
+      el.style.display = message ? 'block' : 'none';
+      el.textContent = message || '';
+    }
+
+    function getValue(id) {
+      var el = document.getElementById(id);
+      return el ? el.value : '';
+    }
+
+    function hydrateUserPill(userProfile) {
+      var pill = document.getElementById('user-pill');
+      if (!pill || !userProfile) return;
+      pill.style.display = 'inline-block';
+      pill.textContent = 'מחובר/ת: ' + (userProfile.EmployeeName || userProfile.EmployeeID || 'משתמש');
+    }
+
+    function formatServerError(err, fallback) {
+      if (!err) return fallback;
+      if (typeof err === 'string') return err;
+      if (err && err.message) return err.message;
+      try { return JSON.stringify(err, null, 2); } catch (_e) { return fallback; }
+    }
+
+    function debounce(fn, delay) {
+      var timer = null;
+      return function () {
+        clearTimeout(timer);
+        timer = setTimeout(fn, delay);
+      };
+    }
+
+    function esc(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  })();
+</script>

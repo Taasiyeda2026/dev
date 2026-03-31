@@ -19,6 +19,8 @@
       <nav class="top-nav" aria-label="ניווט ראשי">
         <a class="top-nav-link <?!= currentView === 'dashboard' ? 'is-active' : ''; ?>" href="?view=dashboard">דשבורד</a>
         <a class="top-nav-link <?!= currentView === 'mycourses' ? 'is-active' : ''; ?>" href="?view=mycourses">הקורסים שלי</a>
+        <a class="top-nav-link <?!= currentView === 'myrequests' ? 'is-active' : ''; ?>" href="?view=myrequests">הבקשות שלי</a>
+        <a class="top-nav-link <?!= currentView === 'approvals' ? 'is-active' : ''; ?>" href="?view=approvals">אישורים</a>
         <a class="top-nav-link <?!= currentView === 'login' ? 'is-active' : ''; ?>" href="?view=login">התחברות</a>
       </nav>
 
@@ -34,6 +36,14 @@
         <section id="view-mycourses" class="view <?!= currentView === 'mycourses' ? 'active' : ''; ?>">
           <?!= include('MyCourses'); ?>
         </section>
+
+        <section id="view-myrequests" class="view <?!= currentView === 'myrequests' ? 'active' : ''; ?>">
+          <?!= include('MyRequests'); ?>
+        </section>
+
+        <section id="view-approvals" class="view <?!= currentView === 'approvals' ? 'active' : ''; ?>">
+          <?!= include('Approvals'); ?>
+        </section>
       </main>
     </div>
 
@@ -47,5 +57,7 @@
     <?!= include('LoginScripts'); ?>
     <?!= include('DashboardScripts'); ?>
     <?!= include('MyCoursesScripts'); ?>
+    <?!= include('MyRequestsScripts'); ?>
+    <?!= include('ApprovalsScripts'); ?>
   </body>
 </html>

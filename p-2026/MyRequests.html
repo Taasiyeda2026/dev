@@ -1,22 +1,20 @@
 <section class="card my-requests-card">
   <div class="dashboard-header-row">
-    <h2>הבקשות שלי</h2>
+    <div>
+      <h2 class="card-title">הבקשות שלי</h2>
+      <p class="card-subtitle">תצוגת בקשות מתוך EDIT_REQUESTS בלבד (קריאה בלבד).</p>
+    </div>
     <div class="actions-row">
       <a class="nav-link-button" href="?view=dashboard">חזרה לדשבורד</a>
-      <a class="nav-link-button secondary-link" href="?view=my-courses">הקורסים שלי</a>
-      <button id="my-requests-logout-btn" class="secondary">התנתקות</button>
+      <a class="nav-link-button secondary-link" href="?view=mycourses">הקורסים שלי</a>
+      <button id="my-requests-refresh-btn" type="button" class="secondary">רענון</button>
     </div>
   </div>
 
   <div class="filters-grid my-requests-filters">
     <input id="requests-search" type="text" placeholder="חיפוש בבקשות..." />
-    <select id="requests-status-filter">
-      <option value="">כל הסטטוסים</option>
-    </select>
-    <select id="requests-type-filter">
-      <option value="">כל סוגי הבקשה</option>
-    </select>
-    <button id="requests-refresh-btn" type="button">רענון</button>
+    <select id="requests-status-filter"><option value="">כל הסטטוסים</option></select>
+    <select id="requests-type-filter"><option value="">כל סוגי הבקשה</option></select>
   </div>
 
   <div id="my-requests-loading" class="message">טוען בקשות...</div>
