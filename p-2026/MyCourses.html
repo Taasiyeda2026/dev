@@ -1,5 +1,5 @@
 <section class="card" id="mycourses-panel">
-  <div class="mycourses-header">
+  <div class="mycourses-header page-toolbar">
     <div>
       <h2 class="card-title">הקורסים שלי</h2>
       <p class="card-subtitle">תצוגת קורסים אישית בפורמט קריא ומסודר.</p>
@@ -21,9 +21,11 @@
     </div>
   </div>
 
-  <div id="mycourses-loading" class="message" role="status" aria-live="polite">טוען נתוני קורסים...</div>
-  <div id="mycourses-error" class="message message-error" style="display:none;"></div>
-  <div id="mycourses-info" class="message" style="display:none;"></div>
+  <div class="status-stack">
+    <div id="mycourses-loading" class="message" role="status" aria-live="polite">טוען נתוני קורסים...</div>
+    <div id="mycourses-error" class="message message-error" style="display:none;"></div>
+    <div id="mycourses-info" class="message" style="display:none;"></div>
+  </div>
 
   <div id="mycourses-table-wrapper" class="table-wrapper" aria-live="polite" style="display:none;">
     <table class="data-table" id="mycourses-table">
