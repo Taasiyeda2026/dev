@@ -1,3 +1,5 @@
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwfnydWxhFMe2L0tOk0YJyhGanICioRVI7WBuatLJ5rYlu3tBu36zF5B8syzOEjkfPl/exec';
+
 function buildRequestBody(action, payload) {
   return JSON.stringify({
     action,
@@ -7,7 +9,7 @@ function buildRequestBody(action, payload) {
 
 async function callAction(action, payload) {
   try {
-    const response = await fetch('.', {
+    const response = await fetch(WEB_APP_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: buildRequestBody(action, payload)
