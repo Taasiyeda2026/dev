@@ -76,7 +76,7 @@ var CONFIG = (function () {
   var FRONTEND_FIELDS = {
     COURSES: ['CourseID', 'Program', 'Status'],
     REQUESTS: EDIT_REQUESTS_HEADER_ROW.slice(),
-    APPROVALS: ['RequestID', 'CourseID', 'RequestedBy', 'RequestedAt', 'ChangeSummary', 'OriginalData', 'RequestedData', 'Notes']
+    APPROVALS: EDIT_REQUESTS_HEADER_ROW.slice()
   };
 
   var STATUSES = {
