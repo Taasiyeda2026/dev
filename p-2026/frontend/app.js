@@ -1,24 +1,50 @@
 import { api } from './api.js';
-import { userState, setUserState, clearUserState } from './state.js';
+import { userState, setUserState, clearUserState, hydrateUserState } from './state.js';
 
 const app = document.getElementById('app');
 let currentRoute = 'login';
-let viewData = { dashboard: null, courses: [], requests: [], approvals: [] };
+
+const viewState = {
+  dashboard: createPanelState(),
+  courses: createPanelState([], { search: '', program: '', status: '' }),
+  requests: createPanelState([]),
+  approvals: createPanelState([])
+};
+
+function createPanelState(data = null, filters = null) {
+  return { loading: false, error: '', data, filters };
+}
 
 function canSeeApprovals() {
   return /(master|admin|approval|approver|מנהל|מאשר|מאסטר)/i.test(`${userState.BaseRole} ${userState.SystemRole}`);
 }
 
+function isAuthenticated() {
+  return Boolean(userState.authenticated && userState.userId);
+}
+
+function resetDataState() {
+  viewState.dashboard = createPanelState();
+  viewState.courses = createPanelState([], { search: '', program: '', status: '' });
+  viewState.requests = createPanelState([]);
+  viewState.approvals = createPanelState([]);
+}
+
 function setRoute(route) {
-  if (!userState.authenticated && route !== 'login') route = 'login';
-  if (route === 'approvals' && !canSeeApprovals()) route = 'dashboard';
-  currentRoute = route;
+  if (!isAuthenticated() && route !== 'login') {
+    currentRoute = 'login';
+  } else if (route === 'approvals' && !canSeeApprovals()) {
+    currentRoute = 'dashboard';
+  } else {
+    currentRoute = route;
+  }
+
   render();
   loadRouteData();
 }
 
 function render() {
-  if (!userState.authenticated) {
+  if (!isAuthenticated()) {
     app.innerHTML = loginTemplate();
     bindLogin();
     return;
@@ -29,18 +55,37 @@ function render() {
   renderScreen();
 }
 
+function loginTemplate() {
+  return `<section class="login-wrap">
+      <div class="card login-card">
+        <h1>כניסה למערכת</h1>
+        <p class="helper">יש להזין מזהה משתמש וקוד כניסה.</p>
+        <label>מזהה משתמש
+          <input id="userId" autocomplete="username" />
+        </label>
+        <label>קוד כניסה
+          <input id="loginCode" type="password" autocomplete="current-password" />
+        </label>
+        <button class="primary" id="loginBtn">התחבר</button>
+        <p class="error" id="loginError"></p>
+      </div>
+    </section>`;
+}
+
 function shellTemplate() {
+  const displayName = userState.displayName || userState.userId;
   return `<div class="layout">
-    <aside class="sidebar">
-      <div class="brand">מערכת ניהול</div>
-      ${navButton('dashboard', 'דשבורד')}
-      ${navButton('my-courses', 'הקורסים שלי')}
-      ${navButton('my-requests', 'הבקשות שלי')}
-      ${canSeeApprovals() ? navButton('approvals', 'אישורים') : ''}
-      <button class="nav-btn" data-route="logout">יציאה</button>
-    </aside>
-    <main class="main" id="main"></main>
-  </div>`;
+      <aside class="sidebar">
+        <div class="brand">DASHBOARD2026</div>
+        <div class="sidebar-user">${escapeText(displayName)}</div>
+        ${navButton('dashboard', 'דשבורד')}
+        ${navButton('my-courses', 'הקורסים שלי')}
+        ${navButton('my-requests', 'הבקשות שלי')}
+        ${canSeeApprovals() ? navButton('approvals', 'אישורים') : ''}
+        <button class="nav-btn" data-route="logout">יציאה</button>
+      </aside>
+      <main class="main" id="main"></main>
+    </div>`;
 }
 
 function navButton(route, label) {
@@ -51,118 +96,147 @@ function renderScreen() {
   const main = document.getElementById('main');
   if (currentRoute === 'dashboard') main.innerHTML = dashboardTemplate();
   if (currentRoute === 'my-courses') main.innerHTML = coursesTemplate();
-  if (currentRoute === 'my-requests') main.innerHTML = myRequestsTemplate();
+  if (currentRoute === 'my-requests') main.innerHTML = requestsTemplate();
   if (currentRoute === 'approvals') main.innerHTML = approvalsTemplate();
   bindScreenActions();
 }
 
-function loginTemplate() {
-  return `<div class="main" style="max-width:420px;margin:8vh auto;">
-    <div class="card">
-      <div class="row"><input id="userId" aria-label="זיהוי משתמש"></div>
-      <div class="row"><input id="loginCode" type="password" aria-label="קוד כניסה"></div>
-      <button class="primary" id="loginBtn">התחבר</button>
-      <div class="error" id="loginError"></div>
-    </div>
-  </div>`;
+function panelStateTemplate(panel, emptyText, contentHtml) {
+  if (panel.loading) return '<div class="card state-msg">טוען נתונים...</div>';
+  if (panel.error) return `<div class="card state-msg error">${escapeText(panel.error)}</div>`;
+  const hasRows = Array.isArray(panel.data) ? panel.data.length > 0 : Boolean(panel.data);
+  if (!hasRows) return `<div class="card state-msg">${emptyText}</div>`;
+  return contentHtml;
 }
 
 function dashboardTemplate() {
-  const d = viewData.dashboard || {};
-  const kpis = [
-    ['רשומות פעילות', d.totalDataMaster || 0],
-    ['דורש בדיקה', d.reviewRequiredCount || 0],
-    ['בקשות ממתינות', d.pendingRequests || 0],
-    ['רשומות יצוא', d.exportRows || 0]
-  ];
-  return `<div class="grid-4">${kpis.map((k) => `<div class="card"><div class="kpi-title">${k[0]}</div><div class="kpi-value">${k[1]}</div></div>`).join('')}</div>`;
+  const panel = viewState.dashboard;
+  return panelStateTemplate(panel, 'אין נתונים להצגה בדשבורד.', (() => {
+    const d = panel.data || {};
+    const kpis = [
+      ['רשומות פעילות', d.totalDataMaster || 0],
+      ['דורש בדיקה', d.reviewRequiredCount || 0],
+      ['בקשות ממתינות', d.pendingRequests || 0],
+      ['רשומות יצוא', d.exportRows || 0]
+    ];
+    return `<section class="grid-4">${kpis.map((k) => `
+      <article class="card">
+        <div class="kpi-title">${k[0]}</div>
+        <div class="kpi-value">${k[1]}</div>
+      </article>`).join('')}
+    </section>`;
+  })());
 }
 
 function coursesTemplate() {
-  const columns = [
+  const panel = viewState.courses;
+  const filters = panel.filters || { search: '', program: '', status: '' };
+  const content = panelStateTemplate(panel, 'אין קורסים להצגה.', tableTemplate(panel.data, [
     ['CourseID', 'מזהה קורס'],
     ['Program', 'תוכנית'],
     ['Status', 'סטטוס']
-  ];
+  ], { edit: true }));
 
-  return `<div class="row">
-      <input id="searchText">
-      <input id="programFilter">
-      <input id="statusFilter">
+  return `<section class="card filters-wrap">
+      <label>חיפוש חופשי<input id="searchText" value="${escapeAttr(filters.search)}" /></label>
+      <label>תוכנית<input id="programFilter" value="${escapeAttr(filters.program)}" /></label>
+      <label>סטטוס<input id="statusFilter" value="${escapeAttr(filters.status)}" /></label>
       <button class="secondary" id="filterCourses">סנן</button>
-    </div>
-    ${tableTemplate(viewData.courses, columns, { edit: true })}`;
+    </section>
+    ${content}`;
 }
 
-function myRequestsTemplate() {
-  const columns = [
+function requestsTemplate() {
+  const panel = viewState.requests;
+  return panelStateTemplate(panel, 'אין בקשות להצגה.', tableTemplate(panel.data, [
     ['RequestID', 'מזהה בקשה'],
     ['CourseID', 'מזהה קורס'],
     ['ChangeSummary', 'תקציר שינוי'],
     ['ApprovalStatus', 'סטטוס'],
     ['ApprovalNotes', 'הערות אישור'],
     ['RequestedAt', 'תאריך בקשה']
-  ];
-  return tableTemplate(viewData.requests, columns, { editDraft: true });
+  ], { editDraft: true }));
 }
 
 function approvalsTemplate() {
-  const columns = [
+  const panel = viewState.approvals;
+  return panelStateTemplate(panel, 'אין בקשות ממתינות לאישור.', tableTemplate(panel.data, [
     ['RequestID', 'מזהה בקשה'],
     ['CourseID', 'מזהה קורס'],
     ['RequestedBy', 'מבקש'],
     ['ChangeSummary', 'תקציר שינוי'],
-    ['OriginalData', 'נתונים מקוריים'],
-    ['RequestedData', 'נתונים מבוקשים'],
+    ['OriginalDataView', 'נתונים מקוריים'],
+    ['RequestedDataView', 'נתונים מבוקשים'],
     ['Notes', 'הערות']
-  ];
-  return tableTemplate(viewData.approvals, columns, { approvals: true });
+  ], { approvals: true }));
 }
 
 function tableTemplate(rows, columns, options) {
+  const safeRows = Array.isArray(rows) ? rows : [];
   const opts = options || {};
-  const head = columns.map((c) => `<th>${c[1]}</th>`).join('');
-  const extra = opts.edit || opts.editDraft || opts.approvals ? '<th></th>' : '';
-  const body = rows.map((r, i) => {
-    const cells = columns.map((c) => `<td>${r[c[0]] ?? ''}</td>`).join('');
-    let action = '';
+  const headers = columns.map((c) => `<th>${c[1]}</th>`).join('');
+  const actionHeader = (opts.edit || opts.editDraft || opts.approvals) ? '<th>פעולה</th>' : '';
+
+  const body = safeRows.map((row, i) => {
+    const cells = columns.map((c) => `<td>${escapeText(row?.[c[0]] ?? '')}</td>`).join('');
+    let action = '<td></td>';
+
     if (opts.edit) action = `<td><button class="secondary" data-edit-row="${i}">בקשת עריכה</button></td>`;
+
     if (opts.editDraft) {
-      const isDraft = String(r.ApprovalStatus || '').toLowerCase() === 'draft';
+      const isDraft = String(row?.ApprovalStatus || '').toLowerCase() === 'draft';
       action = `<td>${isDraft ? `<button class="secondary" data-edit-draft-row="${i}">עריכת טיוטה</button>` : ''}</td>`;
     }
-    if (opts.approvals) action = `<td><button class="secondary" data-approve-row="${i}">אשר</button> <button class="secondary" data-reject-row="${i}">דחה</button></td>`;
+
+    if (opts.approvals) {
+      action = `<td class="action-group">
+          <button class="secondary" data-approve-row="${i}">אשר</button>
+          <button class="secondary" data-reject-row="${i}">דחה</button>
+        </td>`;
+    }
+
     return `<tr>${cells}${action}</tr>`;
   }).join('');
-  return `<table><thead><tr>${head}${extra}</tr></thead><tbody>${body}</tbody></table>`;
+
+  return `<section class="card table-wrap"><table><thead><tr>${headers}${actionHeader}</tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
 function bindLogin() {
-  document.getElementById('loginBtn').addEventListener('click', async () => {
-    const userId = document.getElementById('userId').value;
-    const code = document.getElementById('loginCode').value;
-    const err = document.getElementById('loginError');
-    err.textContent = '';
-    try {
-      const res = await api.login({ userId, code });
-      if (!res.authenticated) {
-        err.textContent = res.message || 'ההתחברות נכשלה.';
-        return;
-      }
-      setUserState(res);
-      setRoute('dashboard');
-    } catch {
-      err.textContent = 'ההתחברות נכשלה.';
+  const loginBtn = document.getElementById('loginBtn');
+  loginBtn.addEventListener('click', async () => {
+    const userId = document.getElementById('userId').value.trim();
+    const code = document.getElementById('loginCode').value.trim();
+    const errorEl = document.getElementById('loginError');
+
+    errorEl.textContent = '';
+    if (!userId || !code) {
+      errorEl.textContent = 'יש למלא מזהה משתמש וקוד כניסה.';
+      return;
     }
+
+    loginBtn.disabled = true;
+    const res = await api.login({ userId, code });
+    loginBtn.disabled = false;
+
+    if (!res?.authenticated) {
+      errorEl.textContent = res?.message || 'ההתחברות נכשלה.';
+      return;
+    }
+
+    setUserState(res);
+    resetDataState();
+    setRoute('dashboard');
   });
 }
 
 function bindNav() {
   document.querySelectorAll('[data-route]').forEach((el) => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', async () => {
       const route = el.dataset.route;
       if (route === 'logout') {
+        await api.logout();
         clearUserState();
+        resetDataState();
         setRoute('login');
         return;
       }
@@ -173,98 +247,146 @@ function bindNav() {
 
 function bindScreenActions() {
   const filterBtn = document.getElementById('filterCourses');
-  if (filterBtn) filterBtn.addEventListener('click', () => loadCourses());
+  if (filterBtn) {
+    filterBtn.addEventListener('click', () => {
+      viewState.courses.filters = {
+        search: document.getElementById('searchText')?.value.trim() || '',
+        program: document.getElementById('programFilter')?.value.trim() || '',
+        status: document.getElementById('statusFilter')?.value.trim() || ''
+      };
+      loadCourses();
+    });
+  }
 
   document.querySelectorAll('[data-edit-row]').forEach((el) => {
-    el.addEventListener('click', () => openEditModal(viewData.courses[Number(el.dataset.editRow)] || {}, null));
+    el.addEventListener('click', () => {
+      const row = viewState.courses.data[Number(el.dataset.editRow)] || {};
+      openEditModal(row, null);
+    });
   });
 
   document.querySelectorAll('[data-edit-draft-row]').forEach((el) => {
-    const row = viewData.requests[Number(el.dataset.editDraftRow)] || {};
-    el.addEventListener('click', () => openEditModal({ CourseID: row.CourseID }, row));
+    el.addEventListener('click', () => {
+      const row = viewState.requests.data[Number(el.dataset.editDraftRow)] || {};
+      openEditModal({ CourseID: row.CourseID }, row);
+    });
   });
 
   document.querySelectorAll('[data-approve-row]').forEach((el) => {
     el.addEventListener('click', async () => {
-      const row = viewData.approvals[Number(el.dataset.approveRow)] || {};
-      await api.approveRequest({ RequestID: row.RequestID, ApprovalNotes: '' });
-      loadApprovals();
+      const row = viewState.approvals.data[Number(el.dataset.approveRow)] || {};
+      await updateApproval(row.RequestID, 'approve');
     });
   });
 
   document.querySelectorAll('[data-reject-row]').forEach((el) => {
     el.addEventListener('click', async () => {
-      const row = viewData.approvals[Number(el.dataset.rejectRow)] || {};
-      await api.rejectRequest({ RequestID: row.RequestID, ApprovalNotes: '' });
-      loadApprovals();
+      const row = viewState.approvals.data[Number(el.dataset.rejectRow)] || {};
+      await updateApproval(row.RequestID, 'reject');
     });
   });
 }
 
 function openEditModal(course, requestRow) {
-  const html = `<div class="modal-backdrop" id="editBackdrop"><div class="modal">
-    <div class="row"><input id="editDate" value="${escapeAttr(requestRow?.Date)}"></div>
-    <div class="row"><input id="editDay" value="${escapeAttr(requestRow?.Day)}"></div>
-    <div class="row"><input id="editStart" value="${escapeAttr(requestRow?.StartTime)}"></div>
-    <div class="row"><input id="editEnd" value="${escapeAttr(requestRow?.EndTime)}"></div>
-    <div class="row"><input id="editClass" value="${escapeAttr(requestRow?.ClassGroup)}"></div>
-    <div class="row"><input id="editMeetings" value="${escapeAttr(requestRow?.ActualMeetings)}"></div>
-    <div class="row"><input id="editManager" value="${escapeAttr(requestRow?.CourseManager)}"></div>
-    <div class="row"><input id="editInstructor" value="${escapeAttr(requestRow?.Instructor)}"></div>
-    <div class="row"><textarea id="editNotes">${escapeText(requestRow?.Notes)}</textarea></div>
-    <div class="row">
-      <button class="secondary" id="saveDraft">שמור טיוטה</button>
-      <button class="primary" id="sendPending">שלח לאישור</button>
-    </div>
-  </div></div>`;
-  document.body.insertAdjacentHTML('beforeend', html);
-  const close = () => document.getElementById('editBackdrop')?.remove();
+  const html = `<div class="modal-backdrop" id="editBackdrop">
+      <div class="modal" role="dialog" aria-label="בקשת עריכה">
+        <h2>בקשת עריכה לקורס ${escapeText(course?.CourseID || '')}</h2>
+        <label>תאריך<input id="editDate" value="${escapeAttr(requestRow?.Date)}" /></label>
+        <label>יום<input id="editDay" value="${escapeAttr(requestRow?.Day)}" /></label>
+        <label>שעת התחלה<input id="editStart" value="${escapeAttr(requestRow?.StartTime)}" /></label>
+        <label>שעת סיום<input id="editEnd" value="${escapeAttr(requestRow?.EndTime)}" /></label>
+        <label>כיתה / קבוצה<input id="editClass" value="${escapeAttr(requestRow?.ClassGroup)}" /></label>
+        <label>מספר מפגשים בפועל<input id="editMeetings" value="${escapeAttr(requestRow?.ActualMeetings)}" /></label>
+        <label>מנהל קורס<input id="editManager" value="${escapeAttr(requestRow?.CourseManager)}" /></label>
+        <label>מדריך<input id="editInstructor" value="${escapeAttr(requestRow?.Instructor)}" /></label>
+        <label>הערות<textarea id="editNotes">${escapeText(requestRow?.Notes)}</textarea></label>
+        <p class="error" id="editError"></p>
+        <div class="action-group">
+          <button class="secondary" id="saveDraft">שמור טיוטה</button>
+          <button class="primary" id="sendPending">שלח לאישור</button>
+        </div>
+      </div>
+    </div>`;
 
-  document.getElementById('saveDraft').addEventListener('click', async () => {
-    await submitRequest(course, requestRow, 'Draft');
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  const close = () => document.getElementById('editBackdrop')?.remove();
+  const handleSubmit = async (status, button) => {
+    button.disabled = true;
+    const result = await submitRequest(course, requestRow, status);
+    button.disabled = false;
+
+    if (!result.success) {
+      document.getElementById('editError').textContent = result.message || 'לא ניתן לשמור את הבקשה.';
+      return;
+    }
+
     close();
-    loadMyRequests();
+    await loadMyRequests();
+  };
+
+  const saveDraftBtn = document.getElementById('saveDraft');
+  const sendPendingBtn = document.getElementById('sendPending');
+
+  saveDraftBtn.addEventListener('click', () => handleSubmit('Draft', saveDraftBtn));
+  sendPendingBtn.addEventListener('click', () => handleSubmit('Pending', sendPendingBtn));
+
+  document.getElementById('editBackdrop').addEventListener('click', (e) => {
+    if (e.target?.id === 'editBackdrop') close();
   });
-  document.getElementById('sendPending').addEventListener('click', async () => {
-    await submitRequest(course, requestRow, 'Pending');
-    close();
-    loadMyRequests();
-  });
-  document.getElementById('editBackdrop').addEventListener('click', (e) => { if (e.target.id === 'editBackdrop') close(); });
 }
 
 async function submitRequest(course, requestRow, status) {
-  const payload = {
+  const form = {
     RequestID: requestRow?.RequestID || '',
-    CourseID: course.CourseID || '',
+    CourseID: course?.CourseID || '',
     ApprovalStatus: status,
     ChangeSummary: 'עדכון פרטי קורס',
-    Date: document.getElementById('editDate').value,
-    Day: document.getElementById('editDay').value,
-    StartTime: document.getElementById('editStart').value,
-    EndTime: document.getElementById('editEnd').value,
-    ClassGroup: document.getElementById('editClass').value,
-    ActualMeetings: document.getElementById('editMeetings').value,
-    CourseManager: document.getElementById('editManager').value,
-    Instructor: document.getElementById('editInstructor').value,
-    Notes: document.getElementById('editNotes').value,
-    requestedData: {
-      date: document.getElementById('editDate').value,
-      day: document.getElementById('editDay').value,
-      startTime: document.getElementById('editStart').value,
-      endTime: document.getElementById('editEnd').value,
-      classGroup: document.getElementById('editClass').value,
-      actualMeetings: document.getElementById('editMeetings').value,
-      courseManager: document.getElementById('editManager').value,
-      instructor: document.getElementById('editInstructor').value,
-      notes: document.getElementById('editNotes').value
-    }
+    Date: document.getElementById('editDate')?.value.trim() || '',
+    Day: document.getElementById('editDay')?.value.trim() || '',
+    StartTime: document.getElementById('editStart')?.value.trim() || '',
+    EndTime: document.getElementById('editEnd')?.value.trim() || '',
+    ClassGroup: document.getElementById('editClass')?.value.trim() || '',
+    ActualMeetings: document.getElementById('editMeetings')?.value.trim() || '',
+    CourseManager: document.getElementById('editManager')?.value.trim() || '',
+    Instructor: document.getElementById('editInstructor')?.value.trim() || '',
+    Notes: document.getElementById('editNotes')?.value.trim() || ''
   };
-  await api.submitEditRequest(payload);
+
+  if (!form.CourseID) {
+    return { success: false, message: 'לא נבחר קורס לבקשת עריכה.' };
+  }
+
+  form.requestedData = {
+    date: form.Date,
+    day: form.Day,
+    startTime: form.StartTime,
+    endTime: form.EndTime,
+    classGroup: form.ClassGroup,
+    actualMeetings: form.ActualMeetings,
+    courseManager: form.CourseManager,
+    instructor: form.Instructor,
+    notes: form.Notes
+  };
+
+  const res = await api.submitEditRequest(form);
+  return { success: Boolean(res?.success), message: res?.message || '' };
+}
+
+async function updateApproval(requestId, actionType) {
+  if (!requestId) return;
+  const notes = window.prompt('הערת אישור (אופציונלי):', '') || '';
+  const payload = { RequestID: requestId, ApprovalNotes: notes.trim() };
+  const res = actionType === 'approve' ? await api.approveRequest(payload) : await api.rejectRequest(payload);
+  if (!res?.success) {
+    window.alert(res?.message || 'הפעולה לא בוצעה.');
+    return;
+  }
+  await loadApprovals();
 }
 
 async function loadRouteData() {
-  if (!userState.authenticated) return;
+  if (!isAuthenticated()) return;
   if (currentRoute === 'dashboard') await loadDashboard();
   if (currentRoute === 'my-courses') await loadCourses();
   if (currentRoute === 'my-requests') await loadMyRequests();
@@ -272,32 +394,105 @@ async function loadRouteData() {
 }
 
 async function loadDashboard() {
+  viewState.dashboard.loading = true;
+  viewState.dashboard.error = '';
+  renderScreen();
+
   const res = await api.getDashboard();
-  viewData.dashboard = res.data || null;
+  viewState.dashboard.loading = false;
+  if (!res?.success) {
+    viewState.dashboard.data = null;
+    viewState.dashboard.error = res?.message || 'לא ניתן לטעון דשבורד.';
+  } else {
+    viewState.dashboard.data = res.data || null;
+  }
   renderScreen();
 }
 
 async function loadCourses() {
-  const filters = {
-    search: document.getElementById('searchText')?.value || '',
-    program: document.getElementById('programFilter')?.value || '',
-    status: document.getElementById('statusFilter')?.value || ''
-  };
-  const res = await api.getMyCourses(filters);
-  viewData.courses = (res.data && res.data.items) || [];
+  viewState.courses.loading = true;
+  viewState.courses.error = '';
+  renderScreen();
+
+  const res = await api.getMyCourses(viewState.courses.filters);
+  viewState.courses.loading = false;
+  if (!res?.success) {
+    viewState.courses.data = [];
+    viewState.courses.error = res?.message || 'לא ניתן לטעון קורסים.';
+  } else {
+    viewState.courses.data = Array.isArray(res?.data?.items) ? res.data.items : [];
+  }
   renderScreen();
 }
 
 async function loadMyRequests() {
+  viewState.requests.loading = true;
+  viewState.requests.error = '';
+  renderScreen();
+
   const res = await api.getMyRequests();
-  viewData.requests = (res.data && res.data.items) || [];
+  viewState.requests.loading = false;
+  if (!res?.success) {
+    viewState.requests.data = [];
+    viewState.requests.error = res?.message || 'לא ניתן לטעון בקשות.';
+  } else {
+    viewState.requests.data = Array.isArray(res?.data?.items) ? res.data.items : [];
+  }
   renderScreen();
 }
 
 async function loadApprovals() {
-  const res = await api.getApprovals();
-  viewData.approvals = (res.data && res.data.items) || [];
+  if (!canSeeApprovals()) {
+    setRoute('dashboard');
+    return;
+  }
+
+  viewState.approvals.loading = true;
+  viewState.approvals.error = '';
   renderScreen();
+
+  const res = await api.getApprovals();
+  viewState.approvals.loading = false;
+  if (!res?.success) {
+    viewState.approvals.data = [];
+    viewState.approvals.error = res?.message || 'לא ניתן לטעון אישורים.';
+  } else {
+    const rows = Array.isArray(res?.data?.items) ? res.data.items : [];
+    viewState.approvals.data = rows.map((item) => ({
+      ...item,
+      OriginalDataView: toHumanObject(item.OriginalData),
+      RequestedDataView: toHumanObject(item.RequestedData)
+    }));
+  }
+  renderScreen();
+}
+
+function toHumanObject(raw) {
+  if (!raw) return '';
+  try {
+    const obj = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Object.entries(obj || {})
+      .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+      .map(([key, value]) => `${humanField(key)}: ${value}`)
+      .join(' | ');
+  } catch (error) {
+    return String(raw);
+  }
+}
+
+function humanField(field) {
+  const map = {
+    date: 'תאריך',
+    day: 'יום',
+    startTime: 'שעת התחלה',
+    endTime: 'שעת סיום',
+    classGroup: 'כיתה / קבוצה',
+    actualMeetings: 'מפגשים בפועל',
+    courseManager: 'מנהל קורס',
+    instructor: 'מדריך',
+    notes: 'הערות'
+  };
+  return map[field] || field;
 }
 
 function escapeAttr(value) {
@@ -308,4 +503,20 @@ function escapeText(value) {
   return String(value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-render();
+async function boot() {
+  hydrateUserState();
+
+  if (isAuthenticated()) {
+    const profileRes = await api.getSessionProfile();
+    if (profileRes?.authenticated) {
+      setUserState(profileRes);
+      setRoute('dashboard');
+      return;
+    }
+    clearUserState();
+  }
+
+  setRoute('login');
+}
+
+boot();
