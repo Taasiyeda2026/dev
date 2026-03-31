@@ -1,6 +1,6 @@
 <script>
   (function () {
-    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'my-requests') return;
+    if (!window.APP_BOOT || window.APP_BOOT.currentView !== 'myrequests') return;
 
     var columns = [
       { key: 'requestType', label: 'סוג בקשה' },
@@ -8,10 +8,12 @@
       { key: 'status', label: 'סטטוס' },
       { key: 'sourceRowNumber', label: 'שורת מקור' },
       { key: 'programOrCourse', label: 'תוכנית / קורס' },
-      { key: 'requestedSummary', label: 'תקציר שינויים' },
+      { key: 'requestedSummary', label: 'תקציר השינויים המבוקשים' },
       { key: 'systemNote', label: 'הערת מערכת' },
-      { key: 'updatedBy', label: 'עודכן על ידי' },
-      { key: 'reviewedBy', label: 'נבדק על ידי' }
+      { key: 'requestCreator', label: 'יוצר הבקשה' },
+      { key: 'reviewedBy', label: 'בודק/מאשר' },
+      { key: 'decisionAt', label: 'תאריך החלטה' },
+      { key: 'reviewerNote', label: 'הערת מאשר' }
     ];
 
     bindEvents();
@@ -19,21 +21,7 @@
     loadRequests();
 
     function bindEvents() {
-      var logoutBtn = document.getElementById('my-requests-logout-btn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', function () {
-          google.script.run
-            .withSuccessHandler(function () {
-              window.location.search = '';
-            })
-            .withFailureHandler(function () {
-              setError('לא ניתן להתנתק כרגע. נסה שוב.');
-            })
-            .logoutAction();
-        });
-      }
-
-      var refreshBtn = document.getElementById('requests-refresh-btn');
+      var refreshBtn = document.getElementById('my-requests-refresh-btn');
       if (refreshBtn) refreshBtn.addEventListener('click', loadRequests);
 
       ['requests-search', 'requests-status-filter', 'requests-type-filter'].forEach(function (id) {
@@ -64,10 +52,10 @@
           renderSelectOptions('requests-type-filter', data.requestTypes || [], 'כל סוגי הבקשה');
           renderTable(data.rows || []);
 
-          var assumptions = (data.assumptions || []).join(' | ');
-          var filtering = data.filtering ? ('שיטת סינון: ' + (data.filtering.fieldUsed || 'לא צוין')) : '';
-          var infoText = [filtering, assumptions].filter(Boolean).join(' | ');
-          setInfo(infoText);
+          var infoText = [];
+          if (data.filtering && data.filtering.fieldUsed) infoText.push('שיטת סינון: ' + data.filtering.fieldUsed);
+          if (data.assumptions && data.assumptions.length) infoText.push(data.assumptions.join(' | '));
+          setInfo(infoText.join(' | '));
         })
         .withFailureHandler(function (err) {
           showLoading(false);
@@ -127,8 +115,7 @@
 
     function showLoading(isLoading) {
       var el = document.getElementById('my-requests-loading');
-      if (!el) return;
-      el.style.display = isLoading ? 'block' : 'none';
+      if (el) el.style.display = isLoading ? 'block' : 'none';
     }
 
     function setError(msg) {
@@ -161,11 +148,7 @@
       if (!err) return fallback;
       if (typeof err === 'string') return err;
       if (err && err.message) return err.message;
-      try {
-        return JSON.stringify(err, null, 2);
-      } catch (jsonErr) {
-        return fallback;
-      }
+      try { return JSON.stringify(err, null, 2); } catch (_err) { return fallback; }
     }
 
     function debounce(fn, delay) {
