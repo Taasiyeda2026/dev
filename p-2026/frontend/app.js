@@ -167,7 +167,7 @@ function approvalsTemplate() {
     ['ChangeSummary', 'תקציר שינוי'],
     ['OriginalDataView', 'נתונים מקוריים'],
     ['RequestedDataView', 'נתונים מבוקשים'],
-    ['Notes', 'הערות']
+    ['ApprovalNotesDraft', 'הערת אישור']
   ], { approvals: true }));
 }
 
@@ -178,7 +178,12 @@ function tableTemplate(rows, columns, options) {
   const actionHeader = (opts.edit || opts.editDraft || opts.approvals) ? '<th>פעולה</th>' : '';
 
   const body = safeRows.map((row, i) => {
-    const cells = columns.map((c) => `<td>${escapeText(row?.[c[0]] ?? '')}</td>`).join('');
+    const cells = columns.map((c) => {
+      if (c[0] === 'ApprovalNotesDraft' && opts.approvals) {
+        return `<td><input data-approval-notes="${i}" value="${escapeAttr(row?.ApprovalNotesDraft || '')}" /></td>`;
+      }
+      return `<td>${escapeText(row?.[c[0]] ?? '')}</td>`;
+    }).join('');
     let action = '<td></td>';
 
     if (opts.edit) action = `<td><button class="secondary" data-edit-row="${i}">בקשת עריכה</button></td>`;
@@ -274,15 +279,26 @@ function bindScreenActions() {
 
   document.querySelectorAll('[data-approve-row]').forEach((el) => {
     el.addEventListener('click', async () => {
-      const row = viewState.approvals.data[Number(el.dataset.approveRow)] || {};
-      await updateApproval(row.RequestID, 'approve');
+      const index = Number(el.dataset.approveRow);
+      const row = viewState.approvals.data[index] || {};
+      await updateApproval(row.RequestID, row.ApprovalNotesDraft || '', 'approve', el);
     });
   });
 
   document.querySelectorAll('[data-reject-row]').forEach((el) => {
     el.addEventListener('click', async () => {
-      const row = viewState.approvals.data[Number(el.dataset.rejectRow)] || {};
-      await updateApproval(row.RequestID, 'reject');
+      const index = Number(el.dataset.rejectRow);
+      const row = viewState.approvals.data[index] || {};
+      await updateApproval(row.RequestID, row.ApprovalNotesDraft || '', 'reject', el);
+    });
+  });
+
+  document.querySelectorAll('[data-approval-notes]').forEach((el) => {
+    el.addEventListener('input', () => {
+      const index = Number(el.dataset.approvalNotes);
+      if (!Number.isNaN(index) && viewState.approvals.data[index]) {
+        viewState.approvals.data[index].ApprovalNotesDraft = el.value;
+      }
     });
   });
 }
@@ -373,11 +389,12 @@ async function submitRequest(course, requestRow, status) {
   return { success: Boolean(res?.success), message: res?.message || '' };
 }
 
-async function updateApproval(requestId, actionType) {
+async function updateApproval(requestId, notes, actionType, button) {
   if (!requestId) return;
-  const notes = window.prompt('הערת אישור (אופציונלי):', '') || '';
-  const payload = { RequestID: requestId, ApprovalNotes: notes.trim() };
+  if (button) button.disabled = true;
+  const payload = { RequestID: requestId, ApprovalNotes: (notes || '').trim() };
   const res = actionType === 'approve' ? await api.approveRequest(payload) : await api.rejectRequest(payload);
+  if (button) button.disabled = false;
   if (!res?.success) {
     window.alert(res?.message || 'הפעולה לא בוצעה.');
     return;
@@ -461,7 +478,8 @@ async function loadApprovals() {
     viewState.approvals.data = rows.map((item) => ({
       ...item,
       OriginalDataView: toHumanObject(item.OriginalData),
-      RequestedDataView: toHumanObject(item.RequestedData)
+      RequestedDataView: toHumanObject(item.RequestedData),
+      ApprovalNotesDraft: item.ApprovalNotes || ''
     }));
   }
   renderScreen();

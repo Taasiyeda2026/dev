@@ -5,14 +5,15 @@ function doGet() {
 }
 
 function doPost(e) {
-  var payload = {};
+  var body = {};
   try {
-    payload = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
+    body = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
   } catch (err) {
-    payload = {};
+    body = {};
   }
 
-  var action = (payload.action || (e && e.parameter && e.parameter.action) || '');
+  var action = Utils.normalize(body.action || (e && e.parameter && e.parameter.action));
+  var payload = Utils.asObject(body.payload, {});
   var result = routeAction_(action, payload);
   return ContentService
     .createTextOutput(JSON.stringify(result))
@@ -20,16 +21,16 @@ function doPost(e) {
 }
 
 function routeAction_(action, payload) {
-  if (action === 'login') return loginAction(payload.userId, payload.code);
-  if (action === 'logout') return logoutAction();
-  if (action === 'getSessionProfile') return getSessionProfileAction();
-  if (action === 'getDashboard') return getDashboardDataAction();
-  if (action === 'getMyCourses') return getMyCoursesDataAction(payload);
-  if (action === 'submitEditRequest') return submitEditRequestAction(payload);
-  if (action === 'getMyRequests') return getMyRequestsDataAction();
-  if (action === 'getApprovals') return getApprovalsDataAction();
-  if (action === 'approveRequest') return approveRequestAction(payload);
-  if (action === 'rejectRequest') return rejectRequestAction(payload);
+  if (action === 'loginAction' || action === 'login') return loginAction(payload.userId, payload.code);
+  if (action === 'logoutAction' || action === 'logout') return logoutAction();
+  if (action === 'getSessionProfileAction' || action === 'getSessionProfile') return getSessionProfileAction();
+  if (action === 'getDashboardDataAction' || action === 'getDashboard') return getDashboardDataAction();
+  if (action === 'getMyCoursesDataAction' || action === 'getMyCourses') return getMyCoursesDataAction(payload);
+  if (action === 'submitEditRequestAction' || action === 'submitEditRequest') return submitEditRequestAction(payload);
+  if (action === 'getMyRequestsDataAction' || action === 'getMyRequests') return getMyRequestsDataAction();
+  if (action === 'getApprovalsDataAction' || action === 'getApprovals') return getApprovalsDataAction();
+  if (action === 'approveRequestAction' || action === 'approveRequest') return approveRequestAction(payload);
+  if (action === 'rejectRequestAction' || action === 'rejectRequest') return rejectRequestAction(payload);
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
