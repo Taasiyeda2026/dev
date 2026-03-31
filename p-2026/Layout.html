@@ -25,6 +25,11 @@
       </nav>
 
       <main class="app-main">
+        <div class="screen-header">
+          <div class="breadcrumbs">דף הבית / <?= currentView ?></div>
+          <h2 class="screen-title"><?= currentView === 'dashboard' ? 'דשבורד ניהולי' : currentView === 'mycourses' ? 'הקורסים שלי' : currentView === 'myrequests' ? 'הבקשות שלי' : currentView === 'approvals' ? 'ניהול אישורים' : 'התחברות למערכת' ?></h2>
+        </div>
+
         <section id="view-login" class="view <?!= currentView === 'login' ? 'active' : ''; ?>">
           <?!= include('Login'); ?>
         </section>

@@ -1,4 +1,4 @@
-<section class="card my-requests-card">
+<section class="card my-requests-card" id="my-requests-panel">
   <div class="dashboard-header-row">
     <div>
       <h2 class="card-title">הבקשות שלי</h2>
@@ -11,10 +11,12 @@
     </div>
   </div>
 
-  <div class="filters-grid my-requests-filters">
-    <input id="requests-search" type="text" placeholder="חיפוש בבקשות..." />
-    <select id="requests-status-filter"><option value="">כל הסטטוסים</option></select>
-    <select id="requests-type-filter"><option value="">כל סוגי הבקשה</option></select>
+  <div class="toolbar-card">
+    <div class="filters-grid my-requests-filters">
+      <input id="requests-search" type="text" placeholder="חיפוש בבקשות..." />
+      <select id="requests-status-filter"><option value="">כל הסטטוסים</option></select>
+      <select id="requests-type-filter"><option value="">כל סוגי הבקשה</option></select>
+    </div>
   </div>
 
   <div id="my-requests-loading" class="message">טוען בקשות...</div>
@@ -28,5 +30,5 @@
     </table>
   </div>
 
-  <div id="my-requests-empty" class="message" style="display:none;">לא נמצאו בקשות להצגה.</div>
+  <div id="my-requests-empty" class="empty-state" style="display:none; margin-top: 12px;">לא נמצאו בקשות להצגה.</div>
 </section>
