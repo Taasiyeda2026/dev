@@ -1,105 +1,88 @@
 var SheetService = (function () {
-  function getSpreadsheet() {
-    return SpreadsheetApp.getActiveSpreadsheet();
-  }
-
-  function getSheetByName(sheetName, required) {
-    var sheet = getSpreadsheet().getSheetByName(sheetName);
+  function getSheet(sheetName, required) {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(sheetName);
     if (!sheet && required) {
-      throw new Error('הגיליון "' + sheetName + '" לא נמצא בקובץ.');
+      throw new Error('missing_sheet');
     }
     return sheet;
   }
 
-  function getHeaders(sheet, headerRow) {
-    var rowNumber = headerRow || 1;
+  function getHeaders(sheet) {
     var lastColumn = sheet.getLastColumn();
-    if (lastColumn === 0) return [];
-    return sheet.getRange(rowNumber, 1, 1, lastColumn).getValues()[0].map(function (h) {
-      return Utils.normalize(h);
-    });
+    if (lastColumn < 1) return [];
+    return sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, lastColumn).getValues()[0].map(Utils.normalize);
   }
 
-  function getHeaderMap(sheet, headerRow) {
-    var headers = getHeaders(sheet, headerRow);
+  function getDisplayHeaders(sheet) {
+    var lastColumn = sheet.getLastColumn();
+    if (lastColumn < 1) return [];
+    return sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, lastColumn).getValues()[0].map(Utils.normalize);
+  }
+
+  function resolveIndex(headers, aliases) {
     var map = {};
     headers.forEach(function (header, idx) {
-      if (header) map[header] = idx;
+      map[Utils.toKey(header)] = idx;
     });
-    return map;
-  }
-
-  function findHeaderIndex(headers, aliases) {
     for (var i = 0; i < aliases.length; i += 1) {
-      var alias = Utils.normalize(aliases[i]);
-      var idx = headers.indexOf(alias);
-      if (idx !== -1) return idx;
+      var idx = map[Utils.toKey(aliases[i])];
+      if (idx !== undefined) return idx;
     }
     return -1;
   }
 
-  function resolveFieldIndexes(headers, aliasConfig) {
-    var resolved = {};
-    Object.keys(aliasConfig).forEach(function (fieldKey) {
-      resolved[fieldKey] = findHeaderIndex(headers, aliasConfig[fieldKey]);
-    });
-    return resolved;
-  }
+  function readTable(sheetName, required) {
+    var sheet = getSheet(sheetName, required);
+    if (!sheet) return { headers: [], displayHeaders: [], rows: [], rowNumbers: [], sheet: null };
 
-  function getRecords(sheetName, required, options) {
-    var sheet = getSheetByName(sheetName, required);
-    if (!sheet) return { headers: [], rows: [], records: [] };
-
-    var opts = options || {};
-    var headerRow = opts.headerRow || 1;
-    var dataStartRow = opts.dataStartRow || (headerRow + 1);
-
+    var headers = getHeaders(sheet);
+    var displayHeaders = getDisplayHeaders(sheet);
     var lastRow = sheet.getLastRow();
     var lastColumn = sheet.getLastColumn();
-    var headers = getHeaders(sheet, headerRow);
 
-    if (lastColumn === 0 || lastRow < dataStartRow) {
-      return { headers: headers, rows: [], records: [] };
+    if (lastRow < CONFIG.STRUCTURE.DATA_START_ROW || lastColumn < 1) {
+      return { headers: headers, displayHeaders: displayHeaders, rows: [], rowNumbers: [], sheet: sheet };
     }
 
-    var numRows = lastRow - dataStartRow + 1;
-    var rows = sheet.getRange(dataStartRow, 1, numRows, lastColumn).getValues().filter(function (row) {
-      return row.some(function (cell) { return !Utils.isEmpty(cell); });
+    var numRows = lastRow - CONFIG.STRUCTURE.DATA_START_ROW + 1;
+    var allRows = sheet.getRange(CONFIG.STRUCTURE.DATA_START_ROW, 1, numRows, lastColumn).getValues();
+    var rows = [];
+    var rowNumbers = [];
+
+    allRows.forEach(function (row, i) {
+      var hasValue = row.some(function (cell) { return !Utils.isEmpty(cell); });
+      if (!hasValue) return;
+      rows.push(row);
+      rowNumbers.push(CONFIG.STRUCTURE.DATA_START_ROW + i);
     });
 
-    var records = rows.map(function (row) {
-      var obj = {};
-      headers.forEach(function (header, idx) {
-        obj[header] = row[idx];
+    return { headers: headers, displayHeaders: displayHeaders, rows: rows, rowNumbers: rowNumbers, sheet: sheet };
+  }
+
+  function toObjects(table) {
+    return table.rows.map(function (row, idx) {
+      var obj = { _rowNumber: table.rowNumbers[idx] };
+      table.headers.forEach(function (header, colIdx) {
+        obj[header] = row[colIdx];
       });
       return obj;
     });
-
-    return {
-      headers: headers,
-      rows: rows,
-      records: records
-    };
   }
 
-  function countDataRows(sheetName, options) {
-    var data = getRecords(sheetName, false, options);
-    return data.rows.length;
-  }
-
-  function hasSheet(sheetName) {
-    return !!getSheetByName(sheetName, false);
+  function appendRow(sheetName, rowValues) {
+    var sheet = getSheet(sheetName, true);
+    var nextRow = Math.max(sheet.getLastRow() + 1, CONFIG.STRUCTURE.DATA_START_ROW);
+    sheet.getRange(nextRow, 1, 1, rowValues.length).setValues([rowValues]);
+    return nextRow;
   }
 
   return {
-    getSpreadsheet: getSpreadsheet,
-    getSheetByName: getSheetByName,
+    getSheet: getSheet,
     getHeaders: getHeaders,
-    getHeaderMap: getHeaderMap,
-    findHeaderIndex: findHeaderIndex,
-    resolveFieldIndexes: resolveFieldIndexes,
-    getRecords: getRecords,
-    countDataRows: countDataRows,
-    hasSheet: hasSheet
+    resolveIndex: resolveIndex,
+    readTable: readTable,
+    toObjects: toObjects,
+    appendRow: appendRow
   };
 })();

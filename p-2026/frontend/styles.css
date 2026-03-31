@@ -1,0 +1,33 @@
+:root {
+  --bg: #f3f6fc;
+  --card: #ffffff;
+  --line: #d9e1ef;
+  --text: #12243a;
+  --muted: #5d6f86;
+  --primary: #1f4ed8;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Heebo", Arial, sans-serif; background: var(--bg); color: var(--text); }
+.layout { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+.sidebar { background: #0f1f3d; color: #fff; padding: 20px; }
+.brand { font-size: 20px; font-weight: 700; margin-bottom: 24px; }
+.nav-btn { width: 100%; text-align: right; margin-bottom: 8px; border: 0; border-radius: 12px; padding: 10px; background: transparent; color: #fff; cursor: pointer; }
+.nav-btn.active, .nav-btn:hover { background: rgba(255,255,255,0.12); }
+.main { padding: 24px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+.kpi-title { color: var(--muted); font-size: 13px; }
+.kpi-value { margin-top: 6px; font-weight: 700; font-size: 24px; }
+.row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+input, select, textarea, button { font: inherit; }
+input, select, textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: #fff; }
+button.primary { border: 0; border-radius: 10px; padding: 10px 14px; background: var(--primary); color: #fff; cursor: pointer; }
+button.secondary { border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; background: #fff; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 14px; overflow: hidden; }
+th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: right; }
+th { background: #edf2fb; color: #334e72; font-weight: 600; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(11,24,48,0.4); display: grid; place-items: center; }
+.modal { width: min(760px, 95vw); background: #fff; border-radius: 14px; border: 1px solid var(--line); padding: 16px; }
+.hidden { display: none; }
+.error { color: #b42318; margin-top: 8px; }
+@media (max-width: 1024px) { .layout { grid-template-columns: 1fr; } .grid-4 { grid-template-columns: 1fr 1fr; } }

@@ -4,63 +4,51 @@ var CONFIG = (function () {
     COURSES: 'COURSES',
     PERMISSIONS: 'PERMISSIONS',
     REVIEW_REQUIRED: 'REVIEW_REQUIRED',
-    DASHBOARD_EXPORT: 'DASHBOARD_EXPORT',
-    EDIT_REQUESTS: 'EDIT_REQUESTS'
+    EDIT_REQUESTS: 'EDIT_REQUESTS',
+    DASHBOARD_EXPORT: 'DASHBOARD_EXPORT'
   };
 
-  var FIELD_ALIASES = {
-    EmployeeName: ['EmployeeName', 'שם עובד', 'שם המדריך', 'שם'],
-    EmployeeID: ['EmployeeID', 'EmployeeId', 'מספר עובד', 'תעודת זהות'],
-    BaseRole: ['BaseRole', 'תפקיד בסיס', 'Role'],
-    SystemRole: ['SystemRole', 'תפקיד מערכת'],
-    AccessScope: ['AccessScope', 'תחום גישה', 'Scope'],
-    LoginCode: ['EntryCode', 'LoginCode', 'קוד כניסה', 'Password', 'סיסמה'],
-    Program: ['Program', 'תוכנית', 'שם תוכנית'],
-    CourseID: ['CourseID', 'CourseId', 'קורס', 'מזהה קורס'],
-    PlannedMeetings: ['PlannedMeetings', 'מתוכנן', 'מפגשים מתוכננים'],
-    ActualMeetings: ['ActualMeetings', 'בוצע', 'מפגשים שבוצעו'],
-    StartTime: ['StartTime', 'שעת התחלה', 'Start'],
-    EndTime: ['EndTime', 'שעת סיום', 'End'],
-    Status: ['Status', 'סטטוס', 'מצב'],
-    Active: ['Active', 'פעיל', 'IsActive']
+  var STRUCTURE = {
+    HEADER_ROW: 1,
+    DISPLAY_ROW: 2,
+    DATA_START_ROW: 3
   };
 
-  var ROLES = {
-    ADMIN: 'ADMIN',
-    MANAGER: 'MANAGER',
-    INSTRUCTOR: 'INSTRUCTOR',
-    VIEWER: 'VIEWER'
-  };
-
-  var SETTINGS = {
-    SESSION_KEY: 'APP_SESSION_V1',
-    SESSION_TTL_MINUTES: 240,
-    DEFAULT_PAGE_TITLE: 'מערכת ניהול ארצית',
-    ACTIVE_VALUE_CANDIDATES: ['פעיל', 'active', 'כן', 'true', '1'],
-    BUILD_LABEL: 'main-2026-03-31-01',
-    REQUIRED_HTML_INCLUDES: [
-      'Styles',
-      'Layout',
-      'Login',
-      'Dashboard',
-      'MyCourses',
-      'EditForm',
-      'MyRequests',
-      'Approvals',
-      'LoginScripts',
-      'DashboardScripts',
-      'MyCoursesScripts',
-      'EditFormScripts',
-      'MyRequestsScripts',
-      'ApprovalsScripts',
-      'RuntimeScripts'
-    ]
+  var FIELDS = {
+    USER_ID: ['UserID', 'EmployeeID', 'LoginID', 'מזהה משתמש', 'מספר עובד'],
+    DISPLAY_NAME: ['DisplayName', 'EmployeeName', 'שם מלא', 'שם עובד'],
+    LOGIN_CODE: ['LoginCode', 'EntryCode', 'Password', 'קוד כניסה'],
+    BASE_ROLE: ['BaseRole', 'תפקיד בסיס'],
+    SYSTEM_ROLE: ['SystemRole', 'תפקיד מערכת'],
+    ACCESS_SCOPE: ['AccessScope', 'תחום גישה'],
+    COURSE_ID: ['CourseID', 'CourseId', 'מזהה קורס'],
+    PROGRAM: ['Program', 'תוכנית'],
+    STATUS: ['Status', 'סטטוס'],
+    REQUEST_ID: ['RequestID', 'RequestId', 'מזהה בקשה'],
+    REQUESTED_BY: ['RequestedBy', 'מבקש'],
+    REQUESTED_AT: ['RequestedAt', 'תאריך בקשה'],
+    APPROVAL_STATUS: ['ApprovalStatus', 'סטטוס אישור'],
+    APPROVAL_NOTES: ['ApprovalNotes', 'הערות אישור'],
+    CHANGE_SUMMARY: ['ChangeSummary', 'תקציר שינוי'],
+    ORIGINAL_DATA: ['OriginalData', 'נתונים מקוריים'],
+    REQUESTED_DATA: ['RequestedData', 'נתונים מבוקשים'],
+    EDITABLE_BY: ['EditableBy', 'ניתן לעריכה על ידי'],
+    ASSIGNED_EDITOR: ['AssignedEditor', 'עורך משויך'],
+    DATE: ['Date', 'תאריך'],
+    DAY: ['Day', 'יום'],
+    START_TIME: ['StartTime', 'שעת התחלה'],
+    END_TIME: ['EndTime', 'שעת סיום'],
+    CLASS_GROUP: ['ClassGroup', 'כיתה / קבוצה'],
+    ACTUAL_MEETINGS: ['ActualMeetings', 'מספר מפגשים בפועל'],
+    COURSE_MANAGER: ['CourseManager', 'מנהל קורס'],
+    INSTRUCTOR: ['Instructor', 'מדריך'],
+    NOTES: ['Notes', 'הערות']
   };
 
   return {
     SHEETS: SHEETS,
-    FIELD_ALIASES: FIELD_ALIASES,
-    ROLES: ROLES,
-    SETTINGS: SETTINGS
+    STRUCTURE: STRUCTURE,
+    FIELDS: FIELDS,
+    SESSION_KEY: 'P2026_SESSION'
   };
 })();

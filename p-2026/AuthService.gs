@@ -1,131 +1,78 @@
 var AuthService = (function () {
-  function login(loginInput, codeInput) {
-    var userText = Utils.normalize(loginInput);
-    var codeText = Utils.normalize(codeInput);
+  function login(userIdInput, codeInput) {
+    try {
+      var userId = Utils.normalize(userIdInput);
+      var code = Utils.normalize(codeInput);
+      if (Utils.isEmpty(userId) || Utils.isEmpty(code)) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-    if (Utils.isEmpty(userText) || Utils.isEmpty(codeText)) {
-      return { success: false, message: 'יש למלא שם משתמש/מספר עובד וקוד כניסה.' };
+      var table = SheetService.readTable(CONFIG.SHEETS.PERMISSIONS, true);
+      var h = table.headers;
+
+      var idxUser = SheetService.resolveIndex(h, CONFIG.FIELDS.USER_ID);
+      var idxCode = SheetService.resolveIndex(h, CONFIG.FIELDS.LOGIN_CODE);
+      var idxBaseRole = SheetService.resolveIndex(h, CONFIG.FIELDS.BASE_ROLE);
+      var idxSystemRole = SheetService.resolveIndex(h, CONFIG.FIELDS.SYSTEM_ROLE);
+      var idxScope = SheetService.resolveIndex(h, CONFIG.FIELDS.ACCESS_SCOPE);
+      var idxName = SheetService.resolveIndex(h, CONFIG.FIELDS.DISPLAY_NAME);
+
+      if (idxUser === -1 || idxCode === -1) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+
+      var match = null;
+      table.rows.some(function (row) {
+        var sameUser = Utils.toKey(row[idxUser]) === Utils.toKey(userId);
+        var sameCode = Utils.normalize(row[idxCode]) === code;
+        if (sameUser && sameCode) {
+          match = row;
+          return true;
+        }
+        return false;
+      });
+
+      if (!match) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+
+      var profile = {
+        authenticated: true,
+        userId: Utils.normalize(match[idxUser]),
+        BaseRole: idxBaseRole > -1 ? Utils.normalize(match[idxBaseRole]) : '',
+        SystemRole: idxSystemRole > -1 ? Utils.normalize(match[idxSystemRole]) : '',
+        AccessScope: idxScope > -1 ? Utils.normalize(match[idxScope]) : '',
+        displayName: idxName > -1 ? Utils.normalize(match[idxName]) : ''
+      };
+
+      PropertiesService.getUserProperties().setProperty(CONFIG.SESSION_KEY, JSON.stringify(profile));
+      return profile;
+    } catch (err) {
+      return { authenticated: false, message: 'ההתחברות נכשלה.' };
     }
-
-    var table = SheetService.getRecords(CONFIG.SHEETS.PERMISSIONS, true, { headerRow: 1, dataStartRow: 3 });
-    var idx = SheetService.resolveFieldIndexes(table.headers, CONFIG.FIELD_ALIASES);
-
-    if (idx.EmployeeID === -1 && idx.EmployeeName === -1) {
-      return { success: false, message: 'לא נמצאה עמודת זיהוי משתמש בגיליון ההרשאות.' };
-    }
-    if (idx.LoginCode === -1) {
-      return { success: false, message: 'לא נמצאה עמודת קוד כניסה בגיליון ההרשאות.' };
-    }
-
-    var userLower = userText.toLowerCase();
-    var matchedRows = [];
-
-    table.rows.some(function (row) {
-      var employeeId = idx.EmployeeID > -1 ? Utils.normalize(row[idx.EmployeeID]) : '';
-      var employeeName = idx.EmployeeName > -1 ? Utils.normalize(row[idx.EmployeeName]) : '';
-      var loginCode = Utils.normalize(row[idx.LoginCode]);
-
-      var idMatch = employeeId && employeeId.toLowerCase() === userLower;
-      var nameMatch = employeeName && employeeName.toLowerCase() === userLower;
-      var codeMatch = loginCode === codeText;
-
-      if ((idMatch || nameMatch) && codeMatch) matchedRows.push(row);
-      return false;
-    });
-
-    if (!matchedRows.length) {
-      return { success: false, message: 'שם המשתמש או קוד הכניסה שגויים.' };
-    }
-    if (matchedRows.length > 1) {
-      return { success: false, message: 'נמצאו מספר התאמות לאותו משתמש. יש לפנות למנהל המערכת להסדרת ההרשאות.' };
-    }
-
-    var matchRow = matchedRows[0];
-
-    var profile = {
-      EmployeeName: idx.EmployeeName > -1 ? Utils.normalize(matchRow[idx.EmployeeName]) : '',
-      EmployeeID: idx.EmployeeID > -1 ? Utils.normalize(matchRow[idx.EmployeeID]) : '',
-      BaseRole: idx.BaseRole > -1 ? Utils.normalize(matchRow[idx.BaseRole]) : '',
-      SystemRole: idx.SystemRole > -1 ? Utils.normalize(matchRow[idx.SystemRole]) : '',
-      AccessScope: idx.AccessScope > -1 ? Utils.normalize(matchRow[idx.AccessScope]) : '',
-      Flags: extractFlags(table.headers, matchRow)
-    };
-
-    storeSession(profile);
-
-    return {
-      success: true,
-      message: 'התחברת בהצלחה.',
-      userProfile: profile
-    };
-  }
-
-  function extractFlags(headers, row) {
-    var flags = {};
-    headers.forEach(function (header, i) {
-      if (/^Can|^Allow|הרשאה|Permission/i.test(header)) {
-        flags[header] = row[i];
-      }
-    });
-    return flags;
-  }
-
-  function storeSession(profile) {
-    var expiresAt = Date.now() + CONFIG.SETTINGS.SESSION_TTL_MINUTES * 60 * 1000;
-    var payload = {
-      userProfile: profile,
-      expiresAt: expiresAt
-    };
-
-    PropertiesService.getUserProperties().setProperty(
-      CONFIG.SETTINGS.SESSION_KEY,
-      JSON.stringify(payload)
-    );
   }
 
   function getSession() {
-    var raw = PropertiesService.getUserProperties().getProperty(CONFIG.SETTINGS.SESSION_KEY);
-    if (!raw) return null;
-
     try {
-      var parsed = JSON.parse(raw);
-      if (!parsed.expiresAt || Date.now() > parsed.expiresAt) {
-        logout();
-        return null;
-      }
-      var profile = parsed.userProfile || null;
-      if (!isValidSessionProfile(profile)) {
-        logout();
-        return null;
-      }
+      var raw = PropertiesService.getUserProperties().getProperty(CONFIG.SESSION_KEY);
+      if (!raw) return null;
+      var profile = JSON.parse(raw);
+      if (!profile || !profile.authenticated || Utils.isEmpty(profile.userId)) return null;
       return profile;
     } catch (err) {
-      logout();
       return null;
     }
   }
 
-  function isValidSessionProfile(profile) {
-    if (!profile || typeof profile !== 'object') return false;
-    var hasIdentity = !Utils.isEmpty(profile.EmployeeID) || !Utils.isEmpty(profile.EmployeeName);
-    var hasRole = !Utils.isEmpty(profile.SystemRole) || !Utils.isEmpty(profile.BaseRole);
-    return hasIdentity && hasRole;
-  }
-
-  function isLoggedIn() {
-    return !!getSession();
-  }
-
   function logout() {
-    PropertiesService.getUserProperties().deleteProperty(CONFIG.SETTINGS.SESSION_KEY);
+    PropertiesService.getUserProperties().deleteProperty(CONFIG.SESSION_KEY);
     return { success: true };
+  }
+
+  function canAccessApprovals(profile) {
+    if (!profile) return false;
+    var roleText = (Utils.normalize(profile.BaseRole) + ' ' + Utils.normalize(profile.SystemRole)).toLowerCase();
+    return /(master|admin|approval|approver|מנהל|מאשר|מאסטר)/.test(roleText);
   }
 
   return {
     login: login,
     getSession: getSession,
-    isValidSessionProfile: isValidSessionProfile,
-    isLoggedIn: isLoggedIn,
-    logout: logout
+    logout: logout,
+    canAccessApprovals: canAccessApprovals
   };
 })();
