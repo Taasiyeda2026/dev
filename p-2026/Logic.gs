@@ -1,46 +1,71 @@
 var Logic = (function () {
-  var ROLE_MAP = {
-    idan: { role: 'admin', displayRole: 'מנהל מערכת ראשי' },
-    eden: { role: 'admin-ops', displayRole: 'אחראית בקרה ותפעול' },
-    gil: { role: 'manager', displayRole: 'מנהל פעילות' },
-    linoy: { role: 'manager', displayRole: 'מנהלת פעילות' },
-    yael: { role: 'manager-lead', displayRole: 'מנהלת תחום' },
-    toni: { role: 'manager', displayRole: 'תצוגת מנהל' }
-  };
-
   function login(userIdInput, codeInput) {
     try {
-      var userId = Utils.normalize(userIdInput);
-      var code = Utils.normalize(codeInput);
+      var userId = normalizeCredential_(userIdInput);
+      var code = normalizeCredential_(codeInput);
+      Logger.log('loginAction: received userId=%s, code=%s', userId, code);
       if (Utils.isEmpty(userId) || Utils.isEmpty(code)) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
       var table = Utils.readTable(CONFIG.SHEETS.PERMISSIONS, true);
-      var idxUser = Utils.resolveIndex(table.headers, CONFIG.FIELDS.USER_ID);
-      var idxCode = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LOGIN_CODE);
-      var idxScope = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ACCESS_SCOPE);
-      var idxName = Utils.resolveIndex(table.headers, CONFIG.FIELDS.DISPLAY_NAME);
-      if (idxUser === -1 || idxCode === -1) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+      Logger.log('loginAction: PERMISSIONS data rows=%s', table.rows.length);
+
+      var idx = {
+        employeeId: Utils.resolveIndex(table.headers, 'EmployeeID'),
+        entryCode: Utils.resolveIndex(table.headers, 'EntryCode'),
+        employeeName: Utils.resolveIndex(table.headers, 'EmployeeName'),
+        baseRole: Utils.resolveIndex(table.headers, 'BaseRole'),
+        systemRole: Utils.resolveIndex(table.headers, 'SystemRole'),
+        displayRole: Utils.resolveIndex(table.headers, 'DisplayRole'),
+        viewScope: Utils.resolveIndex(table.headers, 'ViewScope'),
+        editScope: Utils.resolveIndex(table.headers, 'EditScope'),
+        approvalScope: Utils.resolveIndex(table.headers, 'ApprovalScope'),
+        uiProfile: Utils.resolveIndex(table.headers, 'UiProfile'),
+        teamScope: Utils.resolveIndex(table.headers, 'TeamScope'),
+        isDualMode: Utils.resolveIndex(table.headers, 'IsDualMode'),
+        activeFlag: Utils.resolveIndex(table.headers, 'ActiveFlag')
+      };
+      if (idx.employeeId === -1 || idx.entryCode === -1 || idx.systemRole === -1 || idx.activeFlag === -1) {
+        return { authenticated: false, message: 'ההתחברות נכשלה.' };
+      }
+
+      var rowsByEmployeeId = table.rows.filter(function (row) {
+        return normalizeCredential_(row[idx.employeeId]) === userId;
+      });
+      Logger.log('loginAction: employeeId match=%s', rowsByEmployeeId.length > 0);
+      if (!rowsByEmployeeId.length) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
       var found = null;
-      table.rows.some(function (row) {
-        if (Utils.toKey(row[idxUser]) === Utils.toKey(userId) && Utils.normalize(row[idxCode]) === code) {
-          found = row;
-          return true;
-        }
-        return false;
+      rowsByEmployeeId.some(function (row) {
+        var codeMatches = normalizeCredential_(row[idx.entryCode]) === code;
+        if (codeMatches) found = row;
+        return codeMatches;
       });
+      Logger.log('loginAction: entryCode match=%s', !!found);
       if (!found) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-      var mapped = resolveMappedRole_(userId);
+      var blockedByActiveFlag = isInactiveFlag_(valueAt_(found, idx.activeFlag));
+      Logger.log('loginAction: activeFlag blocked=%s', blockedByActiveFlag);
+      if (blockedByActiveFlag) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+
       var profile = {
         authenticated: true,
-        userId: Utils.normalize(found[idxUser]),
-        displayName: idxName > -1 ? Utils.normalize(found[idxName]) : Utils.normalize(found[idxUser]),
-        AccessScope: idxScope > -1 ? Utils.normalize(found[idxScope]) : '',
-        team: idxTeam > -1 ? Utils.normalize(found[idxTeam]) : '',
-        SystemRole: mapped.role,
-        BaseRole: mapped.displayRole
+        userId: Utils.normalize(found[idx.employeeId]),
+        displayName: Utils.normalize(valueAt_(found, idx.employeeName)),
+        EmployeeName: Utils.normalize(valueAt_(found, idx.employeeName)),
+        EmployeeID: Utils.normalize(valueAt_(found, idx.employeeId)),
+        BaseRole: Utils.normalize(valueAt_(found, idx.baseRole)),
+        SystemRole: Utils.normalize(valueAt_(found, idx.systemRole)),
+        DisplayRole: Utils.normalize(valueAt_(found, idx.displayRole)),
+        ViewScope: Utils.normalize(valueAt_(found, idx.viewScope)),
+        EditScope: Utils.normalize(valueAt_(found, idx.editScope)),
+        ApprovalScope: Utils.normalize(valueAt_(found, idx.approvalScope)),
+        UiProfile: Utils.normalize(valueAt_(found, idx.uiProfile)),
+        TeamScope: Utils.normalize(valueAt_(found, idx.teamScope)),
+        IsDualMode: Utils.normalize(valueAt_(found, idx.isDualMode)),
+        ActiveFlag: Utils.normalize(valueAt_(found, idx.activeFlag)),
+        team: Utils.normalize(valueAt_(found, idx.teamScope))
       };
+      Logger.log('loginAction: matched SystemRole=%s', profile.SystemRole);
       PropertiesService.getUserProperties().setProperty(CONFIG.SESSION_KEY, JSON.stringify(profile));
       return profile;
     } catch (err) {
@@ -434,9 +459,21 @@ var Logic = (function () {
     return Utils.toKey(user.team) === Utils.toKey(payloadTeam);
   }
 
-  function resolveMappedRole_(userId) {
-    var key = Utils.toKey(userId);
-    return ROLE_MAP[key] || { role: 'instructor', displayRole: 'מדריך' };
+  function normalizeCredential_(value) {
+    var normalized = Utils.normalize(value);
+    if (Utils.isEmpty(normalized)) return '';
+    var compact = normalized.replace(/[\s,]/g, '');
+    if (/^[+-]?\d+(\.0+)?$/.test(compact)) return String(parseInt(compact, 10));
+    var asNumber = Number(compact);
+    if (!isNaN(asNumber) && isFinite(asNumber) && Math.floor(asNumber) === asNumber) {
+      return String(asNumber);
+    }
+    return normalized;
+  }
+
+  function isInactiveFlag_(value) {
+    var key = Utils.toKey(value);
+    return key === '0' || key === 'false' || key === 'no' || key === 'inactive' || key === 'disabled';
   }
 
   function isIdan_(user) { return Utils.toKey(user.SystemRole) === 'admin'; }
