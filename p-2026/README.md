@@ -1,21 +1,22 @@
 # p-2026
 
-מערכת ניהול עברית מלאה (RTL) עם:
-- Backend ב-Google Apps Script
-- Frontend מוגש מ-Apps Script באותו Web App (same-origin)
-- מקור יחיד לבקשות עריכה: `EDIT_REQUESTS`
+מערכת ניהול ארצית מלאה בעברית (RTL) לניהול:
+- קורסים
+- סדנאות
+- מדריכים
+- בקשות שינוי ואישורים רב-שלביים
 
-## מבנה Backend סופי
-- `Core.gs`
-- `Logic.gs`
-- `Config.gs`
-- `Utils.gs`
+## ארכיטקטורה
+- **Frontend (GitHub / תיקיית `frontend/`)**: ממשק העבודה הראשי, UX/UI מלא בסגנון DASHBOARD2026.
+- **Apps Script (קבצי `.gs`)**: Backend בלבד (API, הרשאות, לוגיקה עסקית, קריאה/כתיבה ל-Sheets).
+- **Google Sheets**: שכבת דאטה בלבד.
 
-## מבנה Frontend
-- `index.html` (מסך מלא + CSS + JS, מוגש דרך `doGet`)
-- `frontend/` (עותק פיתוח סטטי לצורכי תחזוקה בלבד)
+## workflow אישורים
+1. מנהל מגיש בקשה ל-`EDIT_REQUESTS` עם `pending_eden`.
+2. עדן מאשרת -> הרשומה עוברת ל-`pending_final` ונכנסת לתצוגת עדן.
+3. עידן מאשר סופית -> `final_approved` + כתיבה ל-`DATA_MASTER`.
 
 ## הערות
-- נקודת הכניסה הפעילה היא ה-Web App של Apps Script בלבד.
-- אין תלות runtime ב-GitHub Pages עבור פעולת המערכת.
-- כל הקריאות והכתיבות ל-Sheets מתחילות מנתונים בשורה 3 (אחרי שורות כותרת 1–2).
+- הטאב היחיד לבקשות שינוי: `EDIT_REQUESTS`.
+- כל המסכים עובדים ב-RTL ובעברית.
+- סינון, הרשאות והחזרת נתונים מתבצעים ב-backend לפני החזרה ל-frontend.

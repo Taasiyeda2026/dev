@@ -1,10 +1,11 @@
 function doGet() {
-  return HtmlService
-    .createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('DASHBOARD2026')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return ContentService
+    .createTextOutput(JSON.stringify({
+      success: true,
+      service: 'p-2026-backend',
+      message: 'Apps Script פועל כ-API בלבד. הממשק נמצא ב-Frontend של GitHub.'
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
@@ -32,47 +33,20 @@ function routeAction_(action, payload) {
   if (action === 'submitEditRequestAction') return submitEditRequestAction(payload);
   if (action === 'getMyRequestsDataAction') return getMyRequestsDataAction(payload);
   if (action === 'getApprovalsDataAction') return getApprovalsDataAction(payload);
+  if (action === 'getEdenViewDataAction') return getEdenViewDataAction(payload);
   if (action === 'approveRequestAction') return approveRequestAction(payload);
   if (action === 'rejectRequestAction') return rejectRequestAction(payload);
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
-function loginAction(userId, code) {
-  return Logic.login(userId, code);
-}
-
-function logoutAction() {
-  return Logic.logout();
-}
-
-function getSessionProfileAction() {
-  return Logic.getSessionProfile();
-}
-
-function getDashboardDataAction() {
-  return Logic.getDashboardData();
-}
-
-function getMyCoursesDataAction(filters) {
-  return Logic.getMyCoursesData(filters || {});
-}
-
-function submitEditRequestAction(payload) {
-  return Logic.submitEditRequest(payload || {});
-}
-
-function getMyRequestsDataAction(payload) {
-  return Logic.getMyRequestsData(payload || {});
-}
-
-function getApprovalsDataAction(payload) {
-  return Logic.getApprovalsData(payload || {});
-}
-
-function approveRequestAction(payload) {
-  return Logic.approveRequest(payload || {});
-}
-
-function rejectRequestAction(payload) {
-  return Logic.rejectRequest(payload || {});
-}
+function loginAction(userId, code) { return Logic.login(userId, code); }
+function logoutAction() { return Logic.logout(); }
+function getSessionProfileAction() { return Logic.getSessionProfile(); }
+function getDashboardDataAction() { return Logic.getDashboardData(); }
+function getMyCoursesDataAction(filters) { return Logic.getMyCoursesData(filters || {}); }
+function submitEditRequestAction(payload) { return Logic.submitEditRequest(payload || {}); }
+function getMyRequestsDataAction(payload) { return Logic.getMyRequestsData(payload || {}); }
+function getApprovalsDataAction(payload) { return Logic.getApprovalsData(payload || {}); }
+function getEdenViewDataAction(payload) { return Logic.getEdenViewData(payload || {}); }
+function approveRequestAction(payload) { return Logic.approveRequest(payload || {}); }
+function rejectRequestAction(payload) { return Logic.rejectRequest(payload || {}); }
