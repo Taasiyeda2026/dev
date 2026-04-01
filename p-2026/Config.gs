@@ -19,13 +19,19 @@ var CONFIG = (function () {
     'CourseID',
     'RequestedBy',
     'RequestedAt',
-    'ApprovalStatus',
-    'ApprovalNotes',
     'ChangeSummary',
     'OriginalData',
     'RequestedData',
-    'EditableBy',
+    'RequestStatus',
+    'EdenViewStatus',
+    'FinalApprovalStatus',
+    'ApprovalStatus',
+    'ApprovalNotes',
+    'EdenApprovedAt',
+    'FinalizedAt',
+    'RejectedAt',
     'AssignedEditor',
+    'EditableBy',
     'Date',
     'Day',
     'StartTime',
@@ -42,13 +48,19 @@ var CONFIG = (function () {
     'מזהה קורס',
     'מבקש',
     'תאריך בקשה',
-    'סטטוס אישור',
-    'הערות אישור',
     'תקציר שינוי',
     'נתונים מקוריים',
     'נתונים מבוקשים',
+    'סטטוס בקשה',
+    'סטטוס תצוגת עדן',
+    'סטטוס אישור סופי',
+    'סטטוס כולל',
+    'הערות',
+    'אושר לעדן בתאריך',
+    'אושר סופית בתאריך',
+    'נדחה בתאריך',
+    'גורם מאשר',
     'ניתן לעריכה על ידי',
-    'עורך משויך',
     'תאריך',
     'יום',
     'שעת התחלה',
@@ -57,7 +69,7 @@ var CONFIG = (function () {
     'מספר מפגשים בפועל',
     'מנהל קורס',
     'מדריך',
-    'הערות'
+    'הערות פעילות'
   ];
 
   var FIELDS = {
@@ -66,7 +78,12 @@ var CONFIG = (function () {
     LOGIN_CODE: ['LoginCode', 'EntryCode', 'Password', 'קוד כניסה'],
     BASE_ROLE: ['BaseRole', 'תפקיד בסיס'],
     SYSTEM_ROLE: ['SystemRole', 'תפקיד מערכת'],
-    ACCESS_SCOPE: ['AccessScope', 'תחום גישה']
+    ACCESS_SCOPE: ['AccessScope', 'תחום גישה'],
+    TEAM: ['Team', 'צוות'],
+    TEAM_LEAD: ['TeamLead', 'מנהל צוות', 'LeadManager'],
+    PROGRAM: ['Program', 'תוכנית'],
+    STATUS: ['Status', 'סטטוס'],
+    INSTRUCTOR: ['Instructor', 'מדריך', 'AssignedInstructor']
   };
 
   EDIT_REQUESTS_HEADER_ROW.forEach(function (field) {
@@ -74,16 +91,18 @@ var CONFIG = (function () {
   });
 
   var FRONTEND_FIELDS = {
-    COURSES: ['CourseID', 'Program', 'Status'],
+    COURSES: ['CourseID', 'Program', 'Status', 'Instructor', 'Team'],
     REQUESTS: EDIT_REQUESTS_HEADER_ROW.slice(),
     APPROVALS: EDIT_REQUESTS_HEADER_ROW.slice()
   };
 
   var STATUSES = {
-    DRAFT: 'Draft',
-    PENDING: 'Pending',
-    APPROVED: 'Approved',
-    DECLINED: 'Declined'
+    DRAFT: 'draft',
+    PENDING_EDEN: 'pending_eden',
+    EDEN_APPROVED: 'eden_approved',
+    PENDING_FINAL: 'pending_final',
+    FINAL_APPROVED: 'final_approved',
+    DECLINED: 'declined'
   };
 
   return {

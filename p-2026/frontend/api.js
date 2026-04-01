@@ -35,6 +35,7 @@ export const api = {
   submitEditRequest: (payload) => callAction('submitEditRequestAction', payload),
   getMyRequests: () => callAction('getMyRequestsDataAction', {}),
   getApprovals: () => callAction('getApprovalsDataAction', {}),
+  getEdenView: () => callAction('getEdenViewDataAction', {}),
   approveRequest: (payload) => callAction('approveRequestAction', payload),
   rejectRequest: (payload) => callAction('rejectRequestAction', payload)
 };
