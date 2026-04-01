@@ -21,6 +21,12 @@ const roleMap = {
 };
 
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
+function baseRole() { return String(userState.BaseRole || '').trim().toLowerCase(); }
+function displayRole() {
+  const display = String(userState.DisplayRole || '').trim();
+  if (display) return display;
+  return roleMap[role()] || roleMap[baseRole()] || 'ללא תפקיד מוגדר';
+}
 function isAuth() { return Boolean(userState.authenticated && userState.userId); }
 function isIdan() { return role() === 'admin'; }
 function isEden() { return role() === 'admin-ops'; }
@@ -36,23 +42,25 @@ function setRoute(route) {
 
 function render() {
   if (!isAuth()) {
-    app.innerHTML = `<section class="login-wrap"><div class="login-card"><h1>כניסה למערכת</h1>
-    <label>מזהה משתמש<input id="userId" /></label>
-    <label>קוד כניסה<input id="loginCode" type="password" /></label>
-    <button class="btn btn-primary" id="loginBtn">התחבר</button><p class="error" id="loginError"></p></div></section>`;
+    app.innerHTML = `<section class="login-wrap"><div class="login-card">
+    <div class="login-logo-slot"><img class="login-logo" src="./assets/logo.png" alt="לוגו המערכת" /></div>
+    <h1>כניסה למערכת</h1><p class="login-subtitle">התחברות מאובטחת לממשק הניהול</p>
+    <label>מזהה משתמש<input id="userId" autocomplete="username" /></label>
+    <label>קוד כניסה<input id="loginCode" type="password" autocomplete="current-password" /></label>
+    <button class="btn btn-primary login-btn" id="loginBtn">התחבר</button><p class="error" id="loginError"></p></div></section>`;
     document.getElementById('loginBtn').addEventListener('click', onLogin);
     return;
   }
 
   app.innerHTML = `<div class="layout"><aside class="sidebar"><div class="brand">DASHBOARD2026</div>
     <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
-    <div class="sidebar-role">${roleMap[role()] || 'מדריך'}</div><nav class="nav-list">
+    <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
     ${nav('dashboard', 'דשבורד פעילות ארצי')}
     ${nav('courses', 'פעילות / קורסים / סדנאות')}
     ${nav('my-requests', 'הבקשות שלי')}
     ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
-    ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת עדן') : ''}
-    ${isIdan() ? nav('final-approvals', 'אישור סופי של עידן') : ''}
+    ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
+    ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
     ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
     </nav><button class="nav-btn" data-route="logout">יציאה</button></aside><main class="main" id="main"></main></div>`;
 
@@ -79,11 +87,17 @@ function renderScreen() {
 
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
-    main.innerHTML = head('דשבורד פעילות ארצי', 'תמונת מצב ניהולית עם בקרה בזמן אמת') + panel(viewState.dashboard, 'אין נתונים.',
-      `<section class="kpi-grid"><article class="kpi-card"><div class="kpi-title">סה"כ פעילות</div><div class="kpi-value">${d.totalDataMaster || 0}</div></article>
-      <article class="kpi-card"><div class="kpi-title">ממתין לבדיקת עדן</div><div class="kpi-value">${d.pendingRequests || 0}</div></article>
-      <article class="kpi-card"><div class="kpi-title">ממתין לאישור סופי</div><div class="kpi-value">${d.pendingFinal || 0}</div></article>
-      <article class="kpi-card"><div class="kpi-title">אושר לדאטה הראשית</div><div class="kpi-value">${d.approvedFinal || 0}</div></article></section>`);
+    main.innerHTML = head('דשבורד פעילות ארצי', 'מוקד ניהולי לפעילות, קורסים ומדריכים לצד בקרה תפעולית') + panel(viewState.dashboard, 'אין נתונים.',
+      `<section class="kpi-section"><h3>ליבת הפעילות</h3><div class="kpi-grid">
+      <article class="kpi-card"><div class="kpi-title">סה"כ פעילויות פעילות</div><div class="kpi-value">${d.totalDataMaster || 0}</div></article>
+      <article class="kpi-card"><div class="kpi-title">פעילויות הדורשות בקרה</div><div class="kpi-value">${d.reviewRequiredCount || 0}</div></article>
+      <article class="kpi-card"><div class="kpi-title">רשומות זמינות לדיווח</div><div class="kpi-value">${d.exportRows || 0}</div></article>
+      </div></section>
+      <section class="kpi-section secondary"><h3>בקשות ואישורים (משני)</h3><div class="kpi-grid compact">
+      <article class="kpi-card"><div class="kpi-title">ממתין לבקרת תפעול</div><div class="kpi-value">${d.pendingRequests || 0}</div></article>
+      <article class="kpi-card"><div class="kpi-title">ממתין לאישור הנהלה</div><div class="kpi-value">${d.pendingFinal || 0}</div></article>
+      <article class="kpi-card"><div class="kpi-title">בקשות שאושרו סופית</div><div class="kpi-value">${d.approvedFinal || 0}</div></article>
+      </div></section>`);
     return;
   }
 
@@ -114,7 +128,7 @@ function renderScreen() {
   }
 
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') {
-    const title = currentRoute === 'approvals' ? 'מסך אישורי בקרה ותפעול' : 'מסך אישור סופי של עידן';
+    const title = currentRoute === 'approvals' ? 'מסך אישורי בקרה ותפעול' : 'מסך אישור סופי הנהלה';
     main.innerHTML = head(title, 'השוואה בין מקור לשינוי לפני החלטה') + panel(viewState.approvals, 'אין בקשות.',
       table(viewState.approvals.data, [['RequestID','מזהה'],['CourseID','קורס'],['ChangeSummary','תקציר'],['OriginalDataView','מקור'],['RequestedDataView','שינוי']], false, true));
     bindApprovalButtons();
@@ -122,7 +136,7 @@ function renderScreen() {
   }
 
   if (currentRoute === 'eden-view') {
-    main.innerHTML = head('תצוגת עדן', 'שכבת ביניים מאושרת לפני אישור סופי') + panel(viewState.eden, 'אין נתונים.',
+    main.innerHTML = head('תצוגת בקרה ותפעול', 'שכבת ביניים מאושרת לפני אישור סופי') + panel(viewState.eden, 'אין נתונים.',
       table(viewState.eden.data, [['RequestID','מזהה'],['CourseID','קורס'],['ChangeSummary','תקציר'],['ApprovalStatus','סטטוס']], false));
   }
 }
@@ -174,14 +188,29 @@ async function doDecision(button, approved) {
 }
 
 async function onLogin() {
-  const userId = document.getElementById('userId').value.trim();
-  const code = document.getElementById('loginCode').value.trim();
+  const userIdInput = document.getElementById('userId');
+  const codeInput = document.getElementById('loginCode');
+  const button = document.getElementById('loginBtn');
+  const errorEl = document.getElementById('loginError');
+
+  const userId = userIdInput.value.trim();
+  const code = codeInput.value.trim();
+  errorEl.textContent = '';
+  button.disabled = true;
+  button.classList.add('is-loading');
+  button.textContent = 'מתחבר...';
+
   const res = await api.login({ userId, code });
   if (!res?.authenticated) {
-    document.getElementById('loginError').textContent = res?.message || 'ההתחברות נכשלה.';
+    errorEl.textContent = res?.message || 'ההתחברות נכשלה.';
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    button.textContent = 'התחבר';
     return;
   }
   setUserState(res);
+  button.classList.remove('is-loading');
+  button.textContent = 'התחבר';
   setRoute('dashboard');
 }
 
