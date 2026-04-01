@@ -1,4 +1,4 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzkA194l6vuBnmpMC7icYXtn92nMwUElyuMU8KShBkmeKCE6-i6RF5ANefmREF8zSPU2w/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby26yQpjmBhm1Th9FMry3eh9FCLWmMCKlMNmQ91bUvBgADGzJ4izN3UoMNPDNgYcZCz2Q/exec';
 
 function appendPayload(params, value, path) {
   if (value === null || typeof value === 'undefined') return;
