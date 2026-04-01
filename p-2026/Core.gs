@@ -18,10 +18,49 @@ function doPost(e) {
 
   var action = Utils.normalize(body.action || (e && e.parameter && e.parameter.action));
   var payload = Utils.asObject(body.payload, {});
+  if (!Object.keys(payload).length) {
+    payload = buildPayloadFromParams_(e && e.parameter ? e.parameter : {});
+  }
   var result = routeAction_(action, payload);
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function buildPayloadFromParams_(params) {
+  var payload = {};
+  if (!params) return payload;
+
+  Object.keys(params).forEach(function(key) {
+    if (key.indexOf('payload.') !== 0) return;
+    var path = key.substring('payload.'.length);
+    if (!path) return;
+    setByPath_(payload, path.split('.'), params[key]);
+  });
+
+  return payload;
+}
+
+function setByPath_(target, segments, value) {
+  if (!segments || !segments.length) return;
+  var current = target;
+
+  for (var i = 0; i < segments.length; i += 1) {
+    var seg = segments[i];
+    var isLast = i === segments.length - 1;
+    var nextSeg = segments[i + 1];
+    var nextIsIndex = /^\d+$/.test(nextSeg || '');
+
+    if (isLast) {
+      current[seg] = value;
+      return;
+    }
+
+    if (!current[seg] || typeof current[seg] !== 'object') {
+      current[seg] = nextIsIndex ? [] : {};
+    }
+    current = current[seg];
+  }
 }
 
 function routeAction_(action, payload) {
