@@ -1,4 +1,4 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzIUSX0b1SAsswy-Nt7P0LzKV4ib099MYmXsHgnfJx7WP1RldZZj7QaUDQpgMNSB_-DPA/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby26yQpjmBhm1Th9FMry3eh9FCLWmMCKlMNmQ91bUvBgADGzJ4izN3UoMNPDNgYcZCz2Q/exec';
 
 function buildRequestBody(action, payload) {
   return JSON.stringify({
