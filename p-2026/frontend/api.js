@@ -1,18 +1,32 @@
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzkA194l6vuBnmpMC7icYXtn92nMwUElyuMU8KShBkmeKCE6-i6RF5ANefmREF8zSPU2w/exec';
 
-function buildRequestBody(action, payload) {
-  return JSON.stringify({
-    action,
-    payload: payload && typeof payload === 'object' ? payload : {}
-  });
+function appendPayload(params, value, path) {
+  if (value === null || typeof value === 'undefined') return;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => appendPayload(params, item, `${path}.${index}`));
+    return;
+  }
+  if (typeof value === 'object') {
+    Object.entries(value).forEach(([key, nested]) => appendPayload(params, nested, `${path}.${key}`));
+    return;
+  }
+  params.append(path, String(value));
+}
+
+function buildRequestParams(action, payload) {
+  const params = new URLSearchParams();
+  params.append('action', action);
+  if (payload && typeof payload === 'object') {
+    Object.entries(payload).forEach(([key, value]) => appendPayload(params, value, `payload.${key}`));
+  }
+  return params;
 }
 
 async function callAction(action, payload) {
   try {
     const response = await fetch(WEB_APP_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: buildRequestBody(action, payload)
+      body: buildRequestParams(action, payload)
     });
 
     if (!response.ok) {
