@@ -5,6 +5,7 @@ const baseState = {
   userId: '',
   BaseRole: '',
   SystemRole: '',
+  DisplayRole: '',
   AccessScope: '',
   displayName: ''
 };
@@ -21,6 +22,7 @@ function pickAllowed(next) {
     userId: String(next?.userId || ''),
     BaseRole: String(next?.BaseRole || ''),
     SystemRole: String(next?.SystemRole || ''),
+    DisplayRole: String(next?.DisplayRole || ''),
     AccessScope: String(next?.AccessScope || ''),
     displayName: String(next?.displayName || '')
   };
