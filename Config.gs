@@ -105,7 +105,15 @@ var CONFIG = (function () {
   });
 
   var FRONTEND_FIELDS = {
-    COURSES: ['CourseID', 'Activity', 'Program', 'Status', 'OperationalStatus', 'Instructor', 'CourseManager', 'InstructorManager', 'Authority', 'School', 'Location', 'StartDate', 'EndDate', 'PlannedMeetings', 'ActualMeetings', 'ReportStatus', 'IssueStatus', 'ChangeRequest', 'Team'],
+    COURSES: [
+      'CourseID', 'ProgramCode', 'Program', 'Activity', 'Status', 'OperationalStatus',
+      'Employee', 'EmployeeID', 'Instructor', 'CourseManager', 'InstructorManager',
+      'Authority', 'School', 'Location', 'ClassGroup',
+      'DayName', 'Day', 'Date', 'StartDate', 'EndDate', 'StartTime', 'EndTime', 'End',
+      'PlannedMeetings', 'ActualMeetings', 'SourceActualMeetings',
+      'Funding', 'Payment', 'ReportStatus', 'IssueStatus', 'ChangeRequest',
+      'Notes', 'Team'
+    ],
     REQUESTS: EDIT_REQUESTS_HEADER_ROW.slice(),
     APPROVALS: EDIT_REQUESTS_HEADER_ROW.slice()
   };

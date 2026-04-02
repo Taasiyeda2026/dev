@@ -350,7 +350,7 @@ function dashboardOperationalTable(rows) {
   if (!rows.length) return '<div class="panel-empty">אין פעילויות בטווח הזמן שנבחר.</div>';
   const body = rows.slice(0, 8).map((row) => `<tr>
     <td>${esc(row.Activity || row.Program || '')}</td>
-    <td>${esc(row.Instructor || 'לא משויך')}</td>
+    <td>${esc(resolveInstructorName(row) || 'לא משויך')}</td>
     <td>${esc(joinLocation(row))}</td>
     <td>${esc(formatSchedule(row))}</td>
     <td>${esc(row.Status || row.OperationalStatus || '')}</td>
@@ -385,9 +385,9 @@ function dashboardActionTable(rows) {
 
 function courseColumns(isInstructorView) {
   if (isInstructorView) {
-    return [['Instructor', 'מדריך'], ['Activity', 'פעילות'], ['Program', 'קורס'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['Status', 'סטטוס'], ['OperationalStatus', 'סטטוס תפעולי'], ['PlannedMeetings', 'מתוכנן'], ['ActualMeetings', 'בוצע'], ['IssueStatus', 'חריגה'], ['CourseID', 'מזהה טכני']];
+    return [['Employee', 'מדריך'], ['EmployeeID', 'מזהה עובד'], ['InstructorManager', 'מנהל מדריכים'], ['Activity', 'פעילות'], ['Program', 'קורס'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['ClassGroup', 'קבוצה'], ['PlannedMeetings', 'מתוכנן'], ['ActualMeetings', 'בוצע'], ['SourceActualMeetings', 'מקור ביצוע'], ['CourseID', 'מזהה טכני']];
   }
-  return [['Activity', 'פעילות / קורס / סדנה'], ['Program', 'תוכנית'], ['Instructor', 'מדריך'], ['CourseManager', 'מנהל קורס'], ['InstructorManager', 'מנהל מדריכים'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['Status', 'סטטוס'], ['OperationalStatus', 'סטטוס תפעולי'], ['StartDate', 'התחלה'], ['EndDate', 'סיום'], ['PlannedMeetings', 'מפגשים מתוכננים'], ['ActualMeetings', 'מפגשים שבוצעו'], ['ReportStatus', 'חוסר דיווח'], ['IssueStatus', 'חריגה / בעיה'], ['ChangeRequest', 'בקשת שינוי'], ['CourseID', 'מזהה טכני']];
+  return [['Activity', 'פעילות / קורס / סדנה'], ['Program', 'תוכנית'], ['ProgramCode', 'קוד תוכנית'], ['Employee', 'מי מלמד'], ['EmployeeID', 'מזהה מדריך'], ['CourseManager', 'מנהל קורס'], ['InstructorManager', 'מנהל מדריכים'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['DayName', 'יום'], ['StartTime', 'שעת התחלה'], ['EndTime', 'שעת סיום'], ['End', 'סיום מחזור'], ['PlannedMeetings', 'מפגשים מתוכננים'], ['ActualMeetings', 'מפגשים שבוצעו'], ['SourceActualMeetings', 'מקור ביצוע'], ['Funding', 'מימון'], ['Payment', 'תשלום'], ['Notes', 'הערות'], ['CourseID', 'מזהה טכני']];
 }
 
 function onKpiClick(filterName) {
@@ -404,23 +404,21 @@ function applyCourseQuickFilter(rows) {
   const plusSeven = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
   const weekEnd = new Date(now.getTime() + (6 * 24 * 60 * 60 * 1000));
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  if (key === 'today') return list.filter((row) => isDateInRange(firstDate(row, ['StartDate', 'EndDate']), now, now));
-  if (key === 'this_week') return list.filter((row) => isDateInRange(firstDate(row, ['StartDate', 'EndDate']), now, weekEnd));
-  if (key === 'this_month') return list.filter((row) => isDateInRange(firstDate(row, ['StartDate', 'EndDate']), startOfDay(now), monthEnd));
+  if (key === 'today') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, now)));
+  if (key === 'this_week') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, weekEnd)));
+  if (key === 'this_month') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, startOfDay(now), monthEnd)));
   if (key === 'active_now') return list.filter((row) => isActiveCourse(row, now));
   if (key === 'active_courses') return list.filter((row) => isActiveCourse(row, now));
-  if (key === 'active_instructors') return list.filter((row) => isActiveCourse(row, now) && fieldHasValue(row, ['Instructor']));
-  if (key === 'needs_review') return list.filter((row) => fieldIncludes(row, ['OperationalStatus', 'IssueStatus', 'Status', 'ChangeRequest'], ['בקרה', 'review', 'pending']));
+  if (key === 'active_instructors') return list.filter((row) => isActiveCourse(row, now) && hasInstructor(row));
+  if (key === 'needs_review') return list.filter((row) => hasOperationalIssue(row));
   if (key === 'missing_report') return list.filter((row) => isMissingReport(row));
-  if (key === 'ending_soon') return list.filter((row) => isDateInRange(firstDate(row, ['EndDate']), now, plusSeven));
+  if (key === 'ending_soon') return list.filter((row) => isDateInRange(firstDate(row, ['EndDate', 'End']), now, plusSeven));
   if (key === 'exceptions') return list.filter((row) => hasException(row));
-  if (key === 'change_request') return list.filter((row) => fieldIncludes(row, ['ChangeRequest'], ['כן', 'open', 'pending', 'בקשה']));
-  if (key === 'instructor_overload') return list.filter((row) => fieldIncludes(row, ['OperationalStatus', 'IssueStatus'], ['עומס', 'overload']));
-  if (key === 'unassigned_instructor') return list.filter((row) => !fieldHasValue(row, ['Instructor']));
-  if (key === 'instructor_gap') return list.filter((row) => fieldIncludes(row, ['OperationalStatus', 'IssueStatus'], ['פער', 'gap', 'חוסר']));
-  if (key === 'pending_eden') return list.filter((row) => fieldIncludes(row, ['ChangeRequest', 'OperationalStatus'], ['pending_eden', 'ממתין לבקרה']));
-  if (key === 'pending_final') return list.filter((row) => fieldIncludes(row, ['ChangeRequest', 'OperationalStatus'], ['pending_final', 'ממתין לאישור']));
-  if (key === 'approved_final') return list.filter((row) => fieldIncludes(row, ['ChangeRequest'], ['final_approved', 'אושר']));
+  if (key === 'change_request') return list.filter((row) => hasValue(row, ['ChangeRequest']));
+  if (key === 'instructor_overload') return list.filter((row) => isInstructorOverload(row));
+  if (key === 'unassigned_instructor') return list.filter((row) => !hasInstructor(row));
+  if (key === 'instructor_gap') return list.filter((row) => hasInstructorGap(row));
+  if (key === 'pending_eden' || key === 'pending_final' || key === 'approved_final') return [];
   return list;
 }
 
@@ -428,9 +426,12 @@ function fieldHasValue(row, names) {
   return names.some((name) => String(row?.[name] || '').trim());
 }
 
-function fieldIncludes(row, names, needles) {
-  const normalized = names.map((name) => String(row?.[name] || '').toLowerCase());
-  return normalized.some((value) => needles.some((needle) => value.includes(String(needle).toLowerCase())));
+function hasValue(row, names) {
+  return fieldHasValue(row, names);
+}
+
+function hasInstructor(row) {
+  return hasValue(row, ['Employee', 'EmployeeID', 'Instructor']);
 }
 
 function firstDate(row, names) {
@@ -439,6 +440,19 @@ function firstDate(row, names) {
     if (parsed) return parsed;
   }
   return null;
+}
+
+function getScheduleDates(row) {
+  const dates = [];
+  Object.keys(row || {}).forEach((key) => {
+    if (/^Date([1-9]|[12][0-9]|30)$/.test(String(key))) {
+      const parsed = parseDateLike(row?.[key]);
+      if (parsed) dates.push(parsed);
+    }
+  });
+  const fallback = firstDate(row, ['Date', 'StartDate']);
+  if (!dates.length && fallback) dates.push(fallback);
+  return dates;
 }
 
 function parseDateLike(value) {
@@ -468,26 +482,45 @@ function endOfDay(date) {
 }
 
 function isActiveCourse(row, now) {
-  const status = String(row?.Status || '').toLowerCase();
-  if (status.includes('פעיל') || status.includes('active') || status.includes('ongoing')) return true;
-  const startDate = firstDate(row, ['StartDate']);
-  const endDate = firstDate(row, ['EndDate']);
-  if (!startDate || !endDate) return false;
-  return now >= startOfDay(startDate) && now <= endOfDay(endDate);
+  const scheduleDates = getScheduleDates(row);
+  if (scheduleDates.some((d) => isDateInRange(d, now, now))) return true;
+  const startDate = firstDate(row, ['StartDate', 'Date']);
+  const endDate = firstDate(row, ['EndDate', 'End']);
+  if (startDate && endDate) return now >= startOfDay(startDate) && now <= endOfDay(endDate);
+  return scheduleDates.some((d) => d >= startOfDay(now));
 }
 
 function isMissingReport(row) {
-  if (fieldIncludes(row, ['ReportStatus'], ['חסר', 'missing', 'pending'])) return true;
-  const planned = Number(row?.PlannedMeetings || 0);
-  const actual = Number(row?.ActualMeetings || 0);
+  const planned = numberFrom(row?.PlannedMeetings);
+  const actual = numberFrom(row?.ActualMeetings, row?.SourceActualMeetings);
   return planned > 0 && actual < planned;
 }
 
 function hasException(row) {
-  if (fieldIncludes(row, ['IssueStatus', 'OperationalStatus', 'Status'], ['חריג', 'exception', 'בעיה', 'אי התאמה'])) return true;
-  const planned = Number(row?.PlannedMeetings || 0);
-  const actual = Number(row?.ActualMeetings || 0);
+  const planned = numberFrom(row?.PlannedMeetings);
+  const actual = numberFrom(row?.ActualMeetings, row?.SourceActualMeetings);
   return planned > 0 && actual > planned;
+}
+
+function isInstructorOverload(row) {
+  const planned = numberFrom(row?.PlannedMeetings);
+  return hasInstructor(row) && planned >= 10;
+}
+
+function hasInstructorGap(row) {
+  return isMissingReport(row) || !hasInstructor(row);
+}
+
+function hasOperationalIssue(row) {
+  return hasException(row) || isMissingReport(row) || !hasInstructor(row);
+}
+
+function numberFrom(...values) {
+  for (const value of values) {
+    const num = Number(value);
+    if (Number.isFinite(num)) return num;
+  }
+  return 0;
 }
 
 function joinLocation(row) {
@@ -495,8 +528,8 @@ function joinLocation(row) {
 }
 
 function formatSchedule(row) {
-  const start = firstDate(row, ['StartDate']);
-  const end = firstDate(row, ['EndDate']);
+  const start = firstDate(row, ['StartDate', 'Date']);
+  const end = firstDate(row, ['EndDate', 'End']);
   if (!start && !end) return '-';
   if (start && end) return `${formatDate(start)} - ${formatDate(end)}`;
   return formatDate(start || end);
@@ -509,12 +542,13 @@ function formatDate(date) {
 function renderIssueBadge(row) {
   if (hasException(row)) return '<span class="status-chip status-declined">דורש טיפול</span>';
   if (isMissingReport(row)) return '<span class="status-chip status-pending">חסר דיווח</span>';
+  if (!hasInstructor(row)) return '<span class="status-chip status-pending-final">חסר מדריך</span>';
   return '<span class="status-chip status-approved">תקין</span>';
 }
 
 function renderInstructorState(row) {
   if (!row.instructor || row.instructor === 'לא משויך') return '<span class="status-chip status-declined">חוסר שיוך</span>';
-  if (row.coursesCount >= 4) return '<span class="status-chip status-pending-final">עומס גבוה</span>';
+  if (row.coursesCount >= 10) return '<span class="status-chip status-pending-final">עומס גבוה</span>';
   if (row.hasGap) return '<span class="status-chip status-pending">פער תפעולי</span>';
   return '<span class="status-chip status-approved">מאוזן</span>';
 }
@@ -627,7 +661,7 @@ function bindEditButtons() {
       Team: row.Team || '',
       ChangeSummary: 'עדכון פעילות',
       ApprovalStatus: 'pending_eden',
-      requestedData: { instructor: row.Instructor }
+      requestedData: { instructor: resolveInstructorName(row) }
     };
     api.submitEditRequest(payload).then((res) => {
       if (!res?.success) window.alert(res?.message || 'הפעולה נכשלה');
@@ -768,14 +802,14 @@ function withOperationalMetrics(baseData, courses) {
   const now = new Date();
   const plusSeven = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
   const activeCourses = courses.filter((row) => isActiveCourse(row, now));
-  const activeInstructors = new Set(activeCourses.map((row) => String(row?.Instructor || '').trim()).filter(Boolean));
+  const activeInstructors = new Set(activeCourses.map((row) => resolveInstructorName(row)).filter(Boolean));
   const dayEnd = endOfDay(now);
   const weekEnd = new Date(dayEnd.getTime() + (6 * 24 * 60 * 60 * 1000));
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   const timeViews = {
-    day: courses.filter((row) => isDateInRange(firstDate(row, ['StartDate', 'EndDate']), now, dayEnd)),
-    week: courses.filter((row) => isDateInRange(firstDate(row, ['StartDate', 'EndDate']), now, weekEnd)),
-    month: courses.filter((row) => isDateInRange(firstDate(row, ['StartDate', 'EndDate']), startOfDay(now), monthEnd))
+    day: courses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, dayEnd))),
+    week: courses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, weekEnd))),
+    month: courses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, startOfDay(now), monthEnd)))
   };
   const instructorOverview = buildInstructorOverview(courses);
   const actionItems = buildActionItems(courses);
@@ -788,12 +822,12 @@ function withOperationalMetrics(baseData, courses) {
     activeCoursesCount: activeCourses.length,
     activeInstructorsCount: activeInstructors.size,
     missingReportCount: courses.filter((row) => isMissingReport(row)).length,
-    endingSoonCount: courses.filter((row) => isDateInRange(firstDate(row, ['EndDate']), now, plusSeven)).length,
+    endingSoonCount: courses.filter((row) => isDateInRange(firstDate(row, ['EndDate', 'End']), now, plusSeven)).length,
     exceptionCount: courses.filter((row) => hasException(row)).length,
-    changeRequestCount: courses.filter((row) => fieldIncludes(row, ['ChangeRequest'], ['כן', 'open', 'pending', 'בקשה'])).length,
-    instructorOverloadCount: courses.filter((row) => fieldIncludes(row, ['OperationalStatus', 'IssueStatus'], ['עומס', 'overload'])).length,
-    unassignedInstructorCount: courses.filter((row) => !fieldHasValue(row, ['Instructor'])).length,
-    instructorGapCount: courses.filter((row) => fieldIncludes(row, ['OperationalStatus', 'IssueStatus'], ['פער', 'gap', 'חוסר'])).length,
+    changeRequestCount: courses.filter((row) => hasValue(row, ['ChangeRequest'])).length,
+    instructorOverloadCount: courses.filter((row) => isInstructorOverload(row)).length,
+    unassignedInstructorCount: courses.filter((row) => !hasInstructor(row)).length,
+    instructorGapCount: courses.filter((row) => hasInstructorGap(row)).length,
     timeViews: timeViews,
     instructorOverview: instructorOverview,
     actionItems: actionItems
@@ -803,13 +837,13 @@ function withOperationalMetrics(baseData, courses) {
 function buildInstructorOverview(courses) {
   const map = new Map();
   courses.forEach((row) => {
-    const name = String(row?.Instructor || '').trim() || 'לא משויך';
+    const name = resolveInstructorName(row) || 'לא משויך';
     if (!map.has(name)) map.set(name, { instructor: name, coursesCount: 0, authorities: new Set(), schools: new Set(), hasGap: false });
     const item = map.get(name);
     item.coursesCount += 1;
     if (row?.Authority) item.authorities.add(String(row.Authority));
     if (row?.School) item.schools.add(String(row.School));
-    if (fieldIncludes(row, ['OperationalStatus', 'IssueStatus'], ['פער', 'gap', 'חוסר'])) item.hasGap = true;
+    if (hasInstructorGap(row)) item.hasGap = true;
   });
   return Array.from(map.values())
     .map((item) => ({ ...item, authorities: Array.from(item.authorities), schools: Array.from(item.schools) }))
@@ -820,76 +854,23 @@ function buildActionItems(courses) {
   const items = [];
   courses.forEach((row) => {
     const activity = row?.Activity || row?.Program || row?.CourseID || '';
-    const instructor = row?.Instructor || '';
+    const instructor = resolveInstructorName(row) || '';
     const location = joinLocation(row);
     if (!instructor) items.push({ type: 'חסר מדריך', activity: activity, instructor: '', location: location, filter: 'unassigned_instructor' });
     if (isMissingReport(row)) items.push({ type: 'חסר דיווח', activity: activity, instructor: instructor, location: location, filter: 'missing_report' });
     if (hasException(row)) items.push({ type: 'חריגה תפעולית', activity: activity, instructor: instructor, location: location, filter: 'exceptions' });
-    if (fieldIncludes(row, ['OperationalStatus', 'IssueStatus', 'Status'], ['בקרה', 'review', 'pending'])) {
+    if (hasOperationalIssue(row)) {
       items.push({ type: 'דורש בקרה', activity: activity, instructor: instructor, location: location, filter: 'needs_review' });
     }
-    if (isDateInRange(firstDate(row, ['EndDate']), new Date(), new Date(new Date().getTime() + (7 * 24 * 60 * 60 * 1000)))) {
+    if (isDateInRange(firstDate(row, ['EndDate', 'End']), new Date(), new Date(new Date().getTime() + (7 * 24 * 60 * 60 * 1000)))) {
       items.push({ type: 'מסתיים בקרוב', activity: activity, instructor: instructor, location: location, filter: 'ending_soon' });
     }
   });
   return items;
 }
 
-function buildExceptionRecords(courses) {
-  const records = [];
-  courses.forEach((row) => {
-    const activity = row?.Activity || row?.Program || 'פעילות ללא שם';
-    if (!fieldHasValue(row, ['Instructor'])) {
-      records.push({
-        courseId: row.CourseID || '',
-        type: 'חוסר שיוך מדריך',
-        description: 'לא שויך מדריך לפעילות.',
-        instructor: '',
-        authority: row?.Authority || '',
-        school: row?.School || '',
-        activity: activity,
-        treatmentStatus: 'pending',
-        treatmentStatusLabel: 'חדש'
-      });
-    }
-    if (isMissingReport(row)) {
-      records.push({
-        courseId: row.CourseID || '',
-        type: 'חוסר דיווח',
-        description: row?.ReportStatus || 'מספר המפגשים שבוצעו נמוך מהתכנון.',
-        instructor: row?.Instructor || '',
-        authority: row?.Authority || '',
-        school: row?.School || '',
-        activity: activity,
-        treatmentStatus: 'pending-final',
-        treatmentStatusLabel: 'בטיפול'
-      });
-    }
-    if (hasException(row)) {
-      records.push({
-        courseId: row.CourseID || '',
-        type: 'חריגה תפעולית',
-        description: row?.IssueStatus || row?.OperationalStatus || 'זוהתה אי התאמה בנתוני הפעילות.',
-        instructor: row?.Instructor || '',
-        authority: row?.Authority || '',
-        school: row?.School || '',
-        activity: activity,
-        treatmentStatus: 'declined',
-        treatmentStatusLabel: 'חדשה'
-      });
-    }
-  });
-  return records;
-}
-
-function applyExceptionFilters(rows) {
-  return (rows || []).filter((item) => {
-    const typeOk = !viewState.eden.filters.type || String(item.type).includes(viewState.eden.filters.type);
-    const instructorOk = !viewState.eden.filters.instructor || String(item.instructor).includes(viewState.eden.filters.instructor);
-    const authorityOk = !viewState.eden.filters.authority || String(item.authority).includes(viewState.eden.filters.authority);
-    const treatmentOk = !viewState.eden.filters.treatment || String(item.treatmentStatusLabel).includes(viewState.eden.filters.treatment);
-    return typeOk && instructorOk && authorityOk && treatmentOk;
-  });
+function resolveInstructorName(row) {
+  return String(row?.Employee || row?.Instructor || row?.EmployeeID || '').trim();
 }
 
 
