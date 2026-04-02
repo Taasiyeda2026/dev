@@ -77,6 +77,12 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       CAN_APPROVE_TO_MAIN_DATA: 'CanApproveToMainData'
     }
   },
+  aliases: {
+    // הנחה: בשלב מעבר החוזים, השדה Instructor משמש כגיבוי לשם מדריך כש-Employee ריק.
+    instructorNameFallback: 'Instructor',
+    // הנחה: בשלב מעבר החוזים, IssueStatus הוא גיבוי ישן לתיאור סוג חריגה.
+    exceptionTypeFallback: 'IssueStatus'
+  },
   // הנחה: עומס מדריך מחושב לפי מספר מפגשים עתידיים + מספר קורסים פעילים.
   loadThresholds: {
     dayMeetings: { medium: 3, high: 6 },
