@@ -95,3 +95,11 @@ function rejectRequestAction(payload) { return Logic.rejectRequest(payload || {}
 function getSheetRowsAction(payload) { return Logic.getSheetRows(payload || {}); }
 function updateCourseAction(payload) { return Logic.updateCourse(payload || {}); }
 function createEditRequestAction(payload) { return Logic.createEditRequest(payload || {}); }
+
+
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('תחזוקה')
+    .addItem('רענון FINANCE', 'rebuildFinanceSheet')
+    .addToUi();
+}
