@@ -63,19 +63,22 @@ var Utils = (function () {
     var sheet = getSheet(sheetName, required);
     if (!sheet) return { sheet: null, headers: [], displayHeaders: [], rows: [], rowNumbers: [] };
 
+    var structure = resolveStructure_(sheetName);
     var lastColumn = sheet.getLastColumn();
     var lastRow = sheet.getLastRow();
     if (lastColumn < 1) return { sheet: sheet, headers: [], displayHeaders: [], rows: [], rowNumbers: [] };
 
-    var headers = sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, lastColumn).getValues()[0].map(normalize);
-    var displayHeaders = sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, lastColumn).getValues()[0].map(normalize);
+    var headers = sheet.getRange(structure.headerRow, 1, 1, lastColumn).getValues()[0].map(normalize);
+    var displayHeaders = structure.hasDisplayRow && lastRow >= structure.displayRow
+      ? sheet.getRange(structure.displayRow, 1, 1, lastColumn).getValues()[0].map(normalize)
+      : [];
 
-    if (lastRow < CONFIG.STRUCTURE.DATA_START_ROW) {
+    if (lastRow < structure.dataStartRow) {
       return { sheet: sheet, headers: headers, displayHeaders: displayHeaders, rows: [], rowNumbers: [] };
     }
 
-    var numRows = lastRow - CONFIG.STRUCTURE.DATA_START_ROW + 1;
-    var all = sheet.getRange(CONFIG.STRUCTURE.DATA_START_ROW, 1, numRows, lastColumn).getValues();
+    var numRows = lastRow - structure.dataStartRow + 1;
+    var all = sheet.getRange(structure.dataStartRow, 1, numRows, lastColumn).getValues();
     var rows = [];
     var rowNumbers = [];
 
@@ -83,7 +86,7 @@ var Utils = (function () {
       var hasValue = row.some(function (cell) { return !isEmpty(cell); });
       if (!hasValue) return;
       rows.push(row);
-      rowNumbers.push(CONFIG.STRUCTURE.DATA_START_ROW + offset);
+      rowNumbers.push(structure.dataStartRow + offset);
     });
 
     return { sheet: sheet, headers: headers, displayHeaders: displayHeaders, rows: rows, rowNumbers: rowNumbers };
@@ -92,9 +95,10 @@ var Utils = (function () {
   function countDataRows(sheetName) {
     var sheet = getSheet(sheetName, false);
     if (!sheet) return 0;
+    var structure = resolveStructure_(sheetName);
     var lastRow = sheet.getLastRow();
-    if (lastRow < CONFIG.STRUCTURE.DATA_START_ROW) return 0;
-    return lastRow - CONFIG.STRUCTURE.DATA_START_ROW + 1;
+    if (lastRow < structure.dataStartRow) return 0;
+    return lastRow - structure.dataStartRow + 1;
   }
 
   function countMatchingInColumn(sheetName, fieldAliases, expectedValue) {
@@ -160,6 +164,23 @@ var Utils = (function () {
 
   function validateRequired(value, message) {
     if (isEmpty(value)) throw new Error(message || 'missing_required');
+  }
+
+  function resolveStructure_(sheetName) {
+    if (sheetName === CONFIG.SHEETS.DASHBOARD_EXPORT) {
+      return {
+        headerRow: 1,
+        displayRow: null,
+        dataStartRow: 2,
+        hasDisplayRow: false
+      };
+    }
+    return {
+      headerRow: CONFIG.STRUCTURE.HEADER_ROW,
+      displayRow: CONFIG.STRUCTURE.DISPLAY_ROW,
+      dataStartRow: CONFIG.STRUCTURE.DATA_START_ROW,
+      hasDisplayRow: true
+    };
   }
 
   return {

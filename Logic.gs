@@ -114,8 +114,8 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
-      var table = Utils.readTable(CONFIG.SHEETS.COURSES, true);
-      var idxInstructor = Utils.resolveIndex(table.headers, CONFIG.FIELDS.INSTRUCTOR.concat(CONFIG.FIELDS.USER_ID, CONFIG.FIELDS.DISPLAY_NAME));
+      var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+      var idxInstructor = Utils.resolveIndex(table.headers, CONFIG.FIELDS.INSTRUCTOR.concat(['Employee', 'EmployeeID'], CONFIG.FIELDS.USER_ID, CONFIG.FIELDS.DISPLAY_NAME));
       var idxProgram = Utils.resolveIndex(table.headers, CONFIG.FIELDS.PROGRAM);
       var idxStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.STATUS);
 
@@ -139,16 +139,23 @@ var Logic = (function () {
         rows = rows.filter(function (row) { return row.some(function (cell) { return Utils.toKey(cell).indexOf(query) > -1; }); });
       }
 
+      var dynamicDateFields = table.headers.filter(function (header) {
+        return /^Date([1-9]|[12][0-9]|30)$/.test(Utils.normalize(header));
+      }).sort(function (a, b) {
+        return Number(String(a).replace('Date', '')) - Number(String(b).replace('Date', ''));
+      });
+      var frontendFields = CONFIG.FRONTEND_FIELDS.COURSES.concat(dynamicDateFields);
+
       var items = rows.map(function (row) {
         var out = {};
-        CONFIG.FRONTEND_FIELDS.COURSES.forEach(function (field) {
+        frontendFields.forEach(function (field) {
           var fieldIdx = Utils.resolveIndex(table.headers, CONFIG.FIELDS[field] || [field]);
           out[field] = fieldIdx > -1 ? row[fieldIdx] : '';
         });
         return out;
       });
 
-      return { success: true, data: { items: items } };
+      return { success: true, data: { items: items, sourceSheet: CONFIG.SHEETS.DATA_MASTER, fields: frontendFields } };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון פעילויות.');
     }
