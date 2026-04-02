@@ -9,7 +9,8 @@ import {
   updateCourse,
   createEditRequest,
   buildFilterOptions,
-  loadEditRequests
+  loadEditRequests,
+  loadReviewItems
 } from './data-engine.js';
 
 const app = document.getElementById('app');
@@ -32,7 +33,13 @@ const viewState = {
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
-  eden: { loading: false, error: '', data: { queue: [], exceptions: [] }, filters: { type: '', instructor: '', authority: '', treatment: '' } }
+  eden: { loading: false, error: '', data: { queue: [], exceptions: [] }, filters: { type: '', instructor: '', authority: '', treatment: '' } },
+  week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null },
+  month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '' }, selectedDate: '' },
+  instructors: { loading: false, error: '', filters: { authority: '', courseManager: '' }, selectedInstructor: '' },
+  endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', endFrom: '', endTo: '' } },
+  assignments: { loading: false, error: '', filters: { authority: '', program: '' } },
+  exceptions: { loading: false, error: '', filters: { authority: '', employee: '', exceptionType: '', treatmentStatus: '' } }
 };
 
 const roleMap = {
@@ -51,7 +58,13 @@ const routeLabels = {
   approvals: 'אישורי בקרה ותפעול',
   'eden-view': 'תצוגת בקרה ותפעול',
   'final-approvals': 'אישור סופי הנהלה',
-  'instructor-view': 'תצוגת מדריכים'
+  'instructor-view': 'תצוגת מדריכים',
+  week: 'שבוע',
+  month: 'חודש',
+  instructors: 'מדריכים',
+  'end-dates': 'תאריכי סיום',
+  assignments: 'שיבוץ',
+  exceptions: 'חריגות'
 };
 
 const routeIcons = {
@@ -62,6 +75,12 @@ const routeIcons = {
   'eden-view': '🧭',
   'final-approvals': '🏁',
   'instructor-view': '👤',
+  week: '🗓️',
+  month: '📅',
+  instructors: '🧑‍🏫',
+  'end-dates': '⏳',
+  assignments: '📌',
+  exceptions: '⚠️',
   logout: '↩'
 };
 
@@ -148,6 +167,12 @@ function render() {
     <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
     ${nav('dashboard', 'דשבורד פעילות ארצי')}
     ${nav('courses', 'פעילות / קורסים / סדנאות')}
+    ${nav('week', 'שבוע')}
+    ${nav('month', 'חודש')}
+    ${nav('instructors', 'מדריכים')}
+    ${nav('end-dates', 'תאריכי סיום')}
+    ${nav('assignments', 'שיבוץ')}
+    ${nav('exceptions', 'חריגות')}
     ${nav('my-requests', 'הבקשות שלי')}
     ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
     ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
@@ -300,6 +325,63 @@ function renderScreen() {
     });
     bindInstructorCards();
     bindCourseActions();
+    return;
+  }
+
+  if (currentRoute === 'week') {
+    const weekData = buildWeeklyBuckets(getCoursesForUser(userState, viewState.week.filters), viewState.week.rangeStart);
+    main.innerHTML = head('מסך שבוע', 'תמונת מצב שבועית תפעולית') +
+      renderWeekFilters() +
+      panel({ loading: viewState.week.loading, error: viewState.week.error, data: weekData.days }, 'אין מפגשים לשבוע זה.', renderWeekGrid(weekData.days)) +
+      renderWeekDetails(viewState.week.selected);
+    bindWeekActions(weekData);
+    return;
+  }
+
+  if (currentRoute === 'month') {
+    const monthData = buildMonthlyCalendar(getCoursesForUser(userState, viewState.month.filters), viewState.month.monthDate);
+    main.innerHTML = head('מסך חודש', 'מבט חודשי על עומסים ופעילויות') +
+      renderMonthFilters() +
+      panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
+      renderMonthDayDetails(monthData.selectedItems, viewState.month.selectedDate);
+    bindMonthActions(monthData);
+    return;
+  }
+
+  if (currentRoute === 'instructors') {
+    const instructorsData = buildInstructorsViewData(getCoursesForUser(userState, viewState.instructors.filters));
+    main.innerHTML = head('מסך מדריכים', 'עומסים, חריגות ופעילות לפי מדריך') +
+      renderInstructorsFilters() +
+      panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
+      renderInstructorCoursesDrilldown(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor);
+    bindInstructorsActions();
+    return;
+  }
+
+  if (currentRoute === 'end-dates') {
+    const endDateItems = buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters));
+    main.innerHTML = head('מסך תאריכי סיום', 'בקרת קורסים לקראת סיום') +
+      renderEndDatesFilters() +
+      panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems));
+    bindEndDatesActions();
+    return;
+  }
+
+  if (currentRoute === 'assignments') {
+    const assignmentRows = buildAssignmentsRows(getCoursesForUser(userState, viewState.assignments.filters));
+    main.innerHTML = head('מסך שיבוץ', 'תצפית עומסים לשיבוץ (ללא כתיבה)') +
+      renderAssignmentsFilters() +
+      panel({ loading: viewState.assignments.loading, error: viewState.assignments.error, data: assignmentRows }, 'אין נתוני שיבוץ להצגה.', renderAssignmentsTable(assignmentRows));
+    bindAssignmentsActions();
+    return;
+  }
+
+  if (currentRoute === 'exceptions') {
+    const exceptionRows = buildExceptionsRows(getStoreSnapshot().reviewItems || [], getCoursesForUser(userState, {}), viewState.exceptions.filters);
+    main.innerHTML = head('מסך חריגות', 'רשומות REVIEW_REQUIRED וחריגות תפעוליות') +
+      renderExceptionsFilters() +
+      panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows));
+    bindExceptionsActions();
     return;
   }
 
@@ -934,6 +1016,397 @@ async function doDecision(button, approved) {
   await loadEdenView();
 }
 
+async function loadWeekView() {
+  viewState.week.loading = true;
+  viewState.week.error = '';
+  renderScreen();
+  viewState.week.loading = false;
+  renderScreen();
+}
+
+async function loadMonthView() {
+  viewState.month.loading = true;
+  viewState.month.error = '';
+  renderScreen();
+  viewState.month.loading = false;
+  renderScreen();
+}
+
+async function loadInstructorsView() {
+  viewState.instructors.loading = true;
+  viewState.instructors.error = '';
+  renderScreen();
+  viewState.instructors.loading = false;
+  renderScreen();
+}
+
+async function loadEndDatesView() {
+  viewState.endDates.loading = true;
+  viewState.endDates.error = '';
+  renderScreen();
+  viewState.endDates.loading = false;
+  renderScreen();
+}
+
+async function loadAssignmentsView() {
+  viewState.assignments.loading = true;
+  viewState.assignments.error = '';
+  renderScreen();
+  viewState.assignments.loading = false;
+  renderScreen();
+}
+
+async function loadExceptionsView() {
+  viewState.exceptions.loading = true;
+  viewState.exceptions.error = '';
+  await loadReviewItems(true);
+  viewState.exceptions.loading = false;
+  renderScreen();
+}
+
+function renderWeekFilters() {
+  return `<section class="filters-wrap">
+    <label>מתחילת שבוע<input id="weekStart" placeholder="dd/MM/yyyy" value="${escAttr(viewState.week.rangeStart)}" /></label>
+    <label>רשות<input id="weekAuthority" value="${escAttr(viewState.week.filters.authority)}" /></label>
+    <label>מדריך<input id="weekEmployee" value="${escAttr(viewState.week.filters.employee)}" /></label>
+    <label>מנהל קורס<input id="weekCourseManager" value="${escAttr(viewState.week.filters.courseManager)}" /></label>
+    <div class="filter-actions"><button class="btn btn-secondary" id="weekApply">סינון</button><button class="btn btn-secondary" id="weekReset">נקה סינון</button></div>
+  </section>`;
+}
+
+function renderWeekGrid(days) {
+  return `<section class="week-grid">${days.map((day) => `<article class="panel-block"><div class="panel-block-head"><h3>${esc(day.label)}</h3><button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${day.items.length} מפגשים</button></div>${day.items.map((item) => `<div class="mini-card"><strong>${esc(item.Program || item.Activity || 'ללא שם')}</strong><span>${esc(item.School || '-')}</span><span>${esc(resolveInstructorName(item) || '-')}</span><span>${esc(`${formatTimeValue(item.StartTime)}-${formatTimeValue(item.EndTime)}`)}</span><span>מפגש ${esc(Math.min(numberFrom(item.ActualMeetings), numberFrom(item.PlannedMeetings) || 0))} מתוך ${esc(numberFrom(item.PlannedMeetings))}</span></div>`).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`).join('')}</section>`;
+}
+
+function renderWeekDetails(selected) {
+  if (!selected) return '';
+  return `<section class="panel-block"><div class="panel-block-head"><h3>פרטי יום: ${esc(selected.label)}</h3><button class="btn btn-secondary" id="weekCloseDetails">סגור</button></div>${selected.items.map((item) => {
+    const postpone = parsePostponeInfo(item.Notes);
+    return `<article class="mini-card"><strong>${esc(item.Program || item.Activity || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span><span>רשות/בית ספר: ${esc(item.Authority || '-')} / ${esc(item.School || '-')}</span><span>סוג פעילות: ${esc(item.EventType || '-')}</span><span>סטטוס מפגש: ${esc(item.Status || item.Period || '-')}</span><span>מפגש ${esc(Math.min(numberFrom(item.ActualMeetings), numberFrom(item.PlannedMeetings) || 0))} מתוך ${esc(numberFrom(item.PlannedMeetings))}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item.StartTime))}-${esc(formatTimeValue(item.EndTime))}</span><span>הערות: ${esc(item.Notes || '-')}</span></article>`;
+  }).join('')}</section>`;
+}
+
+function bindWeekActions(weekData) {
+  document.getElementById('weekApply')?.addEventListener('click', () => {
+    viewState.week.filters = {
+      authority: document.getElementById('weekAuthority')?.value.trim() || '',
+      employee: document.getElementById('weekEmployee')?.value.trim() || '',
+      courseManager: document.getElementById('weekCourseManager')?.value.trim() || ''
+    };
+    viewState.week.rangeStart = document.getElementById('weekStart')?.value.trim() || '';
+    renderScreen();
+  });
+  document.getElementById('weekReset')?.addEventListener('click', () => {
+    viewState.week.filters = { authority: '', employee: '', courseManager: '' };
+    viewState.week.rangeStart = '';
+    viewState.week.selected = null;
+    renderScreen();
+  });
+  document.querySelectorAll('[data-week-open]').forEach((button) => button.addEventListener('click', () => {
+    const day = weekData.days.find((item) => item.isoDate === button.dataset.weekOpen);
+    viewState.week.selected = day || null;
+    renderScreen();
+  }));
+  document.getElementById('weekCloseDetails')?.addEventListener('click', () => {
+    viewState.week.selected = null;
+    renderScreen();
+  });
+}
+
+function buildWeeklyBuckets(courses, weekStartValue) {
+  const baseDate = parseDateLike(weekStartValue) || new Date();
+  const start = startOfDay(new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - baseDate.getDay()));
+  const days = Array.from({ length: 6 }).map((_, idx) => {
+    const current = new Date(start.getTime() + (idx * 24 * 60 * 60 * 1000));
+    return { label: current.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }), isoDate: current.toISOString().slice(0, 10), items: [] };
+  });
+  (courses || []).forEach((course) => {
+    getScheduleDates(course).forEach((dateObj) => {
+      const isoDate = dateObj.toISOString().slice(0, 10);
+      const bucket = days.find((day) => day.isoDate === isoDate);
+      if (bucket) bucket.items.push(course);
+    });
+  });
+  return { days, start };
+}
+
+function renderMonthFilters() {
+  return `<section class="filters-wrap"><label>חודש<input id="monthDate" placeholder="MM/yyyy" value="${escAttr(viewState.month.monthDate)}" /></label><label>רשות<input id="monthAuthority" value="${escAttr(viewState.month.filters.authority)}" /></label><label>מדריך<input id="monthEmployee" value="${escAttr(viewState.month.filters.employee)}" /></label><label>מנהל קורס<input id="monthCourseManager" value="${escAttr(viewState.month.filters.courseManager)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="monthApply">סינון</button><button class="btn btn-secondary" id="monthReset">נקה סינון</button></div></section>`;
+}
+
+function buildMonthlyCalendar(courses, monthValue) {
+  const parsedMonth = parseMonthValue(monthValue) || new Date();
+  const monthStart = new Date(parsedMonth.getFullYear(), parsedMonth.getMonth(), 1);
+  const monthEnd = new Date(parsedMonth.getFullYear(), parsedMonth.getMonth() + 1, 0);
+  const days = [];
+  for (let day = 1; day <= monthEnd.getDate(); day += 1) {
+    const current = new Date(parsedMonth.getFullYear(), parsedMonth.getMonth(), day);
+    const isoDate = current.toISOString().slice(0, 10);
+    const items = (courses || []).filter((course) => getScheduleDates(course).some((dateObj) => dateObj.toISOString().slice(0, 10) === isoDate));
+    days.push({ day, isoDate, items, hasException: items.some((item) => hasException(item) || isMissingReport(item)) });
+  }
+  const selectedItems = days.find((item) => item.isoDate === viewState.month.selectedDate)?.items || [];
+  return { monthStart, days, selectedItems };
+}
+
+function renderMonthGrid(days) {
+  return `<section class="month-grid">${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''}" data-month-open="${escAttr(day.isoDate)}"><strong>${day.day}</strong><span>${day.items.length} מפגשים</span></button>`).join('')}</section>`;
+}
+
+function renderMonthDayDetails(items, dateLabel) {
+  if (!dateLabel) return '';
+  return `<section class="panel-block"><div class="panel-block-head"><h3>פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button class="btn btn-secondary" id="monthCloseDetails">סגור</button></div>${items.map((item) => `<article class="mini-card"><strong>${esc(item.Program || item.Activity || '')}</strong><span>${esc(item.Authority || '-')} · ${esc(item.School || '-')}</span><span>${esc(resolveInstructorName(item) || '-')}</span><span>${esc(formatTimeValue(item.StartTime))}-${esc(formatTimeValue(item.EndTime))}</span><button class="btn btn-tertiary" data-open-course="${escAttr(item.CourseID || '')}">פתח קורס</button></article>`).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
+}
+
+function bindMonthActions(monthData) {
+  document.getElementById('monthApply')?.addEventListener('click', () => {
+    viewState.month.monthDate = document.getElementById('monthDate')?.value.trim() || '';
+    viewState.month.filters = {
+      authority: document.getElementById('monthAuthority')?.value.trim() || '',
+      employee: document.getElementById('monthEmployee')?.value.trim() || '',
+      courseManager: document.getElementById('monthCourseManager')?.value.trim() || ''
+    };
+    renderScreen();
+  });
+  document.getElementById('monthReset')?.addEventListener('click', () => {
+    viewState.month.monthDate = '';
+    viewState.month.filters = { authority: '', employee: '', courseManager: '' };
+    viewState.month.selectedDate = '';
+    renderScreen();
+  });
+  document.querySelectorAll('[data-month-open]').forEach((button) => button.addEventListener('click', () => {
+    viewState.month.selectedDate = button.dataset.monthOpen || '';
+    renderScreen();
+  }));
+  document.getElementById('monthCloseDetails')?.addEventListener('click', () => {
+    viewState.month.selectedDate = '';
+    renderScreen();
+  });
+}
+
+function parseMonthValue(value) {
+  const text = String(value || '').trim();
+  const match = text.match(/^(\d{1,2})[\\/.-](\d{4})$/);
+  if (!match) return null;
+  return new Date(Number(match[2]), Number(match[1]) - 1, 1);
+}
+
+function renderInstructorsFilters() {
+  return `<section class="filters-wrap"><label>רשות<input id="instructorsAuthority" value="${escAttr(viewState.instructors.filters.authority)}" /></label><label>מנהל קורס<input id="instructorsManager" value="${escAttr(viewState.instructors.filters.courseManager)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="instructorsApply">סינון</button><button class="btn btn-secondary" id="instructorsReset">נקה סינון</button></div></section>`;
+}
+
+function buildInstructorsViewData(courses) {
+  const coursesByInstructor = {};
+  (courses || []).forEach((course) => {
+    const key = resolveInstructorName(course) || 'לא משויך';
+    if (!coursesByInstructor[key]) coursesByInstructor[key] = [];
+    coursesByInstructor[key].push(course);
+  });
+  const items = Object.keys(coursesByInstructor).map((name) => {
+    const list = coursesByInstructor[name];
+    const meetings = list.reduce((sum, item) => sum + getScheduleDates(item).length, 0);
+    const authorities = Array.from(new Set(list.map((item) => item.Authority).filter(Boolean)));
+    const schools = Array.from(new Set(list.map((item) => item.School).filter(Boolean)));
+    const hasIssues = list.some((item) => hasException(item) || isMissingReport(item));
+    const loadLabel = list.length >= 8 ? 'גבוה' : list.length >= 4 ? 'בינוני' : 'נמוך';
+    return { name, coursesCount: list.length, meetingsCount: meetings, authorities, schools, hasIssues, loadLabel };
+  });
+  return { items, coursesByInstructor };
+}
+
+function renderInstructorsCards(items) {
+  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><h3>${esc(item.name)}</h3><span class="status-chip status-none">${esc(item.loadLabel)}</span></div><div class="card-meta"><span>תפקיד: ${esc(getDisplayRoleForInstructor(item.name) || '-')}</span><span>קורסים פעילים: ${esc(item.coursesCount)}</span><span>מפגשים בתקופה: ${esc(item.meetingsCount)}</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות/בקשות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">Drill-down</button></div></article>`).join('')}</section>`;
+}
+
+function renderInstructorCoursesDrilldown(instructorName, coursesByInstructor) {
+  if (!instructorName) return '';
+  const rows = coursesByInstructor[instructorName] || [];
+  return `<section class="panel-block"><div class="panel-block-head"><h3>קורסים של ${esc(instructorName)}</h3><button class="btn btn-secondary" id="instructorCloseDrilldown">סגור</button></div>${renderCourseCards(rows, { canEdit: canDirectEditCourses() })}</section>`;
+}
+
+function bindInstructorsActions() {
+  document.getElementById('instructorsApply')?.addEventListener('click', () => {
+    viewState.instructors.filters = {
+      authority: document.getElementById('instructorsAuthority')?.value.trim() || '',
+      courseManager: document.getElementById('instructorsManager')?.value.trim() || ''
+    };
+    renderScreen();
+  });
+  document.getElementById('instructorsReset')?.addEventListener('click', () => {
+    viewState.instructors.filters = { authority: '', courseManager: '' };
+    viewState.instructors.selectedInstructor = '';
+    renderScreen();
+  });
+  document.querySelectorAll('[data-instructor-open]').forEach((button) => button.addEventListener('click', () => {
+    viewState.instructors.selectedInstructor = button.dataset.instructorOpen || '';
+    renderScreen();
+  }));
+  document.getElementById('instructorCloseDrilldown')?.addEventListener('click', () => {
+    viewState.instructors.selectedInstructor = '';
+    renderScreen();
+  });
+  bindCourseActions();
+}
+
+function renderEndDatesFilters() {
+  return `<section class="filters-wrap"><label>רשות<input id="endAuthority" value="${escAttr(viewState.endDates.filters.authority)}" /></label><label>מדריך<input id="endEmployee" value="${escAttr(viewState.endDates.filters.employee)}" /></label><label>מנהל קורס<input id="endManager" value="${escAttr(viewState.endDates.filters.courseManager)}" /></label><label>מתאריך סיום<input id="endFrom" placeholder="dd/MM/yyyy" value="${escAttr(viewState.endDates.filters.endFrom)}" /></label><label>עד תאריך סיום<input id="endTo" placeholder="dd/MM/yyyy" value="${escAttr(viewState.endDates.filters.endTo)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="endApply">סינון</button><button class="btn btn-secondary" id="endReset">נקה סינון</button></div></section>`;
+}
+
+function buildEndDateItems(courses) {
+  const from = parseDateLike(viewState.endDates.filters.endFrom);
+  const to = parseDateLike(viewState.endDates.filters.endTo);
+  return (courses || []).filter((course) => {
+    const endDate = parseDateLike(course.End);
+    if (!endDate) return false;
+    if (from && endDate < startOfDay(from)) return false;
+    if (to && endDate > endOfDay(to)) return false;
+    return true;
+  }).map((course) => {
+    const postpone = parsePostponeInfo(course.Notes);
+    const remaining = Math.max(0, numberFrom(course.PlannedMeetings) - numberFrom(course.ActualMeetings));
+    return { ...course, postpone, remaining };
+  }).sort((a, b) => (parseDateLike(a.End)?.getTime() || 0) - (parseDateLike(b.End)?.getTime() || 0));
+}
+
+function renderEndDateCards(items) {
+  return `<section class="cards-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><h3>${esc(item.Program || item.Activity || '')}</h3><span class="status-chip ${item.postpone.isPostponed ? 'status-pending-final' : 'status-approved'}">${item.postpone.isPostponed ? 'כולל דחיות' : 'ללא דחיות'}</span></div><div class="card-meta"><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span><span>רשות/בית ספר: ${esc(item.Authority || '-')} / ${esc(item.School || '-')}</span><span>תאריך סיום: ${esc(formatDate(parseDateLike(item.End)) || '-')}</span><span>מפגשים שנותרו: ${esc(item.remaining)}</span><span>דחיות שזוהו: ${item.postpone.isPostponed ? '1+' : '0'}</span><span>השפעה על End: ${item.postpone.isPostponed ? 'נדרשת בדיקה' : 'לא זוהתה'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(item.CourseID || '')}">Drill-down קורס</button></div></article>`).join('')}</section>`;
+}
+
+function bindEndDatesActions() {
+  document.getElementById('endApply')?.addEventListener('click', () => {
+    viewState.endDates.filters = {
+      authority: document.getElementById('endAuthority')?.value.trim() || '',
+      employee: document.getElementById('endEmployee')?.value.trim() || '',
+      courseManager: document.getElementById('endManager')?.value.trim() || '',
+      endFrom: document.getElementById('endFrom')?.value.trim() || '',
+      endTo: document.getElementById('endTo')?.value.trim() || ''
+    };
+    renderScreen();
+  });
+  document.getElementById('endReset')?.addEventListener('click', () => {
+    viewState.endDates.filters = { authority: '', employee: '', courseManager: '', endFrom: '', endTo: '' };
+    renderScreen();
+  });
+  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
+    const row = findCourseById(button.dataset.openCourse);
+    if (!row) return;
+    viewState.courses.selectedCourseId = String(row.CourseID || '');
+    viewState.courses.selectedCourseDetails = row;
+    setRoute('courses');
+  }));
+}
+
+function renderAssignmentsFilters() {
+  return `<section class="filters-wrap"><label>רשות<input id="assignAuthority" value="${escAttr(viewState.assignments.filters.authority)}" /></label><label>תוכנית<input id="assignProgram" value="${escAttr(viewState.assignments.filters.program)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="assignApply">סינון</button><button class="btn btn-secondary" id="assignReset">נקה סינון</button></div></section>`;
+}
+
+function buildAssignmentsRows(courses) {
+  const programFilter = String(viewState.assignments.filters.program || '').trim().toLowerCase();
+  const map = new Map();
+  (courses || []).forEach((course) => {
+    if (programFilter) {
+      const programText = `${String(course.Program || '')} ${String(course.ProgramCode || '')}`.toLowerCase();
+      if (!programText.includes(programFilter)) return;
+    }
+    const name = resolveInstructorName(course) || 'לא משויך';
+    if (!map.has(name)) map.set(name, { instructor: name, activeCourses: 0, upcomingMeetings: 0, authorities: new Set(), schools: new Set() });
+    const entry = map.get(name);
+    entry.activeCourses += 1;
+    entry.upcomingMeetings += getScheduleDates(course).filter((dateObj) => dateObj >= startOfDay(new Date())).length;
+    if (course.Authority) entry.authorities.add(course.Authority);
+    if (course.School) entry.schools.add(course.School);
+  });
+  return Array.from(map.values()).map((item) => {
+    const load = item.activeCourses >= 8 ? 'גבוה' : item.activeCourses >= 4 ? 'בינוני' : 'נמוך';
+    return { ...item, authorities: Array.from(item.authorities), schools: Array.from(item.schools), load };
+  });
+}
+
+function renderAssignmentsTable(rows) {
+  const body = rows.map((row) => `<tr><td>${esc(row.instructor)}</td><td>${esc(row.activeCourses)}</td><td>${esc(row.upcomingMeetings)}</td><td>${esc(row.authorities.join(', ') || '-')}</td><td>${esc(row.schools.join(', ') || '-')}</td><td>${esc(row.load)}</td></tr>`).join('');
+  return `<section class="table-wrap"><table><thead><tr><th>מדריך</th><th>קורסים פעילים</th><th>מפגשים קרובים</th><th>רשויות</th><th>בתי ספר</th><th>עומס</th></tr></thead><tbody>${body || '<tr><td colspan=\"6\">אין נתונים</td></tr>'}</tbody></table></section>`;
+}
+
+function bindAssignmentsActions() {
+  document.getElementById('assignApply')?.addEventListener('click', () => {
+    viewState.assignments.filters = {
+      authority: document.getElementById('assignAuthority')?.value.trim() || '',
+      program: document.getElementById('assignProgram')?.value.trim() || ''
+    };
+    renderScreen();
+  });
+  document.getElementById('assignReset')?.addEventListener('click', () => {
+    viewState.assignments.filters = { authority: '', program: '' };
+    renderScreen();
+  });
+}
+
+function renderExceptionsFilters() {
+  return `<section class="filters-wrap"><label>מדריך<input id="exceptionsEmployee" value="${escAttr(viewState.exceptions.filters.employee)}" /></label><label>רשות<input id="exceptionsAuthority" value="${escAttr(viewState.exceptions.filters.authority)}" /></label><label>סוג חריגה<input id="exceptionsType" value="${escAttr(viewState.exceptions.filters.exceptionType)}" /></label><label>סטטוס טיפול<input id="exceptionsTreatment" value="${escAttr(viewState.exceptions.filters.treatmentStatus)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="exceptionsApply">סינון</button><button class="btn btn-secondary" id="exceptionsReset">נקה סינון</button></div></section>`;
+}
+
+function buildExceptionsRows(reviewRows, courses, filters) {
+  const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
+  return (reviewRows || []).map((row) => {
+    const linkedCourse = (courses || []).find((course) => String(course.CourseID || '') === String(row.CourseID || '')) || {};
+    return {
+      ...row,
+      Program: row.Program || linkedCourse.Program || linkedCourse.Activity || '',
+      Employee: row.Employee || linkedCourse.Employee || resolveInstructorName(linkedCourse) || '',
+      CourseManager: row.CourseManager || linkedCourse.CourseManager || '',
+      Authority: row.Authority || linkedCourse.Authority || '',
+      School: row.School || linkedCourse.School || '',
+      ExceptionType: row.Type || row.Issues || row.IssueStatus || '',
+      TreatmentStatus: row.TreatmentStatus || row.Status || '',
+      Date: row.Date || linkedCourse.Date || linkedCourse.End || '',
+      CourseID: row.CourseID || linkedCourse.CourseID || ''
+    };
+  }).filter((row) => {
+    if (clean.employee && !String(row.Employee || '').toLowerCase().includes(clean.employee)) return false;
+    if (clean.authority && !String(row.Authority || '').toLowerCase().includes(clean.authority)) return false;
+    if (clean.exceptionType && !String(row.ExceptionType || '').toLowerCase().includes(clean.exceptionType)) return false;
+    if (clean.treatmentStatus && !String(row.TreatmentStatus || '').toLowerCase().includes(clean.treatmentStatus)) return false;
+    return true;
+  });
+}
+
+function renderExceptionsCards(rows) {
+  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card"><div class="card-head"><h3>${esc(row.ExceptionType || 'חריגה')}</h3><span class="status-chip status-pending">${esc(row.TreatmentStatus || 'חדש')}</span></div><div class="card-meta"><span>בעיה: ${esc(row.Issues || row.ExceptionType || '-')}</span><span>קורס: ${esc(row.Program || '-')} (${esc(row.CourseID || '-')})</span><span>מדריך/מנהל: ${esc(row.Employee || '-')} / ${esc(row.CourseManager || '-')}</span><span>רשות/בית ספר: ${esc(row.Authority || '-')} / ${esc(row.School || '-')}</span><span>תאריך רלוונטי: ${esc(formatDate(parseDateLike(row.Date)) || row.Date || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פתח קורס</button><button class="btn btn-secondary" data-mark-exception="${escAttr(row.CourseID || '')}">סמן כטופל</button></div></article>`).join('')}</section>`;
+}
+
+function bindExceptionsActions() {
+  document.getElementById('exceptionsApply')?.addEventListener('click', () => {
+    viewState.exceptions.filters = {
+      employee: document.getElementById('exceptionsEmployee')?.value.trim() || '',
+      authority: document.getElementById('exceptionsAuthority')?.value.trim() || '',
+      exceptionType: document.getElementById('exceptionsType')?.value.trim() || '',
+      treatmentStatus: document.getElementById('exceptionsTreatment')?.value.trim() || ''
+    };
+    renderScreen();
+  });
+  document.getElementById('exceptionsReset')?.addEventListener('click', () => {
+    viewState.exceptions.filters = { authority: '', employee: '', exceptionType: '', treatmentStatus: '' };
+    renderScreen();
+  });
+  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
+    if (!button.dataset.openCourse) return;
+    const row = findCourseById(button.dataset.openCourse);
+    if (!row) return;
+    viewState.courses.selectedCourseId = String(row.CourseID || '');
+    viewState.courses.selectedCourseDetails = row;
+    setRoute('courses');
+  }));
+  document.querySelectorAll('[data-mark-exception]').forEach((button) => button.addEventListener('click', () => {
+    console.info('TODO: סימון כטופל יחובר ל-API ייעודי בעתיד', { courseId: button.dataset.markException });
+    window.alert('סימון כטופל זמין בשלב עתידי (TODO).');
+  }));
+}
+
+function getDisplayRoleForInstructor(instructorName) {
+  const permission = (getStoreSnapshot().permissions || []).find((row) => String(row.employeeName || '').trim() === String(instructorName || '').trim());
+  return permission?.displayRole || '';
+}
+
 async function onLogin() {
   const userIdInput = document.getElementById('userId');
   const codeInput = document.getElementById('loginCode');
@@ -966,6 +1439,12 @@ async function loadRouteData() {
   if (!isAuth()) return;
   if (currentRoute === 'dashboard') return loadDashboard();
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') return loadCourses();
+  if (currentRoute === 'week') return loadWeekView();
+  if (currentRoute === 'month') return loadMonthView();
+  if (currentRoute === 'instructors') return loadInstructorsView();
+  if (currentRoute === 'end-dates') return loadEndDatesView();
+  if (currentRoute === 'assignments') return loadAssignmentsView();
+  if (currentRoute === 'exceptions') return loadExceptionsView();
   if (currentRoute === 'my-requests') return loadMyRequests();
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') return loadApprovals();
   if (currentRoute === 'eden-view') return loadEdenView();
