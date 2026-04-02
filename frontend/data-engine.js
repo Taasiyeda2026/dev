@@ -102,16 +102,18 @@ async function fetchSheet(sheetName) {
   if (!res?.success) return [];
   const headers = Array.isArray(res?.data?.headerRow) ? res.data.headerRow : [];
   const dataRows = Array.isArray(res?.data?.dataRows) ? res.data.dataRows : [];
+  const rowNumbers = Array.isArray(res?.data?.rowNumbers) ? res.data.rowNumbers : [];
   if (!headers.length) return [];
   return dataRows
     .filter((row) => Array.isArray(row) && row.some((cell) => String(cell || '').trim() !== ''))
-    .map((row) => {
+    .map((row, rowIndex) => {
       const mapped = {};
       headers.forEach((header, index) => {
         const key = String(header || '').trim();
         if (!key) return;
         mapped[key] = row[index];
       });
+      mapped._rowNumber = Number(rowNumbers[rowIndex] || 0);
       return mapped;
     });
 }
@@ -122,6 +124,10 @@ async function loadCourses() {
   dataStore.courses = rows.map(mapCourseRow);
   dataStore.loadedAt.courses = now();
   return dataStore.courses;
+}
+
+export async function reloadCourses() {
+  return loadCourses();
 }
 
 export async function initDataEngine(api, options = {}) {
@@ -261,6 +267,20 @@ export function getCoursesForUser(userState = {}, filters = {}) {
 export async function refreshCourse(courseId) {
   const courseKey = String(courseId || '').trim();
   if (!courseKey) return null;
+  const rows = await fetchSheet('COURSES');
+  if (rows.length) {
+    const mappedRows = rows.map(mapCourseRow);
+    const found = mappedRows.find((item) => String(item.CourseID) === courseKey) || null;
+    if (found) {
+      const existingIndex = dataStore.courses.findIndex((item) => String(item.CourseID) === courseKey);
+      if (existingIndex > -1) dataStore.courses[existingIndex] = { ...dataStore.courses[existingIndex], ...found };
+      else dataStore.courses.unshift(found);
+      dataStore.loadedAt.courses = now();
+      return dataStore.courses[existingIndex > -1 ? existingIndex : 0];
+    }
+    dataStore.courses = mappedRows;
+    dataStore.loadedAt.courses = now();
+  }
   return dataStore.courses.find((item) => String(item.CourseID) === courseKey) || null;
 }
 
