@@ -140,7 +140,7 @@ tbody tr:hover { background: #fafcff; }
   background: linear-gradient(rgba(244, 248, 255, 0.9), rgba(244, 248, 255, 0.94)), url('./assets/login-bg-soft.png') center/cover no-repeat;
 }
 .login-card {
-  width: min(460px, 100%);
+  width: min(240px, 88vw);
   background: var(--surface);
   border: 1px solid #d5e1f3;
   border-radius: 22px;
@@ -159,13 +159,14 @@ tbody tr:hover { background: #fafcff; }
   place-items: center;
 }
 .login-logo { display: block; max-width: min(220px, 80%); max-height: 52px; width: auto; height: auto; object-fit: contain; }
-.login-card h1 { margin: 0; font-size: clamp(24px, 6vw, 30px); }
+.login-card h1 { margin: 0; font-size: clamp(20px, 5vw, 24px); }
+.login-title { width: min(180px, 100%); justify-self: center; text-align: right; }
 .login-subtitle { margin: 0 0 8px; color: var(--muted); }
-.login-card label { width: min(320px, 100%); justify-self: center; }
-.login-btn { width: min(320px, 100%); justify-self: center; font-weight: 700; box-shadow: 0 8px 18px rgba(31, 78, 216, .24); }
+.login-card label { width: min(180px, 100%); justify-self: center; }
+.login-btn { width: min(180px, 100%); justify-self: center; font-weight: 700; box-shadow: 0 8px 18px rgba(31, 78, 216, .24); }
 .login-btn:hover, .login-btn:focus-visible { transform: translateY(-1px); box-shadow: 0 12px 22px rgba(31, 78, 216, .28); }
 .login-btn.is-loading { background: #335fcc; box-shadow: none; }
-.login-card .error { width: min(320px, 100%); margin: 0 auto; min-height: 20px; }
+.login-card .error { width: min(180px, 100%); margin: 0 auto; min-height: 20px; }
 
 @media (max-width: 1100px) {
   .layout { grid-template-columns: 1fr; }
