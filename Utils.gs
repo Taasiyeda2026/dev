@@ -190,7 +190,7 @@ var Utils = (function () {
   }
 
   function resolveStructure_(sheetName) {
-    if (sheetName === CONFIG.SHEETS.DASHBOARD_EXPORT || sheetName === CONFIG.SHEETS.SUMMARY) {
+    if (sheetName === CONFIG.SHEETS.DASHBOARD_EXPORT) {
       return {
         headerRow: 1,
         displayRow: null,
