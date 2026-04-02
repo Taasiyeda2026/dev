@@ -88,21 +88,42 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
-      var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
-      var idx = resolveRequestIndexes_(table.headers);
-      var pendingEden = countByStatus_(table.rows, idx.approvalStatus, CONFIG.STATUSES.PENDING_EDEN);
-      var pendingFinal = countByStatus_(table.rows, idx.approvalStatus, CONFIG.STATUSES.PENDING_FINAL);
-      var approvedFinal = countByStatus_(table.rows, idx.approvalStatus, CONFIG.STATUSES.FINAL_APPROVED);
+      var requestsTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
+      var requestIndexes = resolveRequestIndexes_(requestsTable.headers);
+      var pendingEden = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_EDEN);
+      var pendingFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_FINAL);
+      var approvedFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.FINAL_APPROVED);
+
+      var summaryTable = Utils.readTable(CONFIG.SHEETS.SUMMARY, false);
+      var exportTable = Utils.readTable(CONFIG.SHEETS.DASHBOARD_EXPORT, false);
+      var summaryMetrics = parseSummaryMetrics_(summaryTable.headers, summaryTable.rows);
+      var exportMetrics = parseDashboardExportMetrics_(exportTable.headers, exportTable.rows);
+      var reviewCount = asNumber_(summaryMetrics.reviewRequiredCount);
+      if (!reviewCount) reviewCount = asNumber_(summaryMetrics.needsReviewCount);
+      if (!reviewCount) reviewCount = asNumber_(summaryMetrics.exceptionCount);
 
       return {
         success: true,
         data: {
           totalDataMaster: Utils.countDataRows(CONFIG.SHEETS.DATA_MASTER),
-          reviewRequiredCount: Utils.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED),
+          reviewRequiredCount: reviewCount || Utils.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED),
           pendingRequests: pendingEden,
           pendingFinal: pendingFinal,
           approvedFinal: approvedFinal,
-          exportRows: Utils.countDataRows(CONFIG.SHEETS.DASHBOARD_EXPORT)
+          exportRows: Utils.countDataRows(CONFIG.SHEETS.DASHBOARD_EXPORT),
+          activeNowCount: asNumber_(summaryMetrics.activeNowCount) || asNumber_(exportMetrics.activeNowCount),
+          todayActivitiesCount: asNumber_(summaryMetrics.todayActivitiesCount) || asNumber_(exportMetrics.todayActivitiesCount),
+          weekActivitiesCount: asNumber_(summaryMetrics.weekActivitiesCount) || asNumber_(exportMetrics.weekActivitiesCount),
+          monthActivitiesCount: asNumber_(summaryMetrics.monthActivitiesCount) || asNumber_(exportMetrics.monthActivitiesCount),
+          activeCoursesCount: asNumber_(summaryMetrics.activeCoursesCount) || asNumber_(exportMetrics.activeCoursesCount),
+          activeInstructorsCount: asNumber_(summaryMetrics.activeInstructorsCount) || asNumber_(exportMetrics.activeInstructorsCount),
+          missingReportCount: asNumber_(summaryMetrics.missingReportCount) || asNumber_(exportMetrics.missingReportCount),
+          endingSoonCount: asNumber_(summaryMetrics.endingSoonCount) || asNumber_(exportMetrics.endingSoonCount),
+          exceptionCount: asNumber_(summaryMetrics.exceptionCount) || asNumber_(exportMetrics.exceptionCount),
+          changeRequestCount: asNumber_(summaryMetrics.changeRequestCount) || asNumber_(exportMetrics.changeRequestCount),
+          instructorOverloadCount: asNumber_(summaryMetrics.instructorOverloadCount) || asNumber_(exportMetrics.instructorOverloadCount),
+          unassignedInstructorCount: asNumber_(summaryMetrics.unassignedInstructorCount) || asNumber_(exportMetrics.unassignedInstructorCount),
+          instructorGapCount: asNumber_(summaryMetrics.instructorGapCount) || asNumber_(exportMetrics.instructorGapCount)
         }
       };
     } catch (err) {
@@ -453,6 +474,78 @@ var Logic = (function () {
       if (Utils.toKey(row[statusIndex]) === Utils.toKey(statusValue)) count += 1;
     });
     return count;
+  }
+
+  function parseSummaryMetrics_(headers, rows) {
+    if (!headers || !headers.length || !rows || !rows.length) return {};
+    var metrics = {};
+    if (rows.length === 1) {
+      mapMetricFields_(metrics, headers, rows[0]);
+      return metrics;
+    }
+
+    var keyIndex = Utils.resolveIndex(headers, ['Metric', 'MetricKey', 'Key', 'Name', 'KPI', 'Code']);
+    var valueIndex = Utils.resolveIndex(headers, ['Value', 'MetricValue', 'Count', 'Total', 'Amount']);
+    if (keyIndex === -1 || valueIndex === -1) return metrics;
+
+    rows.forEach(function (row) {
+      var metricKey = normalizeMetricKey_(row[keyIndex]);
+      if (!metricKey) return;
+      metrics[metricKey] = asNumber_(row[valueIndex]);
+    });
+    return metrics;
+  }
+
+  function parseDashboardExportMetrics_(headers, rows) {
+    if (!headers || !headers.length || !rows || !rows.length) return {};
+    var totals = {};
+    rows.forEach(function (row) {
+      mapMetricFields_(totals, headers, row, true);
+    });
+    return totals;
+  }
+
+  function mapMetricFields_(target, headers, row, addMode) {
+    headers.forEach(function (header, i) {
+      var metricKey = normalizeMetricKey_(header);
+      if (!metricKey) return;
+      var value = asNumber_(row[i]);
+      if (!value && value !== 0) return;
+      if (addMode) target[metricKey] = asNumber_(target[metricKey]) + value;
+      else target[metricKey] = value;
+    });
+  }
+
+  function normalizeMetricKey_(value) {
+    var key = Utils.toKey(value).replace(/[\s_-]+/g, '');
+    var aliases = {
+      activenowcount: 'activeNowCount',
+      activitiestoday: 'todayActivitiesCount',
+      todayactivitiescount: 'todayActivitiesCount',
+      activitiesweek: 'weekActivitiesCount',
+      weekactivitiescount: 'weekActivitiesCount',
+      activitiesmonth: 'monthActivitiesCount',
+      monthactivitiescount: 'monthActivitiesCount',
+      activecoursescount: 'activeCoursesCount',
+      activeinstructorscount: 'activeInstructorsCount',
+      missingreportcount: 'missingReportCount',
+      endingsooncount: 'endingSoonCount',
+      exceptioncount: 'exceptionCount',
+      needsreviewcount: 'reviewRequiredCount',
+      reviewrequiredcount: 'reviewRequiredCount',
+      changerequestcount: 'changeRequestCount',
+      instructoroverloadcount: 'instructorOverloadCount',
+      unassignedinstructorcount: 'unassignedInstructorCount',
+      instructorgapcount: 'instructorGapCount'
+    };
+    return aliases[key] || '';
+  }
+
+  function asNumber_(value) {
+    var text = Utils.normalize(value).replace(/,/g, '');
+    if (text === '') return 0;
+    var number = Number(text);
+    return isNaN(number) ? 0 : number;
   }
 
   function canCreateRequest_(user) {
