@@ -3,6 +3,7 @@ import { userState, setUserState, clearUserState, hydrateUserState } from './sta
 
 const app = document.getElementById('app');
 let currentRoute = 'login';
+let mobileNavOpen = false;
 
 const viewState = {
   dashboard: { loading: false, error: '', data: null },
@@ -33,9 +34,26 @@ function isEden() { return role() === 'admin-ops'; }
 function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].includes(role()); }
 function isInstructor() { return role() === 'instructor'; }
 
+
+function closeMobileNav() {
+  mobileNavOpen = false;
+  document.body.classList.remove('nav-open');
+  render();
+  loadRouteData();
+}
+
+function toggleMobileNav(force) {
+  mobileNavOpen = typeof force === 'boolean' ? force : !mobileNavOpen;
+  document.body.classList.toggle('nav-open', mobileNavOpen);
+  render();
+  loadRouteData();
+}
+
 function setRoute(route) {
   if (!isAuth() && route !== 'login') currentRoute = 'login';
   else currentRoute = route;
+  mobileNavOpen = false;
+  document.body.classList.remove('nav-open');
   render();
   loadRouteData();
 }
@@ -52,7 +70,9 @@ function render() {
     return;
   }
 
-  app.innerHTML = `<div class="layout"><aside class="sidebar"><div class="brand">DASHBOARD2026</div>
+  app.innerHTML = `<div class="layout">
+    <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
+    <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">DASHBOARD2026</div>
     <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
     <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
     ${nav('dashboard', 'דשבורד פעילות ארצי')}
@@ -62,7 +82,9 @@ function render() {
     ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
     ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
     ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
-    </nav><button class="nav-btn" data-route="logout">יציאה</button></aside><main class="main" id="main"></main></div>`;
+    </nav><button class="nav-btn" data-route="logout">יציאה</button></aside>
+    <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
+    <main class="main" id="main"></main></div>`;
 
   document.querySelectorAll('[data-route]').forEach((b) => b.addEventListener('click', async () => {
     const route = b.dataset.route;
@@ -74,6 +96,10 @@ function render() {
     }
     setRoute(route);
   }));
+
+
+  document.getElementById('mobileNavToggle')?.addEventListener('click', () => toggleMobileNav());
+  document.getElementById('mobileNavBackdrop')?.addEventListener('click', () => toggleMobileNav(false));
 
   renderScreen();
 }
@@ -275,6 +301,14 @@ function statusClass(status) { return `status-${String(status || '').toLowerCase
 function esc(v) { return String(v || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function escAttr(v) { return esc(v).replace(/"/g, '&quot;'); }
 
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+  });
+}
+
 async function boot() {
   hydrateUserState();
   if (isAuth()) {
@@ -289,4 +323,5 @@ async function boot() {
   setRoute('login');
 }
 
+registerServiceWorker();
 boot();
