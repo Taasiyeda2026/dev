@@ -25,6 +25,8 @@ const dataStore = {
   programCodes: [],
   editRequests: [],
   reviewItems: [],
+  finance: [],
+  financeArchive: [],
   dataMaster: [],
   loadedAt: {
     permissions: 0,
@@ -33,6 +35,8 @@ const dataStore = {
     programCodes: 0,
     editRequests: 0,
     reviewItems: 0,
+    finance: 0,
+    financeArchive: 0,
     dataMaster: 0
   }
 };
@@ -86,6 +90,10 @@ function mapPermissionRow(raw = {}) {
     canViewDashboard: toBool(raw[PERMISSION_FIELDS.CAN_VIEW_DASHBOARD]),
     canEditMasterData: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_MASTER_DATA]),
     canApproveToMainData: toBool(raw[PERMISSION_FIELDS.CAN_APPROVE_TO_MAIN_DATA]),
+    canAccessFinance: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE]),
+    canEditFinance: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE]),
+    canAccessFinanceArchive: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE_ARCHIVE]),
+    canEditFinanceArchive: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE_ARCHIVE]),
     raw
   };
 }
@@ -170,6 +178,10 @@ export async function loadPermissions(userState = {}) {
       canViewDashboard: true,
       canEditMasterData: false,
       canApproveToMainData: false,
+      canAccessFinance: false,
+      canEditFinance: false,
+      canAccessFinanceArchive: false,
+      canEditFinanceArchive: false,
       raw: userState
     }];
   }
@@ -219,6 +231,8 @@ export function getStoreSnapshot() {
     programCodes: [...dataStore.programCodes],
     editRequests: [...dataStore.editRequests],
     reviewItems: [...dataStore.reviewItems],
+    finance: [...dataStore.finance],
+    financeArchive: [...dataStore.financeArchive],
     loadedAt: { ...dataStore.loadedAt }
   };
 }
@@ -316,6 +330,54 @@ export async function createEditRequest(courseId, changes, actor = {}) {
   };
   const res = await apiRef.createEditRequest(payload);
   if (res?.success) await loadEditRequests(true);
+  return res;
+}
+
+export async function loadFinanceItems(force = false) {
+  if (!force && dataStore.finance.length) return dataStore.finance;
+  if (!apiRef?.getFinanceData) return [];
+  const res = await apiRef.getFinanceData();
+  dataStore.finance = res?.success ? (res?.data?.items || []) : [];
+  dataStore.loadedAt.finance = now();
+  return dataStore.finance;
+}
+
+export async function loadFinanceArchiveItems(force = false) {
+  if (!force && dataStore.financeArchive.length) return dataStore.financeArchive;
+  if (!apiRef?.getFinanceArchiveData) return [];
+  const res = await apiRef.getFinanceArchiveData();
+  dataStore.financeArchive = res?.success ? (res?.data?.items || []) : [];
+  dataStore.loadedAt.financeArchive = now();
+  return dataStore.financeArchive;
+}
+
+export async function updateFinanceStatus(financeRowId, financeStatus, options = {}) {
+  if (!apiRef?.updateFinanceStatus) return { success: false, message: 'API לא זמין לעדכון סטטוס גבייה.' };
+  const payload = {
+    FinanceRowID: financeRowId,
+    FinanceStatus: financeStatus,
+    sheetName: options.sheetName || 'FINANCE',
+    StatusNote: options.statusNote || ''
+  };
+  const res = await apiRef.updateFinanceStatus(payload);
+  if (res?.success) {
+    await Promise.all([
+      loadFinanceItems(true),
+      loadFinanceArchiveItems(true)
+    ]);
+  }
+  return res;
+}
+
+export async function syncFinance() {
+  if (!apiRef?.syncFinance) return { success: false, message: 'API לא זמין לרענון כספים.' };
+  const res = await apiRef.syncFinance();
+  if (res?.success) {
+    await Promise.all([
+      loadFinanceItems(true),
+      loadFinanceArchiveItems(true)
+    ]);
+  }
   return res;
 }
 

@@ -78,6 +78,10 @@ function routeAction_(action, payload) {
   if (action === 'getSheetRows') return getSheetRowsAction(payload);
   if (action === 'updateCourse') return updateCourseAction(payload);
   if (action === 'createEditRequest') return createEditRequestAction(payload);
+  if (action === 'getFinanceDataAction') return getFinanceDataAction(payload);
+  if (action === 'getFinanceArchiveDataAction') return getFinanceArchiveDataAction(payload);
+  if (action === 'updateFinanceStatusAction') return updateFinanceStatusAction(payload);
+  if (action === 'syncFinanceAction') return syncFinanceAction(payload);
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
@@ -95,6 +99,10 @@ function rejectRequestAction(payload) { return Logic.rejectRequest(payload || {}
 function getSheetRowsAction(payload) { return Logic.getSheetRows(payload || {}); }
 function updateCourseAction(payload) { return Logic.updateCourse(payload || {}); }
 function createEditRequestAction(payload) { return Logic.createEditRequest(payload || {}); }
+function getFinanceDataAction(payload) { return Logic.getFinanceData(payload || {}); }
+function getFinanceArchiveDataAction(payload) { return Logic.getFinanceArchiveData(payload || {}); }
+function updateFinanceStatusAction(payload) { return Logic.updateFinanceStatus(payload || {}); }
+function syncFinanceAction(payload) { return Logic.syncFinance(payload || {}); }
 
 
 function onOpen() {

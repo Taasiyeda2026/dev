@@ -4,7 +4,10 @@ var Logic = (function () {
     UPDATE_COURSE: 'UPDATE_COURSE',
     CREATE_EDIT_REQUEST: 'CREATE_EDIT_REQUEST',
     APPROVAL_DECISION: 'APPROVAL_DECISION',
-    MARK_EXCEPTION_RESOLVED: 'MARK_EXCEPTION_RESOLVED'
+    MARK_EXCEPTION_RESOLVED: 'MARK_EXCEPTION_RESOLVED',
+    FINANCE_SYNC: 'FINANCE_SYNC',
+    FINANCE_UPDATE: 'FINANCE_UPDATE',
+    FINANCE_ARCHIVE_UPDATE: 'FINANCE_ARCHIVE_UPDATE'
   };
 
   // הנחה: REVIEW_REQUIRED עשוי להכיל אחד מהשדות הבאים לזיהוי/סטטוס/אודיט.
@@ -102,6 +105,10 @@ var Logic = (function () {
         TeamScope: scopeJoin(idx.teamScope),
         IsDualMode: dualFlag,
         ActiveFlag: Utils.normalize(valueAt_(primary, idx.activeFlag)),
+        CanAccessFinance: anyTrueInRows_(rows, idx.canAccessFinance),
+        CanEditFinance: anyTrueInRows_(rows, idx.canEditFinance),
+        CanAccessFinanceArchive: anyTrueInRows_(rows, idx.canAccessFinanceArchive),
+        CanEditFinanceArchive: anyTrueInRows_(rows, idx.canEditFinanceArchive),
         PermissionRows: rows.length
       };
   }
@@ -240,6 +247,85 @@ var Logic = (function () {
       };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון נתונים מהגיליון.');
+    }
+  }
+
+  function getFinanceData() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireFinanceAccess_(session.user, { archive: false, requireEdit: false });
+      var table = Utils.readTable('FINANCE', true);
+      var items = table.rows.map(function (row, index) {
+        return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('אין הרשאה לצפייה בגבייה פעילה.');
+    }
+  }
+
+  function getFinanceArchiveData() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireFinanceAccess_(session.user, { archive: true, requireEdit: false });
+      var table = Utils.readTable('FINANCE_ARCHIVE', false);
+      if (!table.sheet) return { success: true, data: { items: [] } };
+      var items = table.rows.map(function (row, index) {
+        return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('אין הרשאה לצפייה בארכיון גבייה.');
+    }
+  }
+
+  function updateFinanceStatus(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      var body = Utils.asObject(payload, {});
+      var financeRowId = Utils.normalize(body.FinanceRowID || body.financeRowId);
+      var financeStatus = Utils.normalize(body.FinanceStatus || body.financeStatus);
+      var targetSheet = Utils.normalize(body.sheetName || 'FINANCE');
+      var isArchive = targetSheet === 'FINANCE_ARCHIVE';
+      requireWritePermission_(session.user, isArchive ? WRITE_ACTIONS.FINANCE_ARCHIVE_UPDATE : WRITE_ACTIONS.FINANCE_UPDATE, {});
+      if (!financeRowId || !financeStatus) return Utils.safeMessage('FinanceRowID ו-FinanceStatus הם שדות חובה.');
+
+      var table = Utils.readTable(targetSheet, true);
+      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['FinanceRowID']);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['Notes']);
+      if (idxFinanceRowId === -1 || idxFinanceStatus === -1) return Utils.safeMessage('חסרות עמודות חובה בגיליון הכספים.');
+
+      for (var i = 0; i < table.rows.length; i += 1) {
+        if (Utils.normalize(table.rows[i][idxFinanceRowId]) !== financeRowId) continue;
+        var updated = table.rows[i].slice();
+        updated[idxFinanceStatus] = financeStatus;
+        if (idxNotes > -1 && !Utils.isEmpty(body.StatusNote || body.statusNote)) {
+          var current = Utils.normalize(updated[idxNotes]);
+          var suffix = Utils.normalize(body.StatusNote || body.statusNote);
+          updated[idxNotes] = current ? (current + ' | ' + suffix) : suffix;
+        }
+        Utils.updateRow(targetSheet, table.rowNumbers[i], updated);
+        return { success: true, data: { item: Utils.rowToObject(table.headers, updated, table.rowNumbers[i]) } };
+      }
+
+      return Utils.safeMessage('FinanceRowID לא נמצא לעדכון.');
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לעדכן סטטוס גבייה.');
+    }
+  }
+
+  function syncFinance() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireWritePermission_(session.user, WRITE_ACTIONS.FINANCE_SYNC, {});
+      return rebuildFinanceSheet();
+    } catch (err) {
+      return Utils.safeMessage('אין הרשאה לרענון גיליון הכספים.');
     }
   }
 
@@ -796,12 +882,33 @@ var Logic = (function () {
       allowed = role === 'admin' || role === 'admin-ops' || approvalScope === 'all' || approvalScope === 'full';
     } else if (actionType === WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED) {
       allowed = role === 'admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
+    } else if (actionType === WRITE_ACTIONS.FINANCE_SYNC || actionType === WRITE_ACTIONS.FINANCE_UPDATE) {
+      requireFinanceAccess_(user, { archive: false, requireEdit: true });
+      allowed = true;
+    } else if (actionType === WRITE_ACTIONS.FINANCE_ARCHIVE_UPDATE) {
+      requireFinanceAccess_(user, { archive: true, requireEdit: true });
+      allowed = true;
     }
 
     if (!allowed) throw new Error('unauthorized_write_' + actionType);
     if (actionType === WRITE_ACTIONS.UPDATE_COURSE && !canEditCourseByRole_(user, context && context.courseId, context && context.team)) {
       throw new Error('unauthorized_scope_' + actionType);
     }
+    return true;
+  }
+
+  function requireFinanceAccess_(user, options) {
+    var opts = options || {};
+    var archive = Boolean(opts.archive);
+    var requireEdit = Boolean(opts.requireEdit);
+    var accessField = archive ? 'CanAccessFinanceArchive' : 'CanAccessFinance';
+    var editField = archive ? 'CanEditFinanceArchive' : 'CanEditFinance';
+    var isAdminRole = Utils.toKey(user.SystemRole) === 'admin' || Utils.toKey(user.SystemRole) === 'idan_main_admin';
+    var hasAccess = isAdminRole || isTrueFlag_(user[accessField]);
+    var hasEdit = isAdminRole || isTrueFlag_(user[editField]);
+
+    if (!hasAccess) throw new Error('unauthorized_finance_access');
+    if (requireEdit && !hasEdit) throw new Error('unauthorized_finance_edit');
     return true;
   }
 
@@ -887,7 +994,11 @@ var Logic = (function () {
       uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
       isDualMode: Utils.resolveIndex(headers, ['IsDualMode']),
-      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag'])
+      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag']),
+      canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance']),
+      canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance']),
+      canAccessFinanceArchive: Utils.resolveIndex(headers, ['CanAccessFinanceArchive']),
+      canEditFinanceArchive: Utils.resolveIndex(headers, ['CanEditFinanceArchive'])
     };
   }
 
@@ -930,6 +1041,14 @@ var Logic = (function () {
       });
     });
     return values.join(separator || ', ');
+  }
+
+  function anyTrueInRows_(rows, index) {
+    if (index === -1) return false;
+    for (var i = 0; i < rows.length; i += 1) {
+      if (isTrueFlag_(valueAt_(rows[i], index))) return true;
+    }
+    return false;
   }
 
   function countRoles_(rows, roleIdx) {
@@ -1373,6 +1492,11 @@ var Logic = (function () {
     return key === '0' || key === 'false' || key === 'no' || key === 'inactive' || key === 'disabled';
   }
 
+  function isTrueFlag_(value) {
+    var key = Utils.toKey(value);
+    return key === '1' || key === 'true' || key === 'yes' || key === 'כן' || key === 'y';
+  }
+
   function isIdan_(user) { return Utils.toKey(user.SystemRole) === 'admin'; }
   function isEden_(user) { return Utils.toKey(user.SystemRole) === 'admin-ops'; }
   function isManager_(user) { return Utils.toKey(user.SystemRole) === 'manager'; }
@@ -1415,6 +1539,10 @@ var Logic = (function () {
     getMyCoursesData: getMyCoursesData,
     submitEditRequest: submitEditRequest,
     getSheetRows: getSheetRows,
+    getFinanceData: getFinanceData,
+    getFinanceArchiveData: getFinanceArchiveData,
+    updateFinanceStatus: updateFinanceStatus,
+    syncFinance: syncFinance,
     updateCourse: updateCourse,
     createEditRequest: createEditRequest,
     getMyRequestsData: getMyRequestsData,

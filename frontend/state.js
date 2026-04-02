@@ -14,7 +14,11 @@ const baseState = {
   IsDualMode: '',
   TeamScope: '',
   AccessScope: '',
-  displayName: ''
+  displayName: '',
+  CanAccessFinance: false,
+  CanEditFinance: false,
+  CanAccessFinanceArchive: false,
+  CanEditFinanceArchive: false
 };
 
 export const userState = { ...baseState };
@@ -38,7 +42,11 @@ function pickAllowed(next) {
     IsDualMode: String(next?.IsDualMode || ''),
     TeamScope: String(next?.TeamScope || ''),
     AccessScope: String(next?.AccessScope || ''),
-    displayName: String(next?.displayName || '')
+    displayName: String(next?.displayName || ''),
+    CanAccessFinance: Boolean(next?.CanAccessFinance),
+    CanEditFinance: Boolean(next?.CanEditFinance),
+    CanAccessFinanceArchive: Boolean(next?.CanAccessFinanceArchive),
+    CanEditFinanceArchive: Boolean(next?.CanEditFinanceArchive)
   };
 }
 

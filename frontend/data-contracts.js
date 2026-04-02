@@ -5,6 +5,8 @@ export const TAASIYEDA_DATA_CONTRACTS = {
     REVIEW_REQUIRED: 'REVIEW_REQUIRED',
     EDIT_REQUESTS: 'EDIT_REQUESTS',
     PERMISSIONS: 'PERMISSIONS',
+    FINANCE: 'FINANCE',
+    FINANCE_ARCHIVE: 'FINANCE_ARCHIVE',
     LISTS: 'LISTS',
     PROGRAM_CODES: 'PROGRAM_CODES'
   },
@@ -74,7 +76,11 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       IS_DUAL_MODE: 'IsDualMode',
       CAN_VIEW_DASHBOARD: 'CanViewDashboard',
       CAN_EDIT_MASTER_DATA: 'CanEditMasterData',
-      CAN_APPROVE_TO_MAIN_DATA: 'CanApproveToMainData'
+      CAN_APPROVE_TO_MAIN_DATA: 'CanApproveToMainData',
+      CAN_ACCESS_FINANCE: 'CanAccessFinance',
+      CAN_EDIT_FINANCE: 'CanEditFinance',
+      CAN_ACCESS_FINANCE_ARCHIVE: 'CanAccessFinanceArchive',
+      CAN_EDIT_FINANCE_ARCHIVE: 'CanEditFinanceArchive'
     }
   },
   aliases: {
