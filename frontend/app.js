@@ -10,7 +10,8 @@ import {
   createEditRequest,
   buildFilterOptions,
   loadEditRequests,
-  loadReviewItems
+  loadReviewItems,
+  reloadCourses
 } from './data-engine.js';
 
 const app = document.getElementById('app');
@@ -908,7 +909,7 @@ function bindExceptionActions() {
     if (!row) return;
     const summary = window.prompt('מה לעדכן בפעילות?', `טיפול בחריגה עבור ${row.Activity || row.Program || ''}`);
     if (!summary) return;
-    api.submitEditRequest({
+    api.createEditRequest({
       CourseID: row.CourseID,
       Team: row.Team || 'operations',
       ChangeSummary: summary,
@@ -919,7 +920,7 @@ function bindExceptionActions() {
   document.querySelectorAll('[data-close-issue]').forEach((button) => button.addEventListener('click', () => {
     const row = findCourseById(button.dataset.closeIssue);
     if (!row) return;
-    api.submitEditRequest({
+    api.createEditRequest({
       CourseID: row.CourseID,
       Team: row.Team || 'operations',
       ChangeSummary: 'סגירת חריגה',
@@ -1020,6 +1021,11 @@ async function loadWeekView() {
   viewState.week.loading = true;
   viewState.week.error = '';
   renderScreen();
+  try {
+    await reloadCourses();
+  } catch (error) {
+    viewState.week.error = 'לא ניתן לרענן נתוני קורסים למסך שבוע.';
+  }
   viewState.week.loading = false;
   renderScreen();
 }
@@ -1028,6 +1034,11 @@ async function loadMonthView() {
   viewState.month.loading = true;
   viewState.month.error = '';
   renderScreen();
+  try {
+    await reloadCourses();
+  } catch (error) {
+    viewState.month.error = 'לא ניתן לרענן נתוני קורסים למסך חודש.';
+  }
   viewState.month.loading = false;
   renderScreen();
 }
@@ -1036,6 +1047,11 @@ async function loadInstructorsView() {
   viewState.instructors.loading = true;
   viewState.instructors.error = '';
   renderScreen();
+  try {
+    await reloadCourses();
+  } catch (error) {
+    viewState.instructors.error = 'לא ניתן לרענן נתוני קורסים למסך מדריכים.';
+  }
   viewState.instructors.loading = false;
   renderScreen();
 }
@@ -1044,6 +1060,11 @@ async function loadEndDatesView() {
   viewState.endDates.loading = true;
   viewState.endDates.error = '';
   renderScreen();
+  try {
+    await reloadCourses();
+  } catch (error) {
+    viewState.endDates.error = 'לא ניתן לרענן נתוני קורסים למסך תאריכי סיום.';
+  }
   viewState.endDates.loading = false;
   renderScreen();
 }
@@ -1052,6 +1073,11 @@ async function loadAssignmentsView() {
   viewState.assignments.loading = true;
   viewState.assignments.error = '';
   renderScreen();
+  try {
+    await reloadCourses();
+  } catch (error) {
+    viewState.assignments.error = 'לא ניתן לרענן נתוני קורסים למסך שיבוץ.';
+  }
   viewState.assignments.loading = false;
   renderScreen();
 }
@@ -1351,6 +1377,7 @@ function buildExceptionsRows(reviewRows, courses, filters) {
     const linkedCourse = (courses || []).find((course) => String(course.CourseID || '') === String(row.CourseID || '')) || {};
     return {
       ...row,
+      ReviewRowNumber: Number(row._rowNumber || 0),
       Program: row.Program || linkedCourse.Program || linkedCourse.Activity || '',
       Employee: row.Employee || linkedCourse.Employee || resolveInstructorName(linkedCourse) || '',
       CourseManager: row.CourseManager || linkedCourse.CourseManager || '',
@@ -1371,7 +1398,7 @@ function buildExceptionsRows(reviewRows, courses, filters) {
 }
 
 function renderExceptionsCards(rows) {
-  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card"><div class="card-head"><h3>${esc(row.ExceptionType || 'חריגה')}</h3><span class="status-chip status-pending">${esc(row.TreatmentStatus || 'חדש')}</span></div><div class="card-meta"><span>בעיה: ${esc(row.Issues || row.ExceptionType || '-')}</span><span>קורס: ${esc(row.Program || '-')} (${esc(row.CourseID || '-')})</span><span>מדריך/מנהל: ${esc(row.Employee || '-')} / ${esc(row.CourseManager || '-')}</span><span>רשות/בית ספר: ${esc(row.Authority || '-')} / ${esc(row.School || '-')}</span><span>תאריך רלוונטי: ${esc(formatDate(parseDateLike(row.Date)) || row.Date || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פתח קורס</button><button class="btn btn-secondary" data-mark-exception="${escAttr(row.CourseID || '')}">סמן כטופל</button></div></article>`).join('')}</section>`;
+  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card"><div class="card-head"><h3>${esc(row.ExceptionType || 'חריגה')}</h3><span class="status-chip status-pending">${esc(row.TreatmentStatus || 'חדש')}</span></div><div class="card-meta"><span>בעיה: ${esc(row.Issues || row.ExceptionType || '-')}</span><span>קורס: ${esc(row.Program || '-')} (${esc(row.CourseID || '-')})</span><span>מדריך/מנהל: ${esc(row.Employee || '-')} / ${esc(row.CourseManager || '-')}</span><span>רשות/בית ספר: ${esc(row.Authority || '-')} / ${esc(row.School || '-')}</span><span>תאריך רלוונטי: ${esc(formatDate(parseDateLike(row.Date)) || row.Date || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פתח קורס</button><button class="btn btn-secondary" data-mark-exception="${escAttr(row.CourseID || '')}" data-mark-review-row="${escAttr(row.ReviewRowNumber || '')}" data-mark-review-id="${escAttr(row.ReviewID || row.RowID || row.ExceptionID || '')}">סמן כטופל</button></div></article>`).join('')}</section>`;
 }
 
 function bindExceptionsActions() {
@@ -1396,9 +1423,21 @@ function bindExceptionsActions() {
     viewState.courses.selectedCourseDetails = row;
     setRoute('courses');
   }));
-  document.querySelectorAll('[data-mark-exception]').forEach((button) => button.addEventListener('click', () => {
-    console.info('TODO: סימון כטופל יחובר ל-API ייעודי בעתיד', { courseId: button.dataset.markException });
-    window.alert('סימון כטופל זמין בשלב עתידי (TODO).');
+  document.querySelectorAll('[data-mark-exception]').forEach((button) => button.addEventListener('click', async () => {
+    const reviewRowNumber = Number(button.dataset.markReviewRow || 0);
+    const reviewId = button.dataset.markReviewId || '';
+    const res = await api.markExceptionResolved({
+      reviewRowNumber,
+      ReviewID: reviewId,
+      CourseID: button.dataset.markException || ''
+    });
+    if (!res?.success) {
+      window.alert(res?.message || 'לא ניתן לעדכן סטטוס חריגה.');
+      return;
+    }
+    await loadReviewItems(true);
+    renderScreen();
+    window.alert('החריגה סומנה כטופלה.');
   }));
 }
 

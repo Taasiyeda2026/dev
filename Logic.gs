@@ -1,4 +1,21 @@
 var Logic = (function () {
+  // הנחה: מיפויי ההרשאה לפעולות כתיבה מרוכזים כאן כדי למנוע פיצול לוגיקה בין מסלולים שונים.
+  var WRITE_ACTIONS = {
+    UPDATE_COURSE: 'UPDATE_COURSE',
+    CREATE_EDIT_REQUEST: 'CREATE_EDIT_REQUEST',
+    APPROVAL_DECISION: 'APPROVAL_DECISION',
+    MARK_EXCEPTION_RESOLVED: 'MARK_EXCEPTION_RESOLVED'
+  };
+
+  // הנחה: REVIEW_REQUIRED עשוי להכיל אחד מהשדות הבאים לזיהוי/סטטוס/אודיט.
+  var REVIEW_REQUIRED_FIELD_ALIASES = {
+    id: ['ReviewID', 'RowID', 'ExceptionID', 'RecordID'],
+    status: ['TreatmentStatus', 'Status', 'IssueStatus'],
+    notes: ['Notes', 'Remarks', 'Comment'],
+    resolvedBy: ['ResolvedBy', 'ClosedBy', 'HandledBy', 'UpdatedBy'],
+    resolvedAt: ['ResolvedAt', 'ClosedAt', 'HandledAt', 'UpdatedAt']
+  };
+
   function login(userIdInput, codeInput) {
     try {
       var userId = normalizeCredential_(userIdInput);
@@ -227,12 +244,16 @@ var Logic = (function () {
   }
 
   function updateCourse(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
     try {
       var body = Utils.asObject(payload, {});
       var courseId = Utils.normalize(body.CourseID);
       var changes = Utils.asObject(body.changes, {});
       if (Utils.isEmpty(courseId)) return Utils.safeMessage('CourseID הוא שדה חובה.');
       if (!Object.keys(changes).length) return Utils.safeMessage('changes חייב להכיל לפחות שדה אחד.');
+      requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_COURSE, { courseId: courseId, team: body.Team });
+      if (!canEditCourseByRole_(session.user, courseId, body.Team)) return Utils.safeMessage('אין הרשאה לעדכן פעילות זו.');
 
       var sheetTargets = [
         { sheetName: CONFIG.SHEETS.DATA_MASTER, required: true },
@@ -274,51 +295,11 @@ var Logic = (function () {
   }
 
   function createEditRequest(payload) {
-    var WORKFLOW_STAGE_FIELD = 'ApprovalStatus';
-    var INITIAL_WORKFLOW_STAGE = 'PENDING_EDEN';
-
-    try {
-      var body = Utils.asObject(payload, {});
-      var courseId = Utils.normalize(body.CourseID);
-      var requestedBy = Utils.normalize(body.RequestedBy);
-      var changes = Utils.asObject(body.changes, {});
-
-      if (Utils.isEmpty(courseId)) return Utils.safeMessage('CourseID הוא שדה חובה.');
-      if (!Object.keys(changes).length) return Utils.safeMessage('changes חייב להכיל לפחות שדה אחד.');
-
-      var courseSnapshot = getCourseSnapshotById_(courseId);
-      if (!courseSnapshot) return Utils.safeMessage('לא נמצא קורס תואם ב-DATA_MASTER.');
-
-      var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
-      var requestId = generateRequestId_();
-      var rowObject = {};
-      table.headers.forEach(function (header) { rowObject[header] = ''; });
-
-      if (Utils.resolveIndex(table.headers, ['RequestID']) > -1) rowObject.RequestID = requestId;
-      if (Utils.resolveIndex(table.headers, ['CourseID']) > -1) rowObject.CourseID = courseId;
-      if (Utils.resolveIndex(table.headers, ['RequestedBy']) > -1) rowObject.RequestedBy = requestedBy;
-      if (Utils.resolveIndex(table.headers, ['RequestedAt']) > -1) rowObject.RequestedAt = Utils.nowIso();
-      if (Utils.resolveIndex(table.headers, [WORKFLOW_STAGE_FIELD]) > -1) rowObject[WORKFLOW_STAGE_FIELD] = INITIAL_WORKFLOW_STAGE;
-      if (Utils.resolveIndex(table.headers, ['OriginalData']) > -1) rowObject.OriginalData = Utils.safeJson(courseSnapshot);
-      if (Utils.resolveIndex(table.headers, ['RequestedData']) > -1) rowObject.RequestedData = Utils.safeJson(changes);
-
-      var rowValues = table.headers.map(function (header) { return rowObject[header]; });
-      var rowNumber = Utils.appendRow(CONFIG.SHEETS.EDIT_REQUESTS, rowValues);
-
-      return {
-        success: true,
-        data: {
-          RequestID: requestId,
-          CourseID: courseId,
-          WorkflowStage: INITIAL_WORKFLOW_STAGE,
-          rowNumber: rowNumber,
-          OriginalData: courseSnapshot,
-          RequestedData: changes
-        }
-      };
-    } catch (err) {
-      return Utils.safeMessage('לא ניתן ליצור בקשת עריכה.');
+    var body = Utils.asObject(payload, {});
+    if (Utils.toKey(body.operation) === Utils.toKey('MARK_EXCEPTION_RESOLVED')) {
+      return markExceptionResolved_(body);
     }
+    return submitEditRequest(payload || {});
   }
 
   function submitEditRequest(payload) {
@@ -329,7 +310,7 @@ var Logic = (function () {
     try {
       Utils.ensureEditRequestsSheet();
       var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
-      var body = Utils.asObject(payload, {});
+      var body = normalizeEditRequestPayload_(payload, session.user);
       var requestId = Utils.normalize(body.RequestID) || generateRequestId_();
       var idx = resolveRequestIndexes_(table.headers);
       var existing = findRequestById_(table, idx.requestId, requestId);
@@ -338,6 +319,7 @@ var Logic = (function () {
         return Utils.safeMessage('אין הרשאה לערוך בקשה זו.');
       }
 
+      requireWritePermission_(session.user, WRITE_ACTIONS.CREATE_EDIT_REQUEST, { courseId: Utils.normalize(body.CourseID), team: body.Team });
       if (!canEditCourseByRole_(session.user, Utils.normalize(body.CourseID), body.Team)) {
         return Utils.safeMessage('ניתן לערוך רק פעילות צוותית מורשית.');
       }
@@ -445,6 +427,7 @@ var Logic = (function () {
     if (!session.success) return session;
 
     try {
+      requireWritePermission_(session.user, WRITE_ACTIONS.APPROVAL_DECISION, {});
       var body = Utils.asObject(payload, {});
       var requestId = Utils.normalize(body.RequestID);
       if (Utils.isEmpty(requestId)) return Utils.safeMessage('הפעולה לא בוצעה.');
@@ -694,8 +677,146 @@ var Logic = (function () {
   function canEditCourseByRole_(user, courseId, payloadTeam) {
     if (isIdan_(user) || isEden_(user) || isManagerLead_(user)) return true;
     if (!isManager_(user)) return false;
-    if (Utils.isEmpty(user.team) || Utils.isEmpty(payloadTeam)) return false;
-    return Utils.toKey(user.team) === Utils.toKey(payloadTeam);
+    var effectiveTeam = Utils.normalize(payloadTeam);
+    if (Utils.isEmpty(effectiveTeam) && !Utils.isEmpty(courseId)) {
+      effectiveTeam = resolveTeamScopeByCourseId_(courseId);
+    }
+    if (Utils.isEmpty(user.team) || Utils.isEmpty(effectiveTeam)) return false;
+    return Utils.toKey(user.team) === Utils.toKey(effectiveTeam);
+  }
+
+  function normalizeEditRequestPayload_(payload, user) {
+    var body = Utils.asObject(payload, {});
+    var out = {};
+    Object.keys(body).forEach(function (key) { out[key] = body[key]; });
+
+    var courseId = Utils.normalize(body.CourseID || body.courseId);
+    var changes = Utils.asObject(body.changes, {});
+    var requestedData = Utils.asObject(body.requestedData || body.RequestedData, {});
+    if (!Object.keys(requestedData).length && Object.keys(changes).length) requestedData = changes;
+    if (!courseId) return out;
+
+    var originalData = Utils.asObject(body.originalData || body.OriginalData, {});
+    if (!Object.keys(originalData).length) {
+      var snapshot = getCourseSnapshotById_(courseId);
+      if (snapshot) originalData = snapshot;
+    }
+
+    if (!Utils.normalize(out.RequestedBy)) out.RequestedBy = user.userId;
+    if (!Utils.normalize(out.ChangeSummary)) out.ChangeSummary = 'עדכון פעילות';
+    if (!Utils.normalize(out.ApprovalStatus)) out.ApprovalStatus = CONFIG.STATUSES.PENDING_EDEN;
+    if (!Utils.normalize(out.Team)) out.Team = resolveTeamScopeByCourseId_(courseId);
+
+    out.CourseID = courseId;
+    out.requestedData = requestedData;
+    out.RequestedData = requestedData;
+    out.originalData = originalData;
+    out.OriginalData = originalData;
+    return out;
+  }
+
+  function markExceptionResolved_(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireWritePermission_(session.user, WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED, {});
+      var body = Utils.asObject(payload, {});
+      var table = Utils.readTable(CONFIG.SHEETS.REVIEW_REQUIRED, true);
+      if (!table.headers.length) return Utils.safeMessage('לא נמצאו כותרות ב-REVIEW_REQUIRED.');
+
+      var target = resolveReviewRowTarget_(table, body);
+      if (!target) return Utils.safeMessage('לא נמצאה רשומת חריגה לעדכון.');
+
+      var updated = target.row.slice();
+      var idxStatus = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.status);
+      var idxNotes = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.notes);
+      var idxResolvedBy = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.resolvedBy);
+      var idxResolvedAt = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.resolvedAt);
+
+      if (idxStatus > -1) {
+        updated[idxStatus] = 'RESOLVED';
+      } else if (idxNotes > -1) {
+        // הנחה: אם אין עמודת סטטוס ב-REVIEW_REQUIRED, מעדכנים את Notes בסמן טיפול.
+        var existingNotes = Utils.normalize(updated[idxNotes]);
+        var prefix = existingNotes ? existingNotes + ' | ' : '';
+        updated[idxNotes] = prefix + 'RESOLVED ' + Utils.nowIso();
+      } else {
+        return Utils.safeMessage('לא קיימת עמודת סטטוס או הערות לעדכון חריגה.');
+      }
+
+      if (idxResolvedBy > -1) updated[idxResolvedBy] = session.user.userId;
+      if (idxResolvedAt > -1) updated[idxResolvedAt] = Utils.nowIso();
+
+      Utils.updateRow(CONFIG.SHEETS.REVIEW_REQUIRED, target.rowNumber, updated);
+      return {
+        success: true,
+        data: {
+          rowNumber: target.rowNumber,
+          status: idxStatus > -1 ? updated[idxStatus] : '',
+          resolvedBy: idxResolvedBy > -1 ? updated[idxResolvedBy] : '',
+          resolvedAt: idxResolvedAt > -1 ? updated[idxResolvedAt] : ''
+        }
+      };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לסמן חריגה כטופלה.');
+    }
+  }
+
+  function resolveReviewRowTarget_(table, body) {
+    var reviewId = Utils.normalize(body.ReviewID || body.reviewId || body.RowID || body.ExceptionID);
+    var requestedRowNumber = Number(body.reviewRowNumber || body.rowNumber || 0);
+    if (requestedRowNumber > 0) {
+      for (var i = 0; i < table.rowNumbers.length; i += 1) {
+        if (Number(table.rowNumbers[i]) !== requestedRowNumber) continue;
+        return { row: table.rows[i], rowNumber: table.rowNumbers[i] };
+      }
+    }
+    if (!reviewId) return null;
+    var idxId = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.id);
+    if (idxId === -1) return null;
+    for (var j = 0; j < table.rows.length; j += 1) {
+      if (Utils.toKey(table.rows[j][idxId]) !== Utils.toKey(reviewId)) continue;
+      return { row: table.rows[j], rowNumber: table.rowNumbers[j] };
+    }
+    return null;
+  }
+
+  function requireWritePermission_(user, actionType, context) {
+    if (!user || Utils.isEmpty(user.userId)) throw new Error('auth_required');
+    var role = Utils.toKey(user.SystemRole);
+    var editScope = Utils.toKey(user.EditScope);
+    var approvalScope = Utils.toKey(user.ApprovalScope);
+    var allowed = false;
+
+    if (actionType === WRITE_ACTIONS.UPDATE_COURSE) {
+      allowed = role === 'admin' || role === 'idan_main_admin' || editScope === 'main_data_direct_edit' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
+    } else if (actionType === WRITE_ACTIONS.CREATE_EDIT_REQUEST) {
+      allowed = role !== 'instructor';
+    } else if (actionType === WRITE_ACTIONS.APPROVAL_DECISION) {
+      allowed = role === 'admin' || role === 'admin-ops' || approvalScope === 'all' || approvalScope === 'full';
+    } else if (actionType === WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED) {
+      allowed = role === 'admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
+    }
+
+    if (!allowed) throw new Error('unauthorized_write_' + actionType);
+    if (actionType === WRITE_ACTIONS.UPDATE_COURSE && !canEditCourseByRole_(user, context && context.courseId, context && context.team)) {
+      throw new Error('unauthorized_scope_' + actionType);
+    }
+    return true;
+  }
+
+  function resolveTeamScopeByCourseId_(courseId) {
+    if (Utils.isEmpty(courseId)) return '';
+    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, false);
+    if (!table.sheet || !table.headers.length) return '';
+    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    var idxTeam = Utils.resolveIndex(table.headers, CONFIG.FIELDS.TEAM);
+    if (idxCourse === -1 || idxTeam === -1) return '';
+    for (var i = 0; i < table.rows.length; i += 1) {
+      if (Utils.toKey(table.rows[i][idxCourse]) !== Utils.toKey(courseId)) continue;
+      return Utils.normalize(table.rows[i][idxTeam]);
+    }
+    return '';
   }
 
   function normalizeCredential_(value) {
