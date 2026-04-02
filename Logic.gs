@@ -9,68 +9,84 @@ var Logic = (function () {
       var table = Utils.readTable(CONFIG.SHEETS.PERMISSIONS, true);
       Logger.log('loginAction: PERMISSIONS data rows=%s', table.rows.length);
 
-      var idx = {
-        employeeId: Utils.resolveIndex(table.headers, 'EmployeeID'),
-        entryCode: Utils.resolveIndex(table.headers, 'EntryCode'),
-        employeeName: Utils.resolveIndex(table.headers, 'EmployeeName'),
-        baseRole: Utils.resolveIndex(table.headers, 'BaseRole'),
-        systemRole: Utils.resolveIndex(table.headers, 'SystemRole'),
-        displayRole: Utils.resolveIndex(table.headers, 'DisplayRole'),
-        viewScope: Utils.resolveIndex(table.headers, 'ViewScope'),
-        editScope: Utils.resolveIndex(table.headers, 'EditScope'),
-        approvalScope: Utils.resolveIndex(table.headers, 'ApprovalScope'),
-        uiProfile: Utils.resolveIndex(table.headers, 'UiProfile'),
-        teamScope: Utils.resolveIndex(table.headers, 'TeamScope'),
-        isDualMode: Utils.resolveIndex(table.headers, 'IsDualMode'),
-        activeFlag: Utils.resolveIndex(table.headers, 'ActiveFlag')
-      };
+      var idx = resolvePermissionIndexes_(table.headers);
       if (idx.employeeId === -1 || idx.entryCode === -1 || idx.systemRole === -1 || idx.activeFlag === -1) {
         return { authenticated: false, message: 'ההתחברות נכשלה.' };
       }
 
-      var rowsByEmployeeId = table.rows.filter(function (row) {
+      var matchedRows = table.rows.filter(function (row) {
         return normalizeCredential_(row[idx.employeeId]) === userId;
       });
-      Logger.log('loginAction: employeeId match=%s', rowsByEmployeeId.length > 0);
-      if (!rowsByEmployeeId.length) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+      Logger.log('loginAction: employeeId match=%s', matchedRows.length > 0);
+      if (!matchedRows.length) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-      var found = null;
-      rowsByEmployeeId.some(function (row) {
-        var codeMatches = normalizeCredential_(row[idx.entryCode]) === code;
-        if (codeMatches) found = row;
-        return codeMatches;
+      matchedRows = matchedRows.filter(function (row) {
+        return normalizeCredential_(row[idx.entryCode]) === code;
       });
-      Logger.log('loginAction: entryCode match=%s', !!found);
-      if (!found) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+      Logger.log('loginAction: entryCode match=%s', matchedRows.length > 0);
+      if (!matchedRows.length) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-      var blockedByActiveFlag = isInactiveFlag_(valueAt_(found, idx.activeFlag));
-      Logger.log('loginAction: activeFlag blocked=%s', blockedByActiveFlag);
-      if (blockedByActiveFlag) return { authenticated: false, message: 'ההתחברות נכשלה.' };
+      matchedRows = matchedRows.filter(function (row) {
+        return !isInactiveFlag_(valueAt_(row, idx.activeFlag));
+      });
+      Logger.log('loginAction: active matched rows=%s', matchedRows.length);
+      if (!matchedRows.length) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-      var profile = {
-        authenticated: true,
-        userId: Utils.normalize(found[idx.employeeId]),
-        displayName: Utils.normalize(valueAt_(found, idx.employeeName)),
-        EmployeeName: Utils.normalize(valueAt_(found, idx.employeeName)),
-        EmployeeID: Utils.normalize(valueAt_(found, idx.employeeId)),
-        BaseRole: Utils.normalize(valueAt_(found, idx.baseRole)),
-        SystemRole: Utils.normalize(valueAt_(found, idx.systemRole)),
-        DisplayRole: Utils.normalize(valueAt_(found, idx.displayRole)),
-        ViewScope: Utils.normalize(valueAt_(found, idx.viewScope)),
-        EditScope: Utils.normalize(valueAt_(found, idx.editScope)),
-        ApprovalScope: Utils.normalize(valueAt_(found, idx.approvalScope)),
-        UiProfile: Utils.normalize(valueAt_(found, idx.uiProfile)),
-        TeamScope: Utils.normalize(valueAt_(found, idx.teamScope)),
-        IsDualMode: Utils.normalize(valueAt_(found, idx.isDualMode)),
-        ActiveFlag: Utils.normalize(valueAt_(found, idx.activeFlag)),
-        team: Utils.normalize(valueAt_(found, idx.teamScope))
-      };
+      var profile = buildSessionProfileFromPermissions_(matchedRows, idx);
+      profile.authenticated = true;
+      profile.userId = Utils.normalizeID(userId);
+      profile.EmployeeID = Utils.normalizeID(userId);
+      if (Utils.isEmpty(profile.displayName)) profile.displayName = Utils.normalize(valueAt_(matchedRows[0], idx.employeeName));
+      if (Utils.isEmpty(profile.EmployeeName)) profile.EmployeeName = profile.displayName;
+      if (Utils.isEmpty(profile.SystemRole)) profile.SystemRole = Utils.normalize(valueAt_(matchedRows[0], idx.systemRole));
+      if (Utils.isEmpty(profile.ActiveFlag)) profile.ActiveFlag = Utils.normalize(valueAt_(matchedRows[0], idx.activeFlag));
+      profile.team = Utils.normalize(profile.TeamScope);
+      if (!profile.PermissionRows) profile.PermissionRows = matchedRows.length;
+
+      var first = matchedRows[0];
+      if (Utils.isEmpty(profile.BaseRole)) profile.BaseRole = Utils.normalize(valueAt_(first, idx.baseRole));
+      if (Utils.isEmpty(profile.UiProfile)) profile.UiProfile = Utils.normalize(valueAt_(first, idx.uiProfile));
+      if (Utils.isEmpty(profile.DisplayRole)) profile.DisplayRole = Utils.normalize(valueAt_(first, idx.displayRole));
+      if (Utils.isEmpty(profile.ViewScope)) profile.ViewScope = Utils.normalize(valueAt_(first, idx.viewScope));
+      if (Utils.isEmpty(profile.EditScope)) profile.EditScope = Utils.normalize(valueAt_(first, idx.editScope));
+      if (Utils.isEmpty(profile.ApprovalScope)) profile.ApprovalScope = Utils.normalize(valueAt_(first, idx.approvalScope));
+      if (Utils.isEmpty(profile.IsDualMode)) profile.IsDualMode = Utils.normalize(valueAt_(first, idx.isDualMode));
+
       Logger.log('loginAction: matched SystemRole=%s', profile.SystemRole);
       PropertiesService.getUserProperties().setProperty(CONFIG.SESSION_KEY, JSON.stringify(profile));
       return profile;
     } catch (err) {
       return { authenticated: false, message: 'ההתחברות נכשלה.' };
     }
+  }
+
+  function buildSessionProfileFromPermissions_(rows, idx) {
+    var scopeJoin = function (index) { return joinUniqueValues_(rows, index, ', '); };
+    var primary = choosePrimaryPermissionRow_(rows, idx.systemRole);
+    var roleCounts = countRoles_(rows, idx.systemRole);
+    var primaryRole = Utils.normalize(valueAt_(primary, idx.systemRole));
+    var dualFlag = Utils.normalize(valueAt_(primary, idx.isDualMode));
+
+    if (!dualFlag && roleCounts.instructor > 0 && (roleCounts.manager > 0 || roleCounts.managerLead > 0 || roleCounts.admin > 0 || roleCounts.adminOps > 0)) {
+      dualFlag = 'BOTH';
+    }
+
+    return {
+        authenticated: true,
+        displayName: Utils.normalize(valueAt_(primary, idx.employeeName)),
+        EmployeeName: Utils.normalize(valueAt_(primary, idx.employeeName)),
+        BaseRole: Utils.normalize(valueAt_(primary, idx.baseRole)),
+        SystemRole: primaryRole,
+        DisplayRole: Utils.normalize(valueAt_(primary, idx.displayRole)),
+        ViewScope: scopeJoin(idx.viewScope),
+        EditScope: scopeJoin(idx.editScope),
+        ApprovalScope: scopeJoin(idx.approvalScope),
+        UiProfile: Utils.normalize(valueAt_(primary, idx.uiProfile)),
+        TeamScope: scopeJoin(idx.teamScope),
+        IsDualMode: dualFlag,
+        ActiveFlag: Utils.normalize(valueAt_(primary, idx.activeFlag)),
+        PermissionRows: rows.length
+      };
   }
 
   function logout() {
@@ -136,14 +152,13 @@ var Logic = (function () {
     if (!session.success) return session;
     try {
       var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
-      var idxInstructor = Utils.resolveIndex(table.headers, CONFIG.FIELDS.INSTRUCTOR.concat(['Employee', 'EmployeeID'], CONFIG.FIELDS.USER_ID, CONFIG.FIELDS.DISPLAY_NAME));
+      var instructorIndexes = resolveInstructorRowIndexes_(table.headers);
       var idxProgram = Utils.resolveIndex(table.headers, CONFIG.FIELDS.PROGRAM);
       var idxStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.STATUS);
 
       var rows = table.rows.filter(function (row) {
         if (isInstructor_(session.user)) {
-          if (idxInstructor === -1) return false;
-          return Utils.toKey(row[idxInstructor]) === Utils.toKey(session.user.userId) || Utils.toKey(row[idxInstructor]) === Utils.toKey(session.user.displayName);
+          return doesRowBelongToUser_(row, instructorIndexes, session.user);
         }
         return true;
       });
@@ -575,38 +590,149 @@ var Logic = (function () {
     var table = Utils.readTable(CONFIG.SHEETS.PERMISSIONS, false);
     if (!table.sheet || !table.headers.length) return { byId: {}, byName: {} };
 
-    var idxId = Utils.resolveIndex(table.headers, ['EmployeeID']);
+    var idxId = Utils.resolveIndex(table.headers, CONFIG.FIELDS.EMPLOYEE_ID);
+    var idxEntryCode = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ENTRY_CODE);
     var idxName = Utils.resolveIndex(table.headers, ['Employee', 'EmployeeName', 'DisplayName']);
     var idxDisplayRole = Utils.resolveIndex(table.headers, ['DisplayRole']);
+    var idxActive = Utils.resolveIndex(table.headers, ['ActiveFlag']);
     var byId = {};
+    var byEntryCode = {};
     var byName = {};
 
     table.rows.forEach(function (row) {
+      if (idxActive > -1 && isInactiveFlag_(valueAt_(row, idxActive))) return;
       var employeeId = Utils.normalizeID(valueAt_(row, idxId));
+      var entryCode = normalizeCredential_(valueAt_(row, idxEntryCode));
       var employeeName = Utils.normalizeWhitespace(valueAt_(row, idxName));
       var displayRole = Utils.normalizeWhitespace(valueAt_(row, idxDisplayRole));
-      if (!employeeId && !employeeName) return;
+      if (!employeeId && !entryCode && !employeeName) return;
       var entry = {
         id: employeeId,
+        entryCode: entryCode,
         name: employeeName,
         displayRole: displayRole
       };
       if (employeeId && !byId[employeeId]) byId[employeeId] = entry;
+      if (entryCode && !byEntryCode[entryCode]) byEntryCode[entryCode] = entry;
       var normalizedName = Utils.normalizeName(employeeName);
       if (normalizedName && !byName[normalizedName]) byName[normalizedName] = entry;
     });
 
-    return { byId: byId, byName: byName };
+    return { byId: byId, byEntryCode: byEntryCode, byName: byName };
   }
 
   function resolveInstructorAssignment_(rowObject, lookup) {
     var employeeId = Utils.normalizeID(rowObject.EmployeeID || rowObject.UserID || rowObject.InstructorID);
+    var entryCode = normalizeCredential_(rowObject.EntryCode || rowObject.LoginCode);
     var employeeName = Utils.normalizeWhitespace(rowObject.Employee || rowObject.Instructor || rowObject.EmployeeName);
     var byId = employeeId ? lookup.byId[employeeId] : null;
     if (byId) return byId;
+    var byEntryCode = entryCode ? lookup.byEntryCode[entryCode] : null;
+    if (byEntryCode) return byEntryCode;
     var byName = lookup.byName[Utils.normalizeName(employeeName)];
     if (byName) return byName;
     return { id: '', name: '', displayRole: '' };
+  }
+
+  function resolvePermissionIndexes_(headers) {
+    return {
+      employeeId: Utils.resolveIndex(headers, CONFIG.FIELDS.EMPLOYEE_ID),
+      entryCode: Utils.resolveIndex(headers, CONFIG.FIELDS.ENTRY_CODE),
+      employeeName: Utils.resolveIndex(headers, ['EmployeeName', 'Employee', 'DisplayName']),
+      baseRole: Utils.resolveIndex(headers, ['BaseRole']),
+      systemRole: Utils.resolveIndex(headers, ['SystemRole']),
+      displayRole: Utils.resolveIndex(headers, ['DisplayRole']),
+      viewScope: Utils.resolveIndex(headers, ['ViewScope']),
+      editScope: Utils.resolveIndex(headers, ['EditScope']),
+      approvalScope: Utils.resolveIndex(headers, ['ApprovalScope']),
+      uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
+      teamScope: Utils.resolveIndex(headers, ['TeamScope']),
+      isDualMode: Utils.resolveIndex(headers, ['IsDualMode']),
+      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag'])
+    };
+  }
+
+  function roleRank_(role) {
+    var normalized = Utils.toKey(role);
+    if (normalized === 'admin' || normalized === 'idan_main_admin') return 100;
+    if (normalized === 'admin-ops') return 90;
+    if (normalized === 'manager-lead') return 80;
+    if (normalized === 'manager') return 70;
+    if (normalized === 'instructor') return 60;
+    return 0;
+  }
+
+  function choosePrimaryPermissionRow_(rows, roleIdx) {
+    if (!rows || !rows.length) return [];
+    var best = rows[0];
+    var bestRank = roleRank_(valueAt_(best, roleIdx));
+    rows.forEach(function (row) {
+      var rank = roleRank_(valueAt_(row, roleIdx));
+      if (rank > bestRank) {
+        best = row;
+        bestRank = rank;
+      }
+    });
+    return best;
+  }
+
+  function joinUniqueValues_(rows, index, separator) {
+    if (index === -1) return '';
+    var map = {};
+    var values = [];
+    rows.forEach(function (row) {
+      Utils.normalize(valueAt_(row, index)).split(',').forEach(function (part) {
+        var clean = Utils.normalizeWhitespace(part);
+        if (!clean) return;
+        var key = Utils.toKey(clean);
+        if (map[key]) return;
+        map[key] = true;
+        values.push(clean);
+      });
+    });
+    return values.join(separator || ', ');
+  }
+
+  function countRoles_(rows, roleIdx) {
+    var out = { admin: 0, adminOps: 0, managerLead: 0, manager: 0, instructor: 0 };
+    rows.forEach(function (row) {
+      var role = Utils.toKey(valueAt_(row, roleIdx));
+      if (role === 'admin' || role === 'idan_main_admin') out.admin += 1;
+      else if (role === 'admin-ops') out.adminOps += 1;
+      else if (role === 'manager-lead') out.managerLead += 1;
+      else if (role === 'manager') out.manager += 1;
+      else if (role === 'instructor') out.instructor += 1;
+    });
+    return out;
+  }
+
+  function resolveInstructorRowIndexes_(headers) {
+    return {
+      employeeId: Utils.resolveIndex(headers, CONFIG.FIELDS.EMPLOYEE_ID),
+      entryCode: Utils.resolveIndex(headers, CONFIG.FIELDS.ENTRY_CODE),
+      instructor: Utils.resolveIndex(headers, CONFIG.FIELDS.INSTRUCTOR.concat(['Employee'])),
+      displayName: Utils.resolveIndex(headers, CONFIG.FIELDS.DISPLAY_NAME)
+    };
+  }
+
+  function doesRowBelongToUser_(row, indexes, user) {
+    var userId = normalizeCredential_(user.userId || user.EmployeeID);
+    var sessionName = Utils.normalizeName(user.displayName || user.EmployeeName);
+    var rowIds = [
+      valueAt_(row, indexes.employeeId),
+      valueAt_(row, indexes.entryCode),
+      valueAt_(row, indexes.instructor)
+    ];
+    for (var i = 0; i < rowIds.length; i += 1) {
+      var rowId = normalizeCredential_(rowIds[i]);
+      if (rowId && userId && rowId === userId) return true;
+    }
+    var names = [valueAt_(row, indexes.instructor), valueAt_(row, indexes.displayName)];
+    for (var j = 0; j < names.length; j += 1) {
+      var rowName = Utils.normalizeName(names[j]);
+      if (rowName && sessionName && rowName === sessionName) return true;
+    }
+    return false;
   }
 
   function isInactiveFlag_(value) {

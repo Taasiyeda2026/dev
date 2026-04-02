@@ -78,6 +78,8 @@ var CONFIG = (function () {
 
   var FIELDS = {
     USER_ID: ['UserID', 'EmployeeID', 'LoginID', 'מזהה משתמש', 'מספר עובד'],
+    EMPLOYEE_ID: ['EmployeeID', 'UserID', 'InstructorID', 'מספר עובד', 'מזהה עובד'],
+    ENTRY_CODE: ['EntryCode', 'LoginCode', 'Password', 'קוד כניסה'],
     DISPLAY_NAME: ['DisplayName', 'EmployeeName', 'שם מלא', 'שם עובד'],
     LOGIN_CODE: ['LoginCode', 'EntryCode', 'Password', 'קוד כניסה'],
     BASE_ROLE: ['BaseRole', 'תפקיד בסיס'],
