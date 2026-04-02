@@ -83,7 +83,21 @@ var CONFIG = (function () {
     TEAM_LEAD: ['TeamLead', 'מנהל צוות', 'LeadManager'],
     PROGRAM: ['Program', 'תוכנית'],
     STATUS: ['Status', 'סטטוס'],
-    INSTRUCTOR: ['Instructor', 'מדריך', 'AssignedInstructor']
+    INSTRUCTOR: ['Instructor', 'מדריך', 'AssignedInstructor'],
+    ACTIVITY: ['Activity', 'פעילות', 'Workshop', 'CourseName', 'ActivityName'],
+    AUTHORITY: ['Authority', 'רשות', 'Municipality'],
+    SCHOOL: ['School', 'בית ספר', 'SchoolName'],
+    LOCATION: ['Location', 'מיקום', 'כתובת', 'Address'],
+    COURSE_MANAGER: ['CourseManager', 'מנהל קורס'],
+    INSTRUCTOR_MANAGER: ['InstructorManager', 'מנהל מדריכים', 'TeamLead'],
+    START_DATE: ['StartDate', 'תאריך התחלה', 'Date', 'StartTime'],
+    END_DATE: ['EndDate', 'תאריך סיום', 'EndTime'],
+    PLANNED_MEETINGS: ['PlannedMeetings', 'מפגשים מתוכננים', 'MeetingsPlanned'],
+    ACTUAL_MEETINGS: ['ActualMeetings', 'מספר מפגשים בפועל', 'MeetingsDone'],
+    OPERATIONAL_STATUS: ['OperationalStatus', 'סטטוס תפעולי'],
+    REPORT_STATUS: ['ReportStatus', 'סטטוס דיווח'],
+    ISSUE_STATUS: ['IssueStatus', 'חריגה', 'Issue'],
+    CHANGE_REQUEST: ['ChangeRequest', 'בקשת שינוי']
   };
 
   EDIT_REQUESTS_HEADER_ROW.forEach(function (field) {
@@ -91,7 +105,7 @@ var CONFIG = (function () {
   });
 
   var FRONTEND_FIELDS = {
-    COURSES: ['CourseID', 'Program', 'Status', 'Instructor', 'Team'],
+    COURSES: ['CourseID', 'Activity', 'Program', 'Status', 'OperationalStatus', 'Instructor', 'CourseManager', 'InstructorManager', 'Authority', 'School', 'Location', 'StartDate', 'EndDate', 'PlannedMeetings', 'ActualMeetings', 'ReportStatus', 'IssueStatus', 'ChangeRequest', 'Team'],
     REQUESTS: EDIT_REQUESTS_HEADER_ROW.slice(),
     APPROVALS: EDIT_REQUESTS_HEADER_ROW.slice()
   };
