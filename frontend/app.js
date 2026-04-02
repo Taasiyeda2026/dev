@@ -22,6 +22,29 @@ const roleMap = {
   instructor: 'מדריך'
 };
 
+const APP_NAME = 'Dashboard Taasiyeda';
+const routeLabels = {
+  login: 'כניסה למערכת',
+  dashboard: 'דשבורד פעילות ארצי',
+  courses: 'פעילות / קורסים / סדנאות',
+  'my-requests': 'הבקשות שלי',
+  approvals: 'אישורי בקרה ותפעול',
+  'eden-view': 'תצוגת בקרה ותפעול',
+  'final-approvals': 'אישור סופי הנהלה',
+  'instructor-view': 'תצוגת מדריכים'
+};
+
+const routeIcons = {
+  dashboard: '▦',
+  courses: '📘',
+  'my-requests': '📝',
+  approvals: '✅',
+  'eden-view': '🧭',
+  'final-approvals': '🏁',
+  'instructor-view': '👤',
+  logout: '↩'
+};
+
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
 function baseRole() { return String(userState.BaseRole || '').trim().toLowerCase(); }
 function displayRole() {
@@ -85,7 +108,7 @@ function render() {
     ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
     ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
     ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
-    </nav><button class="nav-btn" data-route="logout">יציאה</button></aside>
+    </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
     <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
     <main class="main" id="main"></main></div>`;
 
@@ -107,8 +130,13 @@ function render() {
   renderScreen();
 }
 
-function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}">${label}</button>`; }
+function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
 function head(title, sub) { return `<header class="screen-head"><div><h2>${title}</h2><p>${sub}</p></div></header>`; }
+
+function updateDocumentTitle() {
+  const pageLabel = routeLabels[currentRoute] || routeLabels.dashboard;
+  document.title = `${APP_NAME} | ${pageLabel}`;
+}
 
 function renderScreen() {
   const main = document.getElementById('main');
