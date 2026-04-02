@@ -2,6 +2,7 @@ import { api } from './api.js';
 import { userState, setUserState, clearUserState, hydrateUserState } from './state.js';
 
 const app = document.getElementById('app');
+const APP_NAME = 'Dashboard Taasiyeda';
 let currentRoute = 'login';
 let mobileNavOpen = false;
 
@@ -59,11 +60,12 @@ function setRoute(route) {
 }
 
 function render() {
+  document.title = APP_NAME;
   if (!isAuth()) {
     app.innerHTML = `<section class="login-wrap"><div class="login-card">
     <div class="login-logo-slot"><img class="login-logo" src="./assets/logo.png" alt="לוגו המערכת" /></div>
     <h1 class="login-title">כניסה למערכת</h1>
-    <p class="login-subtitle">Dashboard Taasiyeda</p>
+    <p class="login-subtitle">${APP_NAME}</p>
     <input id="userId" class="login-input" placeholder="מזהה משתמש" aria-label="מזהה משתמש" autocomplete="username" />
     <input id="loginCode" class="login-input" type="password" placeholder="קוד כניסה" aria-label="קוד כניסה" autocomplete="current-password" />
     <button class="btn btn-primary login-btn" id="loginBtn">התחבר</button><p class="error" id="loginError"></p></div></section>`;
@@ -73,7 +75,7 @@ function render() {
 
   app.innerHTML = `<div class="layout">
     <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
-    <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">DASHBOARD2026</div>
+    <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">${APP_NAME}</div>
     <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
     <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
     ${nav('dashboard', 'דשבורד פעילות ארצי')}
@@ -257,8 +259,8 @@ function panel(state, empty, content) {
   return hasRows ? content : `<section class="panel-state">${empty}</section>`;
 }
 
-function kpiCard(title, value, filterName) {
-  return `<button class="kpi-card kpi-action" data-kpi-filter="${filterName}" type="button"><span class="kpi-title">${title}</span><span class="kpi-value">${value}</span></button>`;
+function kpiCard(title, value, filterName, helper = '') {
+  return `<button class="kpi-card kpi-action" data-kpi-filter="${filterName}" type="button"><span class="kpi-title" title="${escAttr(title)}">${title}</span><span class="kpi-value">${value}</span>${helper ? `<span class="kpi-helper" title="${escAttr(helper)}">${helper}</span>` : ''}</button>`;
 }
 
 function table(rows, cols, canEdit, canApprove) {
@@ -286,6 +288,10 @@ function renderCourseCards(rows, options = {}) {
         <span>👤 ${esc(row.Instructor || 'טרם שויך מדריך')}</span>
         <span>📍 ${esc(joinLocation(row) || 'ללא מיקום')}</span>
         <span>🗓️ ${esc(formatSchedule(row))}</span>
+      </div>
+      <div class="card-kpi-row">
+        <span>מפגשים: ${esc(numberFrom(row.PlannedMeetings))}</span>
+        <span>בוצע: ${esc(numberFrom(row.ActualMeetings, row.SourceActualMeetings))}</span>
       </div>
       <div class="card-status">
         <span class="status-chip ${statusClass(row.Status)}">${esc(row.Status || 'ללא סטטוס')}</span>
@@ -338,9 +344,13 @@ function renderExceptionCards(rows) {
       <span>🏫 בית ספר: ${esc(item.school || '-')}</span>
     </div>
     <div class="card-issue has-issue"><strong>מה הבעיה:</strong> ${esc(item.description)}</div>
+    <div class="card-kpi-row">
+      <span>סטטוס טיפול: ${esc(item.treatmentStatusLabel)}</span>
+      <span>קורס: ${esc(item.courseId || '-')}</span>
+    </div>
     <footer class="card-actions">
-      <button class="btn btn-secondary" data-contact-instructor="${escAttr(item.instructor)}">פנה למדריך</button>
-      <button class="btn btn-secondary" data-update-course="${escAttr(item.courseId)}">עדכן נתונים</button>
+      <button class="btn btn-secondary" data-contact-instructor="${escAttr(item.instructor)}">פתח בקשת שינוי</button>
+      <button class="btn btn-secondary" data-update-course="${escAttr(item.courseId)}">נווט לקורס</button>
       <button class="btn btn-primary" data-close-issue="${escAttr(item.courseId)}">סמן כטופל</button>
     </footer>
   </article>`).join('')}</section>`;
