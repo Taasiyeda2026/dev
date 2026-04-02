@@ -1,5 +1,16 @@
 import { api } from './api.js';
 import { userState, setUserState, clearUserState, hydrateUserState } from './state.js';
+import {
+  initDataEngine,
+  getStoreSnapshot,
+  getCoursesForUser,
+  getPermissionForUser,
+  refreshCourse,
+  updateCourse,
+  createEditRequest,
+  buildFilterOptions,
+  loadEditRequests
+} from './data-engine.js';
 
 const app = document.getElementById('app');
 const APP_NAME = 'Dashboard Taasiyeda';
@@ -13,6 +24,7 @@ const viewState = {
     error: '',
     data: [],
     filters: { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' },
+    filterOptions: { authority: [], school: [], courseManager: [], employee: [] },
     quickFilter: '',
     selectedInstructor: '',
     selectedCourseId: '',
@@ -56,6 +68,8 @@ const routeIcons = {
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
 function baseRole() { return String(userState.BaseRole || '').trim().toLowerCase(); }
 function displayRole() {
+  const permission = currentPermission();
+  if (permission?.displayRole) return permission.displayRole;
   const display = String(userState.DisplayRole || '').trim();
   if (display) return display;
   return roleMap[role()] || roleMap[baseRole()] || 'ללא תפקיד מוגדר';
@@ -69,7 +83,16 @@ function isEden() { return role() === 'admin-ops'; }
 function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].includes(role()); }
 function isInstructor() { return role() === 'instructor'; }
 function isDualMode() { return String(userState.IsDualMode || '').trim().toUpperCase() === 'BOTH'; }
-function canDirectEditCourses() { return isIdan(); }
+function currentPermission() { return getPermissionForUser(userState); }
+function canDirectEditCourses() {
+  const permission = currentPermission();
+  if (permission) {
+    return String(permission.systemRole || '').toUpperCase() === 'IDAN_MAIN_ADMIN'
+      || String(permission.editScope || '').toUpperCase() === 'MAIN_DATA_DIRECT_EDIT'
+      || permission.canEditMasterData;
+  }
+  return isIdan();
+}
 
 
 function closeMobileNav() {
@@ -224,17 +247,17 @@ function renderScreen() {
       ? filteredCourses.filter((row) => String(row?.Instructor || '').trim() === selectedInstructor)
       : filteredCourses;
     const activeFiltersCount = Object.values(viewState.courses.filters).filter((value) => String(value || '').trim()).length;
-    main.innerHTML = head(currentRoute === 'courses' ? 'קורסים פעילים' : 'תצוגת מדריכים', `${subtitle} · קורסים מוצגים: ${visibleCourses.length} · פילטרים פעילים: ${activeFiltersCount}`) +
+    main.innerHTML = head(currentRoute === 'courses' ? 'ניהול קורסים' : 'תצוגת מדריכים', `${subtitle} · קורסים מוצגים: ${visibleCourses.length} · פילטרים פעילים: ${activeFiltersCount}`) +
     `<section class="filters-wrap courses-filters">
-      <label>רשות<input id="authorityFilter" value="${escAttr(viewState.courses.filters.authority)}"></label>
-      <label>בית ספר<input id="schoolFilter" value="${escAttr(viewState.courses.filters.school)}"></label>
-      <label>מנהל קורס<input id="courseManagerFilter" value="${escAttr(viewState.courses.filters.courseManager)}"></label>
-      <label>מדריך<input id="employeeFilter" value="${escAttr(viewState.courses.filters.employee)}"></label>
+      <label>רשות<select id="authorityFilter">${renderSelectOptions(viewState.courses.filterOptions.authority, viewState.courses.filters.authority)}</select></label>
+      <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
+      <label>מנהל קורס<select id="courseManagerFilter">${renderSelectOptions(viewState.courses.filterOptions.courseManager, viewState.courses.filters.courseManager)}</select></label>
+      <label>מדריך<select id="employeeFilter">${renderSelectOptions(viewState.courses.filterOptions.employee, viewState.courses.filters.employee)}</select></label>
       <label>יום<input id="dayNameFilter" value="${escAttr(viewState.courses.filters.dayName)}"></label>
       <label>תקופה<input id="periodFilter" placeholder="למשל: 04/2026" value="${escAttr(viewState.courses.filters.period)}"></label>
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
-        <button class="btn btn-secondary" id="resetCourseFilters">איפוס</button>
+        <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
       </div>
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
@@ -323,6 +346,12 @@ function table(rows, cols, canEdit, canApprove) {
     return `<td>${esc(r[c[0]] || '')}</td>`;
   }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">בקשת שינוי</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">אשר</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
+}
+
+function renderSelectOptions(options = [], selected = '') {
+  const initial = '<option value="">הכל</option>';
+  const body = options.map((option) => `<option value="${escAttr(option)}" ${option === selected ? 'selected' : ''}>${esc(option)}</option>`).join('');
+  return `${initial}${body}`;
 }
 
 function renderCourseCards(rows, options = {}) {
@@ -766,30 +795,34 @@ function bindExceptionActions() {
 }
 
 function bindEditButtons() {
-  document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', async () => {
     const row = findCourseById(b.dataset.editRow) || {};
     if (canDirectEditCourses()) {
-      window.alert(`עריכה ישירה עבור עידן בלבד.\nקורס: ${row.Program || row.Activity || row.CourseID || '-'}`);
+      const summary = window.prompt('תקציר עריכה ישירה', `עדכון לקורס ${row.Program || row.CourseID || ''}`);
+      if (summary === null) return;
+      const res = await updateCourse(row.CourseID, { summary, notes: row.Notes || '' }, userState);
+      if (!res?.success) {
+        window.alert(res?.message || 'עדכון הקורס נכשל');
+        return;
+      }
+      await loadCourses({ silent: true, forceRefreshCourseId: row.CourseID });
+      window.alert('הקורס עודכן בהצלחה מול הגיליון.');
       return;
     }
     const summary = window.prompt('תקציר שינוי', `בקשת שינוי לקורס ${row.Program || row.CourseID || ''}`);
     if (summary === null) return;
-    const payload = {
-      CourseID: row.CourseID,
-      Team: row.Team || '',
-      ChangeSummary: summary || 'בקשת שינוי לקורס',
-      ApprovalStatus: 'pending_eden',
-      requestedData: {
-        startTime: row.StartTime || '',
-        endTime: row.EndTime || '',
-        employee: resolveInstructorName(row),
-        notes: row.Notes || ''
-      }
-    };
-    api.submitEditRequest(payload).then((res) => {
-      if (!res?.success) window.alert(res?.message || 'הפעולה נכשלה');
-      else loadMyRequests();
-    });
+    const res = await createEditRequest(row.CourseID, {
+      summary: summary || 'בקשת שינוי לקורס',
+      startTime: row.StartTime || '',
+      endTime: row.EndTime || '',
+      employee: resolveInstructorName(row),
+      notes: row.Notes || ''
+    }, userState);
+    if (!res?.success) window.alert(res?.message || 'הפעולה נכשלה');
+    else {
+      await loadMyRequests();
+      window.alert('בקשת השינוי נפתחה ונרשמה ב-EDIT_REQUESTS.');
+    }
   }));
 }
 
@@ -829,6 +862,7 @@ async function onLogin() {
     return;
   }
   setUserState(res);
+  await initDataEngine(api, { userState });
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
   setRoute('dashboard');
@@ -845,38 +879,42 @@ async function loadRouteData() {
 
 async function loadDashboard() {
   await withLoad('dashboard', async () => {
-    const [dashboardRes, coursesRes] = await Promise.all([
-      api.getDashboard(),
-      api.getMyCourses({})
-    ]);
+    const dashboardRes = await api.getDashboard();
     if (!dashboardRes?.success) return dashboardRes;
-    const courses = coursesRes?.success ? (coursesRes?.data?.items || []) : [];
+    const courses = getStoreSnapshot().courses || [];
     return { success: true, data: withOperationalMetrics(dashboardRes.data || {}, courses) };
   }, null, 'לא ניתן לטעון דשבורד.');
 }
-async function loadCourses() {
-  viewState.courses.loading = true;
-  viewState.courses.error = '';
-  renderScreen();
-  const res = await api.getMyCourses({});
-  viewState.courses.loading = false;
-  if (!res?.success) {
-    viewState.courses.error = res?.message || 'לא ניתן לטעון פעילות.';
-    viewState.courses.data = [];
+async function loadCourses(options = {}) {
+  const { silent = false, forceRefreshCourseId = '' } = options;
+  if (!silent) {
+    viewState.courses.loading = true;
+    viewState.courses.error = '';
     renderScreen();
-    return;
   }
-  const normalized = normalizeCoursesResponse(res?.data || {});
-  viewState.courses.data = applyCoursesFiltersByUiScope(normalized, viewState.courses.filters);
+  if (forceRefreshCourseId) {
+    await refreshCourse(forceRefreshCourseId);
+  }
+  const filtered = getCoursesForUser(userState, viewState.courses.filters);
+  viewState.courses.loading = false;
+  viewState.courses.error = '';
+  viewState.courses.data = applyCoursesFiltersByUiScope(filtered, viewState.courses.filters);
+  viewState.courses.filterOptions = buildFilterOptions(getCoursesForUser(userState, {}));
   if (viewState.courses.selectedCourseId) {
     viewState.courses.selectedCourseDetails = viewState.courses.data.find((item) => String(item.CourseID) === viewState.courses.selectedCourseId) || null;
   }
   renderScreen();
 }
-async function loadMyRequests() { await withLoad('requests', api.getMyRequests, [], 'לא ניתן לטעון בקשות.'); }
+async function loadMyRequests() {
+  await withLoad('requests', async () => {
+    const [apiRes, sheetRows] = await Promise.all([api.getMyRequests(), loadEditRequests()]);
+    if (apiRes?.success) return apiRes;
+    return { success: true, data: { items: sheetRows } };
+  }, [], 'לא ניתן לטעון בקשות.');
+}
 async function loadEdenView() {
   viewState.eden.loading = true; viewState.eden.error = ''; renderScreen();
-  const [queueRes, coursesRes] = await Promise.all([api.getEdenView(), api.getMyCourses({})]);
+  const queueRes = await api.getEdenView();
   viewState.eden.loading = false;
   if (!queueRes?.success) {
     viewState.eden.error = queueRes?.message || 'לא ניתן לטעון את תצוגת עדן.';
@@ -884,7 +922,7 @@ async function loadEdenView() {
     renderScreen();
     return;
   }
-  const courses = coursesRes?.success ? (coursesRes?.data?.items || []) : [];
+  const courses = getStoreSnapshot().courses || [];
   viewState.eden.data = {
     queue: queueRes?.data?.items || [],
     exceptions: buildExceptionRecords(courses)
@@ -1096,6 +1134,7 @@ async function boot() {
     const profile = await api.getSessionProfile();
     if (profile?.authenticated) {
       setUserState(profile);
+      await initDataEngine(api, { userState });
       setRoute('dashboard');
       return;
     }

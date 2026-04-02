@@ -1,0 +1,297 @@
+const SHEETS_WITH_DISPLAY_ROW = new Set([
+  'COURSES',
+  'DATA_MASTER',
+  'PERMISSIONS',
+  'EDIT_REQUESTS',
+  'REVIEW_REQUIRED',
+  'LISTS',
+  'PROGRAM_CODES',
+  'SUMMARY'
+]);
+
+const BOOL_TRUE = new Set(['yes', 'true', '1', 'y', 'כן']);
+
+const dataStore = {
+  permissions: [],
+  courses: [],
+  lists: [],
+  programCodes: [],
+  editRequests: [],
+  reviewItems: [],
+  dataMaster: [],
+  loadedAt: {
+    permissions: 0,
+    courses: 0,
+    lists: 0,
+    programCodes: 0,
+    editRequests: 0,
+    reviewItems: 0,
+    dataMaster: 0
+  }
+};
+
+let apiRef = null;
+
+function now() {
+  return Date.now();
+}
+
+function toBool(value) {
+  return BOOL_TRUE.has(String(value || '').trim().toLowerCase());
+}
+
+function toNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : 0;
+}
+
+function parseRowsToObjects(sheetName, rows = []) {
+  if (!Array.isArray(rows) || !rows.length) return [];
+  const headerRow = rows[0] || [];
+  const dataRows = SHEETS_WITH_DISPLAY_ROW.has(sheetName) ? rows.slice(2) : rows.slice(1);
+  return dataRows
+    .filter((row) => Array.isArray(row) && row.some((cell) => String(cell || '').trim() !== ''))
+    .map((row) => {
+      const mapped = {};
+      headerRow.forEach((header, index) => {
+        const key = String(header || '').trim();
+        if (!key) return;
+        mapped[key] = row[index];
+      });
+      return mapped;
+    });
+}
+
+function mapPermissionRow(raw = {}) {
+  return {
+    employeeName: String(raw.EmployeeName || '').trim(),
+    employeeId: toNumber(raw.EmployeeID),
+    entryCode: String(raw.EntryCode || '').trim(),
+    baseRole: String(raw.BaseRole || '').trim(),
+    systemRole: String(raw.SystemRole || '').trim(),
+    displayRole: String(raw.DisplayRole || '').trim(),
+    viewScope: String(raw.ViewScope || '').trim(),
+    editScope: String(raw.EditScope || '').trim(),
+    approvalScope: String(raw.ApprovalScope || '').trim(),
+    uiProfile: String(raw.UiProfile || '').trim(),
+    teamScope: String(raw.TeamScope || '').trim(),
+    isDualMode: toBool(raw.IsDualMode),
+    canViewDashboard: toBool(raw.CanViewDashboard),
+    canEditMasterData: toBool(raw.CanEditMasterData),
+    canApproveToMainData: toBool(raw.CanApproveToMainData),
+    raw
+  };
+}
+
+function mapCourseRow(raw = {}) {
+  return {
+    ...raw,
+    CourseID: String(raw.CourseID || '').trim(),
+    ProgramCode: toNumber(raw.ProgramCode),
+    EmployeeID: toNumber(raw.EmployeeID),
+    PlannedMeetings: toNumber(raw.PlannedMeetings),
+    ActualMeetings: toNumber(raw.ActualMeetings),
+    StartTime: raw.StartTime,
+    EndTime: raw.EndTime
+  };
+}
+
+async function fetchSheet(sheetName) {
+  if (!apiRef?.getSheetRows) return [];
+  const res = await apiRef.getSheetRows({ sheetName });
+  if (!res?.success) return [];
+  const rows = Array.isArray(res?.data?.rows) ? res.data.rows : [];
+  return parseRowsToObjects(sheetName, rows);
+}
+
+async function loadCourses() {
+  if (!apiRef) return [];
+  const coursesRes = await apiRef.getMyCourses({});
+  if (!coursesRes?.success) {
+    dataStore.courses = [];
+    return [];
+  }
+  const payload = coursesRes?.data || {};
+  let rows = [];
+  if (Array.isArray(payload.items) && payload.items.length) {
+    rows = payload.items;
+  } else if (Array.isArray(payload.rows)) {
+    rows = parseRowsToObjects('COURSES', payload.rows);
+  }
+  dataStore.courses = rows.map(mapCourseRow);
+  dataStore.loadedAt.courses = now();
+  return dataStore.courses;
+}
+
+export async function initDataEngine(api, options = {}) {
+  apiRef = api;
+  const [courses, permissions, lists, programCodes] = await Promise.all([
+    loadCourses(),
+    loadPermissions(options.userState),
+    loadLists(),
+    loadProgramCodes()
+  ]);
+  return { courses, permissions, lists, programCodes };
+}
+
+export async function loadPermissions(userState = {}) {
+  let mapped = [];
+  const rows = await fetchSheet('PERMISSIONS');
+  if (rows.length) {
+    mapped = rows.map(mapPermissionRow);
+  } else {
+    mapped = [{
+      employeeName: String(userState.displayName || '').trim(),
+      employeeId: toNumber(userState.EmployeeID || userState.userId),
+      entryCode: '',
+      baseRole: String(userState.BaseRole || '').trim(),
+      systemRole: String(userState.SystemRole || '').trim(),
+      displayRole: String(userState.DisplayRole || '').trim(),
+      viewScope: String(userState.ViewScope || '').trim(),
+      editScope: String(userState.EditScope || '').trim(),
+      approvalScope: String(userState.ApprovalScope || '').trim(),
+      uiProfile: String(userState.UiProfile || '').trim(),
+      teamScope: String(userState.TeamScope || '').trim(),
+      isDualMode: toBool(userState.IsDualMode),
+      canViewDashboard: true,
+      canEditMasterData: false,
+      canApproveToMainData: false,
+      raw: userState
+    }];
+  }
+  dataStore.permissions = mapped;
+  dataStore.loadedAt.permissions = now();
+  return mapped;
+}
+
+export async function loadLists() {
+  dataStore.lists = await fetchSheet('LISTS');
+  dataStore.loadedAt.lists = now();
+  return dataStore.lists;
+}
+
+export async function loadProgramCodes() {
+  dataStore.programCodes = await fetchSheet('PROGRAM_CODES');
+  dataStore.loadedAt.programCodes = now();
+  return dataStore.programCodes;
+}
+
+export async function loadEditRequests(force = false) {
+  if (!force && dataStore.editRequests.length) return dataStore.editRequests;
+  dataStore.editRequests = await fetchSheet('EDIT_REQUESTS');
+  dataStore.loadedAt.editRequests = now();
+  return dataStore.editRequests;
+}
+
+export async function loadReviewItems(force = false) {
+  if (!force && dataStore.reviewItems.length) return dataStore.reviewItems;
+  dataStore.reviewItems = await fetchSheet('REVIEW_REQUIRED');
+  dataStore.loadedAt.reviewItems = now();
+  return dataStore.reviewItems;
+}
+
+export async function loadDataMaster(force = false) {
+  if (!force && dataStore.dataMaster.length) return dataStore.dataMaster;
+  dataStore.dataMaster = await fetchSheet('DATA_MASTER');
+  dataStore.loadedAt.dataMaster = now();
+  return dataStore.dataMaster;
+}
+
+export function getStoreSnapshot() {
+  return {
+    permissions: [...dataStore.permissions],
+    courses: [...dataStore.courses],
+    lists: [...dataStore.lists],
+    programCodes: [...dataStore.programCodes],
+    editRequests: [...dataStore.editRequests],
+    reviewItems: [...dataStore.reviewItems],
+    loadedAt: { ...dataStore.loadedAt }
+  };
+}
+
+export function getPermissionForUser(userState = {}) {
+  const userId = toNumber(userState.EmployeeID || userState.userId);
+  const name = String(userState.displayName || '').trim();
+  return dataStore.permissions.find((row) => (userId && row.employeeId === userId)
+    || (name && row.employeeName === name)) || null;
+}
+
+function matchContains(value, filterValue) {
+  if (!filterValue) return true;
+  return String(value || '').toLowerCase().includes(String(filterValue).toLowerCase());
+}
+
+function canViewCourse(course, permission, userState = {}) {
+  if (!permission) return true;
+  const scope = String(permission.viewScope || '').toLowerCase();
+  const teamScope = String(permission.teamScope || '').toLowerCase();
+  const isAdmin = String(permission.systemRole || '').toUpperCase() === 'IDAN_MAIN_ADMIN';
+  if (isAdmin || scope === 'all') return true;
+  const authority = String(course.Authority || '').toLowerCase();
+  const manager = String(course.CourseManager || '').trim();
+  const employee = String(course.Employee || '').trim();
+  const myName = String(userState.displayName || '').trim();
+  const myEmployeeId = toNumber(userState.EmployeeID || userState.userId);
+  if (teamScope && authority.includes(teamScope)) return true;
+  if (scope && authority.includes(scope)) return true;
+  if (scope === 'self') {
+    return employee === myName || manager === myName || toNumber(course.EmployeeID) === myEmployeeId;
+  }
+  return true;
+}
+
+export function getCoursesForUser(userState = {}, filters = {}) {
+  const permission = getPermissionForUser(userState);
+  return dataStore.courses.filter((course) => {
+    if (!canViewCourse(course, permission, userState)) return false;
+    if (!matchContains(course.Authority, filters.authority)) return false;
+    if (!matchContains(course.School, filters.school)) return false;
+    if (!matchContains(course.Employee, filters.employee)) return false;
+    if (!matchContains(course.CourseManager, filters.courseManager)) return false;
+    if (filters.period) {
+      const period = String(filters.period || '').trim();
+      const end = String(course.End || '').trim();
+      if (!end.includes(period)) return false;
+    }
+    return true;
+  });
+}
+
+export async function refreshCourse(courseId) {
+  await loadCourses();
+  return dataStore.courses.find((item) => String(item.CourseID) === String(courseId || '')) || null;
+}
+
+export async function updateCourse(courseId, changes, actor = {}) {
+  if (!apiRef?.updateCourse) return { success: false, message: 'API לא זמין לעדכון קורס.' };
+  const res = await apiRef.updateCourse({ courseId, changes, actor });
+  if (res?.success) {
+    await refreshCourse(courseId);
+  }
+  return res;
+}
+
+export async function createEditRequest(courseId, changes, actor = {}) {
+  if (!apiRef?.createEditRequest) return { success: false, message: 'API לא זמין לבקשת שינוי.' };
+  const course = dataStore.courses.find((item) => String(item.CourseID) === String(courseId || '')) || null;
+  const payload = {
+    CourseID: courseId,
+    RequestedBy: actor.displayName || actor.userId || '',
+    OriginalData: course || {},
+    RequestedData: changes,
+    ChangeSummary: changes?.summary || 'בקשת שינוי ממסך ניהול קורסים'
+  };
+  const res = await apiRef.createEditRequest(payload);
+  if (res?.success) await loadEditRequests(true);
+  return res;
+}
+
+export function buildFilterOptions(rows = []) {
+  const uniq = (field) => Array.from(new Set(rows.map((item) => String(item?.[field] || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+  return {
+    authority: uniq('Authority'),
+    school: uniq('School'),
+    employee: uniq('Employee'),
+    courseManager: uniq('CourseManager')
+  };
+}
