@@ -147,6 +147,14 @@ var Utils = (function () {
     });
   }
 
+  function rowToObject(headers, row, rowNumber) {
+    var out = { _rowNumber: rowNumber };
+    headers.forEach(function (header, index) {
+      out[header] = row[index];
+    });
+    return out;
+  }
+
   function appendRow(sheetName, rowValues) {
     var sheet = getSheet(sheetName, true);
     var rowNumber = Math.max(sheet.getLastRow() + 1, CONFIG.STRUCTURE.DATA_START_ROW);
@@ -236,6 +244,7 @@ var Utils = (function () {
     countDataRows: countDataRows,
     countMatchingInColumn: countMatchingInColumn,
     rowsToObjects: rowsToObjects,
+    rowToObject: rowToObject,
     appendRow: appendRow,
     updateRow: updateRow,
     ensureEditRequestsSheet: ensureEditRequestsSheet,

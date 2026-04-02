@@ -100,24 +100,25 @@ async function fetchSheet(sheetName) {
   if (!apiRef?.getSheetRows) return [];
   const res = await apiRef.getSheetRows({ sheetName });
   if (!res?.success) return [];
-  const rows = Array.isArray(res?.data?.rows) ? res.data.rows : [];
-  return parseRowsToObjects(sheetName, rows);
+  const headers = Array.isArray(res?.data?.headerRow) ? res.data.headerRow : [];
+  const dataRows = Array.isArray(res?.data?.dataRows) ? res.data.dataRows : [];
+  if (!headers.length) return [];
+  return dataRows
+    .filter((row) => Array.isArray(row) && row.some((cell) => String(cell || '').trim() !== ''))
+    .map((row) => {
+      const mapped = {};
+      headers.forEach((header, index) => {
+        const key = String(header || '').trim();
+        if (!key) return;
+        mapped[key] = row[index];
+      });
+      return mapped;
+    });
 }
 
 async function loadCourses() {
   if (!apiRef) return [];
-  const coursesRes = await apiRef.getMyCourses({});
-  if (!coursesRes?.success) {
-    dataStore.courses = [];
-    return [];
-  }
-  const payload = coursesRes?.data || {};
-  let rows = [];
-  if (Array.isArray(payload.items) && payload.items.length) {
-    rows = payload.items;
-  } else if (Array.isArray(payload.rows)) {
-    rows = parseRowsToObjects('COURSES', payload.rows);
-  }
+  const rows = await fetchSheet('COURSES');
   dataStore.courses = rows.map(mapCourseRow);
   dataStore.loadedAt.courses = now();
   return dataStore.courses;
@@ -258,28 +259,33 @@ export function getCoursesForUser(userState = {}, filters = {}) {
 }
 
 export async function refreshCourse(courseId) {
-  await loadCourses();
-  return dataStore.courses.find((item) => String(item.CourseID) === String(courseId || '')) || null;
+  const courseKey = String(courseId || '').trim();
+  if (!courseKey) return null;
+  return dataStore.courses.find((item) => String(item.CourseID) === courseKey) || null;
 }
 
 export async function updateCourse(courseId, changes, actor = {}) {
   if (!apiRef?.updateCourse) return { success: false, message: 'API לא זמין לעדכון קורס.' };
-  const res = await apiRef.updateCourse({ courseId, changes, actor });
+  const res = await apiRef.updateCourse({ CourseID: courseId, changes, actor });
   if (res?.success) {
-    await refreshCourse(courseId);
+    const updated = res?.data?.COURSES || null;
+    if (updated && updated.CourseID) {
+      const mapped = mapCourseRow(updated);
+      const existingIndex = dataStore.courses.findIndex((item) => String(item.CourseID) === String(mapped.CourseID));
+      if (existingIndex > -1) dataStore.courses[existingIndex] = { ...dataStore.courses[existingIndex], ...mapped };
+      else dataStore.courses.unshift(mapped);
+      dataStore.loadedAt.courses = now();
+    }
   }
   return res;
 }
 
 export async function createEditRequest(courseId, changes, actor = {}) {
   if (!apiRef?.createEditRequest) return { success: false, message: 'API לא זמין לבקשת שינוי.' };
-  const course = dataStore.courses.find((item) => String(item.CourseID) === String(courseId || '')) || null;
   const payload = {
     CourseID: courseId,
     RequestedBy: actor.displayName || actor.userId || '',
-    OriginalData: course || {},
-    RequestedData: changes,
-    ChangeSummary: changes?.summary || 'בקשת שינוי ממסך ניהול קורסים'
+    changes
   };
   const res = await apiRef.createEditRequest(payload);
   if (res?.success) await loadEditRequests(true);

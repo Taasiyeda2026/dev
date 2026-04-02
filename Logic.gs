@@ -203,6 +203,124 @@ var Logic = (function () {
     }
   }
 
+
+  function getSheetRows(payload) {
+    try {
+      var body = Utils.asObject(payload, {});
+      var sheetName = Utils.normalize(body.sheetName || body.SheetName);
+      if (Utils.isEmpty(sheetName)) return Utils.safeMessage('sheetName הוא שדה חובה.');
+
+      var table = Utils.readTable(sheetName, true);
+      return {
+        success: true,
+        data: {
+          sheetName: sheetName,
+          headerRow: table.headers,
+          displayRow: table.displayHeaders,
+          dataRows: table.rows,
+          rowNumbers: table.rowNumbers
+        }
+      };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לטעון נתונים מהגיליון.');
+    }
+  }
+
+  function updateCourse(payload) {
+    try {
+      var body = Utils.asObject(payload, {});
+      var courseId = Utils.normalize(body.CourseID);
+      var changes = Utils.asObject(body.changes, {});
+      if (Utils.isEmpty(courseId)) return Utils.safeMessage('CourseID הוא שדה חובה.');
+      if (!Object.keys(changes).length) return Utils.safeMessage('changes חייב להכיל לפחות שדה אחד.');
+
+      var sheetTargets = [
+        { sheetName: CONFIG.SHEETS.DATA_MASTER, required: true },
+        { sheetName: CONFIG.SHEETS.COURSES, required: true }
+      ];
+      var updateResult = {};
+
+      sheetTargets.forEach(function (target) {
+        var table = Utils.readTable(target.sheetName, target.required);
+        var courseIndex = Utils.resolveIndex(table.headers, ['CourseID']);
+        if (courseIndex === -1) throw new Error('missing_course_id_' + target.sheetName);
+
+        var rowMatch = findRowByCourseId_(table, courseIndex, courseId);
+        if (!rowMatch) throw new Error('course_not_found_' + target.sheetName);
+
+        var updatedRow = rowMatch.row.slice();
+        Object.keys(changes).forEach(function (field) {
+          if (field === 'CourseID') return;
+          var fieldIndex = Utils.resolveIndex(table.headers, [field]);
+          if (fieldIndex === -1) return;
+          updatedRow[fieldIndex] = changes[field];
+        });
+
+        Utils.updateRow(target.sheetName, rowMatch.rowNumber, updatedRow);
+        updateResult[target.sheetName] = Utils.rowToObject(table.headers, updatedRow, rowMatch.rowNumber);
+      });
+
+      return {
+        success: true,
+        data: {
+          CourseID: courseId,
+          DATA_MASTER: updateResult[CONFIG.SHEETS.DATA_MASTER],
+          COURSES: updateResult[CONFIG.SHEETS.COURSES]
+        }
+      };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לעדכן קורס.');
+    }
+  }
+
+  function createEditRequest(payload) {
+    var WORKFLOW_STAGE_FIELD = 'ApprovalStatus';
+    var INITIAL_WORKFLOW_STAGE = 'PENDING_EDEN';
+
+    try {
+      var body = Utils.asObject(payload, {});
+      var courseId = Utils.normalize(body.CourseID);
+      var requestedBy = Utils.normalize(body.RequestedBy);
+      var changes = Utils.asObject(body.changes, {});
+
+      if (Utils.isEmpty(courseId)) return Utils.safeMessage('CourseID הוא שדה חובה.');
+      if (!Object.keys(changes).length) return Utils.safeMessage('changes חייב להכיל לפחות שדה אחד.');
+
+      var courseSnapshot = getCourseSnapshotById_(courseId);
+      if (!courseSnapshot) return Utils.safeMessage('לא נמצא קורס תואם ב-DATA_MASTER.');
+
+      var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
+      var requestId = generateRequestId_();
+      var rowObject = {};
+      table.headers.forEach(function (header) { rowObject[header] = ''; });
+
+      if (Utils.resolveIndex(table.headers, ['RequestID']) > -1) rowObject.RequestID = requestId;
+      if (Utils.resolveIndex(table.headers, ['CourseID']) > -1) rowObject.CourseID = courseId;
+      if (Utils.resolveIndex(table.headers, ['RequestedBy']) > -1) rowObject.RequestedBy = requestedBy;
+      if (Utils.resolveIndex(table.headers, ['RequestedAt']) > -1) rowObject.RequestedAt = Utils.nowIso();
+      if (Utils.resolveIndex(table.headers, [WORKFLOW_STAGE_FIELD]) > -1) rowObject[WORKFLOW_STAGE_FIELD] = INITIAL_WORKFLOW_STAGE;
+      if (Utils.resolveIndex(table.headers, ['OriginalData']) > -1) rowObject.OriginalData = Utils.safeJson(courseSnapshot);
+      if (Utils.resolveIndex(table.headers, ['RequestedData']) > -1) rowObject.RequestedData = Utils.safeJson(changes);
+
+      var rowValues = table.headers.map(function (header) { return rowObject[header]; });
+      var rowNumber = Utils.appendRow(CONFIG.SHEETS.EDIT_REQUESTS, rowValues);
+
+      return {
+        success: true,
+        data: {
+          RequestID: requestId,
+          CourseID: courseId,
+          WorkflowStage: INITIAL_WORKFLOW_STAGE,
+          rowNumber: rowNumber,
+          OriginalData: courseSnapshot,
+          RequestedData: changes
+        }
+      };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן ליצור בקשת עריכה.');
+    }
+  }
+
   function submitEditRequest(payload) {
     var session = requireSession_();
     if (!session.success) return session;
@@ -735,6 +853,24 @@ var Logic = (function () {
     return false;
   }
 
+
+  function findRowByCourseId_(table, courseIndex, courseId) {
+    for (var i = 0; i < table.rows.length; i += 1) {
+      if (Utils.toKey(table.rows[i][courseIndex]) !== Utils.toKey(courseId)) continue;
+      return { row: table.rows[i], rowNumber: table.rowNumbers[i] };
+    }
+    return null;
+  }
+
+  function getCourseSnapshotById_(courseId) {
+    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    var courseIndex = Utils.resolveIndex(table.headers, ['CourseID']);
+    if (courseIndex === -1) return null;
+    var match = findRowByCourseId_(table, courseIndex, courseId);
+    if (!match) return null;
+    return Utils.rowToObject(table.headers, match.row, match.rowNumber);
+  }
+
   function isInactiveFlag_(value) {
     var key = Utils.toKey(value);
     return key === '0' || key === 'false' || key === 'no' || key === 'inactive' || key === 'disabled';
@@ -781,6 +917,9 @@ var Logic = (function () {
     getDashboardData: getDashboardData,
     getMyCoursesData: getMyCoursesData,
     submitEditRequest: submitEditRequest,
+    getSheetRows: getSheetRows,
+    updateCourse: updateCourse,
+    createEditRequest: createEditRequest,
     getMyRequestsData: getMyRequestsData,
     getApprovalsData: getApprovalsData,
     getEdenViewData: getEdenViewData,
