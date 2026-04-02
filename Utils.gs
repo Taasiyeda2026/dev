@@ -167,7 +167,19 @@ var Utils = (function () {
   }
 
   function resolveStructure_(sheetName) {
-    if (sheetName === CONFIG.SHEETS.DASHBOARD_EXPORT) {
+    if (sheetName === CONFIG.SHEETS.DASHBOARD_EXPORT || sheetName === CONFIG.SHEETS.SUMMARY) {
+      return {
+        headerRow: 1,
+        displayRow: null,
+        dataStartRow: 2,
+        hasDisplayRow: false
+      };
+    }
+    if (
+      sheetName === CONFIG.SHEETS.LISTS ||
+      sheetName === CONFIG.SHEETS.PROGRAM_CODES ||
+      sheetName === CONFIG.SHEETS.README
+    ) {
       return {
         headerRow: 1,
         displayRow: null,
