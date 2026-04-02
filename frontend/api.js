@@ -55,5 +55,9 @@ export const api = {
   getApprovals: () => callAction('getApprovalsDataAction', {}),
   getEdenView: () => callAction('getEdenViewDataAction', {}),
   approveRequest: (payload) => callAction('approveRequestAction', payload),
-  rejectRequest: (payload) => callAction('rejectRequestAction', payload)
+  rejectRequest: (payload) => callAction('rejectRequestAction', payload),
+  getFinanceData: () => callAction('getFinanceDataAction', {}),
+  getFinanceArchiveData: () => callAction('getFinanceArchiveDataAction', {}),
+  updateFinanceStatus: (payload) => callAction('updateFinanceStatusAction', payload),
+  syncFinance: () => callAction('syncFinanceAction', {})
 };

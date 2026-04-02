@@ -11,7 +11,11 @@ import {
   buildFilterOptions,
   loadEditRequests,
   loadReviewItems,
-  reloadCourses
+  reloadCourses,
+  loadFinanceItems,
+  loadFinanceArchiveItems,
+  updateFinanceStatus,
+  syncFinance
 } from './data-engine.js';
 import {
   COURSE_FIELDS,
@@ -52,6 +56,15 @@ const viewState = {
   endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', endFrom: '', endTo: '' } },
   assignments: { loading: false, error: '', filters: { authority: '', program: '' } },
   exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
+  ,
+  finance: {
+    loading: false,
+    error: '',
+    tab: 'active',
+    activeItems: [],
+    archiveItems: [],
+    selectedFinanceRowId: ''
+  }
 };
 
 const roleMap = {
@@ -76,7 +89,8 @@ const routeLabels = {
   instructors: 'מדריכים',
   'end-dates': 'תאריכי סיום',
   assignments: 'שיבוץ',
-  exceptions: 'חריגות'
+  exceptions: 'חריגות',
+  finance: 'כספים'
 };
 
 const routeIcons = {
@@ -93,6 +107,7 @@ const routeIcons = {
   'end-dates': '⏳',
   assignments: '📌',
   exceptions: '⚠️',
+  finance: '💳',
   logout: '↩'
 };
 
@@ -143,6 +158,30 @@ function canDirectEditCourses() {
       || permission.canEditMasterData;
   }
   return isIdan();
+}
+
+function canAccessFinanceActive() {
+  const permission = currentPermission();
+  if (permission) return Boolean(permission.canAccessFinance);
+  return Boolean(userState.CanAccessFinance);
+}
+
+function canEditFinanceActive() {
+  const permission = currentPermission();
+  if (permission) return Boolean(permission.canEditFinance);
+  return Boolean(userState.CanEditFinance);
+}
+
+function canAccessFinanceArchive() {
+  const permission = currentPermission();
+  if (permission) return Boolean(permission.canAccessFinanceArchive);
+  return Boolean(userState.CanAccessFinanceArchive);
+}
+
+function canEditFinanceArchive() {
+  const permission = currentPermission();
+  if (permission) return Boolean(permission.canEditFinanceArchive);
+  return Boolean(userState.CanEditFinanceArchive);
 }
 
 
@@ -196,6 +235,7 @@ function render() {
     ${nav('end-dates', 'תאריכי סיום')}
     ${nav('assignments', 'שיבוץ')}
     ${nav('exceptions', 'חריגות')}
+    ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? nav('finance', 'כספים') : ''}
     ${nav('my-requests', 'הבקשות שלי')}
     ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
     ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
@@ -410,6 +450,61 @@ function renderScreen() {
     return;
   }
 
+  if (currentRoute === 'finance') {
+    if (!canAccessFinanceActive() && !canAccessFinanceArchive()) {
+      main.innerHTML = head('כספים', 'גישה מותנית הרשאות') + '<section class="panel-state error"><span class="panel-state-icon">⛔</span><span>אין הרשאה למסך כספים.</span></section>';
+      return;
+    }
+    const canActive = canAccessFinanceActive();
+    const canArchive = canAccessFinanceArchive();
+    const showActive = viewState.finance.tab !== 'archive';
+    const rows = showActive ? viewState.finance.activeItems : viewState.finance.archiveItems;
+    const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
+
+    main.innerHTML = head('כספים', 'ניהול סל גבייה פעיל וארכיון') +
+      `<section class="finance-toolbar">
+        <div class="finance-tabs">
+          ${canActive ? `<button class="btn ${showActive ? 'btn-primary' : 'btn-secondary'}" data-finance-tab="active">גבייה פעילה</button>` : ''}
+          ${canArchive ? `<button class="btn ${!showActive ? 'btn-primary' : 'btn-secondary'}" data-finance-tab="archive">ארכיון גבייה</button>` : ''}
+        </div>
+        ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן FINANCE</button>' : ''}
+      </section>` +
+      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, 'אין נתוני גבייה להצגה.', renderFinanceCards(rows, { showArchive: !showActive, canEdit })) +
+      renderFinanceDetailsPanel(rows.find((item) => String(item?.FinanceRowID || '') === viewState.finance.selectedFinanceRowId) || null);
+
+    document.querySelectorAll('[data-finance-tab]').forEach((button) => button.addEventListener('click', () => {
+      viewState.finance.tab = button.dataset.financeTab || 'active';
+      viewState.finance.selectedFinanceRowId = '';
+      renderScreen();
+      loadRouteData();
+    }));
+
+    document.getElementById('financeSyncBtn')?.addEventListener('click', async () => {
+      const result = await syncFinance();
+      if (!result?.success) {
+        viewState.finance.error = result?.message || 'לא ניתן לרענן FINANCE.';
+      }
+      await loadFinanceView({ silent: true, force: true });
+    });
+
+    document.querySelectorAll('[data-finance-status]').forEach((select) => select.addEventListener('change', async (event) => {
+      const financeRowId = event.target.dataset.financeRowId || '';
+      const status = event.target.value || '';
+      const sheetName = event.target.dataset.financeSheet || 'FINANCE';
+      const result = await updateFinanceStatus(financeRowId, status, { sheetName });
+      if (!result?.success) {
+        viewState.finance.error = result?.message || 'עדכון סטטוס נכשל.';
+      }
+      await loadFinanceView({ silent: true, force: true });
+    }));
+
+    document.querySelectorAll('[data-finance-open]').forEach((button) => button.addEventListener('click', () => {
+      viewState.finance.selectedFinanceRowId = button.dataset.financeOpen || '';
+      renderScreen();
+    }));
+    return;
+  }
+
   if (currentRoute === 'my-requests') {
     main.innerHTML = head('הבקשות שלי', 'טיוטות, סטטוסים והערות') + panel(viewState.requests, 'אין בקשות.',
       table(viewState.requests.data, [['RequestID','מזהה בקשה'],['CourseID','קורס'],['ChangeSummary','תקציר'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], false));
@@ -470,6 +565,74 @@ function renderSelectOptions(options = [], selected = '') {
   const initial = '<option value="">הכל</option>';
   const body = options.map((option) => `<option value="${escAttr(option)}" ${option === selected ? 'selected' : ''}>${esc(option)}</option>`).join('');
   return `${initial}${body}`;
+}
+
+function renderFinanceCards(rows, options = {}) {
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים.</section>';
+  const showArchive = Boolean(options.showArchive);
+  const canEdit = Boolean(options.canEdit);
+  return `<section class="cards-grid finance-grid">${list.map((item) => {
+    const financeRowId = String(item?.FinanceRowID || '');
+    const billingKey = String(item?.BillingGroupKey || '-');
+    const status = String(item?.FinanceStatus || 'ממתין');
+    const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
+    return `<article class="management-card finance-card">
+      <header class="card-head">
+        <div>
+          <h3>${esc(billingKey)}</h3>
+          <p class="card-subtitle">סוג קבוצה: ${esc(item?.BillingGroupType || '-')} · מזהה: ${esc(financeRowId || '-')}</p>
+        </div>
+        <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
+      </header>
+      <div class="course-core-grid">
+        <div class="course-core-col">
+          <span><strong>תאריך סיום:</strong> ${esc(formatDate(parseDateLike(item?.End)) || String(item?.End || '-'))}</span>
+          <span><strong>MonthEnd:</strong> ${esc(item?.MonthEnd || '-')}</span>
+          <span><strong>מימון:</strong> ${esc(item?.Funding || '-')}</span>
+        </div>
+        <div class="course-core-col">
+          <span><strong>תשלום:</strong> ₪ ${esc(numberFrom(item?.PaymentTotal).toLocaleString('he-IL'))}</span>
+          <span><strong>מפגשים בפועל:</strong> ${esc(numberFrom(item?.ActualMeetingsTotal).toLocaleString('he-IL'))}</span>
+          <span><strong>מפגשים מתוכננים:</strong> ${esc(numberFrom(item?.PlannedMeetingsTotal).toLocaleString('he-IL'))}</span>
+        </div>
+        <div class="course-core-col">
+          <span><strong>מסגרות:</strong> ${esc(item?.SchoolsList || '-')}</span>
+          <span><strong>תוכניות:</strong> ${esc(item?.ProgramsList || '-')}</span>
+          <span><strong>קורסים:</strong> ${esc(item?.CoursesList || '-')}</span>
+        </div>
+      </div>
+      <footer class="card-actions">
+        <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">פרטים</button>
+        ${canEdit ? `<label class=\"finance-status-edit\">סטטוס
+          <select data-finance-status=\"1\" data-finance-row-id=\"${escAttr(financeRowId)}\" data-finance-sheet=\"${sourceSheet}\">
+            ${renderStatusOption('ממתין', status)}
+            ${renderStatusOption('במעקב', status)}
+            ${renderStatusOption('בוצע-גביה', status)}
+          </select>
+        </label>` : ''}
+      </footer>
+    </article>`;
+  }).join('')}</section>`;
+}
+
+function renderStatusOption(value, selected) {
+  return `<option value="${escAttr(value)}" ${value === selected ? 'selected' : ''}>${value}</option>`;
+}
+
+function renderFinanceDetailsPanel(item) {
+  if (!item) return '';
+  return `<section class="details-panel">
+    <header><h3>פרטי סל גבייה</h3></header>
+    <div class="details-grid">
+      <div><span>FinanceRowID</span><strong>${esc(item.FinanceRowID || '-')}</strong></div>
+      <div><span>Authority</span><strong>${esc(item.Authority || '-')}</strong></div>
+      <div><span>SourceRows</span><strong>${esc(item.SourceRows || '-')}</strong></div>
+      <div><span>SourceSheets</span><strong>${esc(item.SourceSheets || '-')}</strong></div>
+      <div><span>Notes</span><strong>${esc(item.Notes || '-')}</strong></div>
+      <div><span>BillingGroupKey</span><strong>${esc(item.BillingGroupKey || '-')}</strong></div>
+    </div>
+  </section>`;
 }
 
 function renderCourseCards(rows, options = {}) {
@@ -1559,6 +1722,7 @@ async function loadRouteData() {
   if (currentRoute === 'end-dates') return loadEndDatesView();
   if (currentRoute === 'assignments') return loadAssignmentsView();
   if (currentRoute === 'exceptions') return loadExceptionsView();
+  if (currentRoute === 'finance') return loadFinanceView();
   if (currentRoute === 'my-requests') return loadMyRequests();
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') return loadApprovals();
   if (currentRoute === 'eden-view') return loadEdenView();
@@ -1598,6 +1762,37 @@ async function loadMyRequests() {
     if (apiRes?.success) return apiRes;
     return { success: true, data: { items: sheetRows } };
   }, [], 'לא ניתן לטעון בקשות.');
+}
+
+async function loadFinanceView(options = {}) {
+  const { silent = false, force = false } = options;
+  if (!silent) {
+    viewState.finance.loading = true;
+    viewState.finance.error = '';
+    renderScreen();
+  }
+  if (!canAccessFinanceActive() && !canAccessFinanceArchive()) {
+    viewState.finance.loading = false;
+    viewState.finance.error = 'אין הרשאה למסך כספים.';
+    viewState.finance.activeItems = [];
+    viewState.finance.archiveItems = [];
+    renderScreen();
+    return;
+  }
+
+  try {
+    const tasks = [];
+    tasks.push(canAccessFinanceActive() ? loadFinanceItems(force) : Promise.resolve([]));
+    tasks.push(canAccessFinanceArchive() ? loadFinanceArchiveItems(force) : Promise.resolve([]));
+    const results = await Promise.all(tasks);
+    viewState.finance.activeItems = results[0] || [];
+    viewState.finance.archiveItems = results[1] || [];
+    viewState.finance.error = '';
+  } catch (error) {
+    viewState.finance.error = 'לא ניתן לטעון נתוני כספים.';
+  }
+  viewState.finance.loading = false;
+  renderScreen();
 }
 async function loadEdenView() {
   viewState.eden.loading = true; viewState.eden.error = ''; renderScreen();

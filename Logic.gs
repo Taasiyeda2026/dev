@@ -4,7 +4,10 @@ var Logic = (function () {
     UPDATE_COURSE: 'UPDATE_COURSE',
     CREATE_EDIT_REQUEST: 'CREATE_EDIT_REQUEST',
     APPROVAL_DECISION: 'APPROVAL_DECISION',
-    MARK_EXCEPTION_RESOLVED: 'MARK_EXCEPTION_RESOLVED'
+    MARK_EXCEPTION_RESOLVED: 'MARK_EXCEPTION_RESOLVED',
+    FINANCE_SYNC: 'FINANCE_SYNC',
+    FINANCE_UPDATE: 'FINANCE_UPDATE',
+    FINANCE_ARCHIVE_UPDATE: 'FINANCE_ARCHIVE_UPDATE'
   };
 
   // הנחה: REVIEW_REQUIRED עשוי להכיל אחד מהשדות הבאים לזיהוי/סטטוס/אודיט.
@@ -102,6 +105,10 @@ var Logic = (function () {
         TeamScope: scopeJoin(idx.teamScope),
         IsDualMode: dualFlag,
         ActiveFlag: Utils.normalize(valueAt_(primary, idx.activeFlag)),
+        CanAccessFinance: anyTrueInRows_(rows, idx.canAccessFinance),
+        CanEditFinance: anyTrueInRows_(rows, idx.canEditFinance),
+        CanAccessFinanceArchive: anyTrueInRows_(rows, idx.canAccessFinanceArchive),
+        CanEditFinanceArchive: anyTrueInRows_(rows, idx.canEditFinanceArchive),
         PermissionRows: rows.length
       };
   }
@@ -240,6 +247,85 @@ var Logic = (function () {
       };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון נתונים מהגיליון.');
+    }
+  }
+
+  function getFinanceData() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireFinanceAccess_(session.user, { archive: false, requireEdit: false });
+      var table = Utils.readTable('FINANCE', true);
+      var items = table.rows.map(function (row, index) {
+        return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('אין הרשאה לצפייה בגבייה פעילה.');
+    }
+  }
+
+  function getFinanceArchiveData() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireFinanceAccess_(session.user, { archive: true, requireEdit: false });
+      var table = Utils.readTable('FINANCE_ARCHIVE', false);
+      if (!table.sheet) return { success: true, data: { items: [] } };
+      var items = table.rows.map(function (row, index) {
+        return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('אין הרשאה לצפייה בארכיון גבייה.');
+    }
+  }
+
+  function updateFinanceStatus(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      var body = Utils.asObject(payload, {});
+      var financeRowId = Utils.normalize(body.FinanceRowID || body.financeRowId);
+      var financeStatus = Utils.normalize(body.FinanceStatus || body.financeStatus);
+      var targetSheet = Utils.normalize(body.sheetName || 'FINANCE');
+      var isArchive = targetSheet === 'FINANCE_ARCHIVE';
+      requireWritePermission_(session.user, isArchive ? WRITE_ACTIONS.FINANCE_ARCHIVE_UPDATE : WRITE_ACTIONS.FINANCE_UPDATE, {});
+      if (!financeRowId || !financeStatus) return Utils.safeMessage('FinanceRowID ו-FinanceStatus הם שדות חובה.');
+
+      var table = Utils.readTable(targetSheet, true);
+      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['FinanceRowID']);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['Notes']);
+      if (idxFinanceRowId === -1 || idxFinanceStatus === -1) return Utils.safeMessage('חסרות עמודות חובה בגיליון הכספים.');
+
+      for (var i = 0; i < table.rows.length; i += 1) {
+        if (Utils.normalize(table.rows[i][idxFinanceRowId]) !== financeRowId) continue;
+        var updated = table.rows[i].slice();
+        updated[idxFinanceStatus] = financeStatus;
+        if (idxNotes > -1 && !Utils.isEmpty(body.StatusNote || body.statusNote)) {
+          var current = Utils.normalize(updated[idxNotes]);
+          var suffix = Utils.normalize(body.StatusNote || body.statusNote);
+          updated[idxNotes] = current ? (current + ' | ' + suffix) : suffix;
+        }
+        Utils.updateRow(targetSheet, table.rowNumbers[i], updated);
+        return { success: true, data: { item: Utils.rowToObject(table.headers, updated, table.rowNumbers[i]) } };
+      }
+
+      return Utils.safeMessage('FinanceRowID לא נמצא לעדכון.');
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לעדכן סטטוס גבייה.');
+    }
+  }
+
+  function syncFinance() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireWritePermission_(session.user, WRITE_ACTIONS.FINANCE_SYNC, {});
+      return rebuildFinanceSheet();
+    } catch (err) {
+      return Utils.safeMessage('אין הרשאה לרענון גיליון הכספים.');
     }
   }
 
@@ -796,12 +882,33 @@ var Logic = (function () {
       allowed = role === 'admin' || role === 'admin-ops' || approvalScope === 'all' || approvalScope === 'full';
     } else if (actionType === WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED) {
       allowed = role === 'admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
+    } else if (actionType === WRITE_ACTIONS.FINANCE_SYNC || actionType === WRITE_ACTIONS.FINANCE_UPDATE) {
+      requireFinanceAccess_(user, { archive: false, requireEdit: true });
+      allowed = true;
+    } else if (actionType === WRITE_ACTIONS.FINANCE_ARCHIVE_UPDATE) {
+      requireFinanceAccess_(user, { archive: true, requireEdit: true });
+      allowed = true;
     }
 
     if (!allowed) throw new Error('unauthorized_write_' + actionType);
     if (actionType === WRITE_ACTIONS.UPDATE_COURSE && !canEditCourseByRole_(user, context && context.courseId, context && context.team)) {
       throw new Error('unauthorized_scope_' + actionType);
     }
+    return true;
+  }
+
+  function requireFinanceAccess_(user, options) {
+    var opts = options || {};
+    var archive = Boolean(opts.archive);
+    var requireEdit = Boolean(opts.requireEdit);
+    var accessField = archive ? 'CanAccessFinanceArchive' : 'CanAccessFinance';
+    var editField = archive ? 'CanEditFinanceArchive' : 'CanEditFinance';
+    var isAdminRole = Utils.toKey(user.SystemRole) === 'admin' || Utils.toKey(user.SystemRole) === 'idan_main_admin';
+    var hasAccess = isAdminRole || isTrueFlag_(user[accessField]);
+    var hasEdit = isAdminRole || isTrueFlag_(user[editField]);
+
+    if (!hasAccess) throw new Error('unauthorized_finance_access');
+    if (requireEdit && !hasEdit) throw new Error('unauthorized_finance_edit');
     return true;
   }
 
@@ -887,7 +994,11 @@ var Logic = (function () {
       uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
       isDualMode: Utils.resolveIndex(headers, ['IsDualMode']),
-      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag'])
+      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag']),
+      canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance']),
+      canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance']),
+      canAccessFinanceArchive: Utils.resolveIndex(headers, ['CanAccessFinanceArchive']),
+      canEditFinanceArchive: Utils.resolveIndex(headers, ['CanEditFinanceArchive'])
     };
   }
 
@@ -930,6 +1041,14 @@ var Logic = (function () {
       });
     });
     return values.join(separator || ', ');
+  }
+
+  function anyTrueInRows_(rows, index) {
+    if (index === -1) return false;
+    for (var i = 0; i < rows.length; i += 1) {
+      if (isTrueFlag_(valueAt_(rows[i], index))) return true;
+    }
+    return false;
   }
 
   function countRoles_(rows, roleIdx) {
@@ -992,9 +1111,390 @@ var Logic = (function () {
     return Utils.rowToObject(table.headers, match.row, match.rowNumber);
   }
 
+
+
+  function rebuildFinanceSheet() {
+    var FINANCE_SHEET = 'FINANCE';
+    var FINANCE_ARCHIVE_SHEET = 'FINANCE_ARCHIVE';
+    var ARCHIVED_STATUS = 'בוצע-גביה'; // הנחה: זהו הערך הקבוע שמסמן גבייה שהושלמה.
+    var DEFAULT_STATUS = 'ממתין'; // הנחה: זהו סטטוס ברירת המחדל לקבוצת גבייה חדשה.
+
+    var financeTable = Utils.readTable(FINANCE_SHEET, true);
+    var dataMasterTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    var financeSheet = financeTable.sheet;
+
+    var archiveSheet = ensureFinanceArchiveSheet_(financeSheet, FINANCE_ARCHIVE_SHEET);
+    var archiveTable = Utils.readTable(FINANCE_ARCHIVE_SHEET, true);
+
+    var activeByGroupKey = {};
+    var archiveByGroupKey = {};
+    var archiveByFinanceRowId = {};
+    var allFinanceIds = {};
+
+    indexFinanceRowsByKey_(archiveTable.headers, archiveTable.rows, archiveByGroupKey, archiveByFinanceRowId, allFinanceIds);
+
+    var archivedCandidates = [];
+    var activeFinanceRows = [];
+    var financeStatusIdx = Utils.resolveIndex(financeTable.headers, ['FinanceStatus']);
+
+    financeTable.rows.forEach(function (row) {
+      var status = Utils.normalize(valueAt_(row, financeStatusIdx));
+      if (status === ARCHIVED_STATUS) {
+        archivedCandidates.push(row);
+      } else {
+        activeFinanceRows.push(row);
+      }
+    });
+
+    var archivedAddedCount = 0;
+    var financeRowIdIdx = Utils.resolveIndex(financeTable.headers, ['FinanceRowID']);
+    archivedCandidates.forEach(function (row) {
+      var financeRowId = Utils.normalize(valueAt_(row, financeRowIdIdx));
+      if (!financeRowId || archiveByFinanceRowId[financeRowId]) return;
+      appendFinanceArchiveRow_(archiveSheet, row, financeTable.headers.length);
+      archiveByFinanceRowId[financeRowId] = true;
+      archivedAddedCount += 1;
+    });
+
+    archiveTable = Utils.readTable(FINANCE_ARCHIVE_SHEET, true);
+    archiveByGroupKey = {};
+    archiveByFinanceRowId = {};
+    indexFinanceRowsByKey_(archiveTable.headers, archiveTable.rows, archiveByGroupKey, archiveByFinanceRowId, allFinanceIds);
+
+    activeFinanceRows.forEach(function (row) {
+      var out = buildExistingFinanceIdentity_(financeTable.headers, row);
+      if (!out.groupKey) return;
+      activeByGroupKey[out.groupKey] = out;
+      if (out.financeRowId) allFinanceIds[out.financeRowId] = true;
+    });
+
+    var groups = aggregateFinanceGroupsFromDataMaster_(dataMasterTable.headers, dataMasterTable.rows);
+    var groupKeys = Object.keys(groups);
+    var nextSequence = findNextFinanceSequence_(allFinanceIds);
+
+    var outputRows = [];
+    groupKeys.forEach(function (groupKey) {
+      if (archiveByGroupKey[groupKey]) return;
+      var group = groups[groupKey];
+      var existing = activeByGroupKey[groupKey] || archiveByGroupKey[groupKey] || null;
+
+      var financeRowId = existing && existing.financeRowId ? existing.financeRowId : generateFinanceRowId_(nextSequence++);
+      var financeStatus = existing && existing.financeStatus ? existing.financeStatus : DEFAULT_STATUS;
+
+      if (archiveByFinanceRowId[financeRowId]) return;
+
+      outputRows.push(buildFinanceOutputRow_(financeTable.headers, group, financeRowId, financeStatus));
+    });
+
+    sortFinanceRows_(outputRows, financeTable.headers);
+
+    clearFinanceDataRows_(financeSheet, financeTable.headers.length);
+    if (outputRows.length) {
+      financeSheet
+        .getRange(CONFIG.STRUCTURE.DATA_START_ROW, 1, outputRows.length, financeTable.headers.length)
+        .setValues(outputRows);
+    }
+
+    return {
+      success: true,
+      activeRowsCount: outputRows.length,
+      archivedAddedCount: archivedAddedCount,
+      sampleActiveRow: outputRows.length ? outputRows[0] : null,
+      sampleArchiveRow: archivedAddedCount ? archiveSheet.getRange(archiveSheet.getLastRow(), 1, 1, archiveTable.headers.length).getValues()[0] : null
+    };
+  }
+
+  function aggregateFinanceGroupsFromDataMaster_(headers, rows) {
+    var idx = resolveDataMasterFinanceIndexes_(headers);
+    var groups = {};
+
+    rows.forEach(function (row) {
+      if (!row || !row.length || isRowEmpty_(row)) return;
+
+      var endValue = valueAt_(row, idx.end);
+      if (Utils.isEmpty(endValue)) return;
+
+      var normalizedFunding = normalizeFunding_(valueAt_(row, idx.funding));
+      var billingGroup = resolveBillingGroup_(normalizedFunding, valueAt_(row, idx.school), valueAt_(row, idx.authority));
+      var endKey = normalizeDateKey_(endValue);
+      var groupKey = buildGroupKey_(endKey, billingGroup.type, billingGroup.key);
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          end: endValue,
+          monthEnd: '',
+          funding: normalizedFunding,
+          billingGroupType: billingGroup.type,
+          billingGroupKey: billingGroup.key,
+          authorities: {},
+          schools: {},
+          programs: {},
+          courses: {},
+          sourceRows: {},
+          sourceSheets: {},
+          notes: {},
+          plannedTotal: 0,
+          actualTotal: 0,
+          paymentTotal: 0
+        };
+      }
+
+      var group = groups[groupKey];
+      // הנחה: אם מתקבלים ערכי End שונים באותה קבוצה, שומרים את המוקדם ביותר לצורך יציבות רישום.
+      group.end = pickEarlierDateLikeValue_(group.end, endValue);
+
+      var monthEndValue = Utils.normalize(valueAt_(row, idx.monthEnd));
+      if (!group.monthEnd && monthEndValue) group.monthEnd = monthEndValue;
+
+      addUniqueValue_(group.authorities, valueAt_(row, idx.authority));
+      addUniqueValue_(group.schools, valueAt_(row, idx.school));
+      addUniqueValue_(group.programs, valueAt_(row, idx.program));
+      addUniqueValue_(group.courses, valueAt_(row, idx.courseId));
+
+      var rowId = Utils.normalize(valueAt_(row, idx.rowId));
+      var sourceRow = Utils.normalize(valueAt_(row, idx.sourceRow));
+      addUniqueValue_(group.sourceRows, rowId || sourceRow);
+
+      var sourceSheet = Utils.normalize(valueAt_(row, idx.sourceSheet)) || CONFIG.SHEETS.DATA_MASTER;
+      addUniqueValue_(group.sourceSheets, sourceSheet);
+
+      addUniqueValue_(group.notes, Utils.normalizeWhitespace(valueAt_(row, idx.notes)));
+
+      group.plannedTotal += parseNumberOrZero_(valueAt_(row, idx.plannedMeetings));
+      group.actualTotal += parseNumberOrZero_(valueAt_(row, idx.actualMeetings));
+      group.paymentTotal += parseNumberOrZero_(valueAt_(row, idx.payment));
+    });
+
+    Object.keys(groups).forEach(function (key) {
+      var group = groups[key];
+      if (!group.monthEnd) group.monthEnd = deriveMonthEndFromEnd_(group.end);
+    });
+
+    return groups;
+  }
+
+  function resolveDataMasterFinanceIndexes_(headers) {
+    return {
+      rowId: Utils.resolveIndex(headers, ['RowID']),
+      courseId: Utils.resolveIndex(headers, ['CourseID']),
+      authority: Utils.resolveIndex(headers, ['Authority']),
+      school: Utils.resolveIndex(headers, ['School']),
+      program: Utils.resolveIndex(headers, ['Program']),
+      plannedMeetings: Utils.resolveIndex(headers, ['PlannedMeetings']),
+      actualMeetings: Utils.resolveIndex(headers, ['ActualMeetings']),
+      funding: Utils.resolveIndex(headers, ['Funding']),
+      payment: Utils.resolveIndex(headers, ['Payment']),
+      notes: Utils.resolveIndex(headers, ['Notes']),
+      sourceSheet: Utils.resolveIndex(headers, ['SourceSheet']),
+      sourceRow: Utils.resolveIndex(headers, ['SourceRow']),
+      end: Utils.resolveIndex(headers, ['End']),
+      monthEnd: Utils.resolveIndex(headers, ['MonthEnd'])
+    };
+  }
+
+  function resolveBillingGroup_(funding, school, authority) {
+    var key = Utils.normalizeWhitespace(funding);
+    if (key === 'גפ"ן') return { type: 'SCHOOL', key: Utils.normalizeWhitespace(school) };
+    if (key === 'רשות') return { type: 'AUTHORITY', key: Utils.normalizeWhitespace(authority) };
+    return { type: 'FUNDING', key: key };
+  }
+
+  function normalizeFunding_(value) {
+    var normalized = Utils.normalizeWhitespace(value);
+    if (normalized === 'גפן') return 'גפ"ן';
+    return normalized;
+  }
+
+  function buildGroupKey_(endValue, billingGroupType, billingGroupKey) {
+    return [Utils.normalize(endValue), Utils.normalize(billingGroupType), Utils.normalize(billingGroupKey)].join('|');
+  }
+
+  function buildExistingFinanceIdentity_(headers, row) {
+    var idxFinanceRowId = Utils.resolveIndex(headers, ['FinanceRowID']);
+    var idxEnd = Utils.resolveIndex(headers, ['End']);
+    var idxType = Utils.resolveIndex(headers, ['BillingGroupType']);
+    var idxKey = Utils.resolveIndex(headers, ['BillingGroupKey']);
+    var idxStatus = Utils.resolveIndex(headers, ['FinanceStatus']);
+
+    var out = {
+      financeRowId: Utils.normalize(valueAt_(row, idxFinanceRowId)),
+      financeStatus: Utils.normalize(valueAt_(row, idxStatus)),
+      groupKey: buildGroupKey_(normalizeDateKey_(valueAt_(row, idxEnd)), valueAt_(row, idxType), valueAt_(row, idxKey))
+    };
+    return out;
+  }
+
+  function buildFinanceOutputRow_(headers, group, financeRowId, financeStatus) {
+    var record = {
+      FinanceRowID: financeRowId,
+      End: group.end,
+      MonthEnd: group.monthEnd,
+      Funding: group.funding,
+      BillingGroupType: group.billingGroupType,
+      BillingGroupKey: group.billingGroupKey,
+      Authority: mapKeysToList_(group.authorities),
+      SchoolsList: mapKeysToList_(group.schools),
+      ProgramsList: mapKeysToList_(group.programs),
+      CoursesList: mapKeysToList_(group.courses),
+      PlannedMeetingsTotal: group.plannedTotal,
+      ActualMeetingsTotal: group.actualTotal,
+      PaymentTotal: group.paymentTotal,
+      SourceRows: mapKeysToList_(group.sourceRows),
+      SourceSheets: mapKeysToList_(group.sourceSheets),
+      FinanceStatus: financeStatus,
+      Notes: mapKeysToList_(group.notes)
+    };
+
+    return headers.map(function (header) {
+      return record.hasOwnProperty(header) ? record[header] : '';
+    });
+  }
+
+  function ensureFinanceArchiveSheet_(financeSheet, archiveSheetName) {
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var archiveSheet = spreadsheet.getSheetByName(archiveSheetName);
+    if (archiveSheet) return archiveSheet;
+
+    archiveSheet = spreadsheet.insertSheet(archiveSheetName);
+    var headerWidth = financeSheet.getLastColumn();
+    if (archiveSheet.getMaxColumns() < headerWidth) {
+      archiveSheet.insertColumnsAfter(archiveSheet.getMaxColumns(), headerWidth - archiveSheet.getMaxColumns());
+    }
+
+    var headerRow = financeSheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, headerWidth).getValues();
+    var displayRow = financeSheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, headerWidth).getValues();
+    archiveSheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, headerWidth).setValues(headerRow);
+    archiveSheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, headerWidth).setValues(displayRow);
+    return archiveSheet;
+  }
+
+  function indexFinanceRowsByKey_(headers, rows, byGroupKey, byFinanceRowId, allFinanceIds) {
+    rows.forEach(function (row) {
+      var identity = buildExistingFinanceIdentity_(headers, row);
+      if (identity.groupKey) byGroupKey[identity.groupKey] = identity;
+      if (identity.financeRowId) {
+        byFinanceRowId[identity.financeRowId] = true;
+        allFinanceIds[identity.financeRowId] = true;
+      }
+    });
+  }
+
+  function clearFinanceDataRows_(sheet, width) {
+    var lastRow = sheet.getLastRow();
+    if (lastRow < CONFIG.STRUCTURE.DATA_START_ROW) return;
+    sheet.getRange(CONFIG.STRUCTURE.DATA_START_ROW, 1, lastRow - CONFIG.STRUCTURE.DATA_START_ROW + 1, width).clearContent();
+  }
+
+  function appendFinanceArchiveRow_(sheet, row, width) {
+    var nextRow = Math.max(sheet.getLastRow() + 1, CONFIG.STRUCTURE.DATA_START_ROW);
+    sheet.getRange(nextRow, 1, 1, width).setValues([row]);
+  }
+
+  function findNextFinanceSequence_(allFinanceIds) {
+    var maxNumber = 0;
+    Object.keys(allFinanceIds).forEach(function (financeRowId) {
+      var match = /^FIN-(\d+)$/.exec(financeRowId);
+      if (!match) return;
+      var n = Number(match[1]);
+      if (n > maxNumber) maxNumber = n;
+    });
+    return maxNumber + 1;
+  }
+
+  function generateFinanceRowId_(sequence) {
+    return 'FIN-' + ('00000' + sequence).slice(-5);
+  }
+
+  function sortFinanceRows_(rows, headers) {
+    var idxEnd = Utils.resolveIndex(headers, ['End']);
+    var idxType = Utils.resolveIndex(headers, ['BillingGroupType']);
+    var idxKey = Utils.resolveIndex(headers, ['BillingGroupKey']);
+
+    rows.sort(function (a, b) {
+      var endDiff = compareDateLikeValues_(a[idxEnd], b[idxEnd]);
+      if (endDiff !== 0) return endDiff;
+      var typeA = Utils.normalize(a[idxType]);
+      var typeB = Utils.normalize(b[idxType]);
+      if (typeA < typeB) return -1;
+      if (typeA > typeB) return 1;
+      var keyA = Utils.normalize(a[idxKey]);
+      var keyB = Utils.normalize(b[idxKey]);
+      if (keyA < keyB) return -1;
+      if (keyA > keyB) return 1;
+      return 0;
+    });
+  }
+
+  function compareDateLikeValues_(left, right) {
+    var leftDate = asDate_(left);
+    var rightDate = asDate_(right);
+    if (leftDate && rightDate) return leftDate.getTime() - rightDate.getTime();
+    var leftText = Utils.normalize(left);
+    var rightText = Utils.normalize(right);
+    if (leftText < rightText) return -1;
+    if (leftText > rightText) return 1;
+    return 0;
+  }
+
+  function pickEarlierDateLikeValue_(baseValue, candidateValue) {
+    if (Utils.isEmpty(baseValue)) return candidateValue;
+    if (Utils.isEmpty(candidateValue)) return baseValue;
+    return compareDateLikeValues_(baseValue, candidateValue) <= 0 ? baseValue : candidateValue;
+  }
+
+  function normalizeDateKey_(value) {
+    var asDate = asDate_(value);
+    if (!asDate) return Utils.normalize(value);
+    return Utilities.formatDate(asDate, 'UTC', 'yyyy-MM-dd');
+  }
+
+  function deriveMonthEndFromEnd_(endValue) {
+    var asDate = asDate_(endValue);
+    if (!asDate) return '';
+    return Utilities.formatDate(asDate, 'UTC', 'yyyy-MM');
+  }
+
+  function asDate_(value) {
+    if (value instanceof Date && !isNaN(value.getTime())) return value;
+    if (Utils.isEmpty(value)) return null;
+    var parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return null;
+    return parsed;
+  }
+
+  function addUniqueValue_(mapObj, value) {
+    var normalized = Utils.normalizeWhitespace(value);
+    if (!normalized) return;
+    mapObj[normalized] = true;
+  }
+
+  function mapKeysToList_(mapObj) {
+    return Object.keys(mapObj).join(', ');
+  }
+
+  function parseNumberOrZero_(value) {
+    if (Utils.isEmpty(value)) return 0;
+    var normalized = String(value).replace(/,/g, '').trim();
+    if (!normalized) return 0;
+    var num = Number(normalized);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function isRowEmpty_(row) {
+    for (var i = 0; i < row.length; i += 1) {
+      if (!Utils.isEmpty(row[i])) return false;
+    }
+    return true;
+  }
+
   function isInactiveFlag_(value) {
     var key = Utils.toKey(value);
     return key === '0' || key === 'false' || key === 'no' || key === 'inactive' || key === 'disabled';
+  }
+
+  function isTrueFlag_(value) {
+    var key = Utils.toKey(value);
+    return key === '1' || key === 'true' || key === 'yes' || key === 'כן' || key === 'y';
   }
 
   function isIdan_(user) { return Utils.toKey(user.SystemRole) === 'admin'; }
@@ -1039,12 +1539,22 @@ var Logic = (function () {
     getMyCoursesData: getMyCoursesData,
     submitEditRequest: submitEditRequest,
     getSheetRows: getSheetRows,
+    getFinanceData: getFinanceData,
+    getFinanceArchiveData: getFinanceArchiveData,
+    updateFinanceStatus: updateFinanceStatus,
+    syncFinance: syncFinance,
     updateCourse: updateCourse,
     createEditRequest: createEditRequest,
     getMyRequestsData: getMyRequestsData,
     getApprovalsData: getApprovalsData,
     getEdenViewData: getEdenViewData,
     approveRequest: approveRequest,
-    rejectRequest: rejectRequest
+    rejectRequest: rejectRequest,
+    rebuildFinanceSheet: rebuildFinanceSheet
   };
 })();
+
+
+function rebuildFinanceSheet() {
+  return Logic.rebuildFinanceSheet();
+}
