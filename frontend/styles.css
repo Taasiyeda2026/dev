@@ -245,7 +245,7 @@ body {
 }
 
 .courses-filters {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
 }
 
 .filter-actions {
@@ -297,6 +297,33 @@ body {
 .progress-warning { background: var(--color-warning); }
 .progress-danger { background: var(--color-danger); }
 .course-details-panel { margin-top: var(--space-l); }
+
+.course-form-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+}
+
+.course-form-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  border: 0;
+}
+
+.course-form-card {
+  position: relative;
+  z-index: 1;
+  width: min(520px, calc(100% - 32px));
+  margin: 8vh auto 0;
+  padding: var(--space-l);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  display: grid;
+  gap: var(--space-s);
+}
 
 label { display: grid; gap: var(--space-xs); color: var(--color-text-main); font-size: var(--font-size-small); }
 

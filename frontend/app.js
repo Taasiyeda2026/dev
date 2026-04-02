@@ -23,7 +23,7 @@ const viewState = {
     loading: false,
     error: '',
     data: [],
-    filters: { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' },
+    filters: { authority: '', school: '', courseManager: '', employee: '', period: '', monthStart: '', monthEnd: '' },
     filterOptions: { authority: [], school: [], courseManager: [], employee: [] },
     quickFilter: '',
     selectedInstructor: '',
@@ -63,6 +63,15 @@ const routeIcons = {
   'final-approvals': '🏁',
   'instructor-view': '👤',
   logout: '↩'
+};
+
+const COURSES_SCREEN_CONFIG = {
+  progress: { successRatio: 0.9, warningRatio: 0.6 },
+  meetingFields: { start: 1, end: 15, fallbackEndField: 'End' },
+  // הנחה: דחייה מזוהה דרך Notes כשהוא כולל אחת מהמילים הבאות.
+  postponeKeywords: ['נדחה', 'דחוי', 'postpone', 'postponed'],
+  // הנחה: תאריך מקורי/חדש מזוהים מהתבנית "מ-dd/MM/yyyy ל-dd/MM/yyyy" בתוך Notes.
+  postponeRangePattern: /מ[-\\s]*(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4})\\s*ל[-\\s]*(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4})/i
 };
 
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
@@ -253,8 +262,9 @@ function renderScreen() {
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
       <label>מנהל קורס<select id="courseManagerFilter">${renderSelectOptions(viewState.courses.filterOptions.courseManager, viewState.courses.filters.courseManager)}</select></label>
       <label>מדריך<select id="employeeFilter">${renderSelectOptions(viewState.courses.filterOptions.employee, viewState.courses.filters.employee)}</select></label>
-      <label>יום<input id="dayNameFilter" value="${escAttr(viewState.courses.filters.dayName)}"></label>
       <label>תקופה<input id="periodFilter" placeholder="למשל: 04/2026" value="${escAttr(viewState.courses.filters.period)}"></label>
+      <label>מתאריך חודש<input id="monthStartFilter" placeholder="MonthStart" value="${escAttr(viewState.courses.filters.monthStart)}"></label>
+      <label>עד תאריך חודש<input id="monthEndFilter" placeholder="MonthEnd" value="${escAttr(viewState.courses.filters.monthEnd)}"></label>
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
@@ -272,15 +282,16 @@ function renderScreen() {
         school: document.getElementById('schoolFilter')?.value.trim() || '',
         courseManager: document.getElementById('courseManagerFilter')?.value.trim() || '',
         employee: document.getElementById('employeeFilter')?.value.trim() || '',
-        dayName: document.getElementById('dayNameFilter')?.value.trim() || '',
-        period: document.getElementById('periodFilter')?.value.trim() || ''
+        period: document.getElementById('periodFilter')?.value.trim() || '',
+        monthStart: document.getElementById('monthStartFilter')?.value.trim() || '',
+        monthEnd: document.getElementById('monthEndFilter')?.value.trim() || ''
       };
       loadCourses();
     });
     document.getElementById('resetCourseFilters')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
-      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' };
+      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', period: '', monthStart: '', monthEnd: '' };
       loadCourses();
     });
     document.getElementById('clearInstructorDrilldown')?.addEventListener('click', () => {
@@ -359,14 +370,16 @@ function renderCourseCards(rows, options = {}) {
   return `<section class="cards-grid">${rows.map((row, index) => {
     const issueText = summarizeIssue(row);
     const progress = courseProgress(row);
+    const actual = Math.max(0, numberFrom(row.ActualMeetings));
+    const planned = Math.max(0, numberFrom(row.PlannedMeetings));
     const timeLabel = `${formatTimeValue(row.StartTime)}-${formatTimeValue(row.EndTime)}`;
     return `<article class="management-card">
       <header class="card-head">
         <div>
           <h3>${esc(row.Program || row.Activity || 'פעילות ללא שם')}</h3>
-          <p>${esc([row.Authority, row.School].filter(Boolean).join(' · ') || 'ללא שיוך רשות/בית ספר')}</p>
+          <p>רשות: ${esc(row.Authority || '-')} · בית ספר: ${esc(row.School || '-')}</p>
         </div>
-        ${renderIssueBadge(row)}
+        <div class="card-status">${renderStatusBadge(row)}${renderIssueBadge(row)}</div>
       </header>
       <div class="course-core-grid">
         <div class="course-core-col">
@@ -379,8 +392,8 @@ function renderCourseCards(rows, options = {}) {
           <span><strong>שעות:</strong> ${esc(timeLabel)}</span>
         </div>
         <div class="course-core-col">
-          <span><strong>מפגשים מתוכננים:</strong> ${esc(numberFrom(row.PlannedMeetings))}</span>
-          <span><strong>מפגשים בפועל:</strong> ${esc(numberFrom(row.ActualMeetings))}</span>
+          <span><strong>מפגשים:</strong> ${esc(actual)} מתוך ${esc(planned)}</span>
+          <span><strong>מפגש:</strong> ${esc(Math.min(actual, planned || actual || 0))} מתוך ${esc(planned || 0)}</span>
           <div class="progress-mini">
             <div class="progress-mini-fill ${progress.level}" style="width:${progress.percent}%"></div>
           </div>
@@ -395,7 +408,7 @@ function renderCourseCards(rows, options = {}) {
       </div>
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטים</button>
-        ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">ערוך קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(row.CourseID || '')}">בקשת שינוי</button>`}
+        ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">עריכת קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(row.CourseID || '')}">בקשת שינוי</button>`}
       </footer>
     </article>`;
   }).join('')}</section>`;
@@ -493,7 +506,7 @@ function courseColumns(isInstructorView) {
 
 function onKpiClick(filterName) {
   viewState.courses.quickFilter = filterName;
-  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' };
+  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', period: '', monthStart: '', monthEnd: '' };
   setRoute(isInstructor() ? 'instructor-view' : 'courses');
 }
 
@@ -668,25 +681,31 @@ function courseProgress(row) {
   const actual = Math.max(0, numberFrom(row.ActualMeetings));
   const ratio = planned > 0 ? actual / planned : 0;
   const percent = Math.min(100, Math.max(0, Math.round(ratio * 100)));
-  if (ratio >= 0.9) return { percent, level: 'progress-success' };
-  if (ratio >= 0.6) return { percent, level: 'progress-warning' };
+  if (ratio >= COURSES_SCREEN_CONFIG.progress.successRatio) return { percent, level: 'progress-success' };
+  if (ratio >= COURSES_SCREEN_CONFIG.progress.warningRatio) return { percent, level: 'progress-warning' };
   return { percent, level: 'progress-danger' };
 }
 
 function collectCourseDates(row) {
   const dates = [];
-  for (let index = 1; index <= 15; index += 1) {
+  for (let index = COURSES_SCREEN_CONFIG.meetingFields.start; index <= COURSES_SCREEN_CONFIG.meetingFields.end; index += 1) {
     const fieldName = `Date${index}`;
     const date = parseDateLike(row?.[fieldName]);
-    if (date) dates.push({ label: fieldName, value: date });
+    if (date) dates.push({ label: fieldName, value: date, index });
   }
+  dates.sort((a, b) => a.value - b.value);
+  const endDate = parseDateLike(row?.[COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField]);
+  if (endDate) dates.push({ label: COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField, value: endDate, index: dates.length + 1, isEndDate: true });
   return dates;
 }
 
 function renderCourseDetailsPanel(course, options = {}) {
   if (!course) return '';
-  const dates = collectCourseDates(course);
+  const meetings = collectCourseDates(course);
   const reviewFlag = String(course.ReviewRequired || course.RequiresReview || '').trim();
+  const postponeInfo = parsePostponeInfo(course.Notes);
+  const plannedMeetings = Math.max(0, numberFrom(course.PlannedMeetings));
+  const actualMeetings = Math.max(0, numberFrom(course.ActualMeetings));
   return `<section class="panel-block course-details-panel">
     <div class="panel-block-head">
       <h3>Drill-down לקורס: ${esc(course.Program || course.Activity || course.CourseID || '')}</h3>
@@ -697,15 +716,43 @@ function renderCourseDetailsPanel(course, options = {}) {
       <div class="course-core-col"><span><strong>מימון:</strong> ${esc(course.Funding || '-')}</span><span><strong>לתשלום:</strong> ${esc(course.Payment || '-')}</span></div>
       <div class="course-core-col"><span><strong>סטטוס דיווח:</strong> ${esc(summarizeIssue(course))}</span><span><strong>חריגה ב-REVIEW_REQUIRED:</strong> ${esc(reviewFlag || 'לא')}</span></div>
     </div>
-    <div class="table-wrap compact-table"><table><thead><tr><th>שדה תאריך</th><th>תאריך</th></tr></thead><tbody>
-      ${dates.length ? dates.map((item) => `<tr><td>${item.label}</td><td>${formatDate(item.value)}</td></tr>`).join('') : '<tr><td colspan="2">אין תאריכי מפגש</td></tr>'}
-      <tr><td>End</td><td>${esc(formatDate(parseDateLike(course.End)) || '-')}</td></tr>
+    <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>שעות</th><th>התקדמות</th><th>דחייה</th><th>תאריך מקורי</th><th>תאריך חדש</th></tr></thead><tbody>
+      ${meetings.length ? meetings.map((item) => {
+        const meetingNumber = item.isEndDate ? Math.max(plannedMeetings, meetings.length - 1) : item.index;
+        const dayLabel = item.value.toLocaleDateString('he-IL', { weekday: 'long' });
+        const postponed = postponeInfo.isPostponed && !item.isEndDate;
+        return `<tr>
+          <td>${esc(item.label)}</td>
+          <td>${esc(formatDate(item.value))}</td>
+          <td>${esc(dayLabel)}</td>
+          <td>${esc(`${formatTimeValue(course.StartTime)}-${formatTimeValue(course.EndTime)}`)}</td>
+          <td>מפגש ${esc(meetingNumber)} מתוך ${esc(plannedMeetings || meetings.length)}</td>
+          <td>${postponed ? 'כן' : 'לא'}</td>
+          <td>${esc(postponed ? postponeInfo.originalDate : '-')}</td>
+          <td>${esc(postponed ? postponeInfo.newDate : '-')}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="8">אין תאריכי מפגש</td></tr>'}
     </tbody></table></div>
+    <div class="card-kpi-row">
+      <span><strong>מפגשים:</strong> ${esc(actualMeetings)} מתוך ${esc(plannedMeetings)}</span>
+      <span><strong>מפגש נוכחי:</strong> ${esc(Math.min(actualMeetings, plannedMeetings || actualMeetings || 0))} מתוך ${esc(plannedMeetings || 0)}</span>
+    </div>
     <div class="card-issue ${reviewFlag ? 'has-issue' : ''}"><strong>הערות:</strong> ${esc(course.Notes || 'אין הערות')}</div>
     <footer class="card-actions">
-      ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(course.CourseID || '')}">ערוך קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(course.CourseID || '')}">בקשת שינוי</button>`}
+      ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(course.CourseID || '')}">עריכת קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(course.CourseID || '')}">בקשת שינוי</button>`}
     </footer>
   </section>`;
+}
+
+function parsePostponeInfo(notesValue) {
+  const text = String(notesValue || '').trim();
+  const isPostponed = COURSES_SCREEN_CONFIG.postponeKeywords.some((keyword) => text.toLowerCase().includes(keyword.toLowerCase()));
+  const match = text.match(COURSES_SCREEN_CONFIG.postponeRangePattern);
+  return {
+    isPostponed,
+    originalDate: match?.[1] || '-',
+    newDate: match?.[2] || '-'
+  };
 }
 
 function renderIssueBadge(row) {
@@ -713,6 +760,12 @@ function renderIssueBadge(row) {
   if (isMissingReport(row)) return '<span class="status-chip status-pending">חסר דיווח</span>';
   if (!hasInstructor(row)) return '<span class="status-chip status-pending-final">חסר מדריך</span>';
   return '<span class="status-chip status-approved">תקין</span>';
+}
+
+function renderStatusBadge(row) {
+  const statusText = String(row.EventType || row.Status || row.OperationalStatus || '').trim();
+  if (!statusText) return '';
+  return `<span class="status-chip status-none">${esc(statusText)}</span>`;
 }
 
 function renderInstructorState(row) {
@@ -797,33 +850,74 @@ function bindExceptionActions() {
 function bindEditButtons() {
   document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', async () => {
     const row = findCourseById(b.dataset.editRow) || {};
+    const mode = canDirectEditCourses() ? 'edit' : 'request';
+    const formResult = await openCourseActionForm(row, mode);
+    if (!formResult) return;
     if (canDirectEditCourses()) {
-      const summary = window.prompt('תקציר עריכה ישירה', `עדכון לקורס ${row.Program || row.CourseID || ''}`);
-      if (summary === null) return;
-      const res = await updateCourse(row.CourseID, { summary, notes: row.Notes || '' }, userState);
+      const res = await updateCourse(row.CourseID, formResult.changes, userState);
       if (!res?.success) {
         window.alert(res?.message || 'עדכון הקורס נכשל');
         return;
       }
-      await loadCourses({ silent: true, forceRefreshCourseId: row.CourseID });
+      const updated = await refreshCourse(row.CourseID);
+      if (updated) {
+        viewState.courses.data = viewState.courses.data.map((course) => (String(course.CourseID) === String(updated.CourseID) ? { ...course, ...updated } : course));
+        if (viewState.courses.selectedCourseId && String(viewState.courses.selectedCourseId) === String(updated.CourseID)) {
+          viewState.courses.selectedCourseDetails = { ...viewState.courses.selectedCourseDetails, ...updated };
+        }
+      }
+      renderScreen();
       window.alert('הקורס עודכן בהצלחה מול הגיליון.');
       return;
     }
-    const summary = window.prompt('תקציר שינוי', `בקשת שינוי לקורס ${row.Program || row.CourseID || ''}`);
-    if (summary === null) return;
-    const res = await createEditRequest(row.CourseID, {
-      summary: summary || 'בקשת שינוי לקורס',
-      startTime: row.StartTime || '',
-      endTime: row.EndTime || '',
-      employee: resolveInstructorName(row),
-      notes: row.Notes || ''
-    }, userState);
+    const res = await createEditRequest(row.CourseID, formResult.changes, userState);
     if (!res?.success) window.alert(res?.message || 'הפעולה נכשלה');
     else {
       await loadMyRequests();
       window.alert('בקשת השינוי נפתחה ונרשמה ב-EDIT_REQUESTS.');
     }
   }));
+}
+
+function openCourseActionForm(course, mode) {
+  return new Promise((resolve) => {
+    const root = document.createElement('div');
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card">
+        <h3>${mode === 'edit' ? 'עריכת קורס' : 'בקשת שינוי'}</h3>
+        <p>${esc(course.Program || course.Activity || course.CourseID || '')}</p>
+        <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
+        <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
+        <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
+        <label>תקציר שינוי<input id="courseFormSummary" value="" placeholder="${mode === 'edit' ? 'עדכון שעות/הערות' : 'בקשת שינוי במסך קורסים'}" /></label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="courseFormSubmit">${mode === 'edit' ? 'שמור' : 'שלח בקשה'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+
+    const close = (result = null) => {
+      root.remove();
+      resolve(result);
+    };
+
+    root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
+    root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
+      const summary = root.querySelector('#courseFormSummary')?.value.trim() || (mode === 'edit' ? 'עדכון קורס' : 'בקשת שינוי');
+      close({
+        changes: {
+          StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
+          EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
+          Notes: root.querySelector('#courseFormNotes')?.value.trim() || '',
+          summary
+        }
+      });
+    });
+  });
 }
 
 function bindApprovalButtons() {
@@ -997,10 +1091,17 @@ function applyCoursesFiltersByUiScope(rows, filters) {
     if (clean.school && !String(row.School || '').toLowerCase().includes(clean.school)) return false;
     if (clean.courseManager && !String(row.CourseManager || '').toLowerCase().includes(clean.courseManager)) return false;
     if (clean.employee && !String(resolveInstructorName(row) || '').toLowerCase().includes(clean.employee)) return false;
-    if (clean.dayName && !String(row.DayName || '').toLowerCase().includes(clean.dayName)) return false;
     if (clean.period) {
       const monthly = `${String((row.End?.getMonth?.() || 0) + 1).padStart(2, '0')}/${row.End?.getFullYear?.() || ''}`;
       if (!monthly.includes(clean.period)) return false;
+    }
+    if (clean.monthStart) {
+      const monthStart = parseDateLike(clean.monthStart);
+      if (monthStart && row.End && row.End < startOfDay(monthStart)) return false;
+    }
+    if (clean.monthEnd) {
+      const monthEnd = parseDateLike(clean.monthEnd);
+      if (monthEnd && row.End && row.End > endOfDay(monthEnd)) return false;
     }
     if (isDualMode()) return isManagedByCurrentUser(row) || isTaughtByCurrentUser(row);
     if (isInstructor()) return isTaughtByCurrentUser(row);
