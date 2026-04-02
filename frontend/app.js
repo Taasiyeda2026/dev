@@ -64,8 +64,8 @@ function render() {
     <div class="login-logo-slot"><img class="login-logo" src="./assets/logo.png" alt="לוגו המערכת" /></div>
     <h1 class="login-title">כניסה למערכת</h1>
     <p class="login-subtitle">Dashboard Taasiyeda</p>
-    <label>מזהה משתמש<input id="userId" autocomplete="username" /></label>
-    <label>קוד כניסה<input id="loginCode" type="password" autocomplete="current-password" /></label>
+    <input id="userId" class="login-input" placeholder="מזהה משתמש" aria-label="מזהה משתמש" autocomplete="username" />
+    <input id="loginCode" class="login-input" type="password" placeholder="קוד כניסה" aria-label="קוד כניסה" autocomplete="current-password" />
     <button class="btn btn-primary login-btn" id="loginBtn">התחבר</button><p class="error" id="loginError"></p></div></section>`;
     document.getElementById('loginBtn').addEventListener('click', onLogin);
     return;
