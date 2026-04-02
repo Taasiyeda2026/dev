@@ -244,6 +244,16 @@ body {
   align-items: end;
 }
 
+.courses-filters {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.filter-actions {
+  display: flex;
+  align-items: end;
+  gap: var(--space-s);
+}
+
 .management-actions { display: flex; flex-wrap: wrap; gap: var(--space-s); }
 
 .drilldown-head {
@@ -256,7 +266,7 @@ body {
   padding: var(--space-m) var(--space-l);
 }
 
-.cards-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--layout-column-gap); }
+.cards-grid { display: grid; grid-template-columns: 1fr; gap: var(--space-l); }
 .instructor-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 .management-card { padding: var(--space-l); display: grid; gap: var(--space-m); min-height: 180px; }
@@ -279,6 +289,14 @@ body {
 .card-issue.has-issue { border-color: var(--color-warning); background: #FFF7ED; }
 .card-kpi-row { display: flex; gap: var(--space-l); color: var(--color-text-muted); font-size: var(--font-size-small); }
 .card-actions { display: flex; gap: var(--space-s); flex-wrap: wrap; margin-top: auto; }
+.course-core-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
+.course-core-col { display: grid; gap: var(--space-xs); font-size: var(--font-size-body); color: var(--color-text-main); }
+.progress-mini { width: 100%; height: 6px; border-radius: var(--radius-pill); background: var(--color-border-subtle); overflow: hidden; }
+.progress-mini-fill { height: 100%; border-radius: var(--radius-pill); }
+.progress-success { background: var(--color-success); }
+.progress-warning { background: var(--color-warning); }
+.progress-danger { background: var(--color-danger); }
+.course-details-panel { margin-top: var(--space-l); }
 
 label { display: grid; gap: var(--space-xs); color: var(--color-text-main); font-size: var(--font-size-small); }
 
@@ -466,7 +484,7 @@ tbody tr:hover { background: #F8FAFF; }
   .mobile-nav-backdrop.show { opacity: 1; pointer-events: auto; }
   .main { padding: var(--space-xxl) var(--space-l) var(--space-l); }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .filters-wrap, .split-grid, .cards-grid, .instructor-grid { grid-template-columns: 1fr; }
+  .filters-wrap, .split-grid, .cards-grid, .instructor-grid, .courses-filters, .course-core-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
