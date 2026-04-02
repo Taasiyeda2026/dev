@@ -495,7 +495,18 @@ tbody tr:hover { background: #F8FAFF; }
 .login-title, .login-subtitle, .login-input, .login-btn, .login-card .error { width: 100%; justify-self: center; }
 .login-title { margin: 0; text-align: center; line-height: 1.2; font-size: var(--font-size-h2); font-weight: var(--font-weight-semibold); }
 .login-subtitle { margin: 0; color: var(--color-text-muted); text-align: center; font-size: var(--font-size-body); font-weight: var(--font-weight-semibold); }
-.login-input { min-height: var(--button-height-primary); padding: var(--space-s) var(--space-m); font-size: var(--font-size-body); }
+.login-input {
+  min-height: var(--button-height-primary);
+  padding: var(--space-s) var(--space-m);
+  font-size: var(--font-size-body);
+  text-align: center;
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.login-input::placeholder {
+  text-align: center;
+}
 .login-btn { min-height: var(--button-height-primary); padding: var(--space-s) var(--space-m); font-weight: var(--font-weight-semibold); }
 .login-card .error { margin: 0 auto; min-height: var(--space-l); font-size: var(--font-size-small); text-align: center; }
 
