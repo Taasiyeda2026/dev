@@ -1,11 +1,13 @@
+import { COURSE_FIELDS, PERMISSION_FIELDS, SHEET_NAMES } from './data-contracts.js';
+
 const SHEETS_WITH_DISPLAY_ROW = new Set([
-  'COURSES',
-  'DATA_MASTER',
-  'PERMISSIONS',
-  'EDIT_REQUESTS',
-  'REVIEW_REQUIRED',
-  'LISTS',
-  'PROGRAM_CODES',
+  SHEET_NAMES.COURSES,
+  SHEET_NAMES.DATA_MASTER,
+  SHEET_NAMES.PERMISSIONS,
+  SHEET_NAMES.EDIT_REQUESTS,
+  SHEET_NAMES.REVIEW_REQUIRED,
+  SHEET_NAMES.LISTS,
+  SHEET_NAMES.PROGRAM_CODES,
   'SUMMARY'
 ]);
 
@@ -64,21 +66,21 @@ function parseRowsToObjects(sheetName, rows = []) {
 
 function mapPermissionRow(raw = {}) {
   return {
-    employeeName: String(raw.EmployeeName || '').trim(),
-    employeeId: toNumber(raw.EmployeeID),
-    entryCode: String(raw.EntryCode || '').trim(),
-    baseRole: String(raw.BaseRole || '').trim(),
-    systemRole: String(raw.SystemRole || '').trim(),
-    displayRole: String(raw.DisplayRole || '').trim(),
-    viewScope: String(raw.ViewScope || '').trim(),
-    editScope: String(raw.EditScope || '').trim(),
-    approvalScope: String(raw.ApprovalScope || '').trim(),
-    uiProfile: String(raw.UiProfile || '').trim(),
-    teamScope: String(raw.TeamScope || '').trim(),
-    isDualMode: toBool(raw.IsDualMode),
-    canViewDashboard: toBool(raw.CanViewDashboard),
-    canEditMasterData: toBool(raw.CanEditMasterData),
-    canApproveToMainData: toBool(raw.CanApproveToMainData),
+    employeeName: String(raw[PERMISSION_FIELDS.EMPLOYEE_NAME] || '').trim(),
+    employeeId: toNumber(raw[PERMISSION_FIELDS.EMPLOYEE_ID]),
+    entryCode: String(raw[PERMISSION_FIELDS.ENTRY_CODE] || '').trim(),
+    baseRole: String(raw[PERMISSION_FIELDS.BASE_ROLE] || '').trim(),
+    systemRole: String(raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim(),
+    displayRole: String(raw[PERMISSION_FIELDS.DISPLAY_ROLE] || '').trim(),
+    viewScope: String(raw[PERMISSION_FIELDS.VIEW_SCOPE] || '').trim(),
+    editScope: String(raw[PERMISSION_FIELDS.EDIT_SCOPE] || '').trim(),
+    approvalScope: String(raw[PERMISSION_FIELDS.APPROVAL_SCOPE] || '').trim(),
+    uiProfile: String(raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
+    teamScope: String(raw[PERMISSION_FIELDS.TEAM_SCOPE] || '').trim(),
+    isDualMode: toBool(raw[PERMISSION_FIELDS.IS_DUAL_MODE]),
+    canViewDashboard: toBool(raw[PERMISSION_FIELDS.CAN_VIEW_DASHBOARD]),
+    canEditMasterData: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_MASTER_DATA]),
+    canApproveToMainData: toBool(raw[PERMISSION_FIELDS.CAN_APPROVE_TO_MAIN_DATA]),
     raw
   };
 }
@@ -86,13 +88,13 @@ function mapPermissionRow(raw = {}) {
 function mapCourseRow(raw = {}) {
   return {
     ...raw,
-    CourseID: String(raw.CourseID || '').trim(),
-    ProgramCode: toNumber(raw.ProgramCode),
-    EmployeeID: toNumber(raw.EmployeeID),
-    PlannedMeetings: toNumber(raw.PlannedMeetings),
-    ActualMeetings: toNumber(raw.ActualMeetings),
-    StartTime: raw.StartTime,
-    EndTime: raw.EndTime
+    CourseID: String(raw[COURSE_FIELDS.COURSE_ID] || '').trim(),
+    ProgramCode: toNumber(raw[COURSE_FIELDS.PROGRAM_CODE]),
+    EmployeeID: toNumber(raw[COURSE_FIELDS.EMPLOYEE_ID]),
+    PlannedMeetings: toNumber(raw[COURSE_FIELDS.PLANNED_MEETINGS]),
+    ActualMeetings: toNumber(raw[COURSE_FIELDS.ACTUAL_MEETINGS]),
+    StartTime: raw[COURSE_FIELDS.START_TIME],
+    EndTime: raw[COURSE_FIELDS.END_TIME]
   };
 }
 
@@ -120,7 +122,7 @@ async function fetchSheet(sheetName) {
 
 async function loadCourses() {
   if (!apiRef) return [];
-  const rows = await fetchSheet('COURSES');
+  const rows = await fetchSheet(SHEET_NAMES.COURSES);
   dataStore.courses = rows.map(mapCourseRow);
   dataStore.loadedAt.courses = now();
   return dataStore.courses;
@@ -143,7 +145,7 @@ export async function initDataEngine(api, options = {}) {
 
 export async function loadPermissions(userState = {}) {
   let mapped = [];
-  const rows = await fetchSheet('PERMISSIONS');
+  const rows = await fetchSheet(SHEET_NAMES.PERMISSIONS);
   if (rows.length) {
     mapped = rows.map(mapPermissionRow);
   } else {
@@ -172,34 +174,34 @@ export async function loadPermissions(userState = {}) {
 }
 
 export async function loadLists() {
-  dataStore.lists = await fetchSheet('LISTS');
+  dataStore.lists = await fetchSheet(SHEET_NAMES.LISTS);
   dataStore.loadedAt.lists = now();
   return dataStore.lists;
 }
 
 export async function loadProgramCodes() {
-  dataStore.programCodes = await fetchSheet('PROGRAM_CODES');
+  dataStore.programCodes = await fetchSheet(SHEET_NAMES.PROGRAM_CODES);
   dataStore.loadedAt.programCodes = now();
   return dataStore.programCodes;
 }
 
 export async function loadEditRequests(force = false) {
   if (!force && dataStore.editRequests.length) return dataStore.editRequests;
-  dataStore.editRequests = await fetchSheet('EDIT_REQUESTS');
+  dataStore.editRequests = await fetchSheet(SHEET_NAMES.EDIT_REQUESTS);
   dataStore.loadedAt.editRequests = now();
   return dataStore.editRequests;
 }
 
 export async function loadReviewItems(force = false) {
   if (!force && dataStore.reviewItems.length) return dataStore.reviewItems;
-  dataStore.reviewItems = await fetchSheet('REVIEW_REQUIRED');
+  dataStore.reviewItems = await fetchSheet(SHEET_NAMES.REVIEW_REQUIRED);
   dataStore.loadedAt.reviewItems = now();
   return dataStore.reviewItems;
 }
 
 export async function loadDataMaster(force = false) {
   if (!force && dataStore.dataMaster.length) return dataStore.dataMaster;
-  dataStore.dataMaster = await fetchSheet('DATA_MASTER');
+  dataStore.dataMaster = await fetchSheet(SHEET_NAMES.DATA_MASTER);
   dataStore.loadedAt.dataMaster = now();
   return dataStore.dataMaster;
 }
@@ -234,15 +236,15 @@ function canViewCourse(course, permission, userState = {}) {
   const teamScope = String(permission.teamScope || '').toLowerCase();
   const isAdmin = String(permission.systemRole || '').toUpperCase() === 'IDAN_MAIN_ADMIN';
   if (isAdmin || scope === 'all') return true;
-  const authority = String(course.Authority || '').toLowerCase();
-  const manager = String(course.CourseManager || '').trim();
-  const employee = String(course.Employee || '').trim();
+  const authority = String(course[COURSE_FIELDS.AUTHORITY] || '').toLowerCase();
+  const manager = String(course[COURSE_FIELDS.COURSE_MANAGER] || '').trim();
+  const employee = String(course[COURSE_FIELDS.EMPLOYEE] || '').trim();
   const myName = String(userState.displayName || '').trim();
   const myEmployeeId = toNumber(userState.EmployeeID || userState.userId);
   if (teamScope && authority.includes(teamScope)) return true;
   if (scope && authority.includes(scope)) return true;
   if (scope === 'self') {
-    return employee === myName || manager === myName || toNumber(course.EmployeeID) === myEmployeeId;
+    return employee === myName || manager === myName || toNumber(course[COURSE_FIELDS.EMPLOYEE_ID]) === myEmployeeId;
   }
   return true;
 }
@@ -251,13 +253,13 @@ export function getCoursesForUser(userState = {}, filters = {}) {
   const permission = getPermissionForUser(userState);
   return dataStore.courses.filter((course) => {
     if (!canViewCourse(course, permission, userState)) return false;
-    if (!matchContains(course.Authority, filters.authority)) return false;
-    if (!matchContains(course.School, filters.school)) return false;
-    if (!matchContains(course.Employee, filters.employee)) return false;
-    if (!matchContains(course.CourseManager, filters.courseManager)) return false;
+    if (!matchContains(course[COURSE_FIELDS.AUTHORITY], filters.authority)) return false;
+    if (!matchContains(course[COURSE_FIELDS.SCHOOL], filters.school)) return false;
+    if (!matchContains(course[COURSE_FIELDS.EMPLOYEE], filters.employee)) return false;
+    if (!matchContains(course[COURSE_FIELDS.COURSE_MANAGER], filters.courseManager)) return false;
     if (filters.period) {
       const period = String(filters.period || '').trim();
-      const end = String(course.End || '').trim();
+      const end = String(course[COURSE_FIELDS.END] || '').trim();
       if (!end.includes(period)) return false;
     }
     return true;
@@ -267,12 +269,12 @@ export function getCoursesForUser(userState = {}, filters = {}) {
 export async function refreshCourse(courseId) {
   const courseKey = String(courseId || '').trim();
   if (!courseKey) return null;
-  const rows = await fetchSheet('COURSES');
+  const rows = await fetchSheet(SHEET_NAMES.COURSES);
   if (rows.length) {
     const mappedRows = rows.map(mapCourseRow);
-    const found = mappedRows.find((item) => String(item.CourseID) === courseKey) || null;
+    const found = mappedRows.find((item) => String(item[COURSE_FIELDS.COURSE_ID]) === courseKey) || null;
     if (found) {
-      const existingIndex = dataStore.courses.findIndex((item) => String(item.CourseID) === courseKey);
+      const existingIndex = dataStore.courses.findIndex((item) => String(item[COURSE_FIELDS.COURSE_ID]) === courseKey);
       if (existingIndex > -1) dataStore.courses[existingIndex] = { ...dataStore.courses[existingIndex], ...found };
       else dataStore.courses.unshift(found);
       dataStore.loadedAt.courses = now();
@@ -281,7 +283,7 @@ export async function refreshCourse(courseId) {
     dataStore.courses = mappedRows;
     dataStore.loadedAt.courses = now();
   }
-  return dataStore.courses.find((item) => String(item.CourseID) === courseKey) || null;
+  return dataStore.courses.find((item) => String(item[COURSE_FIELDS.COURSE_ID]) === courseKey) || null;
 }
 
 export async function updateCourse(courseId, changes, actor = {}) {
@@ -289,9 +291,9 @@ export async function updateCourse(courseId, changes, actor = {}) {
   const res = await apiRef.updateCourse({ CourseID: courseId, changes, actor });
   if (res?.success) {
     const updated = res?.data?.COURSES || null;
-    if (updated && updated.CourseID) {
+    if (updated && updated[COURSE_FIELDS.COURSE_ID]) {
       const mapped = mapCourseRow(updated);
-      const existingIndex = dataStore.courses.findIndex((item) => String(item.CourseID) === String(mapped.CourseID));
+      const existingIndex = dataStore.courses.findIndex((item) => String(item[COURSE_FIELDS.COURSE_ID]) === String(mapped[COURSE_FIELDS.COURSE_ID]));
       if (existingIndex > -1) dataStore.courses[existingIndex] = { ...dataStore.courses[existingIndex], ...mapped };
       else dataStore.courses.unshift(mapped);
       dataStore.loadedAt.courses = now();
