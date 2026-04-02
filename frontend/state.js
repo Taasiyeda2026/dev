@@ -3,9 +3,16 @@ const STORAGE_KEY = 'p2026_user_state';
 const baseState = {
   authenticated: false,
   userId: '',
+  EmployeeID: '',
   BaseRole: '',
   SystemRole: '',
   DisplayRole: '',
+  ViewScope: '',
+  EditScope: '',
+  ApprovalScope: '',
+  UiProfile: '',
+  IsDualMode: '',
+  TeamScope: '',
   AccessScope: '',
   displayName: ''
 };
@@ -20,9 +27,16 @@ function pickAllowed(next) {
   return {
     authenticated: Boolean(next?.authenticated),
     userId: String(next?.userId || ''),
+    EmployeeID: String(next?.EmployeeID || ''),
     BaseRole: String(next?.BaseRole || ''),
     SystemRole: String(next?.SystemRole || ''),
     DisplayRole: String(next?.DisplayRole || ''),
+    ViewScope: String(next?.ViewScope || ''),
+    EditScope: String(next?.EditScope || ''),
+    ApprovalScope: String(next?.ApprovalScope || ''),
+    UiProfile: String(next?.UiProfile || ''),
+    IsDualMode: String(next?.IsDualMode || ''),
+    TeamScope: String(next?.TeamScope || ''),
     AccessScope: String(next?.AccessScope || ''),
     displayName: String(next?.displayName || '')
   };

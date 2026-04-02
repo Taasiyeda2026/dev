@@ -8,7 +8,16 @@ let mobileNavOpen = false;
 
 const viewState = {
   dashboard: { loading: false, error: '', data: null, timeframe: 'day' },
-  courses: { loading: false, error: '', data: [], filters: { search: '', program: '', status: '' }, quickFilter: '', selectedInstructor: '', selectedCourseIndex: null },
+  courses: {
+    loading: false,
+    error: '',
+    data: [],
+    filters: { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' },
+    quickFilter: '',
+    selectedInstructor: '',
+    selectedCourseId: '',
+    selectedCourseDetails: null
+  },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
   eden: { loading: false, error: '', data: { queue: [], exceptions: [] }, filters: { type: '', instructor: '', authority: '', treatment: '' } }
@@ -22,7 +31,6 @@ const roleMap = {
   instructor: 'מדריך'
 };
 
-const APP_NAME = 'Dashboard Taasiyeda';
 const routeLabels = {
   login: 'כניסה למערכת',
   dashboard: 'דשבורד פעילות ארצי',
@@ -53,10 +61,15 @@ function displayRole() {
   return roleMap[role()] || roleMap[baseRole()] || 'ללא תפקיד מוגדר';
 }
 function isAuth() { return Boolean(userState.authenticated && userState.userId); }
-function isIdan() { return role() === 'admin'; }
+function isIdan() {
+  return role() === 'idan_main_admin'
+    || (role() === 'admin' && String(userState.EditScope || '').trim().toUpperCase() === 'MAIN_DATA_DIRECT_EDIT');
+}
 function isEden() { return role() === 'admin-ops'; }
 function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].includes(role()); }
 function isInstructor() { return role() === 'instructor'; }
+function isDualMode() { return String(userState.IsDualMode || '').trim().toUpperCase() === 'BOTH'; }
+function canDirectEditCourses() { return isIdan(); }
 
 
 function closeMobileNav() {
@@ -203,41 +216,54 @@ function renderScreen() {
   }
 
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') {
-    const subtitle = isInstructor() ? 'רק נתונים שמשויכים אליך' : 'תצוגת all data עם עריכה מבוקרת לפי הרשאה';
+    const subtitle = isInstructor() ? 'רק קורסים שמשויכים אליך' : `תפקיד פעיל: ${displayRole()}`;
     const filteredCourses = applyCourseQuickFilter(viewState.courses.data);
     const selectedInstructor = viewState.courses.selectedInstructor;
     const instructorOverview = buildInstructorOverview(filteredCourses);
     const visibleCourses = currentRoute === 'instructor-view' && selectedInstructor
       ? filteredCourses.filter((row) => String(row?.Instructor || '').trim() === selectedInstructor)
       : filteredCourses;
-    main.innerHTML = head(currentRoute === 'courses' ? 'פעילות / קורסים / סדנאות' : 'תצוגת מדריכים', subtitle) +
-    `<section class="filters-wrap"><label>חיפוש<input id="searchText" value="${escAttr(viewState.courses.filters.search)}"></label>
-    <label>תוכנית<input id="programFilter" value="${escAttr(viewState.courses.filters.program)}"></label>
-    <label>סטטוס<input id="statusFilter" value="${escAttr(viewState.courses.filters.status)}"></label>
-    <button class="btn btn-secondary" id="filterCourses">סינון</button></section>
-    <section class="management-actions">
-      ${isManager() ? '<button class="btn btn-primary" id="addActivityBtn">הוסף פעילות</button>' : ''}
-      ${isManager() ? '<button class="btn btn-secondary" id="addInstructorAssignBtn">הוסף מדריך לפעילות</button>' : ''}
-      ${isManager() ? '<button class="btn btn-secondary" id="bulkStatusBtn">עדכון סטטוסים</button>' : ''}
+    const activeFiltersCount = Object.values(viewState.courses.filters).filter((value) => String(value || '').trim()).length;
+    main.innerHTML = head(currentRoute === 'courses' ? 'קורסים פעילים' : 'תצוגת מדריכים', `${subtitle} · קורסים מוצגים: ${visibleCourses.length} · פילטרים פעילים: ${activeFiltersCount}`) +
+    `<section class="filters-wrap courses-filters">
+      <label>רשות<input id="authorityFilter" value="${escAttr(viewState.courses.filters.authority)}"></label>
+      <label>בית ספר<input id="schoolFilter" value="${escAttr(viewState.courses.filters.school)}"></label>
+      <label>מנהל קורס<input id="courseManagerFilter" value="${escAttr(viewState.courses.filters.courseManager)}"></label>
+      <label>מדריך<input id="employeeFilter" value="${escAttr(viewState.courses.filters.employee)}"></label>
+      <label>יום<input id="dayNameFilter" value="${escAttr(viewState.courses.filters.dayName)}"></label>
+      <label>תקופה<input id="periodFilter" placeholder="למשל: 04/2026" value="${escAttr(viewState.courses.filters.period)}"></label>
+      <div class="filter-actions">
+        <button class="btn btn-secondary" id="filterCourses">סינון</button>
+        <button class="btn btn-secondary" id="resetCourseFilters">איפוס</button>
+      </div>
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
     ${selectedInstructor ? `<section class="drilldown-head"><span>מדריך</span><strong>${esc(selectedInstructor)}</strong><button class="btn btn-secondary" id="clearInstructorDrilldown">חזרה לכל המדריכים</button></section>` : ''}
-    ${renderCourseCards(visibleCourses, { canEdit: isManager() && !isInstructor() })}`);
+    ${renderCourseCards(visibleCourses, { canEdit: canDirectEditCourses() })}`) +
+    renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canDirectEditCourses() });
     document.getElementById('filterCourses')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
       viewState.courses.filters = {
-        search: document.getElementById('searchText')?.value.trim() || '',
-        program: document.getElementById('programFilter')?.value.trim() || '',
-        status: document.getElementById('statusFilter')?.value.trim() || ''
+        authority: document.getElementById('authorityFilter')?.value.trim() || '',
+        school: document.getElementById('schoolFilter')?.value.trim() || '',
+        courseManager: document.getElementById('courseManagerFilter')?.value.trim() || '',
+        employee: document.getElementById('employeeFilter')?.value.trim() || '',
+        dayName: document.getElementById('dayNameFilter')?.value.trim() || '',
+        period: document.getElementById('periodFilter')?.value.trim() || ''
       };
+      loadCourses();
+    });
+    document.getElementById('resetCourseFilters')?.addEventListener('click', () => {
+      viewState.courses.quickFilter = '';
+      viewState.courses.selectedInstructor = '';
+      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' };
       loadCourses();
     });
     document.getElementById('clearInstructorDrilldown')?.addEventListener('click', () => {
       viewState.courses.selectedInstructor = '';
       renderScreen();
     });
-    bindManagementActions();
     bindInstructorCards();
     bindCourseActions();
     return;
@@ -303,36 +329,44 @@ function renderCourseCards(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו פעילויות לפי הסינון.</section>';
   return `<section class="cards-grid">${rows.map((row, index) => {
     const issueText = summarizeIssue(row);
-    const nextAction = recommendedAction(row);
+    const progress = courseProgress(row);
+    const timeLabel = `${formatTimeValue(row.StartTime)}-${formatTimeValue(row.EndTime)}`;
     return `<article class="management-card">
       <header class="card-head">
         <div>
-          <h3>${esc(row.Activity || row.Program || 'פעילות ללא שם')}</h3>
-          <p>${esc(row.Program || row.Description || 'ללא תיאור נוסף')}</p>
+          <h3>${esc(row.Program || row.Activity || 'פעילות ללא שם')}</h3>
+          <p>${esc([row.Authority, row.School].filter(Boolean).join(' · ') || 'ללא שיוך רשות/בית ספר')}</p>
         </div>
         ${renderIssueBadge(row)}
       </header>
-      <div class="card-meta">
-        <span>👤 ${esc(row.Instructor || 'טרם שויך מדריך')}</span>
-        <span>📍 ${esc(joinLocation(row) || 'ללא מיקום')}</span>
-        <span>🗓️ ${esc(formatSchedule(row))}</span>
+      <div class="course-core-grid">
+        <div class="course-core-col">
+          <span><strong>מדריך:</strong> ${esc(resolveInstructorName(row) || 'טרם שויך')}</span>
+          <span><strong>מנהל קורס:</strong> ${esc(row.CourseManager || '-')}</span>
+          <span><strong>מנהל מדריכים:</strong> ${esc(row.InstructorManager || '-')}</span>
+        </div>
+        <div class="course-core-col">
+          <span><strong>יום:</strong> ${esc(row.DayName || '-')}</span>
+          <span><strong>שעות:</strong> ${esc(timeLabel)}</span>
+        </div>
+        <div class="course-core-col">
+          <span><strong>מפגשים מתוכננים:</strong> ${esc(numberFrom(row.PlannedMeetings))}</span>
+          <span><strong>מפגשים בפועל:</strong> ${esc(numberFrom(row.ActualMeetings))}</span>
+          <div class="progress-mini">
+            <div class="progress-mini-fill ${progress.level}" style="width:${progress.percent}%"></div>
+          </div>
+        </div>
       </div>
       <div class="card-kpi-row">
-        <span>מפגשים: ${esc(numberFrom(row.PlannedMeetings))}</span>
-        <span>בוצע: ${esc(numberFrom(row.ActualMeetings, row.SourceActualMeetings))}</span>
-      </div>
-      <div class="card-status">
-        <span class="status-chip ${statusClass(row.Status)}">${esc(row.Status || 'ללא סטטוס')}</span>
-        <span class="status-chip ${statusClass(row.OperationalStatus)}">${esc(row.OperationalStatus || 'ללא סטטוס תפעולי')}</span>
+        <span>${esc(row.ClassGroup || 'ללא קבוצה')}</span>
+        <span>סיום קורס: ${esc(formatDate(parseDateLike(row.End)) || '-')}</span>
       </div>
       <div class="card-issue ${hasException(row) || isMissingReport(row) ? 'has-issue' : ''}">
         <strong>בעיה/חוסר:</strong> ${esc(issueText)}
       </div>
       <footer class="card-actions">
-        <button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי פעילות</button>
-        ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">ערוך פרטי פעילות</button>` : ''}
-        ${options.canEdit ? `<button class="btn btn-secondary" data-assign-row="${escAttr(row.CourseID || '')}">הוסף מדריך לפעילות</button>` : ''}
-        <button class="btn btn-secondary" data-next-action="${escAttr(row.CourseID || '')}">${esc(nextAction)}</button>
+        <button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטים</button>
+        ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">ערוך קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(row.CourseID || '')}">בקשת שינוי</button>`}
       </footer>
     </article>`;
   }).join('')}</section>`;
@@ -430,7 +464,7 @@ function courseColumns(isInstructorView) {
 
 function onKpiClick(filterName) {
   viewState.courses.quickFilter = filterName;
-  viewState.courses.filters = { search: '', program: '', status: '' };
+  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', dayName: '', period: '' };
   setRoute(isInstructor() ? 'instructor-view' : 'courses');
 }
 
@@ -495,6 +529,10 @@ function getScheduleDates(row) {
 
 function parseDateLike(value) {
   if (!value) return null;
+  if (typeof value === 'number' && value > 20000 && value < 60000) {
+    const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+    return new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
+  }
   const direct = new Date(value);
   if (!Number.isNaN(direct.getTime())) return direct;
   const m = String(value).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
@@ -574,7 +612,71 @@ function formatSchedule(row) {
 }
 
 function formatDate(date) {
+  if (!date) return '';
   return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+function formatTimeValue(value) {
+  if (value === null || typeof value === 'undefined' || value === '') return '--:--';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
+  }
+  if (typeof value === 'number') {
+    const totalMinutes = Math.round(value * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+  const text = String(value).trim();
+  if (/^\d{1,2}:\d{2}/.test(text)) return text.slice(0, 5);
+  const parsed = parseDateLike(value);
+  if (parsed) return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
+  return '--:--';
+}
+
+function courseProgress(row) {
+  const planned = Math.max(0, numberFrom(row.PlannedMeetings));
+  const actual = Math.max(0, numberFrom(row.ActualMeetings));
+  const ratio = planned > 0 ? actual / planned : 0;
+  const percent = Math.min(100, Math.max(0, Math.round(ratio * 100)));
+  if (ratio >= 0.9) return { percent, level: 'progress-success' };
+  if (ratio >= 0.6) return { percent, level: 'progress-warning' };
+  return { percent, level: 'progress-danger' };
+}
+
+function collectCourseDates(row) {
+  const dates = [];
+  for (let index = 1; index <= 15; index += 1) {
+    const fieldName = `Date${index}`;
+    const date = parseDateLike(row?.[fieldName]);
+    if (date) dates.push({ label: fieldName, value: date });
+  }
+  return dates;
+}
+
+function renderCourseDetailsPanel(course, options = {}) {
+  if (!course) return '';
+  const dates = collectCourseDates(course);
+  const reviewFlag = String(course.ReviewRequired || course.RequiresReview || '').trim();
+  return `<section class="panel-block course-details-panel">
+    <div class="panel-block-head">
+      <h3>Drill-down לקורס: ${esc(course.Program || course.Activity || course.CourseID || '')}</h3>
+      <button class="btn btn-secondary" id="closeCourseDetails">סגור</button>
+    </div>
+    <div class="course-core-grid">
+      <div class="course-core-col"><span><strong>CourseID:</strong> ${esc(course.CourseID || '-')}</span><span><strong>ProgramCode:</strong> ${esc(course.ProgramCode || '-')}</span></div>
+      <div class="course-core-col"><span><strong>מימון:</strong> ${esc(course.Funding || '-')}</span><span><strong>לתשלום:</strong> ${esc(course.Payment || '-')}</span></div>
+      <div class="course-core-col"><span><strong>סטטוס דיווח:</strong> ${esc(summarizeIssue(course))}</span><span><strong>חריגה ב-REVIEW_REQUIRED:</strong> ${esc(reviewFlag || 'לא')}</span></div>
+    </div>
+    <div class="table-wrap compact-table"><table><thead><tr><th>שדה תאריך</th><th>תאריך</th></tr></thead><tbody>
+      ${dates.length ? dates.map((item) => `<tr><td>${item.label}</td><td>${formatDate(item.value)}</td></tr>`).join('') : '<tr><td colspan="2">אין תאריכי מפגש</td></tr>'}
+      <tr><td>End</td><td>${esc(formatDate(parseDateLike(course.End)) || '-')}</td></tr>
+    </tbody></table></div>
+    <div class="card-issue ${reviewFlag ? 'has-issue' : ''}"><strong>הערות:</strong> ${esc(course.Notes || 'אין הערות')}</div>
+    <footer class="card-actions">
+      ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(course.CourseID || '')}">ערוך קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(course.CourseID || '')}">בקשת שינוי</button>`}
+    </footer>
+  </section>`;
 }
 
 function renderIssueBadge(row) {
@@ -594,7 +696,7 @@ function renderInstructorState(row) {
 function summarizeIssue(row) {
   if (hasException(row)) return row.IssueStatus || 'זוהתה חריגה תפעולית הדורשת טיפול.';
   if (isMissingReport(row)) return row.ReportStatus || 'חסר דיווח ביחס לתכנון.';
-  if (!fieldHasValue(row, ['Instructor'])) return 'הפעילות טרם שובצה למדריך.';
+  if (!hasInstructor(row)) return 'הפעילות טרם שובצה למדריך.';
   return 'ללא חריגה כרגע.';
 }
 
@@ -614,27 +716,15 @@ function bindCourseActions() {
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
     const row = findCourseById(button.dataset.openCourse);
     if (!row) return;
-    window.alert(`פעילות: ${row.Activity || row.Program || '-'}\nמיקום: ${joinLocation(row) || '-'}\nסטטוס: ${row.Status || '-'}\nבעיה: ${summarizeIssue(row)}`);
+    viewState.courses.selectedCourseId = String(row.CourseID || '');
+    viewState.courses.selectedCourseDetails = row;
+    renderScreen();
   }));
-  document.querySelectorAll('[data-assign-row]').forEach((button) => button.addEventListener('click', () => {
-    const row = findCourseById(button.dataset.assignRow);
-    if (!row) return;
-    const instructor = window.prompt('הקלד שם מדריך לשיוך לפעילות', row.Instructor || '');
-    if (instructor === null) return;
-    api.submitEditRequest({
-      CourseID: row.CourseID,
-      Team: row.Team || '',
-      ChangeSummary: 'הוספת מדריך לפעילות',
-      ApprovalStatus: 'pending_eden',
-      requestedData: { instructor: instructor.trim() }
-    }).then(() => loadMyRequests());
-  }));
-  document.querySelectorAll('[data-next-action]').forEach((button) => button.addEventListener('click', () => {
-    const row = findCourseById(button.dataset.nextAction);
-    if (!row) return;
-    if (!fieldHasValue(row, ['Instructor'])) button.closest('.management-card')?.querySelector('[data-assign-row]')?.click();
-    else button.closest('.management-card')?.querySelector('[data-edit-row]')?.click();
-  }));
+  document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
+    viewState.courses.selectedCourseId = '';
+    viewState.courses.selectedCourseDetails = null;
+    renderScreen();
+  });
 }
 
 function bindInstructorCards() {
@@ -642,22 +732,6 @@ function bindInstructorCards() {
     viewState.courses.selectedInstructor = button.dataset.instructorDrilldown || '';
     renderScreen();
   }));
-}
-
-function bindManagementActions() {
-  document.getElementById('addActivityBtn')?.addEventListener('click', () => {
-    const name = window.prompt('שם פעילות חדשה');
-    if (!name) return;
-    api.submitEditRequest({
-      CourseID: '',
-      Team: 'operations',
-      ChangeSummary: 'הוספת פעילות',
-      ApprovalStatus: 'pending_eden',
-      requestedData: { activity: name }
-    }).then(() => loadMyRequests());
-  });
-  document.getElementById('addInstructorAssignBtn')?.addEventListener('click', () => window.alert('בחר פעילות בכרטיס ואז לחץ "הוסף מדריך לפעילות".'));
-  document.getElementById('bulkStatusBtn')?.addEventListener('click', () => window.alert('לעדכון מרוכז: פתח כרטיס פעילות ולחץ "ערוך פרטי פעילות".'));
 }
 
 function bindExceptionActions() {
@@ -694,12 +768,23 @@ function bindExceptionActions() {
 function bindEditButtons() {
   document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', () => {
     const row = findCourseById(b.dataset.editRow) || {};
+    if (canDirectEditCourses()) {
+      window.alert(`עריכה ישירה עבור עידן בלבד.\nקורס: ${row.Program || row.Activity || row.CourseID || '-'}`);
+      return;
+    }
+    const summary = window.prompt('תקציר שינוי', `בקשת שינוי לקורס ${row.Program || row.CourseID || ''}`);
+    if (summary === null) return;
     const payload = {
       CourseID: row.CourseID,
       Team: row.Team || '',
-      ChangeSummary: 'עדכון פעילות',
+      ChangeSummary: summary || 'בקשת שינוי לקורס',
       ApprovalStatus: 'pending_eden',
-      requestedData: { instructor: resolveInstructorName(row) }
+      requestedData: {
+        startTime: row.StartTime || '',
+        endTime: row.EndTime || '',
+        employee: resolveInstructorName(row),
+        notes: row.Notes || ''
+      }
     };
     api.submitEditRequest(payload).then((res) => {
       if (!res?.success) window.alert(res?.message || 'הפעולה נכשלה');
@@ -769,7 +854,25 @@ async function loadDashboard() {
     return { success: true, data: withOperationalMetrics(dashboardRes.data || {}, courses) };
   }, null, 'לא ניתן לטעון דשבורד.');
 }
-async function loadCourses() { await withLoad('courses', () => api.getMyCourses(viewState.courses.filters), [], 'לא ניתן לטעון פעילות.'); }
+async function loadCourses() {
+  viewState.courses.loading = true;
+  viewState.courses.error = '';
+  renderScreen();
+  const res = await api.getMyCourses({});
+  viewState.courses.loading = false;
+  if (!res?.success) {
+    viewState.courses.error = res?.message || 'לא ניתן לטעון פעילות.';
+    viewState.courses.data = [];
+    renderScreen();
+    return;
+  }
+  const normalized = normalizeCoursesResponse(res?.data || {});
+  viewState.courses.data = applyCoursesFiltersByUiScope(normalized, viewState.courses.filters);
+  if (viewState.courses.selectedCourseId) {
+    viewState.courses.selectedCourseDetails = viewState.courses.data.find((item) => String(item.CourseID) === viewState.courses.selectedCourseId) || null;
+  }
+  renderScreen();
+}
 async function loadMyRequests() { await withLoad('requests', api.getMyRequests, [], 'לא ניתן לטעון בקשות.'); }
 async function loadEdenView() {
   viewState.eden.loading = true; viewState.eden.error = ''; renderScreen();
@@ -813,6 +916,74 @@ async function withLoad(key, fn, emptyValue, errorText) {
     viewState[key].data = res?.data?.items || res?.data || emptyValue;
   }
   renderScreen();
+}
+
+function normalizeCoursesResponse(data) {
+  const items = Array.isArray(data?.items) ? data.items : [];
+  if (items.length && typeof items[0] === 'object' && !Array.isArray(items[0])) {
+    return items.map((item) => normalizeCourseRecord(item));
+  }
+  const rows = Array.isArray(data?.rows) ? data.rows : [];
+  if (!rows.length) return [];
+  const [headerRow, , ...dataRows] = rows;
+  if (!Array.isArray(headerRow)) return [];
+  return dataRows.map((row) => {
+    const mapped = {};
+    headerRow.forEach((header, index) => { mapped[String(header || '').trim()] = row?.[index]; });
+    return normalizeCourseRecord(mapped);
+  });
+}
+
+function normalizeCourseRecord(raw = {}) {
+  const out = { ...raw };
+  out.CourseID = String(raw.CourseID || '');
+  out.ProgramCode = numberFrom(raw.ProgramCode);
+  out.EmployeeID = numberFrom(raw.EmployeeID);
+  out.PlannedMeetings = numberFrom(raw.PlannedMeetings);
+  out.ActualMeetings = numberFrom(raw.ActualMeetings, raw.SourceActualMeetings);
+  out.StartTime = formatTimeValue(raw.StartTime);
+  out.EndTime = formatTimeValue(raw.EndTime);
+  for (let index = 1; index <= 15; index += 1) {
+    const fieldName = `Date${index}`;
+    out[fieldName] = parseDateLike(raw[fieldName]);
+  }
+  out.End = parseDateLike(raw.End);
+  return out;
+}
+
+function applyCoursesFiltersByUiScope(rows, filters) {
+  const list = Array.isArray(rows) ? rows : [];
+  const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
+  return list.filter((row) => {
+    if (clean.authority && !String(row.Authority || '').toLowerCase().includes(clean.authority)) return false;
+    if (clean.school && !String(row.School || '').toLowerCase().includes(clean.school)) return false;
+    if (clean.courseManager && !String(row.CourseManager || '').toLowerCase().includes(clean.courseManager)) return false;
+    if (clean.employee && !String(resolveInstructorName(row) || '').toLowerCase().includes(clean.employee)) return false;
+    if (clean.dayName && !String(row.DayName || '').toLowerCase().includes(clean.dayName)) return false;
+    if (clean.period) {
+      const monthly = `${String((row.End?.getMonth?.() || 0) + 1).padStart(2, '0')}/${row.End?.getFullYear?.() || ''}`;
+      if (!monthly.includes(clean.period)) return false;
+    }
+    if (isDualMode()) return isManagedByCurrentUser(row) || isTaughtByCurrentUser(row);
+    if (isInstructor()) return isTaughtByCurrentUser(row);
+    return true;
+  });
+}
+
+function isTaughtByCurrentUser(row) {
+  const byId = String(row.EmployeeID || '').trim();
+  const sessionId = String(userState.EmployeeID || userState.userId || '').trim();
+  const byName = String(resolveInstructorName(row) || '').trim();
+  const sessionName = String(userState.displayName || '').trim();
+  return Boolean((sessionId && byId && byId === sessionId) || (sessionName && byName && byName === sessionName));
+}
+
+function isManagedByCurrentUser(row) {
+  const teamScope = String(userState.TeamScope || '').trim();
+  const viewScope = String(userState.ViewScope || '').trim();
+  if (teamScope && String(row.Authority || '').includes(teamScope)) return true;
+  if (viewScope && String(row.Authority || '').includes(viewScope)) return true;
+  return false;
 }
 
 function toHuman(raw) {
