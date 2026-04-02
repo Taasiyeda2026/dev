@@ -75,6 +75,9 @@ function routeAction_(action, payload) {
   if (action === 'getEdenViewDataAction') return getEdenViewDataAction(payload);
   if (action === 'approveRequestAction') return approveRequestAction(payload);
   if (action === 'rejectRequestAction') return rejectRequestAction(payload);
+  if (action === 'getSheetRows') return getSheetRowsAction(payload);
+  if (action === 'updateCourse') return updateCourseAction(payload);
+  if (action === 'createEditRequest') return createEditRequestAction(payload);
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
@@ -89,3 +92,6 @@ function getApprovalsDataAction(payload) { return Logic.getApprovalsData(payload
 function getEdenViewDataAction(payload) { return Logic.getEdenViewData(payload || {}); }
 function approveRequestAction(payload) { return Logic.approveRequest(payload || {}); }
 function rejectRequestAction(payload) { return Logic.rejectRequest(payload || {}); }
+function getSheetRowsAction(payload) { return Logic.getSheetRows(payload || {}); }
+function updateCourseAction(payload) { return Logic.updateCourse(payload || {}); }
+function createEditRequestAction(payload) { return Logic.createEditRequest(payload || {}); }
