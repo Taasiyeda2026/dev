@@ -21,6 +21,29 @@ const roleMap = {
   instructor: 'מדריך'
 };
 
+const APP_NAME = 'Dashboard Taasiyeda';
+const routeLabels = {
+  login: 'כניסה למערכת',
+  dashboard: 'דשבורד פעילות ארצי',
+  courses: 'פעילות / קורסים / סדנאות',
+  'my-requests': 'הבקשות שלי',
+  approvals: 'אישורי בקרה ותפעול',
+  'eden-view': 'תצוגת בקרה ותפעול',
+  'final-approvals': 'אישור סופי הנהלה',
+  'instructor-view': 'תצוגת מדריכים'
+};
+
+const routeIcons = {
+  dashboard: '▦',
+  courses: '📘',
+  'my-requests': '📝',
+  approvals: '✅',
+  'eden-view': '🧭',
+  'final-approvals': '🏁',
+  'instructor-view': '👤',
+  logout: '↩'
+};
+
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
 function baseRole() { return String(userState.BaseRole || '').trim().toLowerCase(); }
 function displayRole() {
@@ -59,11 +82,12 @@ function setRoute(route) {
 }
 
 function render() {
+  updateDocumentTitle();
   if (!isAuth()) {
     app.innerHTML = `<section class="login-wrap"><div class="login-card">
     <div class="login-logo-slot"><img class="login-logo" src="./assets/logo.png" alt="לוגו המערכת" /></div>
     <h1 class="login-title">כניסה למערכת</h1>
-    <p class="login-subtitle">Dashboard Taasiyeda</p>
+    <p class="login-subtitle">${APP_NAME}</p>
     <input id="userId" class="login-input" placeholder="מזהה משתמש" aria-label="מזהה משתמש" autocomplete="username" />
     <input id="loginCode" class="login-input" type="password" placeholder="קוד כניסה" aria-label="קוד כניסה" autocomplete="current-password" />
     <button class="btn btn-primary login-btn" id="loginBtn">התחבר</button><p class="error" id="loginError"></p></div></section>`;
@@ -73,7 +97,7 @@ function render() {
 
   app.innerHTML = `<div class="layout">
     <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
-    <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">DASHBOARD2026</div>
+    <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">${APP_NAME}</div>
     <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
     <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
     ${nav('dashboard', 'דשבורד פעילות ארצי')}
@@ -83,7 +107,7 @@ function render() {
     ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
     ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
     ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
-    </nav><button class="nav-btn" data-route="logout">יציאה</button></aside>
+    </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
     <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
     <main class="main" id="main"></main></div>`;
 
@@ -105,8 +129,13 @@ function render() {
   renderScreen();
 }
 
-function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}">${label}</button>`; }
+function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
 function head(title, sub) { return `<header class="screen-head"><div><h2>${title}</h2><p>${sub}</p></div></header>`; }
+
+function updateDocumentTitle() {
+  const pageLabel = routeLabels[currentRoute] || routeLabels.dashboard;
+  document.title = `${APP_NAME} | ${pageLabel}`;
+}
 
 function renderScreen() {
   const main = document.getElementById('main');
