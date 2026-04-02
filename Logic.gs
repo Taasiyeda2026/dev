@@ -165,7 +165,8 @@ var Logic = (function () {
       }).sort(function (a, b) {
         return Number(String(a).replace('Date', '')) - Number(String(b).replace('Date', ''));
       });
-      var frontendFields = CONFIG.FRONTEND_FIELDS.COURSES.concat(dynamicDateFields);
+      var frontendFields = CONFIG.FRONTEND_FIELDS.COURSES.concat(dynamicDateFields, ['InstructorDisplayRole']);
+      var permissionsLookup = buildInstructorLookup_();
 
       var items = rows.map(function (row) {
         var out = {};
@@ -173,6 +174,11 @@ var Logic = (function () {
           var fieldIdx = Utils.resolveIndex(table.headers, CONFIG.FIELDS[field] || [field]);
           out[field] = fieldIdx > -1 ? row[fieldIdx] : '';
         });
+        var assignment = resolveInstructorAssignment_(out, permissionsLookup);
+        out.Employee = assignment.name;
+        out.Instructor = assignment.name;
+        out.EmployeeID = assignment.id;
+        out.InstructorDisplayRole = assignment.displayRole;
         return out;
       });
 
@@ -560,15 +566,47 @@ var Logic = (function () {
   }
 
   function normalizeCredential_(value) {
-    var normalized = Utils.normalize(value);
-    if (Utils.isEmpty(normalized)) return '';
-    var compact = normalized.replace(/[\s,]/g, '');
-    if (/^[+-]?\d+(\.0+)?$/.test(compact)) return String(parseInt(compact, 10));
-    var asNumber = Number(compact);
-    if (!isNaN(asNumber) && isFinite(asNumber) && Math.floor(asNumber) === asNumber) {
-      return String(asNumber);
-    }
-    return normalized;
+    var byId = Utils.normalizeID(value);
+    if (!Utils.isEmpty(byId)) return byId;
+    return Utils.normalizeWhitespace(value);
+  }
+
+  function buildInstructorLookup_() {
+    var table = Utils.readTable(CONFIG.SHEETS.PERMISSIONS, false);
+    if (!table.sheet || !table.headers.length) return { byId: {}, byName: {} };
+
+    var idxId = Utils.resolveIndex(table.headers, ['EmployeeID']);
+    var idxName = Utils.resolveIndex(table.headers, ['Employee', 'EmployeeName', 'DisplayName']);
+    var idxDisplayRole = Utils.resolveIndex(table.headers, ['DisplayRole']);
+    var byId = {};
+    var byName = {};
+
+    table.rows.forEach(function (row) {
+      var employeeId = Utils.normalizeID(valueAt_(row, idxId));
+      var employeeName = Utils.normalizeWhitespace(valueAt_(row, idxName));
+      var displayRole = Utils.normalizeWhitespace(valueAt_(row, idxDisplayRole));
+      if (!employeeId && !employeeName) return;
+      var entry = {
+        id: employeeId,
+        name: employeeName,
+        displayRole: displayRole
+      };
+      if (employeeId && !byId[employeeId]) byId[employeeId] = entry;
+      var normalizedName = Utils.normalizeName(employeeName);
+      if (normalizedName && !byName[normalizedName]) byName[normalizedName] = entry;
+    });
+
+    return { byId: byId, byName: byName };
+  }
+
+  function resolveInstructorAssignment_(rowObject, lookup) {
+    var employeeId = Utils.normalizeID(rowObject.EmployeeID || rowObject.UserID || rowObject.InstructorID);
+    var employeeName = Utils.normalizeWhitespace(rowObject.Employee || rowObject.Instructor || rowObject.EmployeeName);
+    var byId = employeeId ? lookup.byId[employeeId] : null;
+    if (byId) return byId;
+    var byName = lookup.byName[Utils.normalizeName(employeeName)];
+    if (byName) return byName;
+    return { id: '', name: '', displayRole: '' };
   }
 
   function isInactiveFlag_(value) {

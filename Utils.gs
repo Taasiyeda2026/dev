@@ -3,6 +3,29 @@ var Utils = (function () {
     return value === null || value === undefined ? '' : String(value).trim();
   }
 
+  function normalizeWhitespace(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/[\u00A0\u1680\u180E\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function normalizeName(value) {
+    return normalizeWhitespace(value).toLowerCase();
+  }
+
+  function normalizeID(value) {
+    var normalized = normalizeWhitespace(value).replace(/,/g, '');
+    if (!normalized) return '';
+    if (/^[+-]?\d+(\.0+)?$/.test(normalized)) return String(parseInt(normalized, 10));
+    var asNumber = Number(normalized);
+    if (!isNaN(asNumber) && isFinite(asNumber) && Math.floor(asNumber) === asNumber) {
+      return String(asNumber);
+    }
+    return normalized;
+  }
+
   function isEmpty(value) {
     return normalize(value) === '';
   }
@@ -197,6 +220,9 @@ var Utils = (function () {
 
   return {
     normalize: normalize,
+    normalizeWhitespace: normalizeWhitespace,
+    normalizeName: normalizeName,
+    normalizeID: normalizeID,
     isEmpty: isEmpty,
     toKey: toKey,
     asObject: asObject,
