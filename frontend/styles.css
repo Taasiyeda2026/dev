@@ -235,6 +235,12 @@ body {
   font-size: var(--font-size-small);
   background: var(--color-surface);
 }
+.panel-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-s);
+}
+.panel-state-icon { font-size: var(--font-size-body); }
 
 .filters-wrap {
   padding: var(--space-l);
@@ -252,6 +258,7 @@ body {
   display: flex;
   align-items: end;
   gap: var(--space-s);
+  justify-content: flex-end;
 }
 
 .management-actions { display: flex; flex-wrap: wrap; gap: var(--space-s); }
@@ -275,8 +282,10 @@ body {
 .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-s); }
 .card-head h3 { margin: 0; font-size: var(--font-size-h3); font-weight: var(--font-weight-semibold); }
 .card-head p { margin: var(--space-xs) 0 0; color: var(--color-text-muted); font-size: var(--font-size-body); }
+.card-subtitle { margin: var(--space-xs) 0 0; color: var(--color-text-muted); font-size: var(--font-size-small); }
 .card-meta { display: grid; gap: var(--space-xs); color: var(--color-text-main); font-size: var(--font-size-body); }
 .card-status { display: flex; flex-wrap: wrap; gap: var(--space-s); }
+.meta-small { color: var(--color-text-muted); font-size: var(--font-size-small); }
 
 .card-issue {
   border-radius: var(--radius-card);
@@ -289,6 +298,7 @@ body {
 .card-issue.has-issue { border-color: var(--color-warning); background: #FFF7ED; }
 .card-kpi-row { display: flex; gap: var(--space-l); color: var(--color-text-muted); font-size: var(--font-size-small); }
 .card-actions { display: flex; gap: var(--space-s); flex-wrap: wrap; margin-top: auto; }
+.card-actions .btn { min-width: 88px; }
 .course-core-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-m); }
 .course-core-col { display: grid; gap: var(--space-xs); font-size: var(--font-size-body); color: var(--color-text-main); }
 .progress-mini { width: 100%; height: 6px; border-radius: var(--radius-pill); background: var(--color-border-subtle); overflow: hidden; }
@@ -329,16 +339,26 @@ body {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: var(--space-m);
+  align-items: stretch;
 }
+.week-day-column { min-height: 260px; }
 
 .mini-card {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-button);
-  padding: var(--space-s);
+  padding: var(--space-m);
   display: grid;
   gap: var(--space-xs);
   margin-bottom: var(--space-s);
 }
+.mini-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-s);
+}
+.week-session-card { min-height: 132px; align-content: start; }
+.compact-badge { padding: 2px var(--space-s); }
 
 .month-grid {
   display: grid;
@@ -356,6 +376,38 @@ body {
   gap: var(--space-xs);
   padding: var(--space-s);
   text-align: right;
+  position: relative;
+}
+
+.month-day-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-s);
+}
+
+.month-load-indicator {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-subtle);
+}
+.month-load-indicator.load-low { background: var(--color-success); }
+.month-load-indicator.load-medium { background: var(--color-warning); }
+.month-load-indicator.load-high { background: var(--color-danger); }
+.section-title { font-size: var(--font-size-h2); font-weight: var(--font-weight-semibold); }
+
+.btn-success {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  color: var(--color-text-on-primary);
+}
+.btn-success:hover,
+.btn-success:focus-visible {
+  background: var(--color-success);
+  border-color: var(--color-success);
+  opacity: 0.92;
 }
 
 .month-day.has-exception {
@@ -465,7 +517,17 @@ tbody tr:hover { background: #F8FAFF; }
 .status-none { color: var(--color-text-muted); background: #EEF2F7; }
 
 .error { color: var(--color-danger); }
-.panel-state.error { color: var(--color-danger); border-color: #FEB2C5; }
+.panel-state.error { color: var(--color-danger); border-color: var(--color-danger); }
+
+.just-resolved {
+  animation: resolvedPulse 1.2s ease;
+}
+
+@keyframes resolvedPulse {
+  0% { box-shadow: 0 0 0 rgba(5, 150, 105, 0.4); }
+  50% { box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.2); }
+  100% { box-shadow: var(--shadow-card); }
+}
 
 .login-wrap {
   min-height: 100vh;

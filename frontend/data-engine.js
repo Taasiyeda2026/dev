@@ -1,4 +1,9 @@
-import { COURSE_FIELDS, PERMISSION_FIELDS, SHEET_NAMES } from './data-contracts.js';
+import {
+  COURSE_FIELDS,
+  PERMISSION_FIELDS,
+  REQUEST_FIELDS,
+  SHEET_NAMES
+} from './data-contracts.js';
 
 const SHEETS_WITH_DISPLAY_ROW = new Set([
   SHEET_NAMES.COURSES,
@@ -88,13 +93,13 @@ function mapPermissionRow(raw = {}) {
 function mapCourseRow(raw = {}) {
   return {
     ...raw,
-    CourseID: String(raw[COURSE_FIELDS.COURSE_ID] || '').trim(),
-    ProgramCode: toNumber(raw[COURSE_FIELDS.PROGRAM_CODE]),
-    EmployeeID: toNumber(raw[COURSE_FIELDS.EMPLOYEE_ID]),
-    PlannedMeetings: toNumber(raw[COURSE_FIELDS.PLANNED_MEETINGS]),
-    ActualMeetings: toNumber(raw[COURSE_FIELDS.ACTUAL_MEETINGS]),
-    StartTime: raw[COURSE_FIELDS.START_TIME],
-    EndTime: raw[COURSE_FIELDS.END_TIME]
+    [COURSE_FIELDS.COURSE_ID]: String(raw[COURSE_FIELDS.COURSE_ID] || '').trim(),
+    [COURSE_FIELDS.PROGRAM_CODE]: toNumber(raw[COURSE_FIELDS.PROGRAM_CODE]),
+    [COURSE_FIELDS.EMPLOYEE_ID]: toNumber(raw[COURSE_FIELDS.EMPLOYEE_ID]),
+    [COURSE_FIELDS.PLANNED_MEETINGS]: toNumber(raw[COURSE_FIELDS.PLANNED_MEETINGS]),
+    [COURSE_FIELDS.ACTUAL_MEETINGS]: toNumber(raw[COURSE_FIELDS.ACTUAL_MEETINGS]),
+    [COURSE_FIELDS.START_TIME]: raw[COURSE_FIELDS.START_TIME],
+    [COURSE_FIELDS.END_TIME]: raw[COURSE_FIELDS.END_TIME]
   };
 }
 
@@ -288,7 +293,7 @@ export async function refreshCourse(courseId) {
 
 export async function updateCourse(courseId, changes, actor = {}) {
   if (!apiRef?.updateCourse) return { success: false, message: 'API לא זמין לעדכון קורס.' };
-  const res = await apiRef.updateCourse({ CourseID: courseId, changes, actor });
+  const res = await apiRef.updateCourse({ [COURSE_FIELDS.COURSE_ID]: courseId, changes, actor });
   if (res?.success) {
     const updated = res?.data?.COURSES || null;
     if (updated && updated[COURSE_FIELDS.COURSE_ID]) {
@@ -305,8 +310,8 @@ export async function updateCourse(courseId, changes, actor = {}) {
 export async function createEditRequest(courseId, changes, actor = {}) {
   if (!apiRef?.createEditRequest) return { success: false, message: 'API לא זמין לבקשת שינוי.' };
   const payload = {
-    CourseID: courseId,
-    RequestedBy: actor.displayName || actor.userId || '',
+    [REQUEST_FIELDS.COURSE_ID]: courseId,
+    [REQUEST_FIELDS.REQUESTED_BY]: actor.displayName || actor.userId || '',
     changes
   };
   const res = await apiRef.createEditRequest(payload);
@@ -317,9 +322,9 @@ export async function createEditRequest(courseId, changes, actor = {}) {
 export function buildFilterOptions(rows = []) {
   const uniq = (field) => Array.from(new Set(rows.map((item) => String(item?.[field] || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
   return {
-    authority: uniq('Authority'),
-    school: uniq('School'),
-    employee: uniq('Employee'),
-    courseManager: uniq('CourseManager')
+    authority: uniq(COURSE_FIELDS.AUTHORITY),
+    school: uniq(COURSE_FIELDS.SCHOOL),
+    employee: uniq(COURSE_FIELDS.EMPLOYEE),
+    courseManager: uniq(COURSE_FIELDS.COURSE_MANAGER)
   };
 }
