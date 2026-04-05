@@ -22,7 +22,9 @@ function doPost(e) {
     try {
       var body = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
       action = Utils.normalize(body.action || '');
-      payload = Utils.asObject(body.payload, {});
+      if (!Object.keys(payload).length) {
+        payload = Utils.asObject(body.payload, {});
+      }
     } catch (err) {
       // לא JSON תקני — ממשיכים עם מה שיש
     }
