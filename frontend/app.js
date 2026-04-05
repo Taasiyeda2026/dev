@@ -22,7 +22,6 @@ import {
   EXCEPTION_FIELDS,
   TAASIYEDA_DATA_CONTRACTS,
   getSessionProgress,
-  getInstructorLoad,
   hasCourseDelays,
   getExceptionTreatmentStatus,
   parseDelayInfo
@@ -282,10 +281,11 @@ function renderScreen() {
       `<section class="kpi-section">
         <h3>תמונת מצב עכשיו</h3>
         <div class="kpi-grid dashboard-kpi-grid">
-          ${kpiCard('פעיל עכשיו', d.activeNowCount || 0, 'active_now')}
-          ${kpiCard('חריגות פתוחות', d.exceptionCount || 0, 'exceptions')}
-          ${kpiCard('מסתיים ב־7 ימים', d.endingSoonCount || 0, 'ending_soon')}
-          ${kpiCard('חוסר דיווח', d.missingReportCount || 0, 'missing_report')}
+          ${kpiCard('פעילויות פעילות', d.activeNowCount || 0, 'active_now')}
+          ${kpiCard('פעילויות עם חריגה', d.exceptionCount || 0, 'exceptions')}
+          ${kpiCard('פעילויות עם חוסר', d.missingDataCount || 0, 'missing_data')}
+          ${kpiCard('פעילויות שמסתיימות בקרוב', d.endingSoonCount || 0, 'ending_soon')}
+          ${kpiCard('בקשות פתוחות/ממתינות', d.openPendingRequestsCount || 0, 'open_requests')}
         </div>
       </section>
       <section class="panel-block">
@@ -303,7 +303,7 @@ function renderScreen() {
           <button class="btn btn-secondary" data-kpi-filter="needs_review">פתיחת קורסים דורשי טיפול</button>
           <button class="btn btn-secondary" data-shortcut-route="week">ניהול שבוע</button>
           <button class="btn btn-secondary" data-shortcut-route="month">ניהול חודש</button>
-          <button class="btn btn-secondary" data-shortcut-route="instructors">עומסי מדריכים</button>
+          <button class="btn btn-secondary" data-shortcut-route="instructors">סטטוס מדריכים</button>
           <button class="btn btn-secondary" data-shortcut-route="end-dates">תאריכי סיום</button>
           ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? '<button class="btn btn-secondary" data-shortcut-route="finance">גבייה וכספים</button>' : ''}
         </div>
@@ -384,7 +384,7 @@ function renderScreen() {
   if (currentRoute === 'month') {
     const monthCourses = getRoleScopedCourses(viewState.month.filters);
     const monthData = buildMonthlyCalendar(monthCourses, viewState.month.monthDate);
-    main.innerHTML = head('מסך חודש', 'מבט חודשי על עומסים ופעילויות') +
+    main.innerHTML = head('מסך חודש', 'מבט חודשי על סטטוס פעילויות') +
       renderMonthFilters() +
       panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
       renderMonthDayDetails(monthData.selectedItems, viewState.month.selectedDate);
@@ -394,7 +394,7 @@ function renderScreen() {
 
   if (currentRoute === 'instructors') {
     const instructorsData = buildInstructorsViewData(getRoleScopedCourses(viewState.instructors.filters));
-    main.innerHTML = head('מסך מדריכים', 'עומסים, חריגות ופעילות לפי מדריך') +
+    main.innerHTML = head('מסך מדריכים', 'סטטוס, חריגות ופעילות לפי מדריך') +
       renderInstructorsFilters() +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
       renderInstructorCoursesDrilldown(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor);
@@ -413,7 +413,7 @@ function renderScreen() {
 
   if (currentRoute === 'assignments') {
     const assignmentRows = buildAssignmentsRows(getRoleScopedCourses(viewState.assignments.filters));
-    main.innerHTML = head('מסך שיבוץ', 'תצפית עומסים לשיבוץ (ללא כתיבה)') +
+    main.innerHTML = head('מסך שיבוץ', 'תצפית סטטוס לשיבוץ (ללא כתיבה)') +
       renderAssignmentsFilters() +
       panel({ loading: viewState.assignments.loading, error: viewState.assignments.error, data: assignmentRows }, 'אין נתוני שיבוץ להצגה.', renderAssignmentsTable(assignmentRows));
     bindAssignmentsActions();
@@ -592,7 +592,7 @@ function renderSelectOptions(options = [], selected = '') {
 }
 
 function renderFinanceCards(rows, options = {}) {
-  const list = Array.isArray(rows) ? rows : [];
+  const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : []);
   if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים.</section>';
   const showArchive = Boolean(options.showArchive);
   const canEdit = Boolean(options.canEdit);
@@ -639,6 +639,19 @@ function renderFinanceCards(rows, options = {}) {
       </footer>
     </article>`;
   }).join('')}</section>`;
+}
+
+function sortFinanceRowsByStatus(rows = []) {
+  const order = { open: 0, 'needs-action': 1, 'in-progress': 2, completed: 3 };
+  return [...rows].sort((a, b) => {
+    const aBucket = getFinanceStatusBucket(a?.FinanceStatus).key;
+    const bBucket = getFinanceStatusBucket(b?.FinanceStatus).key;
+    const delta = (order[aBucket] ?? 99) - (order[bBucket] ?? 99);
+    if (delta !== 0) return delta;
+    const aDate = parseDateLike(a?.End)?.getTime() || 0;
+    const bDate = parseDateLike(b?.End)?.getTime() || 0;
+    return aDate - bDate;
+  });
 }
 
 function renderStatusOption(value, selected) {
@@ -752,7 +765,6 @@ function renderCourseCards(rows, options = {}) {
 function renderInstructorCards(rows, selectedInstructor) {
   if (!rows.length) return '<section class="panel-empty">אין נתוני מדריכים זמינים.</section>';
   return `<section class="cards-grid instructor-grid">${rows.map((row) => {
-    const loadLevel = row.coursesCount >= 6 ? 'גבוה' : row.coursesCount >= 3 ? 'בינוני' : 'נמוך';
     return `<article class="management-card instructor-card ${selectedInstructor === row.instructor ? 'active' : ''}">
       <header class="card-head">
         <h3>${esc(row.instructor)}</h3>
@@ -762,7 +774,7 @@ function renderInstructorCards(rows, selectedInstructor) {
         <span>📚 פעילויות: ${esc(row.coursesCount)}</span>
         <span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span>
         <span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>
-        <span>⚖️ עומס: ${esc(loadLevel)}</span>
+        <span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span>
       </div>
       <footer class="card-actions"><button class="btn btn-secondary" data-instructor-drilldown="${escAttr(row.instructor)}">כניסה ל-Drill-down</button></footer>
     </article>`;
@@ -817,7 +829,7 @@ function dashboardInstructorTable(rows) {
     <td>${esc(row.schools.join(', ') || '-')}</td>
     <td>${renderInstructorState(row)}</td>
   </tr>`).join('');
-  return `<div class="table-wrap compact-table"><table><thead><tr><th>מדריך</th><th>כמות קורסים</th><th>רשויות</th><th>בתי ספר</th><th>סטטוס עומס/פער</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="table-wrap compact-table"><table><thead><tr><th>מדריך</th><th>כמות קורסים</th><th>רשויות</th><th>בתי ספר</th><th>סטטוס</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function dashboardActionTable(rows) {
@@ -840,6 +852,10 @@ function courseColumns(isInstructorView) {
 }
 
 function onKpiClick(filterName) {
+  if (filterName === 'open_requests') {
+    setRoute('my-requests');
+    return;
+  }
   viewState.courses.quickFilter = filterName;
   viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', period: '', monthStart: '', monthEnd: '' };
   setRoute(isInstructor() ? 'instructor-view' : 'courses');
@@ -861,10 +877,11 @@ function applyCourseQuickFilter(rows) {
   if (key === 'active_instructors') return list.filter((row) => isActiveCourse(row, now) && hasInstructor(row));
   if (key === 'needs_review') return list.filter((row) => hasOperationalIssue(row));
   if (key === 'missing_report') return list.filter((row) => isMissingReport(row));
+  if (key === 'missing_data') return list.filter((row) => isMissingReport(row) || !hasInstructor(row));
   if (key === 'ending_soon') return list.filter((row) => isDateInRange(firstDate(row, ['EndDate', 'End']), now, plusSeven));
   if (key === 'exceptions') return list.filter((row) => hasException(row));
+  if (key === 'open_requests') return list.filter((row) => hasValue(row, ['ChangeRequest']));
   if (key === 'change_request') return list.filter((row) => hasValue(row, ['ChangeRequest']));
-  if (key === 'instructor_overload') return list.filter((row) => isInstructorOverload(row));
   if (key === 'unassigned_instructor') return list.filter((row) => !hasInstructor(row));
   if (key === 'instructor_gap') return list.filter((row) => hasInstructorGap(row));
   if (key === 'pending_eden' || key === 'pending_final' || key === 'approved_final') return [];
@@ -962,11 +979,6 @@ function hasException(row) {
   return planned > 0 && actual > planned;
 }
 
-function isInstructorOverload(row) {
-  const planned = numberFrom(getCourseField(row, COURSE_FIELDS.PLANNED_MEETINGS));
-  return hasInstructor(row) && planned >= 10;
-}
-
 function hasInstructorGap(row) {
   return isMissingReport(row) || !hasInstructor(row);
 }
@@ -985,12 +997,6 @@ function numberFrom(...values) {
 
 function buildMeetingMeta(row) {
   return getSessionProgress(row);
-}
-
-function loadLevelByMeetings(meetingsCount) {
-  if (meetingsCount >= TAASIYEDA_CONFIG.loadThresholds.dayMeetings.high) return { key: 'high', label: 'גבוה', status: 'declined' };
-  if (meetingsCount >= TAASIYEDA_CONFIG.loadThresholds.dayMeetings.medium) return { key: 'medium', label: 'בינוני', status: 'pending-final' };
-  return { key: 'low', label: 'נמוך', status: 'approved' };
 }
 
 function isResolvedException(row = {}) {
@@ -1119,9 +1125,8 @@ function renderStatusBadge(row) {
 
 function renderInstructorState(row) {
   if (!row.instructor || row.instructor === 'לא משויך') return '<span class="status-chip status-declined">חוסר שיוך</span>';
-  if (row.coursesCount >= 10) return '<span class="status-chip status-pending-final">עומס גבוה</span>';
   if (row.hasGap) return '<span class="status-chip status-pending">פער תפעולי</span>';
-  return '<span class="status-chip status-approved">מאוזן</span>';
+  return '<span class="status-chip status-approved">תקין</span>';
 }
 
 function summarizeIssue(row) {
@@ -1457,15 +1462,14 @@ function buildMonthlyCalendar(courses, monthValue) {
     const current = new Date(parsedMonth.getFullYear(), parsedMonth.getMonth(), day);
     const isoDate = current.toISOString().slice(0, 10);
     const items = (courses || []).filter((course) => getScheduleDates(course).some((dateObj) => dateObj.toISOString().slice(0, 10) === isoDate));
-    const loadLevel = loadLevelByMeetings(items.length);
-    days.push({ day, isoDate, items, loadLevel, hasException: items.some((item) => hasException(item) || isMissingReport(item)) });
+    days.push({ day, isoDate, items, hasException: items.some((item) => hasException(item) || isMissingReport(item) || !hasInstructor(item)) });
   }
   const selectedItems = days.find((item) => item.isoDate === viewState.month.selectedDate)?.items || [];
   return { monthStart, days, selectedItems };
 }
 
 function renderMonthGrid(days) {
-  return `<section class="month-grid">${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''} load-${escAttr(day.loadLevel.key)}" data-month-open="${escAttr(day.isoDate)}"><span class="month-load-indicator load-${escAttr(day.loadLevel.key)}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span>${day.items.length} מפגשים</span><small>עומס: ${esc(day.loadLevel.label)}</small></button>`).join('')}</section>`;
+  return `<section class="month-grid">${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''}" data-month-open="${escAttr(day.isoDate)}"><span class="month-status-indicator ${day.hasException ? 'has-issue' : 'is-ok'}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span>${day.items.length} מפגשים</span><small>סטטוס: ${day.hasException ? 'דורש טיפול' : 'תקין'}</small></button>`).join('')}</section>`;
 }
 
 function renderMonthDayDetails(items, dateLabel) {
@@ -1533,14 +1537,14 @@ function buildInstructorsViewData(courses) {
     const authorities = Array.from(new Set(list.map((item) => getCourseField(item, COURSE_FIELDS.AUTHORITY)).filter(Boolean)));
     const schools = Array.from(new Set(list.map((item) => getCourseField(item, COURSE_FIELDS.SCHOOL)).filter(Boolean)));
     const hasIssues = list.some((item) => reviewItems.some((review) => String(getExceptionField(review, EXCEPTION_FIELDS.COURSE_ID) || '') === String(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '') && !isResolvedException(review)));
-    const loadLevel = getInstructorLoad(list);
-    return { name, employeeId, coursesCount: list.length, meetingsCount: meetings, authorities, schools, hasIssues, loadLevel };
+    const hasGap = list.some((item) => hasInstructorGap(item));
+    return { name, employeeId, coursesCount: list.length, meetingsCount: meetings, authorities, schools, hasIssues, hasGap };
   }).sort((a, b) => b.meetingsCount - a.meetingsCount);
   return { items, coursesByInstructor };
 }
 
 function renderInstructorsCards(items) {
-  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip status-${escAttr(item.loadLevel.status)}">${esc(item.loadLevel.label)}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">Drill-down</button></div></article>`).join('')}</section>`;
+  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">Drill-down</button></div></article>`).join('')}</section>`;
 }
 
 function renderInstructorCoursesDrilldown(instructorName, coursesByInstructor) {
@@ -1650,14 +1654,14 @@ function buildAssignmentsRows(courses) {
     const upcomingMeetings = list.reduce((sum, course) => sum + getScheduleDates(course).filter((dateObj) => dateObj >= startOfDay(new Date())).length, 0);
     const authorities = Array.from(new Set(list.map((course) => getCourseField(course, COURSE_FIELDS.AUTHORITY)).filter(Boolean)));
     const schools = Array.from(new Set(list.map((course) => getCourseField(course, COURSE_FIELDS.SCHOOL)).filter(Boolean)));
-    const loadLevel = getInstructorLoad(list);
-    return { instructor, activeCourses, upcomingMeetings, authorities, schools, loadLevel };
+    const hasIssues = list.some((course) => hasOperationalIssue(course));
+    return { instructor, activeCourses, upcomingMeetings, authorities, schools, hasIssues };
   }).sort((a, b) => b.upcomingMeetings - a.upcomingMeetings);
 }
 
 function renderAssignmentsTable(rows) {
-  const body = rows.map((row) => `<tr><td>${esc(row.instructor)}</td><td>${esc(row.activeCourses)}</td><td>${esc(row.upcomingMeetings)}</td><td>${esc(row.authorities.join(', ') || '-')}</td><td>${esc(row.schools.join(', ') || '-')}</td><td><span class="status-chip status-${escAttr(row.loadLevel.status)}">${esc(row.loadLevel.label)}</span></td></tr>`).join('');
-  return `<section class="table-wrap"><table><thead><tr><th>מדריך</th><th>קורסים פעילים</th><th>מפגשים קרובים</th><th>רשויות</th><th>בתי ספר</th><th>עומס</th></tr></thead><tbody>${body || '<tr><td colspan=\"6\">אין נתונים</td></tr>'}</tbody></table></section>`;
+  const body = rows.map((row) => `<tr><td>${esc(row.instructor)}</td><td>${esc(row.activeCourses)}</td><td>${esc(row.upcomingMeetings)}</td><td>${esc(row.authorities.join(', ') || '-')}</td><td>${esc(row.schools.join(', ') || '-')}</td><td><span class="status-chip ${row.hasIssues ? 'status-pending' : 'status-approved'}">${row.hasIssues ? 'דורש טיפול' : 'תקין'}</span></td></tr>`).join('');
+  return `<section class="table-wrap"><table><thead><tr><th>מדריך</th><th>קורסים פעילים</th><th>מפגשים קרובים</th><th>רשויות</th><th>בתי ספר</th><th>סטטוס</th></tr></thead><tbody>${body || '<tr><td colspan=\"6\">אין נתונים</td></tr>'}</tbody></table></section>`;
 }
 
 function bindAssignmentsActions() {
@@ -2061,10 +2065,12 @@ function withOperationalMetrics(baseData, courses) {
     activeCoursesCount: activeCourses.length,
     activeInstructorsCount: activeInstructors.size,
     missingReportCount: courses.filter((row) => isMissingReport(row)).length,
+    missingInstructorCount: courses.filter((row) => !hasInstructor(row)).length,
+    missingDataCount: courses.filter((row) => isMissingReport(row) || !hasInstructor(row)).length,
     endingSoonCount: courses.filter((row) => isDateInRange(firstDate(row, ['EndDate', 'End']), now, plusSeven)).length,
     exceptionCount: courses.filter((row) => hasException(row)).length,
     changeRequestCount: courses.filter((row) => hasValue(row, ['ChangeRequest'])).length,
-    instructorOverloadCount: courses.filter((row) => isInstructorOverload(row)).length,
+    openPendingRequestsCount: numberFrom(baseData.pendingRequests, baseData.pendingFinal),
     unassignedInstructorCount: courses.filter((row) => !hasInstructor(row)).length,
     instructorGapCount: courses.filter((row) => hasInstructorGap(row)).length,
     timeViews: timeViews,

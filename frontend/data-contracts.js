@@ -89,12 +89,6 @@ export const TAASIYEDA_DATA_CONTRACTS = {
     // הנחה: בשלב מעבר החוזים, IssueStatus הוא גיבוי ישן לתיאור סוג חריגה.
     exceptionTypeFallback: 'IssueStatus'
   },
-  // הנחה: עומס מדריך מחושב לפי מספר מפגשים עתידיים + מספר קורסים פעילים.
-  loadThresholds: {
-    dayMeetings: { medium: 3, high: 6 },
-    instructorMeetings: { medium: 10, high: 18 },
-    instructorCourses: { medium: 4, high: 8 }
-  },
   // הנחה: חריגה נחשבת כ"טופלה" אם שדה Status/TreatmentStatus/Notes כולל אחד מהסימנים הבאים.
   resolvedMarkers: ['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'],
   // הנחה: דחייה מזוהה דרך Notes או REVIEW_REQUIRED עם אחת מהמילים הבאות.
@@ -127,28 +121,6 @@ export function getSessionProgress(course = {}) {
     actualMeetings,
     meetingNumber: Math.max(1, Math.min(actualMeetings, plannedMeetings || 1))
   };
-}
-
-export function getInstructorLoad(instructorCourses = [], options = {}) {
-  const today = options.today instanceof Date ? options.today : new Date();
-  const upcomingMeetings = (instructorCourses || []).reduce((sum, course) => {
-    const dateCount = COURSE_FIELDS.DATE_FIELDS
-      .map((fieldName) => course?.[fieldName])
-      .filter(Boolean)
-      .map((value) => new Date(value))
-      .filter((dateValue) => !Number.isNaN(dateValue.getTime()) && dateValue >= new Date(today.getFullYear(), today.getMonth(), today.getDate()))
-      .length;
-    return sum + dateCount;
-  }, 0);
-  const activeCourses = (instructorCourses || []).length;
-  const thresholds = TAASIYEDA_DATA_CONTRACTS.loadThresholds;
-  if (upcomingMeetings >= thresholds.instructorMeetings.high || activeCourses >= thresholds.instructorCourses.high) {
-    return { key: 'high', label: 'גבוה', status: 'declined', upcomingMeetings, activeCourses };
-  }
-  if (upcomingMeetings >= thresholds.instructorMeetings.medium || activeCourses >= thresholds.instructorCourses.medium) {
-    return { key: 'medium', label: 'בינוני', status: 'pending-final', upcomingMeetings, activeCourses };
-  }
-  return { key: 'low', label: 'נמוך', status: 'approved', upcomingMeetings, activeCourses };
 }
 
 export function getExceptionTreatmentStatus(reviewItem = {}) {

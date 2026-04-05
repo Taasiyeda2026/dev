@@ -161,7 +161,6 @@ var Logic = (function () {
           endingSoonCount: asNumber_(summaryMetrics.endingSoonCount) || asNumber_(exportMetrics.endingSoonCount),
           exceptionCount: asNumber_(summaryMetrics.exceptionCount) || asNumber_(exportMetrics.exceptionCount),
           changeRequestCount: asNumber_(summaryMetrics.changeRequestCount) || asNumber_(exportMetrics.changeRequestCount),
-          instructorOverloadCount: asNumber_(summaryMetrics.instructorOverloadCount) || asNumber_(exportMetrics.instructorOverloadCount),
           unassignedInstructorCount: asNumber_(summaryMetrics.unassignedInstructorCount) || asNumber_(exportMetrics.unassignedInstructorCount),
           instructorGapCount: asNumber_(summaryMetrics.instructorGapCount) || asNumber_(exportMetrics.instructorGapCount)
         }
@@ -742,7 +741,6 @@ var Logic = (function () {
       needsreviewcount: 'reviewRequiredCount',
       reviewrequiredcount: 'reviewRequiredCount',
       changerequestcount: 'changeRequestCount',
-      instructoroverloadcount: 'instructorOverloadCount',
       unassignedinstructorcount: 'unassignedInstructorCount',
       instructorgapcount: 'instructorGapCount'
     };

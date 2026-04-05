@@ -474,16 +474,15 @@ body {
   gap: var(--space-s);
 }
 
-.month-load-indicator {
+.month-status-indicator {
   display: block;
   width: 100%;
   height: 4px;
   border-radius: var(--radius-pill);
   background: var(--color-border-subtle);
 }
-.month-load-indicator.load-low { background: var(--color-success); }
-.month-load-indicator.load-medium { background: var(--color-warning); }
-.month-load-indicator.load-high { background: var(--color-danger); }
+.month-status-indicator.is-ok { background: var(--color-success); }
+.month-status-indicator.has-issue { background: var(--color-warning); }
 .section-title { font-size: var(--font-size-h2); font-weight: var(--font-weight-semibold); }
 
 .btn-success {
@@ -503,9 +502,6 @@ body {
   background: #FFF7ED;
 }
 
-.month-day.load-low { border-color: #C7F0D8; background: #F0FDF5; }
-.month-day.load-medium { border-color: #F8D9A0; background: #FFF8E8; }
-.month-day.load-high { border-color: #FBC0C8; background: #FFF1F3; }
 
 label { display: grid; gap: var(--space-xs); color: var(--color-text-main); font-size: var(--font-size-small); }
 
