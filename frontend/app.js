@@ -220,6 +220,14 @@ function render() {
       <button class="btn btn-primary login-btn" id="loginBtn" type="submit">התחבר</button>
     </form><p class="error" id="loginError"></p></div></section>`;
     document.getElementById('loginForm').addEventListener('submit', onLogin);
+    document.getElementById('loginCode')
+      ?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') onLogin(e);
+      });
+    document.getElementById('userId')
+      ?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('loginCode')?.focus();
+      });
     return;
   }
 
