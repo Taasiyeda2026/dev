@@ -553,10 +553,45 @@ function kpiCard(title, value, filterName, helper = '') {
   return `<button class="kpi-card kpi-action" data-kpi-filter="${filterName}" type="button"><span class="kpi-title" title="${escAttr(title)}">${title}</span><span class="kpi-value">${value}</span>${helper ? `<span class="kpi-helper" title="${escAttr(helper)}">${helper}</span>` : ''}</button>`;
 }
 
+const LONG_DETAILS_FIELDS = new Set(['OriginalDataView', 'RequestedDataView']);
+const WRAP_TABLE_FIELDS = new Set(['ChangeSummary', 'ApprovalNotes', 'Notes']);
+const LIST_VALUE_FIELDS = new Set(['SchoolsList', 'ProgramsList', 'CoursesList', 'SourceSheets']);
+
+function parseListValue(value) {
+  return String(value || '')
+    .split(/[\n,|]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function renderListChips(value, limit = 3) {
+  const list = parseListValue(value);
+  if (!list.length) return '<span class="list-chip list-chip-empty">-</span>';
+  const hiddenCount = Math.max(list.length - limit, 0);
+  const chips = list.slice(0, limit).map((item) => `<span class="list-chip">${esc(item)}</span>`).join('');
+  return `<span class="list-chips" title="${escAttr(list.join(', '))}">${chips}${hiddenCount ? `<span class="list-chip list-chip-more">+${hiddenCount} עוד</span>` : ''}</span>`;
+}
+
+function renderCellContent(fieldKey, rawValue) {
+  const value = String(rawValue ?? '');
+  if (LONG_DETAILS_FIELDS.has(fieldKey)) {
+    const preview = value ? value.slice(0, 60) : '-';
+    return `<details class="cell-details"><summary title="${escAttr(value || '-')}">הצג: ${esc(preview)}${value.length > 60 ? '…' : ''}</summary><pre>${esc(value || '-')}</pre></details>`;
+  }
+  if (LIST_VALUE_FIELDS.has(fieldKey)) {
+    return renderListChips(value);
+  }
+  return `<span class="cell-ellipsis">${esc(value)}</span>`;
+}
+
 function table(rows, cols, canEdit, canApprove) {
   const body = (rows || []).map((r, i) => `<tr>${cols.map((c) => {
-    if (c[0] === 'ApprovalStatus') return `<td><span class="status-chip ${statusClass(r[c[0]])}">${statusLabel(r[c[0]])}</span></td>`;
-    return `<td>${esc(r[c[0]] || '')}</td>`;
+    const fieldKey = c[0];
+    const rawValue = r[fieldKey];
+    const textValue = String(rawValue ?? '');
+    const tdClass = WRAP_TABLE_FIELDS.has(fieldKey) ? 'cell-wrap' : '';
+    if (fieldKey === 'ApprovalStatus') return `<td class="${tdClass}" title="${escAttr(textValue || '-')}"><span class="status-chip ${statusClass(rawValue)}">${statusLabel(rawValue)}</span></td>`;
+    return `<td class="${tdClass}" title="${escAttr(textValue || '-')}">${renderCellContent(fieldKey, rawValue)}</td>`;
   }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">בקשת שינוי</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">אשר</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
@@ -597,9 +632,9 @@ function renderFinanceCards(rows, options = {}) {
           <span><strong>מפגשים מתוכננים:</strong> ${esc(numberFrom(item?.PlannedMeetingsTotal).toLocaleString('he-IL'))}</span>
         </div>
         <div class="course-core-col">
-          <span><strong>מסגרות:</strong> ${esc(item?.SchoolsList || '-')}</span>
-          <span><strong>תוכניות:</strong> ${esc(item?.ProgramsList || '-')}</span>
-          <span><strong>קורסים:</strong> ${esc(item?.CoursesList || '-')}</span>
+          <span><strong>מסגרות:</strong> ${renderListChips(item?.SchoolsList)}</span>
+          <span><strong>תוכניות:</strong> ${renderListChips(item?.ProgramsList)}</span>
+          <span><strong>קורסים:</strong> ${renderListChips(item?.CoursesList)}</span>
         </div>
       </div>
       <footer class="card-actions">
@@ -628,8 +663,8 @@ function renderFinanceDetailsPanel(item) {
       <div><span>FinanceRowID</span><strong>${esc(item.FinanceRowID || '-')}</strong></div>
       <div><span>Authority</span><strong>${esc(item.Authority || '-')}</strong></div>
       <div><span>SourceRows</span><strong>${esc(item.SourceRows || '-')}</strong></div>
-      <div><span>SourceSheets</span><strong>${esc(item.SourceSheets || '-')}</strong></div>
-      <div><span>Notes</span><strong>${esc(item.Notes || '-')}</strong></div>
+      <div><span>SourceSheets</span><strong>${renderListChips(item.SourceSheets)}</strong></div>
+      <div><span>Notes</span><strong class="details-text" title="${escAttr(item.Notes || '-')}">${esc(item.Notes || '-')}</strong></div>
       <div><span>BillingGroupKey</span><strong>${esc(item.BillingGroupKey || '-')}</strong></div>
     </div>
   </section>`;
