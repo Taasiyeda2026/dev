@@ -214,10 +214,12 @@ function render() {
     <div class="login-logo-slot"><img class="login-logo" src="./assets/logo.png" alt="לוגו המערכת" /></div>
     <h1 class="login-title">כניסה למערכת</h1>
     <p class="login-subtitle">${APP_NAME}</p>
-    <input id="userId" class="login-input" placeholder="מזהה משתמש" aria-label="מזהה משתמש" autocomplete="username" />
-    <input id="loginCode" class="login-input" type="password" placeholder="קוד כניסה" aria-label="קוד כניסה" autocomplete="current-password" />
-    <button class="btn btn-primary login-btn" id="loginBtn">התחבר</button><p class="error" id="loginError"></p></div></section>`;
-    document.getElementById('loginBtn').addEventListener('click', onLogin);
+    <form id="loginForm" novalidate>
+      <input id="userId" class="login-input" placeholder="מזהה משתמש" aria-label="מזהה משתמש" autocomplete="username" />
+      <input id="loginCode" class="login-input" type="password" placeholder="קוד כניסה" aria-label="קוד כניסה" autocomplete="current-password" />
+      <button class="btn btn-primary login-btn" id="loginBtn" type="submit">התחבר</button>
+    </form><p class="error" id="loginError"></p></div></section>`;
+    document.getElementById('loginForm').addEventListener('submit', onLogin);
     return;
   }
 
@@ -1760,7 +1762,9 @@ function getDisplayRoleForInstructor(instructorName, employeeId = '') {
   return permission?.displayRole || '';
 }
 
-async function onLogin() {
+async function onLogin(event) {
+  event?.preventDefault();
+
   const userIdInput = document.getElementById('userId');
   const codeInput = document.getElementById('loginCode');
   const button = document.getElementById('loginBtn');
