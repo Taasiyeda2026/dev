@@ -37,7 +37,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       END_DATE: 'EndDate',
       REVIEW_REQUIRED: 'ReviewRequired',
       REQUIRES_REVIEW: 'RequiresReview',
-      DATE_FIELDS: Array.from({ length: 15 }, (_, index) => `Date${index + 1}`)
+      DATE_FIELDS: Array.from({ length: 30 }, (_, index) => `Date${index + 1}`)
     },
     exception: {
       REVIEW_ID: 'ReviewID',
@@ -74,6 +74,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       UI_PROFILE: 'UiProfile',
       TEAM_SCOPE: 'TeamScope',
       IS_DUAL_MODE: 'IsDualMode',
+      ACTIVE_FLAG: 'ActiveFlag',
       CAN_VIEW_DASHBOARD: 'CanViewDashboard',
       CAN_EDIT_MASTER_DATA: 'CanEditMasterData',
       CAN_APPROVE_TO_MAIN_DATA: 'CanApproveToMainData',

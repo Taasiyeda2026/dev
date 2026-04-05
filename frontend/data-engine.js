@@ -87,6 +87,7 @@ function mapPermissionRow(raw = {}) {
     uiProfile: String(raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
     teamScope: String(raw[PERMISSION_FIELDS.TEAM_SCOPE] || '').trim(),
     isDualMode: toBool(raw[PERMISSION_FIELDS.IS_DUAL_MODE]),
+    activeFlag: toBool(raw[PERMISSION_FIELDS.ACTIVE_FLAG]),
     canViewDashboard: toBool(raw[PERMISSION_FIELDS.CAN_VIEW_DASHBOARD]),
     canEditMasterData: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_MASTER_DATA]),
     canApproveToMainData: toBool(raw[PERMISSION_FIELDS.CAN_APPROVE_TO_MAIN_DATA]),

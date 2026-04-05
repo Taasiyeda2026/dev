@@ -9,18 +9,25 @@ function doGet() {
 }
 
 function doPost(e) {
-  var body = {};
-  try {
-    body = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
-  } catch (err) {
-    body = {};
+  var action = '';
+  var payload = {};
+
+  // נסה URLSearchParams קודם (זה מה שה-frontend שולח)
+  var params = e && e.parameter ? e.parameter : {};
+  action = Utils.normalize(params.action || '');
+  payload = buildPayloadFromParams_(params);
+
+  // אם לא נמצא action ב-params — נסה JSON body (גיבוי לשימוש עתידי)
+  if (!action) {
+    try {
+      var body = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
+      action = Utils.normalize(body.action || '');
+      payload = Utils.asObject(body.payload, {});
+    } catch (err) {
+      // לא JSON תקני — ממשיכים עם מה שיש
+    }
   }
 
-  var action = Utils.normalize(body.action || (e && e.parameter && e.parameter.action));
-  var payload = Utils.asObject(body.payload, {});
-  if (!Object.keys(payload).length) {
-    payload = buildPayloadFromParams_(e && e.parameter ? e.parameter : {});
-  }
   var result = routeAction_(action, payload);
   return ContentService
     .createTextOutput(JSON.stringify(result))

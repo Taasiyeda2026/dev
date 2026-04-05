@@ -112,7 +112,7 @@ const routeIcons = {
 
 const COURSES_SCREEN_CONFIG = {
   progress: { successRatio: 0.9, warningRatio: 0.6 },
-  meetingFields: { start: 1, end: 15, fallbackEndField: COURSE_FIELDS.END }
+  meetingFields: { start: 1, end: 30, fallbackEndField: COURSE_FIELDS.END }
 };
 
 const TAASIYEDA_CONFIG = TAASIYEDA_DATA_CONTRACTS;
@@ -967,18 +967,33 @@ function isActiveCourse(row, now) {
   return scheduleDates.some((d) => d >= startOfDay(now));
 }
 
+function countPastDueMeetings(row) {
+  const today = startOfDay(new Date());
+  return COURSE_DATE_FIELDS.reduce((count, fieldName) => {
+    const d = parseDateLike(getCourseField(row, fieldName));
+    return (d && d < today) ? count + 1 : count;
+  }, 0);
+}
+
 function isMissingReport(row) {
-  const progress = getSessionProgress(row);
-  const planned = progress.plannedMeetings;
-  const actual = progress.actualMeetings;
-  return planned > 0 && actual < planned;
+  const due = countPastDueMeetings(row);
+  if (due === 0) return false;
+  const actual = getSessionProgress(row).actualMeetings;
+  const hasApprovedDelay = parseDelayInfo(getCourseField(row, COURSE_FIELDS.NOTES)).isPostponed;
+  return actual < due && !hasApprovedDelay;
 }
 
 function hasException(row) {
-  const progress = getSessionProgress(row);
-  const planned = progress.plannedMeetings;
-  const actual = progress.actualMeetings;
-  return planned > 0 && actual > planned;
+  const courseId = String(getCourseField(row, COURSE_FIELDS.COURSE_ID) || '');
+  if (!courseId) return false;
+  const reviewItems = getStoreSnapshot().reviewItems || [];
+  return reviewItems.some((r) => {
+    const rId = String(
+      getExceptionField(r, EXCEPTION_FIELDS.COURSE_ID) ||
+      r.CourseID || r.SourceCourseID || ''
+    );
+    return rId === courseId && getExceptionTreatmentStatus(r) === 'open';
+  });
 }
 
 function hasInstructorGap(row) {
@@ -1246,6 +1261,7 @@ function openCourseActionForm(course, mode) {
         <p>${esc(course.Program || course.Activity || course.CourseID || '')}</p>
         <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
         <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
+        <label>מפגשים בפועל<input id="courseFormActualMeetings" type="number" min="0" max="30" value="${escAttr(String(course.ActualMeetings || ''))}" placeholder="מספר מפגשים שבוצעו" /></label>
         <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
         <label>תקציר שינוי<input id="courseFormSummary" value="" placeholder="${mode === 'edit' ? 'עדכון שעות/הערות' : 'בקשת שינוי במסך קורסים'}" /></label>
         <div class="card-actions">
@@ -1264,14 +1280,15 @@ function openCourseActionForm(course, mode) {
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
       const summary = root.querySelector('#courseFormSummary')?.value.trim() || (mode === 'edit' ? 'עדכון קורס' : 'בקשת שינוי');
-      close({
-        changes: {
-          StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
-          EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
-          Notes: root.querySelector('#courseFormNotes')?.value.trim() || '',
-          summary
-        }
-      });
+      const actualMeetingsRaw = root.querySelector('#courseFormActualMeetings')?.value.trim() || '';
+      const changes = {
+        StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
+        EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
+        Notes: root.querySelector('#courseFormNotes')?.value.trim() || '',
+        summary
+      };
+      if (actualMeetingsRaw !== '') changes.ActualMeetings = actualMeetingsRaw;
+      close({ changes });
     });
   });
 }
@@ -1439,7 +1456,13 @@ function buildWeeklyBuckets(courses, weekStartValue) {
     return { label: current.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }), isoDate: current.toISOString().slice(0, 10), items: [] };
   });
   (courses || []).forEach((course) => {
-    const hasReviewItem = reviewItems.some((review) => String(getExceptionField(review, EXCEPTION_FIELDS.COURSE_ID) || '') === String(getCourseField(course, COURSE_FIELDS.COURSE_ID) || '') && !isResolvedException(review));
+    const courseId = String(getCourseField(course, COURSE_FIELDS.COURSE_ID) || '');
+    const hasReviewItem = reviewItems.some((review) => {
+      const rId = String(getExceptionField(review, EXCEPTION_FIELDS.COURSE_ID) || review.CourseID || '');
+      const rRow = String(review._rowNumber || review.SourceRow || '');
+      const matches = rId ? rId === courseId : (rRow && rRow === String(course._rowNumber || ''));
+      return matches && !isResolvedException(review);
+    });
     const sessionProgress = getSessionProgress(course);
     const hasDelay = hasCourseDelays(course, reviewItems);
     getScheduleDates(course).forEach((dateObj) => {
@@ -1687,7 +1710,13 @@ function renderExceptionsFilters() {
 function buildExceptionsRows(reviewRows, courses, filters) {
   const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
   return (reviewRows || []).map((row) => {
-    const linkedCourse = (courses || []).find((course) => String(getCourseField(course, COURSE_FIELDS.COURSE_ID) || '') === String(getExceptionField(row, EXCEPTION_FIELDS.COURSE_ID) || '')) || {};
+    const reviewCourseId = String(getExceptionField(row, EXCEPTION_FIELDS.COURSE_ID) || '');
+    const reviewSourceRow = String(row._rowNumber || row.SourceRow || '');
+    const linkedCourse = (courses || []).find((course) => {
+      if (reviewCourseId) return String(getCourseField(course, COURSE_FIELDS.COURSE_ID) || '') === reviewCourseId;
+      if (reviewSourceRow) return String(course._rowNumber || '') === reviewSourceRow;
+      return false;
+    }) || {};
     return {
       ...row,
       ReviewRowNumber: Number(getExceptionField(row, EXCEPTION_FIELDS.ROW_NUMBER) || 0),
