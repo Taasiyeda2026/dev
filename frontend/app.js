@@ -277,61 +277,40 @@ function renderScreen() {
 
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
-    const timeframe = viewState.dashboard.timeframe || 'day';
-    const timeItems = d.timeViews?.[timeframe] || [];
-    const instructorItems = d.instructorOverview || [];
     const actionItems = d.actionItems || [];
-    main.innerHTML = head('דשבורד פעילות ארצי', 'מוקד ניהולי לפעילות, קורסים ומדריכים לצד בקרה תפעולית') + panel(viewState.dashboard, 'אין נתונים.',
-      `<section class="kpi-section"><h3>ליבת הפעילות והתפעול</h3><div class="kpi-grid">
-      ${kpiCard('פעילויות היום', d.todayActivitiesCount || 0, 'today')}
-      ${kpiCard('פעילויות השבוע', d.weekActivitiesCount || 0, 'this_week')}
-      ${kpiCard('פעילויות החודש', d.monthActivitiesCount || 0, 'this_month')}
-      ${kpiCard('פעילויות מתקיימות עכשיו', d.activeNowCount || 0, 'active_now')}
-      ${kpiCard('קורסים פעילים', d.activeCoursesCount || 0, 'active_courses')}
-      ${kpiCard('מדריכים פעילים', d.activeInstructorsCount || 0, 'active_instructors')}
-      ${kpiCard('דורש בקרה', d.reviewRequiredCount || 0, 'needs_review')}
-      ${kpiCard('חסר בדיווח', d.missingReportCount || 0, 'missing_report')}
-      ${kpiCard('עומד להסתיים (7 ימים)', d.endingSoonCount || 0, 'ending_soon')}
-      ${kpiCard('חריגה / אי התאמה', d.exceptionCount || 0, 'exceptions')}
-      ${kpiCard('בקשת שינוי פתוחה', d.changeRequestCount || 0, 'change_request')}
-      </div></section>
-      <section class="kpi-section"><h3>מבט מדריכים</h3><div class="kpi-grid compact">
-      ${kpiCard('מדריך בעומס', d.instructorOverloadCount || 0, 'instructor_overload')}
-      ${kpiCard('ללא שיוך מדריך', d.unassignedInstructorCount || 0, 'unassigned_instructor')}
-      ${kpiCard('פער תפעולי למדריך', d.instructorGapCount || 0, 'instructor_gap')}
-      </div></section>
+    main.innerHTML = head('דשבורד פעילות ארצי', 'כמה? איפה הבעיה? על מה פועלים עכשיו?') + panel(viewState.dashboard, 'אין נתונים.',
+      `<section class="kpi-section">
+        <h3>תמונת מצב עכשיו</h3>
+        <div class="kpi-grid dashboard-kpi-grid">
+          ${kpiCard('פעיל עכשיו', d.activeNowCount || 0, 'active_now')}
+          ${kpiCard('חריגות פתוחות', d.exceptionCount || 0, 'exceptions')}
+          ${kpiCard('מסתיים ב־7 ימים', d.endingSoonCount || 0, 'ending_soon')}
+          ${kpiCard('חוסר דיווח', d.missingReportCount || 0, 'missing_report')}
+        </div>
+      </section>
       <section class="panel-block">
         <div class="panel-block-head">
-          <h3>תצוגת זמן תפעולית</h3>
-          <div class="timeframe-switch">
-            <button class="btn btn-secondary ${timeframe === 'day' ? 'active' : ''}" data-timeframe="day">יום</button>
-            <button class="btn btn-secondary ${timeframe === 'week' ? 'active' : ''}" data-timeframe="week">שבוע</button>
-            <button class="btn btn-secondary ${timeframe === 'month' ? 'active' : ''}" data-timeframe="month">חודש</button>
-          </div>
+          <h3>מוקדי סיכון לטיפול מיידי</h3>
+          <button class="btn btn-secondary" data-open-filter="needs_review">לכל המוקדים</button>
         </div>
-        ${dashboardOperationalTable(timeItems)}
+        ${dashboardActionTable(actionItems)}
       </section>
-      <section class="split-grid">
-        <article class="panel-block">
-          <div class="panel-block-head"><h3>מבט מדריכים</h3><button class="btn btn-secondary" data-open-filter="active_instructors">לכל המדריכים הפעילים</button></div>
-          ${dashboardInstructorTable(instructorItems)}
-        </article>
-        <article class="panel-block">
-          <div class="panel-block-head"><h3>חריגות, חוסרים ומשימות טיפול</h3><button class="btn btn-secondary" data-open-filter="exceptions">לכל המשימות</button></div>
-          ${dashboardActionTable(actionItems)}
-        </article>
-      </section>
-      <section class="kpi-section secondary"><h3>בקשות ואישורים (משני)</h3><div class="kpi-grid compact">
-      ${kpiCard('ממתין לבקרת תפעול', d.pendingRequests || 0, 'pending_eden')}
-      ${kpiCard('ממתין לאישור הנהלה', d.pendingFinal || 0, 'pending_final')}
-      ${kpiCard('בקשות שאושרו סופית', d.approvedFinal || 0, 'approved_final')}
-      </div></section>`);
+      <section class="panel-block">
+        <div class="panel-block-head">
+          <h3>קיצורי דרך לפעולה</h3>
+        </div>
+        <div class="dashboard-shortcuts">
+          <button class="btn btn-secondary" data-kpi-filter="needs_review">פתיחת קורסים דורשי טיפול</button>
+          <button class="btn btn-secondary" data-shortcut-route="week">ניהול שבוע</button>
+          <button class="btn btn-secondary" data-shortcut-route="month">ניהול חודש</button>
+          <button class="btn btn-secondary" data-shortcut-route="instructors">עומסי מדריכים</button>
+          <button class="btn btn-secondary" data-shortcut-route="end-dates">תאריכי סיום</button>
+          ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? '<button class="btn btn-secondary" data-shortcut-route="finance">גבייה וכספים</button>' : ''}
+        </div>
+      </section>`);
     document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter)));
-    document.querySelectorAll('[data-timeframe]').forEach((button) => button.addEventListener('click', () => {
-      viewState.dashboard.timeframe = button.dataset.timeframe || 'day';
-      renderScreen();
-    }));
     document.querySelectorAll('[data-open-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.openFilter)));
+    document.querySelectorAll('[data-shortcut-route]').forEach((button) => button.addEventListener('click', () => setRoute(button.dataset.shortcutRoute || 'courses')));
     return;
   }
 
@@ -460,6 +439,10 @@ function renderScreen() {
     const showActive = viewState.finance.tab !== 'archive';
     const rows = showActive ? viewState.finance.activeItems : viewState.finance.archiveItems;
     const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
+    const financeSummary = summarizeFinanceBuckets(rows);
+    const emptyFinanceMessage = showActive
+      ? 'אין נתוני גבייה פעילה להצגה. אם ציפית לנתונים, בדוק הרשאות או רענן FINANCE.'
+      : 'אין נתוני ארכיון להצגה כרגע.';
 
     main.innerHTML = head('כספים', 'ניהול סל גבייה פעיל וארכיון') +
       `<section class="finance-toolbar">
@@ -468,8 +451,14 @@ function renderScreen() {
           ${canArchive ? `<button class="btn ${!showActive ? 'btn-primary' : 'btn-secondary'}" data-finance-tab="archive">ארכיון גבייה</button>` : ''}
         </div>
         ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן FINANCE</button>' : ''}
+      </section>
+      <section class="kpi-grid finance-kpi-grid">
+        <article class="kpi-card"><span class="kpi-title">פתוח</span><span class="kpi-value">${financeSummary.open}</span></article>
+        <article class="kpi-card"><span class="kpi-title">בטיפול</span><span class="kpi-value">${financeSummary.inProgress}</span></article>
+        <article class="kpi-card"><span class="kpi-title">הושלם</span><span class="kpi-value">${financeSummary.completed}</span></article>
+        <article class="kpi-card"><span class="kpi-title">דורש פעולה</span><span class="kpi-value">${financeSummary.needsAction}</span></article>
       </section>` +
-      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, 'אין נתוני גבייה להצגה.', renderFinanceCards(rows, { showArchive: !showActive, canEdit })) +
+      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage, renderFinanceCards(rows, { showArchive: !showActive, canEdit })) +
       renderFinanceDetailsPanel(rows.find((item) => String(item?.FinanceRowID || '') === viewState.finance.selectedFinanceRowId) || null);
 
     document.querySelectorAll('[data-finance-tab]').forEach((button) => button.addEventListener('click', () => {
@@ -612,7 +601,8 @@ function renderFinanceCards(rows, options = {}) {
     const billingKey = String(item?.BillingGroupKey || '-');
     const status = String(item?.FinanceStatus || 'ממתין');
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
-    return `<article class="management-card finance-card">
+    const statusBucket = getFinanceStatusBucket(status);
+    return `<article class="management-card finance-card finance-${escAttr(statusBucket.key)}">
       <header class="card-head">
         <div>
           <h3>${esc(billingKey)}</h3>
@@ -670,49 +660,87 @@ function renderFinanceDetailsPanel(item) {
   </section>`;
 }
 
+function renderInfoRow(label, value) {
+  if (!String(value || '').trim()) return '';
+  return `<span><strong>${esc(label)}:</strong> ${esc(value)}</span>`;
+}
+
+function buildCourseHierarchyDetails(row = {}) {
+  const progress = getSessionProgress(row);
+  const actual = progress.actualMeetings;
+  const planned = progress.plannedMeetings;
+  return {
+    instructor: resolveInstructorName(row),
+    programActivity: getCourseField(row, COURSE_FIELDS.PROGRAM) || getCourseField(row, COURSE_FIELDS.ACTIVITY),
+    school: getCourseField(row, COURSE_FIELDS.SCHOOL),
+    authority: getCourseField(row, COURSE_FIELDS.AUTHORITY),
+    meetingProgressLabel: `מפגש ${Math.min(actual, planned || actual || 0)} מתוך ${planned || 0}`,
+    endDate: formatDate(parseDateLike(getCourseField(row, COURSE_FIELDS.END))) || '',
+    dayName: getCourseField(row, COURSE_FIELDS.DAY_NAME || 'DayName'),
+    timeLabel: `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}-${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`
+  };
+}
+
+function renderCourseHierarchyStrip(row = {}) {
+  const hierarchy = buildCourseHierarchyDetails(row);
+  const segments = [
+    hierarchy.instructor && `<span><strong>מדריך:</strong> ${esc(hierarchy.instructor)}</span>`,
+    hierarchy.programActivity && `<span><strong>קורס/פעילות:</strong> ${esc(hierarchy.programActivity)}</span>`,
+    hierarchy.school && `<span><strong>בית ספר:</strong> ${esc(hierarchy.school)}</span>`,
+    hierarchy.authority && `<span><strong>רשות:</strong> ${esc(hierarchy.authority)}</span>`,
+    `<span><strong>${esc(hierarchy.meetingProgressLabel)}</strong></span>`,
+    hierarchy.endDate && `<span><strong>סיום:</strong> ${esc(hierarchy.endDate)}</span>`
+  ].filter(Boolean);
+  return `<div class="course-hierarchy-strip">${segments.join('')}</div>`;
+}
+
+function renderCourseSecondaryDetails(row = {}) {
+  const notes = String(getCourseField(row, COURSE_FIELDS.NOTES) || '').trim();
+  const classGroup = String(getCourseField(row, COURSE_FIELDS.CLASS_GROUP || 'ClassGroup') || '').trim();
+  const details = [];
+  if (classGroup) details.push(`<span><strong>קבוצה:</strong> ${esc(classGroup)}</span>`);
+  if (notes) details.push(`<span><strong>הערות:</strong> ${esc(notes)}</span>`);
+  if (!details.length) return '';
+  return `<details class="course-secondary-details"><summary>מידע משני</summary><div class="card-meta">${details.join('')}</div></details>`;
+}
+
 function renderCourseCards(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו פעילויות לפי הסינון.</section>';
-  return `<section class="cards-grid">${rows.map((row, index) => {
+  return `<section class="cards-grid">${rows.map((row) => {
     const issueText = summarizeIssue(row);
     const progress = courseProgress(row);
-    const sessionProgress = getSessionProgress(row);
-    const actual = sessionProgress.actualMeetings;
-    const planned = sessionProgress.plannedMeetings;
-    const timeLabel = `${formatTimeValue(row[COURSE_FIELDS.START_TIME])}-${formatTimeValue(row[COURSE_FIELDS.END_TIME])}`;
+    const hierarchy = buildCourseHierarchyDetails(row);
+    const issueFlag = hasException(row) || isMissingReport(row) || !hasInstructor(row);
     return `<article class="management-card">
       <header class="card-head">
         <div>
-          <h3>${esc(row.Program || row.Activity || 'פעילות ללא שם')}</h3>
-          <p class="card-subtitle">רשות: ${esc(row.Authority || '-')} · בית ספר: ${esc(row.School || '-')}</p>
+          <h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3>
+          <p class="card-subtitle">${esc(hierarchy.programActivity || 'פעילות ללא שם')}</p>
         </div>
         <div class="card-status">${renderStatusBadge(row)}${renderIssueBadge(row)}</div>
       </header>
+      ${renderCourseHierarchyStrip(row)}
       <div class="course-core-grid">
         <div class="course-core-col">
-          <span><strong>מדריך:</strong> ${esc(resolveInstructorName(row) || 'טרם שויך')}</span>
           <span><strong>מנהל קורס:</strong> ${esc(row.CourseManager || '-')}</span>
           <span><strong>מנהל מדריכים:</strong> ${esc(row.InstructorManager || '-')}</span>
         </div>
         <div class="course-core-col">
-          <span><strong>יום:</strong> ${esc(row.DayName || '-')}</span>
-          <span><strong>שעות:</strong> ${esc(timeLabel)}</span>
+          ${renderInfoRow('יום', hierarchy.dayName)}
+          ${renderInfoRow('שעות', hierarchy.timeLabel)}
         </div>
         <div class="course-core-col">
-          <span><strong>מפגשים:</strong> ${esc(actual)} מתוך ${esc(planned)}</span>
-          <span><strong>מפגש:</strong> ${esc(Math.min(actual, planned || actual || 0))} מתוך ${esc(planned || 0)}</span>
+          ${renderInfoRow('מפגשים', hierarchy.meetingProgressLabel)}
           <div class="progress-mini">
             <div class="progress-mini-fill ${progress.level}" style="width:${progress.percent}%"></div>
           </div>
-          <span class="meta-small">מפגש ${esc(Math.min(actual, planned || actual || 0))} מתוך ${esc(planned || 0)}</span>
+          <span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span>
         </div>
       </div>
-      <div class="card-kpi-row">
-        <span>${esc(row.ClassGroup || 'ללא קבוצה')}</span>
-        <span>סיום קורס: ${esc(formatDate(parseDateLike(row[COURSE_FIELDS.END])) || '-')}</span>
-      </div>
-      <div class="card-issue ${hasException(row) || isMissingReport(row) ? 'has-issue' : ''}">
+      <div class="card-issue ${issueFlag ? 'has-issue' : ''}">
         <strong>בעיה/חוסר:</strong> ${esc(issueText)}
       </div>
+      ${renderCourseSecondaryDetails(row)}
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
         ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">עריכת קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">בקשת שינוי</button>`}
@@ -1345,7 +1373,10 @@ function renderWeekFilters() {
 function renderWeekGrid(days) {
   return `<section class="week-grid">${days.map((day) => {
     const dayExceptionCount = day.items.filter((item) => item.hasReviewItem).length;
-    return `<article class="panel-block week-day-column"><div class="panel-block-head"><h3>${esc(day.label)} ${dayExceptionCount ? `<span class="status-chip status-pending">${dayExceptionCount} חריגות</span>` : ''}</h3><button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${day.items.length} מפגשים</button></div>${day.items.map((item) => `<div class="mini-card week-session-card"><div class="mini-card-top"><strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || 'ללא שם')}</strong>${(item.hasReviewItem || item.hasDelay) ? '<span class="status-chip status-declined compact-badge">חריגה</span>' : ''}</div><span class="meta-small">${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span>${isInstructor() ? '' : `<span class="meta-small">${esc(resolveInstructorName(item) || '-')}</span>`}<span>${esc(`${formatTimeValue(item[COURSE_FIELDS.START_TIME])}-${formatTimeValue(item[COURSE_FIELDS.END_TIME])}`)}</span><span class="meta-small">מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span>${item.hasReviewItem ? `<button class="btn btn-tertiary" data-week-exception-open="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">חריגה פעילה</button>` : ''}</div>`).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`;
+    return `<article class="panel-block week-day-column"><div class="panel-block-head"><h3>${esc(day.label)} ${dayExceptionCount ? `<span class="status-chip status-pending">${dayExceptionCount} חריגות</span>` : ''}</h3><button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${day.items.length} מפגשים</button></div>${day.items.map((item) => {
+      const hierarchy = buildCourseHierarchyDetails(item);
+      return `<div class="mini-card week-session-card"><div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong>${(item.hasReviewItem || item.hasDelay) ? '<span class="status-chip status-declined compact-badge">חריגה</span>' : ''}</div><span class="meta-small">${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc(hierarchy.school || '-')}</span><span>${esc(hierarchy.timeLabel || '-')}</span><span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">Drill-down לקורס</button>${item.hasReviewItem ? `<button class="btn btn-tertiary" data-week-exception-open="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">חריגה פעילה</button>` : ''}</div>`;
+    }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`;
   }).join('')}</section>`;
 }
 
@@ -1439,7 +1470,10 @@ function renderMonthGrid(days) {
 
 function renderMonthDayDetails(items, dateLabel) {
   if (!dateLabel) return '';
-  return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button class="btn btn-secondary" id="monthCloseDetails">סגור</button></div>${items.map((item) => `<article class="mini-card"><strong>${esc(getCourseField(item, COURSE_FIELDS.PROGRAM) || getCourseField(item, COURSE_FIELDS.ACTIVITY) || '')}</strong><span class="meta-small">${esc(getCourseField(item, COURSE_FIELDS.AUTHORITY) || '-')} · ${esc(getCourseField(item, COURSE_FIELDS.SCHOOL) || '-')}</span><span>${esc(resolveInstructorName(item) || '-')}</span><span>${esc(formatTimeValue(getCourseField(item, COURSE_FIELDS.START_TIME)))}-${esc(formatTimeValue(getCourseField(item, COURSE_FIELDS.END_TIME)))}</span><span class="meta-small">מפגש ${esc(buildMeetingMeta(item).meetingNumber)} מתוך ${esc(buildMeetingMeta(item).plannedMeetings)}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פתח קורס</button></article>`).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
+  return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button class="btn btn-secondary" id="monthCloseDetails">סגור</button></div>${items.map((item) => {
+    const hierarchy = buildCourseHierarchyDetails(item);
+    return `<article class="mini-card"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(hierarchy.meetingProgressLabel)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">Drill-down לקורס</button></article>`;
+  }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
 }
 
 function bindMonthActions(monthData) {
@@ -1564,7 +1598,10 @@ function buildEndDateItems(courses) {
 }
 
 function renderEndDateCards(items) {
-  return `<section class="cards-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><h3>${esc(getCourseField(item, COURSE_FIELDS.PROGRAM) || getCourseField(item, COURSE_FIELDS.ACTIVITY) || '')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'עם דחיות' : 'ללא דחיות'}</span></div><div class="card-meta"><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span><span>רשות/בית ספר: ${esc(getCourseField(item, COURSE_FIELDS.AUTHORITY) || '-')} / ${esc(getCourseField(item, COURSE_FIELDS.SCHOOL) || '-')}</span><span><strong>מסתיים ב־${esc(formatDate(parseDateLike(getCourseField(item, COURSE_FIELDS.END))) || '-')}</strong></span><span>מפגשים שנותרו: ${esc(item.remaining)}</span><span>דחיות שזוהו: ${(item.postpone.isPostponed || item.hasReviewDelay) ? '1+' : '0'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div></article>`).join('')}</section>`;
+  return `<section class="cards-grid">${items.map((item) => {
+    const hierarchy = buildCourseHierarchyDetails(item);
+    return `<article class="management-card"><div class="card-head"><h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'עם דחיות' : 'ללא דחיות'}</span></div>${renderCourseHierarchyStrip(item)}<div class="card-meta"><span><strong>${esc(hierarchy.endDate || '-')}</strong></span><span>מפגשים שנותרו: ${esc(item.remaining)}</span><span>דחיות שזוהו: ${(item.postpone.isPostponed || item.hasReviewDelay) ? '1+' : '0'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">Drill-down לקורס</button></div></article>`;
+  }).join('')}</section>`;
 }
 
 function bindEndDatesActions() {
@@ -1822,12 +1859,37 @@ async function loadFinanceView(options = {}) {
     const results = await Promise.all(tasks);
     viewState.finance.activeItems = results[0] || [];
     viewState.finance.archiveItems = results[1] || [];
+    const hasActiveData = viewState.finance.activeItems.length > 0;
+    const hasArchiveData = viewState.finance.archiveItems.length > 0;
+    if (viewState.finance.tab === 'archive' && !canAccessFinanceArchive()) viewState.finance.tab = 'active';
+    if (viewState.finance.tab === 'active' && !canAccessFinanceActive()) viewState.finance.tab = 'archive';
+    if (viewState.finance.tab === 'archive' && !hasArchiveData && hasActiveData) viewState.finance.tab = 'active';
+    if (viewState.finance.tab === 'active' && !hasActiveData && hasArchiveData && canAccessFinanceArchive()) viewState.finance.tab = 'archive';
     viewState.finance.error = '';
   } catch (error) {
     viewState.finance.error = 'לא ניתן לטעון נתוני כספים.';
   }
   viewState.finance.loading = false;
   renderScreen();
+}
+
+function getFinanceStatusBucket(statusValue) {
+  const clean = String(statusValue || '').trim().toLowerCase();
+  if (clean.includes('בוצע') || clean.includes('complete') || clean.includes('closed')) return { key: 'completed', label: 'הושלם' };
+  if (clean.includes('מעקב') || clean.includes('טיפול') || clean.includes('progress') || clean.includes('processing')) return { key: 'in-progress', label: 'בטיפול' };
+  if (clean.includes('חריג') || clean.includes('חסר') || clean.includes('בעיה') || clean.includes('תקוע')) return { key: 'needs-action', label: 'דורש פעולה' };
+  return { key: 'open', label: 'פתוח' };
+}
+
+function summarizeFinanceBuckets(rows = []) {
+  return (rows || []).reduce((acc, item) => {
+    const bucket = getFinanceStatusBucket(item?.FinanceStatus);
+    if (bucket.key === 'completed') acc.completed += 1;
+    else if (bucket.key === 'in-progress') acc.inProgress += 1;
+    else if (bucket.key === 'needs-action') acc.needsAction += 1;
+    else acc.open += 1;
+    return acc;
+  }, { open: 0, inProgress: 0, completed: 0, needsAction: 0 });
 }
 async function loadEdenView() {
   viewState.eden.loading = true; viewState.eden.error = ''; renderScreen();
