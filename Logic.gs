@@ -576,6 +576,12 @@ var Logic = (function () {
       setMasterField_(table.headers, updated, ['CourseManager'], requested.courseManager);
       setMasterField_(table.headers, updated, ['Instructor'], requested.instructor);
       setMasterField_(table.headers, updated, ['Notes'], requested.notes);
+      setMasterField_(table.headers, updated, ['PlannedMeetings'], requested.plannedMeetings);
+      setMasterField_(table.headers, updated, ['Funding'], requested.funding);
+      setMasterField_(table.headers, updated, ['Payment'], requested.payment);
+      setMasterField_(table.headers, updated, ['Authority'], requested.authority);
+      setMasterField_(table.headers, updated, ['School'], requested.school);
+      setMasterField_(table.headers, updated, ['InstructorManager'], requested.instructorManager);
       Utils.updateRow(CONFIG.SHEETS.DATA_MASTER, table.rowNumbers[i], updated);
       break;
     }

@@ -183,6 +183,24 @@ function canEditFinanceArchive() {
   return Boolean(userState.CanEditFinanceArchive);
 }
 
+function showToast(message, type = 'info', duration = 4000) {
+  const el = document.createElement('div');
+  const colors = {
+    success: '#16A34A', error: '#DC2626',
+    warning: '#D97706', info: '#2563EB'
+  };
+  el.style.cssText = [
+    'position:fixed;bottom:24px;left:50%;transform:translateX(-50%)',
+    'background:#1E293B;color:#fff;padding:12px 22px',
+    'border-radius:10px;font-size:14px;z-index:9999',
+    'border-right:4px solid ' + (colors[type] || colors.info),
+    'box-shadow:0 4px 20px rgba(0,0,0,0.3)',
+    'animation:toastIn 0.2s ease'
+  ].join(';');
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
 
 function closeMobileNav() {
   mobileNavOpen = false;
@@ -220,13 +238,19 @@ function render() {
       <button class="btn btn-primary login-btn" id="loginBtn" type="submit">התחבר</button>
     </form><p class="error" id="loginError"></p></div></section>`;
     document.getElementById('loginForm').addEventListener('submit', onLogin);
-    document.getElementById('loginCode')
-      ?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') onLogin(e);
-      });
     document.getElementById('userId')
       ?.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') document.getElementById('loginCode')?.focus();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          document.getElementById('loginCode')?.focus();
+        }
+      });
+    document.getElementById('loginCode')
+      ?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onLogin(e);
+        }
       });
     return;
   }
@@ -295,6 +319,7 @@ function renderScreen() {
           ${kpiCard('פעילויות עם חריגה', d.exceptionCount || 0, 'exceptions')}
           ${kpiCard('פעילויות עם חוסר', d.missingDataCount || 0, 'missing_data')}
           ${kpiCard('פעילויות שמסתיימות בקרוב', d.endingSoonCount || 0, 'ending_soon')}
+          ${kpiCard('מפגשים היום', d.todayActivitiesCount || 0, 'today')}
           ${kpiCard('בקשות פתוחות/ממתינות', d.openPendingRequestsCount || 0, 'open_requests')}
         </div>
       </section>
@@ -311,7 +336,7 @@ function renderScreen() {
         </div>
         <div class="dashboard-shortcuts">
           <button class="btn btn-secondary" data-kpi-filter="needs_review">פתיחת קורסים דורשי טיפול</button>
-          <button class="btn btn-secondary" data-shortcut-route="week">ניהול שבוע</button>
+          <button class="btn btn-secondary" data-shortcut-route="week">פתח שבוע נוכחי</button>
           <button class="btn btn-secondary" data-shortcut-route="month">ניהול חודש</button>
           <button class="btn btn-secondary" data-shortcut-route="instructors">סטטוס מדריכים</button>
           <button class="btn btn-secondary" data-shortcut-route="end-dates">תאריכי סיום</button>
@@ -345,6 +370,7 @@ function renderScreen() {
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
+        <button class="btn btn-secondary" id="exportBtn">ייצוא CSV</button>
       </div>
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
@@ -374,6 +400,9 @@ function renderScreen() {
     document.getElementById('clearInstructorDrilldown')?.addEventListener('click', () => {
       viewState.courses.selectedInstructor = '';
       renderScreen();
+    });
+    document.getElementById('exportBtn')?.addEventListener('click', () => {
+      exportToCSV(visibleCourses, 'courses_export');
     });
     bindInstructorCards();
     bindCourseActions();
@@ -406,8 +435,12 @@ function renderScreen() {
     const instructorsData = buildInstructorsViewData(getRoleScopedCourses(viewState.instructors.filters));
     main.innerHTML = head('מסך מדריכים', 'סטטוס, חריגות ופעילות לפי מדריך') +
       renderInstructorsFilters() +
+      '<div class="filter-actions"><button class="btn btn-secondary" id="exportBtn">ייצוא CSV</button></div>' +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
       renderInstructorCoursesDrilldown(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor);
+    document.getElementById('exportBtn')?.addEventListener('click', () => {
+      exportToCSV(instructorsData.items, 'instructors_export');
+    });
     bindInstructorsActions();
     return;
   }
@@ -416,7 +449,11 @@ function renderScreen() {
     const endDateItems = buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters));
     main.innerHTML = head('מסך תאריכי סיום', 'בקרת קורסים לקראת סיום') +
       renderEndDatesFilters() +
+      '<div class="filter-actions"><button class="btn btn-secondary" id="exportBtn">ייצוא CSV</button></div>' +
       panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems));
+    document.getElementById('exportBtn')?.addEventListener('click', () => {
+      exportToCSV(endDateItems, 'end_dates_export');
+    });
     bindEndDatesActions();
     return;
   }
@@ -480,9 +517,12 @@ function renderScreen() {
 
     document.getElementById('financeSyncBtn')?.addEventListener('click', async () => {
       const result = await syncFinance();
-      if (!result?.success) {
-        viewState.finance.error = result?.message || 'לא ניתן לרענן FINANCE.';
-      }
+      showToast(
+        result?.success
+          ? 'FINANCE עודכן בהצלחה'
+          : (result?.message || 'עדכון FINANCE נכשל'),
+        result?.success ? 'success' : 'error'
+      );
       await loadFinanceView({ silent: true, force: true });
     });
 
@@ -1198,7 +1238,7 @@ function bindInstructorCards() {
 function bindExceptionActions() {
   document.querySelectorAll('[data-contact-instructor]').forEach((button) => button.addEventListener('click', () => {
     const instructor = button.dataset.contactInstructor || 'המדריך';
-    window.alert(`נשלחה משימת קשר ל-${instructor}.`);
+    showToast(`נשלחה משימת קשר ל-${instructor}.`, 'success');
   }));
   document.querySelectorAll('[data-update-course]').forEach((button) => button.addEventListener('click', () => {
     const row = findCourseById(button.dataset.updateCourse);
@@ -1235,7 +1275,7 @@ function bindEditButtons() {
     if (canDirectEditCourses()) {
       const res = await updateCourse(row.CourseID, formResult.changes, userState);
       if (!res?.success) {
-        window.alert(res?.message || 'עדכון הקורס נכשל');
+        showToast(res?.message || 'עדכון הקורס נכשל', 'error');
         return;
       }
       const updated = await refreshCourse(row.CourseID);
@@ -1246,14 +1286,15 @@ function bindEditButtons() {
         }
       }
       renderScreen();
-      window.alert('הקורס עודכן בהצלחה מול הגיליון.');
+      syncFinance().catch(() => {});
+      showToast('הקורס עודכן בהצלחה מול הגיליון.', 'success');
       return;
     }
     const res = await createEditRequest(row.CourseID, formResult.changes, userState);
-    if (!res?.success) window.alert(res?.message || 'הפעולה נכשלה');
+    if (!res?.success) showToast(res?.message || 'הפעולה נכשלה', 'error');
     else {
       await loadMyRequests();
-      window.alert('בקשת השינוי נפתחה ונרשמה ב-EDIT_REQUESTS.');
+      showToast('בקשת השינוי נפתחה ונרשמה ב-EDIT_REQUESTS.', 'success');
     }
   }));
 }
@@ -1309,10 +1350,17 @@ function bindApprovalButtons() {
 async function doDecision(button, approved) {
   const row = viewState.approvals.data[Number(button.dataset.approveRow || button.dataset.rejectRow)] || {};
   const fn = approved ? api.approveRequest : api.rejectRequest;
-  const res = await fn({ RequestID: row.RequestID, ApprovalNotes: '' });
-  if (!res?.success) return window.alert(res?.message || 'הפעולה נכשלה');
+  let notes = '';
+  if (!approved) {
+    const entered = window.prompt('סיבת הדחייה (יוצג למבקש):', '');
+    if (entered === null) return;
+    notes = entered;
+  }
+  const res = await fn({ RequestID: row.RequestID, ApprovalNotes: notes });
+  if (!res?.success) return showToast(res?.message || 'הפעולה נכשלה', 'error');
   await loadApprovals();
   await loadEdenView();
+  showToast(approved ? 'הבקשה אושרה בהצלחה' : 'הבקשה נדחתה', approved ? 'success' : 'error');
 }
 
 async function loadWeekView() {
@@ -1571,13 +1619,27 @@ function buildInstructorsViewData(courses) {
     const schools = Array.from(new Set(list.map((item) => getCourseField(item, COURSE_FIELDS.SCHOOL)).filter(Boolean)));
     const hasIssues = list.some((item) => reviewItems.some((review) => String(getExceptionField(review, EXCEPTION_FIELDS.COURSE_ID) || '') === String(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '') && !isResolvedException(review)));
     const hasGap = list.some((item) => hasInstructorGap(item));
-    return { name, employeeId, coursesCount: list.length, meetingsCount: meetings, authorities, schools, hasIssues, hasGap };
+    const workDays = new Set(
+      list.map((c) => String(c[COURSE_FIELDS.DAY_NAME] || '')).filter(Boolean)
+    );
+    return {
+      name,
+      employeeId,
+      coursesCount: list.length,
+      meetingsCount: meetings,
+      authorities,
+      schools,
+      hasIssues,
+      hasGap,
+      workDays: Array.from(workDays),
+      workDaysCount: workDays.size
+    };
   }).sort((a, b) => b.meetingsCount - a.meetingsCount);
   return { items, coursesByInstructor };
 }
 
 function renderInstructorsCards(items) {
-  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">Drill-down</button></div></article>`).join('')}</section>`;
+  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span><strong>${esc(item.workDaysCount || 0)}</strong> ימי עבודה בשבוע</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">Drill-down</button></div></article>`).join('')}</section>`;
 }
 
 function renderInstructorCoursesDrilldown(instructorName, coursesByInstructor) {
@@ -1781,16 +1843,30 @@ function bindExceptionsActions() {
       ReviewID: reviewId,
       CourseID: button.dataset.markException || ''
     });
-    if (!res?.success) {
-      window.alert(res?.message || 'לא ניתן לעדכן סטטוס חריגה.');
+      if (!res?.success) {
+      showToast(res?.message || 'לא ניתן לעדכן סטטוס חריגה.', 'error');
       return;
     }
     await loadReviewItems(true);
     recentlyResolvedExceptions.add(String(button.dataset.markException || ''));
     window.setTimeout(() => recentlyResolvedExceptions.clear(), 1500);
     renderScreen();
-    window.alert('החריגה סומנה כטופלה.');
+    showToast('החריגה סומנה כטופלה.', 'success');
   }));
+}
+
+function exportToCSV(rows, filename) {
+  if (!rows.length) return;
+  const keys = Object.keys(rows[0]).filter((k) => !k.startsWith('_'));
+  const header = keys.join(',');
+  const body = rows.map((r) =>
+    keys.map((k) => `"${String(r[k] || '').replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  const blob = new Blob(['\uFEFF' + header + '\n' + body], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `${filename}.csv`;
+  a.click();
 }
 
 function getDisplayRoleForInstructor(instructorName, employeeId = '') {
