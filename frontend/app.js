@@ -38,12 +38,13 @@ const viewState = {
     loading: false,
     error: '',
     data: [],
-    filters: { authority: '', school: '', courseManager: '', employee: '', monthStart: '', monthEnd: '' },
+    filters: { authority: '', school: '', courseManager: '', employee: '', dateFrom: '', dateTo: '', monthStart: '', monthEnd: '' },
     filterOptions: { authority: [], school: [], courseManager: [], employee: [] },
     quickFilter: '',
     selectedInstructor: '',
     selectedCourseId: '',
-    selectedCourseDetails: null
+    selectedCourseDetails: null,
+    selectedInstructorDayCourseId: ''
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
@@ -363,8 +364,10 @@ function renderScreen() {
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
       <label>מנהל קורס<select id="courseManagerFilter">${renderSelectOptions(viewState.courses.filterOptions.courseManager, viewState.courses.filters.courseManager)}</select></label>
       <label>מדריך<select id="employeeFilter">${renderSelectOptions(viewState.courses.filterOptions.employee, viewState.courses.filters.employee)}</select></label>
-      <label>מחודש<input id="monthStartFilter" type="month" value="${escAttr(viewState.courses.filters.monthStart)}"></label>
-      <label>עד חודש<input id="monthEndFilter" type="month" value="${escAttr(viewState.courses.filters.monthEnd)}"></label>
+      <label>מתאריך<input id="dateFromFilter" type="date" value="${escAttr(viewState.courses.filters.dateFrom)}"></label>
+      <label>עד תאריך<input id="dateToFilter" type="date" value="${escAttr(viewState.courses.filters.dateTo)}"></label>
+      <label>מחודש (אופציונלי)<input id="monthStartFilter" type="month" value="${escAttr(viewState.courses.filters.monthStart)}"></label>
+      <label>עד חודש (אופציונלי)<input id="monthEndFilter" type="month" value="${escAttr(viewState.courses.filters.monthEnd)}"></label>
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
@@ -382,6 +385,8 @@ function renderScreen() {
         school: document.getElementById('schoolFilter')?.value.trim() || '',
         courseManager: document.getElementById('courseManagerFilter')?.value.trim() || '',
         employee: document.getElementById('employeeFilter')?.value.trim() || '',
+        dateFrom: document.getElementById('dateFromFilter')?.value.trim() || '',
+        dateTo: document.getElementById('dateToFilter')?.value.trim() || '',
         monthStart: document.getElementById('monthStartFilter')?.value.trim() || '',
         monthEnd: document.getElementById('monthEndFilter')?.value.trim() || ''
       };
@@ -390,7 +395,7 @@ function renderScreen() {
     document.getElementById('resetCourseFilters')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
-      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', monthStart: '', monthEnd: '' };
+      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', dateFrom: '', dateTo: '', monthStart: '', monthEnd: '' };
       loadCourses();
     });
     document.getElementById('clearInstructorDetails')?.addEventListener('click', () => {
@@ -732,7 +737,11 @@ function renderFinanceCards(rows, options = {}) {
         </div>
         <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
       </header>
-      <div class="card-meta"><span><strong>סטטוס:</strong> ${esc(item?.FinanceStatus || '-')}</span><span><strong>הערות:</strong> ${esc(item?.Notes || '-')}</span><span><strong>רשות:</strong> ${esc(item?.Authority || '-')}</span><span><strong>בית ספר:</strong> ${esc(item?.SchoolsList || '-')}</span><span><strong>שם הקורס:</strong> ${esc(item?.ProgramsList || '-')}</span></div>
+      <div class="card-meta">
+        <span><strong>רשות:</strong> ${esc(item?.Authority || '-')}</span>
+        <span><strong>בית ספר:</strong> ${esc(item?.SchoolsList || '-')}</span>
+        <span><strong>קורס:</strong> ${esc(item?.ProgramsList || '-')}</span>
+      </div>
       <footer class="card-actions">
         <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">פרטים</button>
         ${canEdit ? `<label class=\"finance-status-edit\">סטטוס
@@ -741,12 +750,12 @@ function renderFinanceCards(rows, options = {}) {
             ${renderStatusOption('במעקב', status)}
             ${renderStatusOption('בוצע-גביה', status)}
           </select>
-        </label>
-        <div class="finance-note-editor">
-          <input data-finance-note-input="${escAttr(financeRowId)}" placeholder="הערות" value="${escAttr(item?.Notes || '')}" />
-          <button class="btn btn-secondary" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}">שמור הערה</button>
-        </div>` : ''}
+        </label>` : ''}
       </footer>
+      ${canEdit ? `<details class="finance-inline-details"><summary>הערות ועדכון</summary><div class="finance-note-editor">
+        <input data-finance-note-input="${escAttr(financeRowId)}" placeholder="הערות" value="${escAttr(item?.Notes || '')}" />
+        <button class="btn btn-secondary" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}">שמור הערה</button>
+      </div></details>` : ''}
     </article>`;
   }).join('')}</section>`;
 }
@@ -811,15 +820,17 @@ function renderExpandableCard({ summary, details, open = false, classes = 'manag
 }
 
 function buildCourseHierarchyDetails(row = {}) {
-  const progress = getSessionProgress(row);
-  const actual = progress.actualMeetings;
-  const planned = progress.plannedMeetings;
+  const meetingStats = getMeetingStatsFromDates(row);
   return {
     instructor: resolveInstructorName(row),
     programActivity: getCourseField(row, COURSE_FIELDS.PROGRAM) || getCourseField(row, COURSE_FIELDS.ACTIVITY),
     school: getCourseField(row, COURSE_FIELDS.SCHOOL),
     authority: getCourseField(row, COURSE_FIELDS.AUTHORITY),
-    meetingProgressLabel: `מפגש ${Math.min(actual, planned || actual || 0)} מתוך ${planned || 0}`,
+    meetingsTotal: meetingStats.total,
+    meetingsCompleted: meetingStats.completedCount,
+    meetingsRemaining: meetingStats.remainingCount,
+    nextMeetingDate: meetingStats.nextMeetingDate ? formatDate(meetingStats.nextMeetingDate) : '',
+    isCompleted: meetingStats.isCompleted,
     endDate: formatDate(parseDateLike(getCourseField(row, COURSE_FIELDS.END))) || '',
     dayName: getCourseField(row, COURSE_FIELDS.DAY_NAME || 'DayName'),
     timeLabel: `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}-${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`
@@ -833,7 +844,9 @@ function renderCourseHierarchyStrip(row = {}) {
     hierarchy.programActivity && `<span><strong>קורס:</strong> ${esc(hierarchy.programActivity)}</span>`,
     hierarchy.school && `<span><strong>בית ספר:</strong> ${esc(hierarchy.school)}</span>`,
     hierarchy.authority && `<span><strong>רשות:</strong> ${esc(hierarchy.authority)}</span>`,
-    `<span><strong>${esc(hierarchy.meetingProgressLabel)}</strong></span>`,
+    hierarchy.meetingsTotal ? `<span><strong>מפגשים שבוצעו:</strong> ${esc(String(hierarchy.meetingsCompleted))} / ${esc(String(hierarchy.meetingsTotal))}</span>` : '',
+    (!hierarchy.isCompleted && hierarchy.meetingsRemaining > 0) ? `<span><strong>מפגשים שנותרו:</strong> ${esc(String(hierarchy.meetingsRemaining))}</span>` : '',
+    (!hierarchy.isCompleted && hierarchy.nextMeetingDate) ? `<span><strong>מפגש קרוב:</strong> ${esc(hierarchy.nextMeetingDate)}</span>` : '',
     hierarchy.endDate && `<span><strong>סיום:</strong> ${esc(hierarchy.endDate)}</span>`
   ].filter(Boolean);
   return `<div class="course-hierarchy-strip">${segments.join('')}</div>`;
@@ -849,6 +862,37 @@ function renderCourseSecondaryDetails(row = {}) {
   return `<details class="course-secondary-details"><summary>מידע משני</summary><div class="card-meta">${details.join('')}</div></details>`;
 }
 
+function getInstructorDayActivity(row = {}) {
+  const instructorName = resolveInstructorName(row);
+  const scheduleDates = getScheduleDates(row).sort((a, b) => a - b);
+  const referenceDate = scheduleDates.find((date) => date >= startOfDay(new Date())) || scheduleDates[0] || null;
+  if (!instructorName || !referenceDate) {
+    return { instructorName, referenceDate: null, sameDayCourses: [] };
+  }
+  const allCourses = viewState.courses.data || [];
+  const sameDayCourses = allCourses.filter((course) => {
+    if (resolveInstructorName(course) !== instructorName) return false;
+    return getScheduleDates(course).some((date) => formatIsoDateLocal(date) === formatIsoDateLocal(referenceDate));
+  });
+  return { instructorName, referenceDate, sameDayCourses };
+}
+
+function renderInstructorDayPanel(row = {}, courseId = '') {
+  const isOpen = viewState.courses.selectedInstructorDayCourseId === courseId;
+  const activity = getInstructorDayActivity(row);
+  if (!isOpen) return '';
+  const header = activity.referenceDate
+    ? `פעילות המדריך בתאריך ${formatDate(activity.referenceDate)}`
+    : 'פעילות המדריך באותו יום';
+  const additional = activity.sameDayCourses.filter((course) => String(course?.[COURSE_FIELDS.COURSE_ID] || '') !== String(courseId));
+  const list = additional.map((course) => `<li>${esc(getBusinessCourseName(course))} · ${esc(getCourseField(course, COURSE_FIELDS.SCHOOL) || '-')}</li>`).join('');
+  return `<div class="instructor-day-panel">
+    <strong>${esc(header)}</strong>
+    ${activity.referenceDate ? '' : '<p>אין נתוני תאריך זמינים לקורס זה.</p>'}
+    ${additional.length ? `<ul>${list}</ul>` : '<p>אין למדריך פעילויות נוספות באותו יום.</p>'}
+  </div>`;
+}
+
 function renderCourseCards(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const managerLabel = options.showInstructorManager ? 'מנהל מדריכים' : 'מנהל קורס';
@@ -858,19 +902,25 @@ function renderCourseCards(rows, options = {}) {
     const progress = courseProgress(row);
     const hierarchy = buildCourseHierarchyDetails(row);
     const issueFlag = hasException(row) || isMissingReport(row) || !hasInstructor(row);
+    const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
     const summary = `<header class="card-head"><div><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3><p class="card-subtitle">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</p></div><div class="card-status">${renderIssueBadge(row)}</div></header>`;
+    const instructorDayPanel = renderInstructorDayPanel(row, courseId);
     const details = `${renderCourseHierarchyStrip(row)}
       <div class="course-core-grid">
         <div class="course-core-col">
           <span><strong>${esc(managerLabel)}:</strong> ${esc(managerValue(row) || '-')}</span>
-          <span><strong>מדריך:</strong> ${esc(hierarchy.instructor || 'לא משויך')}</span>
+          <span><strong>מדריך:</strong> <button type="button" class="instructor-inline-trigger" data-instructor-day-toggle="${escAttr(courseId)}">${esc(hierarchy.instructor || 'לא משויך')}</button></span>
+          ${instructorDayPanel}
         </div>
         <div class="course-core-col">
           ${renderInfoRow('יום', hierarchy.dayName)}
           ${renderInfoRow('שעות', hierarchy.timeLabel)}
         </div>
         <div class="course-core-col">
-          ${renderInfoRow('מפגשים', hierarchy.meetingProgressLabel)}
+          ${renderInfoRow('מפגשים שבוצעו', hierarchy.meetingsTotal ? `${hierarchy.meetingsCompleted} / ${hierarchy.meetingsTotal}` : '')}
+          ${(!hierarchy.isCompleted && hierarchy.meetingsRemaining > 0) ? renderInfoRow('מפגשים שנותרו', String(hierarchy.meetingsRemaining)) : ''}
+          ${(!hierarchy.isCompleted && hierarchy.nextMeetingDate) ? renderInfoRow('מפגש קרוב', hierarchy.nextMeetingDate) : ''}
+          ${hierarchy.isCompleted ? renderInfoRow('סטטוס', 'הסתיים') : ''}
           <div class="progress-mini">
             <div class="progress-mini-fill ${progress.level}" style="width:${progress.percent}%"></div>
           </div>
@@ -965,6 +1015,8 @@ function onKpiClick(filterName, contextText = '') {
     school: '',
     courseManager: context.manager || '',
     employee: '',
+    dateFrom: '',
+    dateTo: '',
     monthStart: '',
     monthEnd: ''
   };
@@ -1058,6 +1110,40 @@ function getScheduleDates(row) {
   const fallback = firstDate(row, COURSE_DATE_RANGE_FIELDS);
   if (!dates.length && fallback) dates.push(fallback);
   return dates;
+}
+
+function isCourseCompleted(row = {}) {
+  const statusText = String(
+    getCourseField(row, COURSE_FIELDS.STATUS)
+    || getCourseField(row, COURSE_FIELDS.EVENT_TYPE)
+    || row?.OperationalStatus
+    || ''
+  ).toLowerCase();
+  if (statusText.includes('סיום') || statusText.includes('הושלם') || statusText.includes('completed') || statusText.includes('closed') || statusText.includes('ended')) {
+    return true;
+  }
+  const dates = getScheduleDates(row);
+  if (!dates.length) return false;
+  const latest = dates[dates.length - 1];
+  return endOfDay(latest) < startOfDay(new Date());
+}
+
+function getMeetingStatsFromDates(row = {}) {
+  const dates = getScheduleDates(row).sort((a, b) => a - b);
+  const now = new Date();
+  const today = startOfDay(now);
+  const completedCount = dates.filter((date) => endOfDay(date) < today).length;
+  const upcomingDates = dates.filter((date) => startOfDay(date) >= today);
+  const nextMeetingDate = upcomingDates[0] || null;
+  const remainingCount = upcomingDates.length;
+  return {
+    dates,
+    total: dates.length,
+    completedCount,
+    remainingCount,
+    nextMeetingDate,
+    isCompleted: isCourseCompleted(row)
+  };
 }
 
 function parseDateLike(value) {
@@ -1253,7 +1339,7 @@ function renderCourseDetailsPanel(course, options = {}) {
   if (!course) return '';
   const meetings = collectCourseDates(course);
   const postponeInfo = parseDelayInfo(course[COURSE_FIELDS.NOTES]);
-  const progress = getSessionProgress(course);
+  const meetingStats = getMeetingStatsFromDates(course);
   const delayText = formatDelayNotes(course[COURSE_FIELDS.NOTES]);
   return `<section class="panel-block course-details-panel">
     <div class="panel-block-head">
@@ -1267,7 +1353,7 @@ function renderCourseDetailsPanel(course, options = {}) {
     </div>
     <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>שעות</th><th>דחייה</th><th>תאריך מקורי</th><th>תאריך חדש</th></tr></thead><tbody>
       ${meetings.length ? meetings.map((item) => {
-        const meetingNumber = item.isEndDate ? Math.max(progress.plannedMeetings, meetings.length - 1) : item.index;
+        const meetingNumber = item.isEndDate ? Math.max(meetingStats.total, meetings.length - 1) : item.index;
         const dayLabel = item.value.toLocaleDateString('he-IL', { weekday: 'long' });
         const postponed = postponeInfo.isPostponed && !item.isEndDate;
         return `<tr>
@@ -1282,9 +1368,12 @@ function renderCourseDetailsPanel(course, options = {}) {
       }).join('') : '<tr><td colspan="7">אין תאריכי מפגש</td></tr>'}
     </tbody></table></div>
     <div class="card-kpi-row">
-      <span><strong>התקדמות:</strong> מפגש ${esc(progress.meetingNumber)} מתוך ${esc(progress.plannedMeetings || 0)}</span>
+      <span><strong>מפגשים שבוצעו:</strong> ${esc(String(meetingStats.completedCount))} מתוך ${esc(String(meetingStats.total || 0))}</span>
+      ${!meetingStats.isCompleted ? `<span><strong>מפגשים שנותרו:</strong> ${esc(String(meetingStats.remainingCount))}</span>` : ''}
+      ${!meetingStats.isCompleted && meetingStats.nextMeetingDate ? `<span><strong>מפגש קרוב:</strong> ${esc(formatDate(meetingStats.nextMeetingDate))}</span>` : ''}
+      ${meetingStats.isCompleted ? `<span><strong>סטטוס סיום:</strong> הסתיים</span>` : ''}
     </div>
-    <div class="card-issue ${hasException(course) ? 'has-issue' : ''}"><strong>הערות:</strong> ${esc(formatDelayNotes(course[COURSE_FIELDS.NOTES]))}</div>
+    ${delayText !== 'אין הערות' ? `<div class="card-issue ${hasException(course) ? 'has-issue' : ''}"><strong>הערות:</strong> ${esc(delayText)}</div>` : ''}
     <footer class="card-actions">
       <button class="btn btn-primary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
     </footer>
@@ -1348,6 +1437,11 @@ function getCourseDisplayNameById(courseId) {
 
 function bindCourseActions() {
   bindEditButtons();
+  document.querySelectorAll('[data-instructor-day-toggle]').forEach((button) => button.addEventListener('click', () => {
+    const courseId = button.dataset.instructorDayToggle || '';
+    viewState.courses.selectedInstructorDayCourseId = viewState.courses.selectedInstructorDayCourseId === courseId ? '' : courseId;
+    renderScreen();
+  }));
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
     const row = findCourseById(button.dataset.openCourse);
     if (!row) return;
@@ -1844,7 +1938,7 @@ function renderMonthDayDetails(items, dateLabel) {
   return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button class="btn btn-secondary" id="monthCloseDetails">סגור</button></div>${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
     const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>`;
-    const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(hierarchy.meetingProgressLabel)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
+    const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(`${hierarchy.meetingsCompleted}/${hierarchy.meetingsTotal || 0} בוצעו`)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
     return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
   }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
 }
@@ -1998,9 +2092,8 @@ function buildEndDateItems(courses) {
   }).map((course) => {
     const postpone = parseDelayInfo(getCourseField(course, COURSE_FIELDS.NOTES));
     const hasReviewDelay = hasCourseDelays(course, reviewItems);
-    const progress = getSessionProgress(course);
-    const remaining = Math.max(0, progress.plannedMeetings - progress.actualMeetings);
-    return { ...course, postpone, hasReviewDelay, remaining };
+    const meetingStats = getMeetingStatsFromDates(course);
+    return { ...course, postpone, hasReviewDelay, meetingStats };
   }).sort((a, b) => (parseDateLike(getCourseField(a, COURSE_FIELDS.END))?.getTime() || 0) - (parseDateLike(getCourseField(b, COURSE_FIELDS.END))?.getTime() || 0));
 }
 
@@ -2008,7 +2101,11 @@ function renderEndDateCards(items) {
   return `<section class="cards-grid">${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
     const summary = `<div class="card-head"><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3>${(item.postpone.isPostponed || item.hasReviewDelay) ? '<span class="status-chip status-pending-final">נדחה</span>' : ''}</div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
-    const details = `${renderCourseHierarchyStrip(item)}<div class="card-meta"><span>מפגשים שנותרו: ${esc(item.remaining)}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div>`;
+    const details = `${renderCourseHierarchyStrip(item)}<div class="card-meta">
+      <span><strong>סטטוס:</strong> ${item.meetingStats?.isCompleted ? 'הסתיים' : 'פעיל'}</span>
+      <span><strong>מפגשים שבוצעו:</strong> ${esc(String(item.meetingStats?.completedCount || 0))} / ${esc(String(item.meetingStats?.total || 0))}</span>
+      ${item.meetingStats?.isCompleted ? '' : `<span><strong>מפגש קרוב:</strong> ${esc(item.meetingStats?.nextMeetingDate ? formatDate(item.meetingStats.nextMeetingDate) : '-')}</span>`}
+    </div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div>`;
     return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
 }
@@ -2456,6 +2553,16 @@ function applyCoursesFiltersByUiScope(rows, filters) {
     if (clean.program) {
       const text = `${String(getCourseField(row, COURSE_FIELDS.PROGRAM) || '')} ${String(getCourseField(row, COURSE_FIELDS.PROGRAM_CODE) || '')}`.toLowerCase();
       if (!text.includes(clean.program)) return false;
+    }
+    if (clean.dateFrom || clean.dateTo) {
+      const fromDate = clean.dateFrom ? startOfDay(parseDateLike(clean.dateFrom)) : null;
+      const toDate = clean.dateTo ? endOfDay(parseDateLike(clean.dateTo)) : null;
+      const meetingDates = getScheduleDates(row);
+      const endDate = parseDateLike(getCourseField(row, COURSE_FIELDS.END));
+      const rangeDates = [...meetingDates, ...(endDate ? [endDate] : [])];
+      if (fromDate && !rangeDates.some((date) => date >= fromDate)) return false;
+      if (toDate && !rangeDates.some((date) => date <= toDate)) return false;
+      if (fromDate && toDate && !rangeDates.some((date) => date >= fromDate && date <= toDate)) return false;
     }
     if (clean.monthStart) {
       const monthStart = parseMonthBoundary(clean.monthStart, 'start');
