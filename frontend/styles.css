@@ -453,14 +453,20 @@ a { color: var(--accent); text-decoration: none; }
   justify-content: start;
 }
 .course-cards-grid {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 .cards-grid-compact {
   grid-template-columns: repeat(4, 240px);
   justify-content: start;
 }
 .course-cards-grid.cards-grid-compact {
-  grid-template-columns: repeat(auto-fill, minmax(168px, 192px));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.course-cards-grid .management-card {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .management-card {
@@ -752,9 +758,14 @@ a { color: var(--accent); text-decoration: none; }
   grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(44px, 0.55fr);
   gap: 10px;
   width: 100%;
-  min-width: 1050px;
-  overflow-x: visible;
+  min-width: 0;
+  overflow-x: hidden;
   padding-bottom: 6px;
+}
+.week-grid > * {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .week-day-head {
   display: grid;
@@ -773,6 +784,7 @@ a { color: var(--accent); text-decoration: none; }
   flex-direction: column;
   gap: 8px;
   min-height: 220px;
+  min-width: 0;
 }
 .week-day-column .panel-block-head h3 { font-size: 13px; }
 .week-day-shabbat {
@@ -805,6 +817,9 @@ a { color: var(--accent); text-decoration: none; }
   transition: border-color 0.15s;
   background: #fff;
   box-shadow: var(--shadow-sm);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .week-session-card:has(.status-declined) { border-right-color: var(--red); }
 .week-accordion {
