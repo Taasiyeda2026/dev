@@ -431,9 +431,15 @@ a { color: var(--accent); text-decoration: none; }
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 16px;
 }
+.course-cards-grid {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
 .cards-grid-compact {
   grid-template-columns: repeat(auto-fill, minmax(210px, 240px));
   justify-content: start;
+}
+.course-cards-grid.cards-grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(168px, 192px));
 }
 
 .management-card {
@@ -707,10 +713,12 @@ a { color: var(--accent); text-decoration: none; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin: 16px 0;
+  justify-items: start;
 }
-.dashboard-manager-column { padding: 14px; }
+.dashboard-manager-column { padding: 14px; width: 80%; }
 .dashboard-kpi-grid-top { margin-bottom: 4px; }
 .manager-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dashboard-kpi-grid .kpi-card { width: 80%; }
 
 /* ============================================================
    WEEK GRID
@@ -724,15 +732,17 @@ a { color: var(--accent); text-decoration: none; }
   padding-bottom: 6px;
 }
 .week-day-head {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  justify-items: center;
   text-align: center;
   gap: 4px;
+  width: 100%;
 }
 .week-day-head .btn { margin-top: 2px; }
 .week-day-head small { font-size: 11px; color: var(--text-muted); }
 .week-day-head h3 { width: 100%; text-align: center; }
+.week-day-date { width: 100%; text-align: center; }
 .week-day-column {
   display: flex;
   flex-direction: column;
