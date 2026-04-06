@@ -322,11 +322,9 @@ function renderScreen() {
         ${kpiCard('כמות סדנאות', d.workshopsCount || 0, 'all_courses')}
         ${kpiCard('מסתיימים בחודש נוכחי', d.endingCurrentMonthCount || 0, 'this_month')}
         ${kpiCard('פעילים החודש - גיל נאמן', d.activeByManager?.['גיל נאמן'] || 0, 'this_month')}
-        ${kpiCard('פעילים החודש - לינוי', d.activeByManager?.לינוי || 0, 'this_month')}
-        ${kpiCard('פעילים החודש - שמואל מזרחי', d.activeByManager?.['שמואל מזרחי'] || 0, 'this_month')}
+        ${kpiCard('פעילים החודש - לינוי שמואל מזרחי', d.activeByManager?.['לינוי שמואל מזרחי'] || 0, 'this_month')}
         ${kpiCard('מדריכים - גיל נאמן', d.instructorsByManager?.['גיל נאמן'] || 0, 'all_courses')}
-        ${kpiCard('מדריכים - לינוי', d.instructorsByManager?.לינוי || 0, 'all_courses')}
-        ${kpiCard('מדריכים - שמואל מזרחי', d.instructorsByManager?.['שמואל מזרחי'] || 0, 'all_courses')}
+        ${kpiCard('מדריכים - לינוי שמואל מזרחי', d.instructorsByManager?.['לינוי שמואל מזרחי'] || 0, 'all_courses')}
         ${kpiCard('קורסים עם חסר שעות', d.missingHoursCount || 0, 'exceptions')}
         ${kpiCard('קורסים עם חסר תאריך', d.missingDateCount || 0, 'exceptions')}
         ${kpiCard('קורסים עם חסר מדריך', d.missingInstructorCount || 0, 'exceptions')}
@@ -2412,7 +2410,7 @@ function withOperationalMetrics(baseData, courses) {
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
   const activeThisMonth = courses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
-  const managers = ['גיל נאמן', 'לינוי', 'שמואל מזרחי'];
+  const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
   const activeByManager = {};
   const instructorsByManager = {};
   managers.forEach((managerName) => {
