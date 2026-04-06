@@ -171,7 +171,7 @@ a { color: var(--accent); text-decoration: none; }
   flex: 1;
   min-width: 0;
   padding: 28px 32px 48px;
-  background: var(--shell);
+  background: var(--surface-2);
 }
 
 /* ============================================================
@@ -180,18 +180,18 @@ a { color: var(--accent); text-decoration: none; }
 .screen-head {
   margin-bottom: 24px;
   padding-bottom: 18px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid var(--border);
 }
 .screen-head h2 {
   font-size: 22px;
   font-weight: 700;
-  color: #fff;
+  color: #93c5fd;
   letter-spacing: -0.02em;
   margin-bottom: 4px;
 }
 .screen-head p {
   font-size: 13px;
-  color: var(--shell-text);
+  color: var(--text-secondary);
 }
 
 /* ============================================================
@@ -370,15 +370,15 @@ a { color: var(--accent); text-decoration: none; }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 16px;
+  height: 34px;
+  padding: 0 14px;
   border-radius: var(--radius-sm);
   border: 1px solid transparent;
   font-size: 13px;
   font-weight: 500;
   transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.08s;
   white-space: nowrap;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-sm);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn:focus-visible {
@@ -387,7 +387,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .btn:active:not(:disabled) {
   transform: translateY(1px);
-  box-shadow: none;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.14);
 }
 
 .btn-primary {
@@ -671,9 +671,10 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(180px, 1fr));
   gap: 14px;
-  overflow-x: hidden;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 .week-day-column {
   display: flex;
@@ -709,13 +710,15 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(130px, 1fr));
   gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
 }
 .month-header {
   font-size: 18px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--accent);
   margin-bottom: 10px;
 }
 .month-weekday {
@@ -844,7 +847,7 @@ a { color: var(--accent); text-decoration: none; }
 .details-text { font-size: 12px; white-space: normal; line-height: 1.5; }
 
 /* כותרת פרטי מדריך */
-.drilldown-head {
+.instructor-details-head {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -856,7 +859,7 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 13px;
   color: var(--text-secondary);
 }
-.drilldown-head strong { color: var(--accent); font-weight: 700; }
+.instructor-details-head strong { color: var(--accent); font-weight: 700; }
 
 /* אזור פרטי קורס */
 .course-details-panel {
