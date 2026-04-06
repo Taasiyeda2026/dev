@@ -43,6 +43,10 @@ const dataStore = {
 
 let apiRef = null;
 
+/** מטמון לניווט בין מסכים — מפחית קריאות כבדות ל-Sheets */
+const COURSES_CACHE_TTL_MS = 3 * 60 * 1000;
+const REVIEW_CACHE_TTL_MS = 2 * 60 * 1000;
+
 function now() {
   return Date.now();
 }
@@ -142,8 +146,43 @@ async function loadCourses() {
   return dataStore.courses;
 }
 
-export async function reloadCourses() {
+export function isCoursesCacheFresh(ttlMs = COURSES_CACHE_TTL_MS) {
+  const t = dataStore.loadedAt.courses || 0;
+  return t > 0 && (now() - t) < ttlMs;
+}
+
+export function isReviewCacheFresh(ttlMs = REVIEW_CACHE_TTL_MS) {
+  const t = dataStore.loadedAt.reviewItems || 0;
+  return t > 0 && (now() - t) < ttlMs;
+}
+
+/** רענון מלא מול השרת; force=true תמיד מושך מחדש */
+export async function reloadCourses(force = false) {
+  if (!force && isCoursesCacheFresh()) return dataStore.courses;
   return loadCourses();
+}
+
+export function resetClientDataStore() {
+  dataStore.permissions = [];
+  dataStore.courses = [];
+  dataStore.lists = [];
+  dataStore.programCodes = [];
+  dataStore.editRequests = [];
+  dataStore.reviewItems = [];
+  dataStore.finance = [];
+  dataStore.financeArchive = [];
+  dataStore.dataMaster = [];
+  dataStore.loadedAt = {
+    permissions: 0,
+    courses: 0,
+    lists: 0,
+    programCodes: 0,
+    editRequests: 0,
+    reviewItems: 0,
+    finance: 0,
+    financeArchive: 0,
+    dataMaster: 0
+  };
 }
 
 export async function initDataEngine(api, options = {}) {
@@ -215,7 +254,7 @@ export async function loadEditRequests(force = false) {
 }
 
 export async function loadReviewItems(force = false) {
-  if (!force && dataStore.reviewItems.length) return dataStore.reviewItems;
+  if (!force && isReviewCacheFresh()) return dataStore.reviewItems;
   dataStore.reviewItems = await fetchSheet(SHEET_NAMES.REVIEW_REQUIRED);
   dataStore.loadedAt.reviewItems = now();
   return dataStore.reviewItems;

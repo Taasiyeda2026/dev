@@ -11,6 +11,9 @@ import {
   loadEditRequests,
   loadReviewItems,
   reloadCourses,
+  resetClientDataStore,
+  isCoursesCacheFresh,
+  isReviewCacheFresh,
   loadFinanceItems,
   loadFinanceArchiveItems,
   updateFinanceStatus,
@@ -38,7 +41,7 @@ const viewState = {
     loading: false,
     error: '',
     data: [],
-    filters: { authority: '', school: '', courseManager: '', employee: '', dateFrom: '', dateTo: '', monthStart: '', monthEnd: '' },
+    filters: { authority: '', school: '', courseManager: '', employee: '', courseMonth: '' },
     filterOptions: { authority: [], school: [], courseManager: [], employee: [] },
     quickFilter: '',
     selectedInstructor: '',
@@ -226,7 +229,7 @@ function resetCoursesNavFromMenu() {
   viewState.uiContext.coursesSubtitle = '';
   viewState.courses.quickFilter = '';
   viewState.courses.filters = {
-    authority: '', school: '', courseManager: '', employee: '', dateFrom: '', dateTo: '', monthStart: '', monthEnd: ''
+    authority: '', school: '', courseManager: '', employee: '', courseMonth: ''
   };
 }
 
@@ -302,6 +305,8 @@ function render() {
     if (route === 'logout') {
       await api.logout();
       clearUserState();
+      resetClientDataStore();
+      api.clearCache?.();
       setRoute('login');
       return;
     }
@@ -340,23 +345,29 @@ function renderScreen() {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
     main.innerHTML = head('דשבורד ראשי', '') + panel(viewState.dashboard, 'אין נתונים.',
-      `<section class="kpi-section dashboard-kpi-scope"><div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
-        ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses')}
-        ${kpiCard('סך סדנאות', d.workshopsCount || 0, 'all_courses')}
-        ${kpiCard('מסתיימים החודש', d.endingCurrentMonthCount || 0, 'this_month')}
-        ${kpiCard('פעילים החודש', d.activeThisMonthCount || 0, 'active_now')}
-      </div></section>
-      <section class="dashboard-managers-grid dashboard-kpi-scope">${managers.map((managerName) => `
+      `<section class="kpi-section dashboard-kpi-top-section">
+        <div class="dashboard-kpi-row-centered">
+          <div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
+            ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses')}
+            ${kpiCard('סך סדנאות', d.workshopsCount || 0, 'workshops_only')}
+            ${kpiCard('מסתיימים החודש', d.endingCurrentMonthCount || 0, 'ending_this_month')}
+            ${kpiCard('פעילים החודש', d.activeThisMonthCount || 0, 'active_this_month')}
+          </div>
+        </div>
+      </section>
+      <section class="dashboard-managers-below">
+        <div class="dashboard-managers-grid">${managers.map((managerName) => `
         <article class="panel-block dashboard-manager-column">
           <div class="panel-block-head"><h3>${esc(managerName)}</h3></div>
           <div class="kpi-grid dashboard-kpi-grid manager-kpi-grid">
             ${kpiCard('מדריכים', d.instructorsByManager?.[managerName] || 0, 'all_courses', '', `manager:${managerName}|subtitle:מדריכים`)}
-            ${kpiCard('פעילים החודש', d.activeByManager?.[managerName] || 0, 'active_now', '', `manager:${managerName}|subtitle:פעילים החודש - ${managerName}`)}
-            ${kpiCard('מסתיימים החודש', d.endingByManager?.[managerName] || 0, 'this_month', '', `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}`)}
-            ${kpiCard('דורשים טיפול', d.requiresTreatmentByManager?.[managerName] || 0, 'exceptions', '', `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}`)}
+            ${kpiCard('פעילים החודש', d.activeByManager?.[managerName] || 0, 'active_this_month', '', `manager:${managerName}|subtitle:פעילים החודש - ${managerName}`)}
+            ${kpiCard('מסתיימים החודש', d.endingByManager?.[managerName] || 0, 'ending_this_month', '', `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}`)}
+            ${kpiCard('דורשים טיפול', d.requiresTreatmentByManager?.[managerName] || 0, 'requires_treatment', '', `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}`)}
           </div>
         </article>`).join('')}
-      </div></section>
+        </div>
+      </section>
       `);
     document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter, button.dataset.kpiContext || '')));
     return;
@@ -376,10 +387,7 @@ function renderScreen() {
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
       <label>מנהל קורס<select id="courseManagerFilter">${renderSelectOptions(viewState.courses.filterOptions.courseManager, viewState.courses.filters.courseManager)}</select></label>
       <label>מדריך<select id="employeeFilter">${renderSelectOptions(viewState.courses.filterOptions.employee, viewState.courses.filters.employee)}</select></label>
-      <label>מתאריך<input id="dateFromFilter" type="date" value="${escAttr(viewState.courses.filters.dateFrom)}"></label>
-      <label>עד תאריך<input id="dateToFilter" type="date" value="${escAttr(viewState.courses.filters.dateTo)}"></label>
-      <label>מחודש (אופציונלי)<input id="monthStartFilter" type="month" value="${escAttr(viewState.courses.filters.monthStart)}"></label>
-      <label>עד חודש (אופציונלי)<input id="monthEndFilter" type="month" value="${escAttr(viewState.courses.filters.monthEnd)}"></label>
+      <label>חודש<select id="courseMonthFilter">${buildCourseMonthSelectOptions(viewState.courses.filters.courseMonth)}</select></label>
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
@@ -397,17 +405,14 @@ function renderScreen() {
         school: document.getElementById('schoolFilter')?.value.trim() || '',
         courseManager: document.getElementById('courseManagerFilter')?.value.trim() || '',
         employee: document.getElementById('employeeFilter')?.value.trim() || '',
-        dateFrom: document.getElementById('dateFromFilter')?.value.trim() || '',
-        dateTo: document.getElementById('dateToFilter')?.value.trim() || '',
-        monthStart: document.getElementById('monthStartFilter')?.value.trim() || '',
-        monthEnd: document.getElementById('monthEndFilter')?.value.trim() || ''
+        courseMonth: document.getElementById('courseMonthFilter')?.value.trim() || ''
       };
       loadCourses();
     });
     document.getElementById('resetCourseFilters')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
-      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', dateFrom: '', dateTo: '', monthStart: '', monthEnd: '' };
+      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '' };
       loadCourses();
     });
     document.getElementById('clearInstructorDetails')?.addEventListener('click', () => {
@@ -870,16 +875,6 @@ function renderCourseHierarchyStrip(row = {}) {
   return `<div class="course-hierarchy-strip">${segments.join('')}</div>`;
 }
 
-function renderCourseSecondaryDetails(row = {}) {
-  const notes = String(getCourseField(row, COURSE_FIELDS.NOTES) || '').trim();
-  const classGroup = String(getCourseField(row, COURSE_FIELDS.CLASS_GROUP || 'ClassGroup') || '').trim();
-  const details = [];
-  if (classGroup) details.push(`<span><strong>קבוצה:</strong> ${esc(classGroup)}</span>`);
-  if (notes) details.push(`<span><strong>הערות:</strong> ${esc(notes)}</span>`);
-  if (!details.length) return '';
-  return `<details class="course-secondary-details"><summary>מידע משני</summary><div class="card-meta">${details.join('')}</div></details>`;
-}
-
 function getInstructorDayActivity(row = {}) {
   const instructorName = resolveInstructorName(row);
   const scheduleDates = getScheduleDates(row).sort((a, b) => a - b);
@@ -946,7 +941,6 @@ function renderCourseCards(rows, options = {}) {
         </div>
       </div>
       ${issueText ? `<div class="card-issue ${issueFlag ? 'has-issue' : ''}"><strong>מה חסר בפועל:</strong> ${esc(issueText)}</div>` : ''}
-      ${renderCourseSecondaryDetails(row)}
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
         <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">${canEdit ? 'עריכה' : 'שלח בקשת שינוי'}</button>
@@ -1034,10 +1028,7 @@ function onKpiClick(filterName, contextText = '') {
     school: '',
     courseManager: context.manager || '',
     employee: '',
-    dateFrom: '',
-    dateTo: '',
-    monthStart: '',
-    monthEnd: ''
+    courseMonth: ''
   };
   viewState.uiContext.coursesSubtitle = context.subtitle || '';
   setRoute(isInstructor() ? 'instructor-view' : 'courses');
@@ -1051,6 +1042,22 @@ function applyCourseQuickFilter(rows) {
   const plusSeven = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
   const weekEnd = new Date(now.getTime() + (6 * 24 * 60 * 60 * 1000));
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  if (key === 'all_courses') return list;
+  if (key === 'workshops_only') {
+    return list.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה'));
+  }
+  if (key === 'ending_this_month') {
+    return list.filter((row) => {
+      const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
+      return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
+    });
+  }
+  if (key === 'active_this_month') {
+    return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
+  }
+  if (key === 'requires_treatment') return list.filter((row) => getCourseMissingTypes(row).length > 0);
   if (key === 'today') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, now)));
   if (key === 'this_week') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, weekEnd)));
   if (key === 'this_month') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, startOfDay(now), monthEnd)));
@@ -1701,11 +1708,19 @@ function openEdenFullRowForm(requestRow, courseRow) {
 }
 
 async function loadWeekView() {
-  viewState.week.loading = true;
+  if (!viewState.week.rangeStart) {
+    const now = new Date();
+    const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    viewState.week.rangeStart = formatIsoDateLocal(startOfDay(sunday));
+  }
+  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
+  if (needFetch) {
+    viewState.week.loading = true;
+    renderScreen();
+  }
   viewState.week.error = '';
-  renderScreen();
   try {
-    await Promise.all([reloadCourses(), loadReviewItems(true)]);
+    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
   } catch (error) {
     viewState.week.error = 'לא ניתן לרענן נתוני קורסים לשבוע.';
   }
@@ -1717,11 +1732,14 @@ async function loadMonthView() {
   if (!viewState.month.monthDate) {
     viewState.month.monthDate = formatMonthInputLocal(new Date());
   }
-  viewState.month.loading = true;
+  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
+  if (needFetch) {
+    viewState.month.loading = true;
+    renderScreen();
+  }
   viewState.month.error = '';
-  renderScreen();
   try {
-    await Promise.all([reloadCourses(), loadReviewItems(true)]);
+    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
   } catch (error) {
     viewState.month.error = 'לא ניתן לרענן נתוני קורסים לחודש.';
   }
@@ -1730,11 +1748,14 @@ async function loadMonthView() {
 }
 
 async function loadInstructorsView() {
-  viewState.instructors.loading = true;
+  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
+  if (needFetch) {
+    viewState.instructors.loading = true;
+    renderScreen();
+  }
   viewState.instructors.error = '';
-  renderScreen();
   try {
-    await Promise.all([reloadCourses(), loadReviewItems(true)]);
+    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
   } catch (error) {
     viewState.instructors.error = 'לא ניתן לרענן נתוני קורסים למדריכים.';
   }
@@ -1743,11 +1764,14 @@ async function loadInstructorsView() {
 }
 
 async function loadEndDatesView() {
-  viewState.endDates.loading = true;
+  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
+  if (needFetch) {
+    viewState.endDates.loading = true;
+    renderScreen();
+  }
   viewState.endDates.error = '';
-  renderScreen();
   try {
-    await Promise.all([reloadCourses(), loadReviewItems(true)]);
+    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
   } catch (error) {
     viewState.endDates.error = 'לא ניתן לרענן נתוני קורסים לתאריכי סיום.';
   }
@@ -1758,8 +1782,9 @@ async function loadEndDatesView() {
 async function loadExceptionsView() {
   viewState.exceptions.loading = true;
   viewState.exceptions.error = '';
+  renderScreen();
   try {
-    await Promise.all([reloadCourses(), loadReviewItems(true)]);
+    await Promise.all([reloadCourses(true), loadReviewItems(true)]);
   } catch (error) {
     viewState.exceptions.error = 'לא ניתן לרענן נתוני קורסים לחריגות.';
   }
@@ -1769,13 +1794,12 @@ async function loadExceptionsView() {
 
 function renderWeekFilters() {
   const options = getUiFilterOptions();
-  return `<section class="filters-wrap">
-    <label>מתחילת שבוע<input id="weekStart" type="date" value="${escAttr(viewState.week.rangeStart)}" /></label>
+  return `<section class="filters-wrap week-filters-wrap">
+    <div class="filter-actions week-nav-actions week-nav-actions-primary"><button class="btn btn-secondary" id="weekPrev" type="button" aria-label="שבוע קודם">◀ שבוע קודם</button><button class="btn btn-secondary" id="weekNext" type="button" aria-label="שבוע הבא">שבוע הבא ▶</button></div>
     <label>רשות<select id="weekAuthority">${renderSelectOptions(options.authority, viewState.week.filters.authority)}</select></label>
     <label>מדריך<select id="weekEmployee">${renderSelectOptions(options.employee, viewState.week.filters.employee)}</select></label>
     <label>מנהל קורס<select id="weekCourseManager">${renderSelectOptions(options.courseManager, viewState.week.filters.courseManager)}</select></label>
-    <div class="filter-actions"><button class="btn btn-secondary" id="weekApply">סינון</button><button class="btn btn-secondary" id="weekReset">נקה סינון</button></div>
-    <div class="filter-actions week-nav-actions"><button class="btn btn-secondary" id="weekPrev" aria-label="שבוע קודם">◀ שבוע קודם</button><button class="btn btn-secondary" id="weekNext" aria-label="שבוע הבא">שבוע הבא ▶</button></div>
+    <div class="filter-actions"><button class="btn btn-secondary" id="weekApply" type="button">סינון</button><button class="btn btn-secondary" id="weekReset" type="button">נקה סינון</button></div>
   </section>`;
 }
 
@@ -1828,10 +1852,22 @@ function renderWeekInstructorSidePanel(panel) {
   if (!panel || !panel.items?.length) return '';
   const dayLabel = formatDate(parseDateLike(panel.dayIso)) || panel.dayIso || '';
   const body = panel.items.map((item) => {
-    const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
-    const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span>`;
-    const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item[COURSE_FIELDS.DATE])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button></div>`;
-    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
+    const courseName = item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '-';
+    const school = item[COURSE_FIELDS.SCHOOL] || '-';
+    const authority = item[COURSE_FIELDS.AUTHORITY] || '-';
+    const mNum = esc(String(item.meetingNumber ?? '-'));
+    const mPlan = esc(String(item.plannedMeetings ?? ''));
+    const meetingLine = item.plannedMeetings ? `מפגש ${mNum} מתוך ${mPlan}` : `מפגש ${mNum}`;
+    return `<div class="week-panel-activity-block">
+      <strong class="week-panel-course-title">${esc(courseName)}</strong>
+      <ul class="week-panel-activity-list">
+        <li><span>בית ספר:</span> ${esc(school)}</li>
+        <li><span>רשות:</span> ${esc(authority)}</li>
+        <li><span>קורס:</span> ${esc(courseName)}</li>
+        <li><span>מספר מפגש:</span> ${meetingLine}</li>
+      </ul>
+      <div class="card-actions"><button type="button" class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button></div>
+    </div>`;
   }).join('');
   return `<aside class="week-side-panel" id="weekSidePanel"><div class="week-side-panel-head"><h3 class="section-title">${esc(panel.instructor)} — ${esc(dayLabel)}</h3><button type="button" class="btn btn-secondary" id="weekCloseDetails">סגור</button></div><div class="week-side-panel-body">${body}</div></aside>`;
 }
@@ -1843,12 +1879,13 @@ function bindWeekActions(weekData) {
       employee: document.getElementById('weekEmployee')?.value.trim() || '',
       courseManager: document.getElementById('weekCourseManager')?.value.trim() || ''
     };
-    viewState.week.rangeStart = document.getElementById('weekStart')?.value.trim() || '';
     renderScreen();
   });
   document.getElementById('weekReset')?.addEventListener('click', () => {
     viewState.week.filters = { authority: '', employee: '', courseManager: '' };
-    viewState.week.rangeStart = '';
+    const now = new Date();
+    const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+    viewState.week.rangeStart = formatIsoDateLocal(startOfDay(sunday));
     viewState.week.selected = null;
     viewState.week.instructorPanel = null;
     renderScreen();
@@ -1989,7 +2026,13 @@ function renderMonthGrid(days) {
   const leadingCells = Array.from({ length: firstWeekday }).map(() => '<div class="month-day month-day-empty" aria-hidden="true"></div>').join('');
   const todayIso = formatIsoDateLocal(startOfDay(new Date()));
   const weekdayNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש'];
-  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${weekdayNames.map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''} ${day.isoDate === todayIso ? 'month-day-today' : ''}" data-month-open="${escAttr(day.isoDate)}"><span class="month-status-indicator ${day.hasException ? 'has-issue' : 'is-ok'}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span class="month-day-count">${day.items.length} פעילויות</span><small class="month-day-date-label">${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`).join('')}</section>`;
+  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${weekdayNames.map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => {
+    const n = day.items.length;
+    const dotClass = n > 0 ? 'month-activity-dot month-activity-dot--on' : 'month-activity-dot month-activity-dot--off';
+    const countHtml = n > 0 ? `<span class="month-day-count">${n} פעילויות</span>` : '';
+    const ariaAct = n === 0 ? 'אין פעילויות' : `${n} פעילויות`;
+    return `<button type="button" class="month-day ${day.hasException ? 'has-exception' : ''} ${day.isoDate === todayIso ? 'month-day-today' : ''}" data-month-open="${escAttr(day.isoDate)}" aria-label="${escAttr(`יום ${day.day}, ${ariaAct}`)}"><span class="${dotClass}" aria-hidden="true"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div>${countHtml}<small class="month-day-date-label">${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`;
+  }).join('')}</section>`;
 }
 
 function renderMonthDayDetails(items, dateLabel) {
@@ -2106,11 +2149,11 @@ function buildInstructorsViewData(courses) {
 }
 
 function renderInstructorsCards(items) {
-  return `<section class="cards-grid instructor-grid">${items.map((item) => {
-    const summary = `<div class="card-head"><div><h3>${esc(item.name)}</h3></div></div><div class="card-summary-minimal"><strong>${esc(item.coursesCount)}</strong> קורסים</div>`;
-    const details = `<div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">פרטי קורסים</button></div>`;
-    return renderExpandableCard({ summary, details });
-  }).join('')}</section>`;
+  return `<section class="cards-grid instructor-grid instructor-grid-compact">${items.map((item) => `
+    <article class="management-card instructor-card-tile" role="button" tabindex="0" data-instructor-card="${escAttr(item.name)}" aria-label="פתח פרטי מדריך ${escAttr(item.name)}">
+      <div class="instructor-card-tile-head"><h3>${esc(item.name)}</h3></div>
+      <div class="instructor-card-tile-meta"><strong>${esc(String(item.coursesCount))}</strong> קורסים</div>
+    </article>`).join('')}</section>`;
 }
 
 function renderInstructorCoursesDetails(instructorName, coursesByInstructor) {
@@ -2143,10 +2186,19 @@ function bindInstructorsActions() {
     viewState.instructors.selectedInstructor = '';
     renderScreen();
   });
-  document.querySelectorAll('[data-instructor-open]').forEach((button) => button.addEventListener('click', () => {
-    viewState.instructors.selectedInstructor = button.dataset.instructorOpen || '';
+  function openInstructorCard(name) {
+    viewState.instructors.selectedInstructor = String(name || '').trim();
     renderScreen();
-  }));
+  }
+  document.querySelectorAll('[data-instructor-card]').forEach((el) => {
+    el.addEventListener('click', () => openInstructorCard(el.dataset.instructorCard));
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openInstructorCard(el.dataset.instructorCard);
+      }
+    });
+  });
   document.getElementById('instructorCloseDetails')?.addEventListener('click', () => {
     viewState.instructors.selectedInstructor = '';
     renderScreen();
@@ -2352,9 +2404,7 @@ async function onLogin(event) {
     return;
   }
   setUserState(res);
-  const dashboardPromise = api.getDashboard();
   await initDataEngine(api, { userState });
-  await dashboardPromise;
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
   setRoute('dashboard');
@@ -2596,9 +2646,42 @@ function normalizeCourseRecord(raw = {}) {
   return out;
 }
 
+function courseOverlapsSelectedMonth(row, monthValue) {
+  const raw = String(monthValue || '').trim();
+  if (!raw) return true;
+  const ms = parseMonthBoundary(raw, 'start');
+  const me = parseMonthBoundary(raw, 'end');
+  if (!ms || !me) return true;
+  if (getScheduleDates(row).some((d) => d >= startOfDay(ms) && d <= endOfDay(me))) return true;
+  const end = parseDateLike(getCourseField(row, COURSE_FIELDS.END));
+  if (end && isDateInRange(end, ms, me)) return true;
+  const start = firstDate(row, COURSE_DATE_RANGE_FIELDS);
+  if (start && end) {
+    if (!(end < startOfDay(ms) || start > endOfDay(me))) return true;
+  } else if (start && start <= endOfDay(me)) return true;
+  else if (end && end >= startOfDay(ms)) return true;
+  return false;
+}
+
+function buildCourseMonthSelectOptions(selectedValue) {
+  const now = new Date();
+  const selected = String(selectedValue || '').trim();
+  const opts = ['<option value="">כל החודשים</option>'];
+  for (let offset = -12; offset <= 12; offset += 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+    const sel = val === selected ? ' selected' : '';
+    opts.push(`<option value="${escAttr(val)}"${sel}>${esc(label)}</option>`);
+  }
+  return opts.join('');
+}
+
 function applyCoursesFiltersByUiScope(rows, filters) {
   const list = Array.isArray(rows) ? rows : [];
-  const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
+  const rawFilters = filters || {};
+  const courseMonthRaw = String(rawFilters.courseMonth || '').trim();
+  const clean = Object.fromEntries(Object.entries(rawFilters).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
   return list.filter((row) => {
     if (clean.authority && !String(getCourseField(row, COURSE_FIELDS.AUTHORITY) || '').toLowerCase().includes(clean.authority)) return false;
     if (clean.school && !String(getCourseField(row, COURSE_FIELDS.SCHOOL) || '').toLowerCase().includes(clean.school)) return false;
@@ -2608,26 +2691,7 @@ function applyCoursesFiltersByUiScope(rows, filters) {
       const text = `${String(getCourseField(row, COURSE_FIELDS.PROGRAM) || '')} ${String(getCourseField(row, COURSE_FIELDS.PROGRAM_CODE) || '')}`.toLowerCase();
       if (!text.includes(clean.program)) return false;
     }
-    if (clean.dateFrom || clean.dateTo) {
-      const fromDate = clean.dateFrom ? startOfDay(parseDateLike(clean.dateFrom)) : null;
-      const toDate = clean.dateTo ? endOfDay(parseDateLike(clean.dateTo)) : null;
-      const meetingDates = getScheduleDates(row);
-      const endDate = parseDateLike(getCourseField(row, COURSE_FIELDS.END));
-      const rangeDates = [...meetingDates, ...(endDate ? [endDate] : [])];
-      if (fromDate && !rangeDates.some((date) => date >= fromDate)) return false;
-      if (toDate && !rangeDates.some((date) => date <= toDate)) return false;
-      if (fromDate && toDate && !rangeDates.some((date) => date >= fromDate && date <= toDate)) return false;
-    }
-    if (clean.monthStart) {
-      const monthStart = parseMonthBoundary(clean.monthStart, 'start');
-      const end = getCourseField(row, COURSE_FIELDS.END);
-      if (monthStart && end && end < startOfDay(monthStart)) return false;
-    }
-    if (clean.monthEnd) {
-      const monthEnd = parseMonthBoundary(clean.monthEnd, 'end');
-      const end = getCourseField(row, COURSE_FIELDS.END);
-      if (monthEnd && end && end > endOfDay(monthEnd)) return false;
-    }
+    if (courseMonthRaw && !courseOverlapsSelectedMonth(row, courseMonthRaw)) return false;
     if (isDualMode()) return isManagedByCurrentUser(row) || isTaughtByCurrentUser(row);
     if (isInstructor()) return isTaughtByCurrentUser(row);
     return true;
@@ -2684,7 +2748,6 @@ function withOperationalMetrics(baseData, courses) {
   managers.forEach((managerName) => {
     const managerCourses = courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
     const managerActiveCourses = managerCourses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
-    activeByManager[managerName] = managerCourses.length;
     instructorsByManager[managerName] = new Set(managerCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size;
     endingByManager[managerName] = managerCourses.filter((row) => {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
@@ -2777,9 +2840,7 @@ async function boot() {
     const profile = await api.getSessionProfile();
     if (profile?.authenticated) {
       setUserState(profile);
-      const dashboardPromise = api.getDashboard();
       await initDataEngine(api, { userState });
-      await dashboardPromise;
       setRoute('dashboard');
       return;
     }
