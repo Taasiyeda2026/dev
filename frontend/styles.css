@@ -717,7 +717,7 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 0.75fr) 52px;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(44px, 0.55fr);
   gap: 10px;
   width: 100%;
   overflow-x: hidden;
@@ -726,11 +726,13 @@ a { color: var(--accent); text-decoration: none; }
 .week-day-head {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
+  text-align: center;
   gap: 4px;
 }
 .week-day-head .btn { margin-top: 2px; }
 .week-day-head small { font-size: 11px; color: var(--text-muted); }
+.week-day-head h3 { width: 100%; text-align: center; }
 .week-day-column {
   display: flex;
   flex-direction: column;
@@ -739,7 +741,12 @@ a { color: var(--accent); text-decoration: none; }
 }
 .week-day-column .panel-block-head h3 { font-size: 13px; }
 .week-day-shabbat {
-  opacity: 0.55;
+  opacity: 0.75;
+}
+.week-day-count {
+  align-self: center;
+  min-width: 112px;
+  justify-content: center;
 }
 
 .mini-card {
@@ -765,6 +772,55 @@ a { color: var(--accent); text-decoration: none; }
   box-shadow: var(--shadow-sm);
 }
 .week-session-card:has(.status-declined) { border-right-color: var(--red); }
+.week-accordion {
+  padding: 0;
+  overflow: hidden;
+}
+.week-accordion > summary {
+  list-style: none;
+}
+.week-accordion > summary::-webkit-details-marker {
+  display: none;
+}
+.week-accordion-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.week-accordion-title {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-size: 12px;
+}
+.week-accordion-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.week-accordion[open] .week-accordion-meta span[aria-hidden="true"] {
+  transform: rotate(45deg);
+}
+.week-accordion-panel {
+  border-top: 1px solid #e2e8f0;
+  padding: 8px 12px 10px;
+}
+.week-accordion-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.week-accordion-item-row {
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-sm);
+  padding: 8px;
+}
 
 /* ============================================================
    MONTH GRID
