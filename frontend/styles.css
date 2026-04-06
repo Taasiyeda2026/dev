@@ -63,6 +63,7 @@ body {
   background: var(--shell);
   color: var(--text-primary);
   direction: rtl;
+  text-align: center;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -375,10 +376,19 @@ a { color: var(--accent); text-decoration: none; }
   border: 1px solid transparent;
   font-size: 13px;
   font-weight: 500;
-  transition: all 0.15s;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.08s;
   white-space: nowrap;
+  box-shadow: var(--shadow-xs);
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.22), var(--shadow-xs);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
 
 .btn-primary {
   background: var(--accent);
@@ -795,7 +805,7 @@ a { color: var(--accent); text-decoration: none; }
 .details-grid strong { font-size: 13px; color: var(--text-primary); word-break: break-word; }
 .details-text { font-size: 12px; white-space: normal; line-height: 1.5; }
 
-/* Drilldown header */
+/* כותרת פרטי מדריך */
 .drilldown-head {
   display: flex;
   align-items: center;
@@ -810,7 +820,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 .drilldown-head strong { color: var(--accent); font-weight: 700; }
 
-/* Course details drill-down */
+/* אזור פרטי קורס */
 .course-details-panel {
   margin-top: 20px;
 }
@@ -872,7 +882,24 @@ a { color: var(--accent); text-decoration: none; }
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+.course-form-card textarea {
+  min-height: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  outline: none;
+  resize: vertical;
+}
 .course-form-card input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  background: var(--surface);
+}
+.course-form-card textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
   background: var(--surface);
@@ -930,6 +957,7 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 14px;
   outline: none;
   direction: rtl;
+  text-align: center;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .login-input:focus {
@@ -938,7 +966,9 @@ a { color: var(--accent); text-decoration: none; }
   background: var(--surface);
 }
 .login-btn {
-  width: 100%;
+  width: fit-content;
+  min-width: 160px;
+  align-self: center;
   height: 42px;
   font-size: 15px;
   font-weight: 600;
@@ -950,7 +980,14 @@ a { color: var(--accent); text-decoration: none; }
   transition: background 0.15s;
 }
 .login-btn:hover { background: var(--accent-hover); }
+.login-btn:active { transform: translateY(1px); }
 .login-btn.is-loading { opacity: 0.7; cursor: wait; }
+.login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
 .error { color: var(--red); font-size: 13px; text-align: center; min-height: 18px; }
 
 /* ============================================================
