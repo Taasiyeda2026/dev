@@ -277,11 +277,6 @@ export function getCoursesForUser(userState = {}, filters = {}) {
     if (!matchContains(course[COURSE_FIELDS.SCHOOL], filters.school)) return false;
     if (!matchContains(course[COURSE_FIELDS.EMPLOYEE], filters.employee)) return false;
     if (!matchContains(course[COURSE_FIELDS.COURSE_MANAGER], filters.courseManager)) return false;
-    if (filters.period) {
-      const period = String(filters.period || '').trim();
-      const end = String(course[COURSE_FIELDS.END] || '').trim();
-      if (!end.includes(period)) return false;
-    }
     return true;
   });
 }
