@@ -53,8 +53,8 @@
   --shadow-lg: 0 10px 30px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
 
   --font: 'Segoe UI', 'Arial', sans-serif;
-  --canvas-width: 1440px;
-  --ui-scale: 0.85;
+  --canvas-max: 1440px;
+  --ui-scale: 1;
   --header-h: 0px;
 }
 
@@ -80,23 +80,24 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .layout {
   display: flex;
-  min-height: 900px;
-  width: calc(var(--canvas-width) / var(--ui-scale));
+  min-height: 100vh;
+  width: 100%;
 }
 
 .dashboard-viewport {
-  width: 100vw;
-  height: calc(100vh - var(--header-h));
-  overflow: auto;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: #f5f5f5;
 }
 
 .dashboard-canvas {
-  width: calc(var(--canvas-width) / var(--ui-scale));
-  min-height: 900px;
+  width: min(100%, var(--canvas-max));
+  min-height: 100vh;
   margin: 0 auto;
   background: #fff;
-  transform: scale(var(--ui-scale));
+  transform: none;
   transform-origin: top center;
 }
 
@@ -190,10 +191,12 @@ a { color: var(--accent); text-decoration: none; }
 .main {
   margin-right: var(--sidebar-w);
   flex: 1;
-  min-width: 1180px;
-  padding: 28px 32px 48px;
+  min-width: 0;
+  width: calc(100% - var(--sidebar-w));
+  max-width: calc(100% - var(--sidebar-w));
+  padding: 28px 24px 48px;
   background: var(--surface-2);
-  overflow-x: visible;
+  overflow-x: hidden;
 }
 
 /* ============================================================
@@ -448,21 +451,25 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(4, 250px);
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 16px;
-  justify-content: start;
+  justify-content: stretch;
 }
+
 .course-cards-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
+  align-items: start;
 }
+
 .cards-grid-compact {
-  grid-template-columns: repeat(4, 240px);
-  justify-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  justify-content: stretch;
 }
+
 .course-cards-grid.cards-grid-compact {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 .course-cards-grid .management-card {
   min-width: 0;
@@ -479,7 +486,8 @@ a { color: var(--accent); text-decoration: none; }
   gap: 12px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
-  min-width: 250px;
+  min-width: 0;
+  width: 100%;
 }
 .management-card:hover {
   box-shadow: var(--shadow-md);
@@ -743,19 +751,24 @@ a { color: var(--accent); text-decoration: none; }
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
   margin: 16px 0;
-  justify-items: start;
+  justify-items: stretch;
 }
-.dashboard-manager-column { padding: 14px; width: 80%; }
+.dashboard-manager-column {
+  padding: 14px;
+  width: 100%;
+}
 .dashboard-kpi-grid-top { margin-bottom: 4px; }
 .manager-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.dashboard-kpi-grid .kpi-card { width: 80%; }
+.dashboard-kpi-grid .kpi-card {
+  width: 100%;
+}
 
 /* ============================================================
    WEEK GRID
    ============================================================ */
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(44px, 0.55fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(52px, 0.55fr);
   gap: 10px;
   width: 100%;
   min-width: 0;
@@ -929,14 +942,20 @@ a { color: var(--accent); text-decoration: none; }
 /* ============================================================
    INSTRUCTOR CARDS
    ============================================================ */
-.instructor-grid { grid-template-columns: repeat(3, 280px); justify-content: start; }
+.instructor-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  justify-content: stretch;
+}
 .instructor-course-grid { grid-template-columns: 1fr; gap: 10px; }
 .instructor-card .card-head h3 { font-size: 16px; }
 
 /* ============================================================
    FINANCE
    ============================================================ */
-.finance-grid { grid-template-columns: repeat(4, 260px); justify-content: start; }
+.finance-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  justify-content: stretch;
+}
 
 .finance-card { border-right: 4px solid var(--border); }
 .finance-open          { border-right-color: var(--text-muted); }
@@ -1236,6 +1255,26 @@ a { color: var(--accent); text-decoration: none; }
 }
 .mobile-nav-backdrop.show { display: block; }
 
+@media (max-width: 1200px) {
+  .dashboard-canvas {
+    width: 100%;
+  }
+
+  .main {
+    padding: 20px 16px 40px;
+  }
+
+  .dashboard-managers-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-grid,
+  .dashboard-kpi-grid,
+  .finance-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .mobile-nav-toggle { display: flex; }
   .sidebar {
@@ -1243,12 +1282,31 @@ a { color: var(--accent); text-decoration: none; }
     transition: transform 0.25s;
   }
   .sidebar.open { transform: translateX(0); }
-  .main { margin-right: 0; padding: 16px; padding-top: 60px; min-width: 980px; }
+  .main {
+    margin-right: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 16px;
+    padding-top: 60px;
+  }
   .kpi-grid, .dashboard-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .finance-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .month-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); overflow-x: visible; }
-  .cards-grid { grid-template-columns: repeat(2, 250px); }
-  .week-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(44px, 0.55fr); overflow-x: visible; }
+  .month-grid {
+    min-width: 0;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .cards-grid,
+  .course-cards-grid,
+  .course-cards-grid.cards-grid-compact,
+  .instructor-grid,
+  .finance-grid {
+    grid-template-columns: 1fr;
+  }
+  .week-grid {
+    grid-template-columns: 1fr;
+    overflow-x: visible;
+  }
 }
 
 /* ============================================================
