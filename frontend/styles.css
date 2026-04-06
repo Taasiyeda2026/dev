@@ -211,7 +211,7 @@ a { color: var(--accent); text-decoration: none; }
 
 .kpi-grid, .dashboard-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
   margin-bottom: 0;
 }
@@ -334,7 +334,7 @@ a { color: var(--accent); text-decoration: none; }
   font-weight: 500;
   color: var(--text-secondary);
   min-width: 0;
-  flex: 1 1 170px;
+  flex: 0 0 150px;
 }
 
 .filters-wrap input,
@@ -428,11 +428,11 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 16px;
 }
 .cards-grid-compact {
-  grid-template-columns: repeat(auto-fill, minmax(240px, 280px));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 240px));
   justify-content: start;
 }
 
@@ -702,18 +702,35 @@ a { color: var(--accent); text-decoration: none; }
   border-color: #c7d2fe;
   color: var(--accent);
 }
+.dashboard-managers-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 16px 0;
+}
+.dashboard-manager-column { padding: 14px; }
+.dashboard-kpi-grid-top { margin-bottom: 4px; }
+.manager-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
 /* ============================================================
    WEEK GRID
    ============================================================ */
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 0.75fr) 52px;
   gap: 10px;
   width: 100%;
   overflow-x: hidden;
   padding-bottom: 6px;
 }
+.week-day-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.week-day-head .btn { margin-top: 2px; }
+.week-day-head small { font-size: 11px; color: var(--text-muted); }
 .week-day-column {
   display: flex;
   flex-direction: column;
@@ -721,10 +738,13 @@ a { color: var(--accent); text-decoration: none; }
   min-height: 220px;
 }
 .week-day-column .panel-block-head h3 { font-size: 13px; }
+.week-day-shabbat {
+  opacity: 0.55;
+}
 
 .mini-card {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: #ffffff;
+  border: 1px solid #dbe3f4;
   border-radius: var(--radius-md);
   padding: 10px 12px;
   display: flex;
@@ -732,8 +752,9 @@ a { color: var(--accent); text-decoration: none; }
   gap: 4px;
   font-size: 12px;
   color: var(--text-secondary);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
 }
-.mini-card strong { color: var(--text-primary); font-weight: 600; font-size: 13px; }
+.mini-card strong { color: var(--text-primary); font-weight: 600; font-size: 11px; }
 .mini-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .meta-small { font-size: 11px; color: var(--text-muted); }
 
@@ -802,12 +823,13 @@ a { color: var(--accent); text-decoration: none; }
    INSTRUCTOR CARDS
    ============================================================ */
 .instructor-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.instructor-course-grid { grid-template-columns: 1fr; gap: 10px; }
 .instructor-card .card-head h3 { font-size: 16px; }
 
 /* ============================================================
    FINANCE
    ============================================================ */
-.finance-grid { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.finance-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 
 .finance-card { border-right: 4px solid var(--border); }
 .finance-open          { border-right-color: var(--text-muted); }

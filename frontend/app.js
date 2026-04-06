@@ -62,6 +62,10 @@ const viewState = {
     activeItems: [],
     archiveItems: [],
     selectedFinanceRowId: ''
+  },
+  uiContext: {
+    coursesSubtitle: '',
+    monthSubtitle: ''
   }
 };
 
@@ -76,7 +80,7 @@ const roleMap = {
 const routeLabels = {
   login: 'התחברות',
   dashboard: 'דשבורד פעילות ארצי',
-  courses: 'פעילות / קורסים / סדנאות',
+  courses: 'קורסים',
   'my-requests': 'הבקשות שלי',
   approvals: 'אישורי בקרה ותפעול',
   'eden-view': 'מסך עדן',
@@ -261,7 +265,7 @@ function render() {
     <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
     <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
     ${nav('dashboard', 'דשבורד פעילות ארצי')}
-    ${nav('courses', 'פעילות / קורסים / סדנאות')}
+    ${nav('courses', 'קורסים')}
     ${nav('week', 'שבוע')}
     ${nav('month', 'חודש')}
     ${nav('instructors', 'מדריכים')}
@@ -316,19 +320,24 @@ function renderScreen() {
 
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
+    const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
     main.innerHTML = head('דשבורד ראשי', 'תמונת מצב עסקית') + panel(viewState.dashboard, 'אין נתונים.',
-      `<section class="kpi-section"><div class="kpi-grid dashboard-kpi-grid">
-        ${kpiCard('כמות קורסים', d.totalCoursesCount || 0, 'all_courses')}
-        ${kpiCard('כמות סדנאות', d.workshopsCount || 0, 'all_courses')}
-        ${kpiCard('מסתיימים בחודש נוכחי', d.endingCurrentMonthCount || 0, 'this_month')}
-        ${kpiCard('פעילים החודש - גיל נאמן', d.activeByManager?.['גיל נאמן'] || 0, 'this_month')}
-        ${kpiCard('פעילים החודש - לינוי שמואל מזרחי', d.activeByManager?.['לינוי שמואל מזרחי'] || 0, 'this_month')}
-        ${kpiCard('מדריכים - גיל נאמן', d.instructorsByManager?.['גיל נאמן'] || 0, 'all_courses')}
-        ${kpiCard('מדריכים - לינוי שמואל מזרחי', d.instructorsByManager?.['לינוי שמואל מזרחי'] || 0, 'all_courses')}
-        ${kpiCard('קורסים עם חסר שעות', d.missingHoursCount || 0, 'exceptions')}
-        ${kpiCard('קורסים עם חסר תאריך', d.missingDateCount || 0, 'exceptions')}
-        ${kpiCard('קורסים עם חסר מדריך', d.missingInstructorCount || 0, 'exceptions')}
-        ${kpiCard('חודש יוני', d.juneEndingCount || 0, 'all_courses')}
+      `<section class="kpi-section"><div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
+        ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses', 'תצוגת כל הקורסים')}
+        ${kpiCard('סך סדנאות', d.workshopsCount || 0, 'all_courses')}
+        ${kpiCard('מסתיימים החודש', d.endingCurrentMonthCount || 0, 'this_month', 'קורסים שמסתיימים החודש')}
+        ${kpiCard('פעילים החודש', d.activeThisMonthCount || 0, 'active_now')}
+      </div></section>
+      <section class="dashboard-managers-grid">${managers.map((managerName) => `
+        <article class="panel-block dashboard-manager-column">
+          <div class="panel-block-head"><h3>${esc(managerName)}</h3></div>
+          <div class="kpi-grid dashboard-kpi-grid manager-kpi-grid">
+            ${kpiCard(`מדריכים של ${managerName === 'גיל נאמן' ? 'גיל' : 'לינוי'}`, d.instructorsByManager?.[managerName] || 0, 'all_courses', '', `manager:${managerName}|subtitle:מדריכים של ${managerName === 'גיל נאמן' ? 'גיל' : 'לינוי'}`)}
+            ${kpiCard('פעילים החודש', d.activeByManager?.[managerName] || 0, 'active_now', '', `manager:${managerName}|subtitle:פעילים החודש - ${managerName}`)}
+            ${kpiCard('מסתיימים החודש', d.endingByManager?.[managerName] || 0, 'this_month', '', `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}`)}
+            ${kpiCard('דורשים טיפול', d.requiresTreatmentByManager?.[managerName] || 0, 'exceptions', '', `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}`)}
+          </div>
+        </article>`).join('')}
       </div></section>
       <section class="panel-block"><div class="dashboard-shortcuts">
         <button class="btn btn-secondary" data-shortcut-route="courses">קורסים</button>
@@ -340,13 +349,13 @@ function renderScreen() {
         <button class="btn btn-secondary" data-shortcut-route="exceptions">חריגות</button>
         ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? '<button class="btn btn-secondary" data-shortcut-route="finance">כספים</button>' : ''}
       </div></section>`);
-    document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter)));
+    document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter, button.dataset.kpiContext || '')));
     document.querySelectorAll('[data-shortcut-route]').forEach((button) => button.addEventListener('click', () => setRoute(button.dataset.shortcutRoute || 'courses')));
     return;
   }
 
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') {
-    const subtitle = isInstructor() ? 'רק קורסים שמשויכים אליך' : 'תצוגה עסקית לפי הרשאות המשתמש';
+    const subtitle = viewState.uiContext.coursesSubtitle || (isInstructor() ? 'רק קורסים שמשויכים אליך' : 'תצוגה עסקית לפי הרשאות המשתמש');
     const filteredCourses = applyCourseQuickFilter(viewState.courses.data);
     const selectedInstructor = viewState.courses.selectedInstructor;
     const instructorOverview = buildInstructorOverview(filteredCourses);
@@ -412,7 +421,7 @@ function renderScreen() {
   if (currentRoute === 'month') {
     const monthCourses = getRoleScopedCourses(viewState.month.filters);
     const monthData = buildMonthlyCalendar(monthCourses, viewState.month.monthDate);
-    main.innerHTML = head('חודש', 'מבט חודשי על סטטוס פעילויות') +
+    main.innerHTML = head('חודש', 'מבט חודשי על סטטוס קורסים') +
       renderMonthFilters() +
       panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
       renderMonthDayDetails(monthData.selectedItems, viewState.month.selectedDate);
@@ -422,7 +431,7 @@ function renderScreen() {
 
   if (currentRoute === 'instructors') {
     const instructorsData = buildInstructorsViewData(getRoleScopedCourses(viewState.instructors.filters));
-    main.innerHTML = head('מדריכים', 'סטטוס, חריגות ופעילות לפי מדריך') +
+    main.innerHTML = head('מדריכים', 'סטטוס, חריגות וקורסים לפי מדריך') +
       renderInstructorsFilters() +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
       renderInstructorCoursesDetails(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor);
@@ -569,11 +578,15 @@ function renderScreen() {
 
   if (currentRoute === 'eden-view') {
     const exceptions = applyExceptionFilters(viewState.eden.data.exceptions || []);
+    const issueTypes = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.type || '').trim()).filter(Boolean)));
+    const issueInstructors = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.instructor || '').trim()).filter(Boolean)));
+    const issueAuthorities = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.authority || '').trim()).filter(Boolean)));
+    const treatmentStatuses = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.treatment || '').trim()).filter(Boolean)));
     main.innerHTML = head('מסך עדן', 'עבודה על שורת קורס מלאה לפני אישור סופי') +
-    `<section class="filters-wrap"><label>סוג בעיה<input id="issueTypeFilter" value="${escAttr(viewState.eden.filters.type)}"></label>
-    <label>מדריך<input id="issueInstructorFilter" value="${escAttr(viewState.eden.filters.instructor)}"></label>
-    <label>רשות<input id="issueAuthorityFilter" value="${escAttr(viewState.eden.filters.authority)}"></label>
-    <label>סטטוס טיפול<input id="issueTreatmentFilter" value="${escAttr(viewState.eden.filters.treatment)}"></label>
+    `<section class="filters-wrap"><label>סוג בעיה<select id="issueTypeFilter">${renderSelectOptions(issueTypes, viewState.eden.filters.type)}</select></label>
+    <label>מדריך<select id="issueInstructorFilter">${renderSelectOptions(issueInstructors, viewState.eden.filters.instructor)}</select></label>
+    <label>רשות<select id="issueAuthorityFilter">${renderSelectOptions(issueAuthorities, viewState.eden.filters.authority)}</select></label>
+    <label>סטטוס טיפול<select id="issueTreatmentFilter">${renderSelectOptions(treatmentStatuses, viewState.eden.filters.treatment)}</select></label>
     <button class="btn btn-secondary" id="filterIssues">סינון</button></section>` +
     panel(viewState.eden, 'אין חריגות פתוחות.', `${renderExceptionCards(exceptions)}
     ${renderEdenQueue(viewState.eden.data.queue || [])}`);
@@ -607,8 +620,8 @@ function panel(state, empty, content) {
   return hasRows ? content : `<section class="panel-state"><span class="panel-state-icon">ℹ</span><span>${esc(empty || 'אין נתונים לתצוגה')}</span></section>`;
 }
 
-function kpiCard(title, value, filterName, helper = '') {
-  return `<button class="kpi-card kpi-action" data-kpi-filter="${filterName}" type="button"><span class="kpi-title" title="${escAttr(title)}">${title}</span><span class="kpi-value">${value}</span>${helper ? `<span class="kpi-helper" title="${escAttr(helper)}">${helper}</span>` : ''}</button>`;
+function kpiCard(title, value, filterName, helper = '', context = '') {
+  return `<button class="kpi-card kpi-action" data-kpi-filter="${filterName}" data-kpi-context="${escAttr(context)}" type="button"><span class="kpi-title" title="${escAttr(title)}">${title}</span><span class="kpi-value">${value}</span>${helper ? `<span class="kpi-helper" title="${escAttr(helper)}">${helper}</span>` : ''}</button>`;
 }
 
 const LONG_DETAILS_FIELDS = new Set(['OriginalDataView', 'RequestedDataView']);
@@ -691,6 +704,20 @@ function renderSelectOptions(options = [], selected = '') {
   return `${initial}${body}`;
 }
 
+function getUiFilterOptions() {
+  const courses = getRoleScopedCourses({});
+  const collect = (fieldName, mapper) => Array.from(new Set((courses || [])
+    .map((row) => mapper ? mapper(row) : getCourseField(row, fieldName))
+    .map((value) => String(value || '').trim())
+    .filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+  return {
+    authority: collect(COURSE_FIELDS.AUTHORITY),
+    employee: collect(COURSE_FIELDS.EMPLOYEE, (row) => resolveInstructorName(row)),
+    courseManager: collect(COURSE_FIELDS.COURSE_MANAGER),
+    program: collect(COURSE_FIELDS.PROGRAM, (row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || getCourseField(row, COURSE_FIELDS.ACTIVITY))
+  };
+}
+
 function renderFinanceCards(rows, options = {}) {
   const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : []);
   if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים.</section>';
@@ -710,7 +737,7 @@ function renderFinanceCards(rows, options = {}) {
         </div>
         <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
       </header>
-      <div class="card-meta"><span><strong>סטטוס:</strong> ${esc(item?.FinanceStatus || '-')}</span><span><strong>הערות:</strong> ${esc(item?.Notes || '-')}</span><span><strong>רשות:</strong> ${esc(item?.Authority || '-')}</span><span><strong>בית ספר:</strong> ${esc(item?.SchoolsList || '-')}</span><span><strong>קורס:</strong> ${esc(item?.ProgramsList || '-')}</span></div>
+      <div class="card-meta"><span><strong>סטטוס:</strong> ${esc(item?.FinanceStatus || '-')}</span><span><strong>הערות:</strong> ${esc(item?.Notes || '-')}</span><span><strong>רשות:</strong> ${esc(item?.Authority || '-')}</span><span><strong>בית ספר:</strong> ${esc(item?.SchoolsList || '-')}</span><span><strong>שם הקורס:</strong> ${esc(item?.ProgramsList || '-')}</span></div>
       <footer class="card-actions">
         <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">פרטים</button>
         ${canEdit ? `<label class=\"finance-status-edit\">סטטוס
@@ -774,7 +801,7 @@ function renderFinanceDetailsPanel(item) {
   return `<section class="details-panel">
     <header><h3>פרטי סל גבייה</h3></header>
     <div class="details-grid">
-      ${financeLabels.map(([field, label]) => `<div><span>${esc(label)}</span><strong class="details-text">${esc(field)}: ${esc(String(item?.[field] ?? '-'))}</strong></div>`).join('')}
+      ${financeLabels.map(([field, label]) => `<div><span>${esc(label)}</span><strong class="details-text">${esc(String(item?.[field] ?? '-'))}</strong></div>`).join('')}
     </div>
   </section>`;
 }
@@ -808,7 +835,7 @@ function renderCourseHierarchyStrip(row = {}) {
   const hierarchy = buildCourseHierarchyDetails(row);
   const segments = [
     hierarchy.instructor && `<span><strong>מדריך:</strong> ${esc(hierarchy.instructor)}</span>`,
-    hierarchy.programActivity && `<span><strong>קורס/פעילות:</strong> ${esc(hierarchy.programActivity)}</span>`,
+    hierarchy.programActivity && `<span><strong>קורס:</strong> ${esc(hierarchy.programActivity)}</span>`,
     hierarchy.school && `<span><strong>בית ספר:</strong> ${esc(hierarchy.school)}</span>`,
     hierarchy.authority && `<span><strong>רשות:</strong> ${esc(hierarchy.authority)}</span>`,
     `<span><strong>${esc(hierarchy.meetingProgressLabel)}</strong></span>`,
@@ -828,7 +855,7 @@ function renderCourseSecondaryDetails(row = {}) {
 }
 
 function renderCourseCards(rows, options = {}) {
-  if (!rows.length) return '<section class="panel-empty">לא נמצאו פעילויות לפי הסינון.</section>';
+  if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const managerLabel = options.showInstructorManager ? 'מנהל מדריכים' : 'מנהל קורס';
   const managerValue = (row) => options.showInstructorManager ? row.InstructorManager : row.CourseManager;
   return `<section class="cards-grid ${options.compact ? 'cards-grid-compact' : ''}">${rows.map((row) => {
@@ -868,8 +895,8 @@ function renderCourseCards(rows, options = {}) {
 function renderInstructorCards(rows, selectedInstructor) {
   if (!rows.length) return '<section class="panel-empty">אין נתוני מדריכים זמינים.</section>';
   return `<section class="cards-grid instructor-grid">${rows.map((row) => {
-    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} פעילויות · ${row.hasGap ? 'דורש טיפול' : 'תקין'}</div>`;
-    const details = `<div class="card-meta"><span>📚 פעילויות: ${esc(row.coursesCount)}</span><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span><span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
+    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} קורסים · ${row.hasGap ? 'דורש טיפול' : 'תקין'}</div>`;
+    const details = `<div class="card-meta"><span>📚 קורסים: ${esc(row.coursesCount)}</span><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span><span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
     return renderExpandableCard({ summary, details, classes: `management-card instructor-card expandable-card ${selectedInstructor === row.instructor ? 'active' : ''}` });
   }).join('')}</section>`;
 }
@@ -884,7 +911,7 @@ function renderExceptionCards(rows) {
 }
 
 function dashboardOperationalTable(rows) {
-  if (!rows.length) return '<div class="panel-empty">אין פעילויות בטווח הזמן שנבחר.</div>';
+  if (!rows.length) return '<div class="panel-empty">אין קורסים בטווח הזמן שנבחר.</div>';
   const body = rows.slice(0, 8).map((row) => `<tr>
     <td>${esc(row.Activity || row.Program || '')}</td>
     <td>${esc(resolveInstructorName(row) || 'לא משויך')}</td>
@@ -893,7 +920,7 @@ function dashboardOperationalTable(rows) {
     <td>${esc(row.Status || row.OperationalStatus || '')}</td>
     <td>${renderIssueBadge(row)}</td>
   </tr>`).join('');
-  return `<div class="table-wrap compact-table"><table><thead><tr><th>פעילות</th><th>מי מלמד</th><th>איפה</th><th>מתי</th><th>סטטוס</th><th>מצב טיפול</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="table-wrap compact-table"><table><thead><tr><th>קורס</th><th>מי מלמד</th><th>איפה</th><th>מתי</th><th>סטטוס</th><th>מצב טיפול</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function dashboardInstructorTable(rows) {
@@ -917,23 +944,37 @@ function dashboardActionTable(rows) {
     <td>${esc(row.location || '-')}</td>
     <td><button class="btn btn-secondary" data-kpi-filter="${escAttr(row.filter)}">פתיחה</button></td>
   </tr>`).join('');
-  return `<div class="table-wrap compact-table"><table><thead><tr><th>סוג משימה</th><th>פעילות</th><th>מדריך</th><th>מיקום</th><th>פעולה</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="table-wrap compact-table"><table><thead><tr><th>סוג משימה</th><th>קורס</th><th>מדריך</th><th>מיקום</th><th>פעולה</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 function courseColumns(isInstructorView) {
   if (isInstructorView) {
     return [['Employee', 'מדריך'], ['InstructorManager', 'מנהל מדריכים'], ['Activity', 'פעילות'], ['Program', 'קורס'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['ClassGroup', 'קבוצה'], ['PlannedMeetings', 'מתוכנן'], ['ActualMeetings', 'בוצע'], ['SourceActualMeetings', 'מקור ביצוע']];
   }
-  return [['Activity', 'פעילות / קורס / סדנה'], ['Program', 'תוכנית'], ['Employee', 'מי מלמד'], ['CourseManager', 'מנהל קורס'], ['InstructorManager', 'מנהל מדריכים'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['DayName', 'יום'], ['StartTime', 'שעת התחלה'], ['EndTime', 'שעת סיום'], ['End', 'סיום מחזור'], ['PlannedMeetings', 'מפגשים מתוכננים'], ['ActualMeetings', 'מפגשים שבוצעו'], ['SourceActualMeetings', 'מקור ביצוע'], ['Notes', 'הערות']];
+  return [['Activity', 'קורס / סדנה'], ['Program', 'תוכנית'], ['Employee', 'מי מלמד'], ['CourseManager', 'מנהל קורס'], ['InstructorManager', 'מנהל מדריכים'], ['Authority', 'רשות'], ['School', 'בית ספר'], ['Location', 'מיקום'], ['DayName', 'יום'], ['StartTime', 'שעת התחלה'], ['EndTime', 'שעת סיום'], ['End', 'סיום מחזור'], ['PlannedMeetings', 'מפגשים מתוכננים'], ['ActualMeetings', 'מפגשים שבוצעו'], ['SourceActualMeetings', 'מקור ביצוע'], ['Notes', 'הערות']];
 }
 
-function onKpiClick(filterName) {
+function onKpiClick(filterName, contextText = '') {
   if (filterName === 'open_requests') {
     setRoute('my-requests');
     return;
   }
+  const context = {};
+  String(contextText || '').split('|').forEach((part) => {
+    const [key, ...rest] = part.split(':');
+    if (!key || !rest.length) return;
+    context[key.trim()] = rest.join(':').trim();
+  });
   viewState.courses.quickFilter = filterName;
-  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', monthStart: '', monthEnd: '' };
+  viewState.courses.filters = {
+    authority: '',
+    school: '',
+    courseManager: context.manager || '',
+    employee: '',
+    monthStart: '',
+    monthEnd: ''
+  };
+  viewState.uiContext.coursesSubtitle = context.subtitle || '';
   setRoute(isInstructor() ? 'instructor-view' : 'courses');
 }
 
@@ -1611,11 +1652,12 @@ async function loadExceptionsView() {
 }
 
 function renderWeekFilters() {
+  const options = getUiFilterOptions();
   return `<section class="filters-wrap">
     <label>מתחילת שבוע<input id="weekStart" type="date" value="${escAttr(viewState.week.rangeStart)}" /></label>
-    <label>רשות<input id="weekAuthority" value="${escAttr(viewState.week.filters.authority)}" /></label>
-    <label>מדריך<input id="weekEmployee" value="${escAttr(viewState.week.filters.employee)}" /></label>
-    <label>מנהל קורס<input id="weekCourseManager" value="${escAttr(viewState.week.filters.courseManager)}" /></label>
+    <label>רשות<select id="weekAuthority">${renderSelectOptions(options.authority, viewState.week.filters.authority)}</select></label>
+    <label>מדריך<select id="weekEmployee">${renderSelectOptions(options.employee, viewState.week.filters.employee)}</select></label>
+    <label>מנהל קורס<select id="weekCourseManager">${renderSelectOptions(options.courseManager, viewState.week.filters.courseManager)}</select></label>
     <div class="filter-actions"><button class="btn btn-secondary" id="weekApply">סינון</button><button class="btn btn-secondary" id="weekReset">נקה סינון</button></div>
     <div class="filter-actions week-nav-actions"><button class="btn btn-secondary" id="weekPrev" aria-label="שבוע קודם">◀ שבוע קודם</button><button class="btn btn-secondary" id="weekNext" aria-label="שבוע הבא">שבוע הבא ▶</button></div>
   </section>`;
@@ -1623,10 +1665,11 @@ function renderWeekFilters() {
 
 function renderWeekGrid(days) {
   return `<section class="week-grid">${days.map((day) => {
-    return `<article class="panel-block week-day-column"><div class="panel-block-head"><h3>${esc(day.label)}</h3><button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${day.items.length} פעילויות</button></div>${day.items.map((item) => {
+    const countText = day.isShabbat && day.items.length === 0 ? '' : `${day.items.length} קורסים`;
+    return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''}"><div class="panel-block-head week-day-head"><h3>${esc(day.weekdayLabel)}</h3><small>${esc(day.dateLabel)}</small>${countText ? `<button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${countText}</button>` : ''}</div>${day.items.map((item) => {
       const hierarchy = buildCourseHierarchyDetails(item);
       const summary = `<div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${item.sameInstructorCount > 1 ? '➕' : ''}</span></div>`;
-      const details = `<button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button>`;
+      const details = `<div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button></div>`;
       return renderExpandableCard({ summary, details, classes: 'mini-card week-session-card expandable-card' });
     }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`;
   }).join('')}</section>`;
@@ -1697,7 +1740,14 @@ function buildWeeklyBuckets(courses, weekStartValue) {
   const reviewItems = getStoreSnapshot().reviewItems || [];
   const days = TAASIYEDA_CONFIG.weekdays.map((weekday, idx) => {
     const current = new Date(start.getTime() + (idx * 24 * 60 * 60 * 1000));
-    return { label: current.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }), isoDate: formatIsoDateLocal(current), items: [] };
+    return {
+      weekdayLabel: current.toLocaleDateString('he-IL', { weekday: 'long' }),
+      dateLabel: current.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }),
+      label: current.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }),
+      isShabbat: idx === 6,
+      isoDate: formatIsoDateLocal(current),
+      items: []
+    };
   });
   (courses || []).forEach((course) => {
     const courseId = String(getCourseField(course, COURSE_FIELDS.COURSE_ID) || '');
@@ -1722,7 +1772,8 @@ function buildWeeklyBuckets(courses, weekStartValue) {
 }
 
 function renderMonthFilters() {
-  return `<section class="filters-wrap"><label>חודש<input id="monthDate" type="month" value="${escAttr(viewState.month.monthDate)}" /></label><label>רשות<input id="monthAuthority" value="${escAttr(viewState.month.filters.authority)}" /></label><label>מדריך<input id="monthEmployee" value="${escAttr(viewState.month.filters.employee)}" /></label><label>מנהל קורס<input id="monthCourseManager" value="${escAttr(viewState.month.filters.courseManager)}" /></label><label>תוכנית<input id="monthProgram" value="${escAttr(viewState.month.filters.program)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="monthApply">סינון</button><button class="btn btn-secondary" id="monthReset">נקה סינון</button></div></section>`;
+  const options = getUiFilterOptions();
+  return `<section class="filters-wrap"><label>חודש<input id="monthDate" type="month" value="${escAttr(viewState.month.monthDate)}" /></label><label>רשות<select id="monthAuthority">${renderSelectOptions(options.authority, viewState.month.filters.authority)}</select></label><label>מדריך<select id="monthEmployee">${renderSelectOptions(options.employee, viewState.month.filters.employee)}</select></label><label>מנהל קורס<select id="monthCourseManager">${renderSelectOptions(options.courseManager, viewState.month.filters.courseManager)}</select></label><label>תוכנית<select id="monthProgram">${renderSelectOptions(options.program, viewState.month.filters.program)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="monthApply">סינון</button><button class="btn btn-secondary" id="monthReset">נקה סינון</button></div></section>`;
 }
 
 function buildMonthlyCalendar(courses, monthValue) {
@@ -1745,7 +1796,7 @@ function renderMonthGrid(days) {
   const monthTitle = firstDate ? firstDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : '';
   const firstWeekday = firstDate ? firstDate.getDay() : 0;
   const leadingCells = Array.from({ length: firstWeekday }).map(() => '<div class="month-day month-day-empty" aria-hidden="true"></div>').join('');
-  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''}" data-month-open="${escAttr(day.isoDate)}"><span class="month-status-indicator ${day.hasException ? 'has-issue' : 'is-ok'}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span>${day.items.length} פעילויות</span><small>${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`).join('')}</section>`;
+  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''}" data-month-open="${escAttr(day.isoDate)}"><span class="month-status-indicator ${day.hasException ? 'has-issue' : 'is-ok'}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span>${day.items.length} קורסים</span><small>${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`).join('')}</section>`;
 }
 
 function renderMonthDayDetails(items, dateLabel) {
@@ -1796,7 +1847,8 @@ function parseMonthValue(value) {
 }
 
 function renderInstructorsFilters() {
-  return `<section class="filters-wrap"><label>רשות<input id="instructorsAuthority" value="${escAttr(viewState.instructors.filters.authority)}" /></label><label>מנהל מדריכים<input id="instructorsManager" value="${escAttr(viewState.instructors.filters.courseManager)}" /></label><label>תוכנית<input id="instructorsProgram" value="${escAttr(viewState.instructors.filters.program)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="instructorsApply">סינון</button><button class="btn btn-secondary" id="instructorsReset">נקה סינון</button></div></section>`;
+  const options = getUiFilterOptions();
+  return `<section class="filters-wrap"><label>רשות<select id="instructorsAuthority">${renderSelectOptions(options.authority, viewState.instructors.filters.authority)}</select></label><label>מנהל מדריכים<select id="instructorsManager">${renderSelectOptions(options.courseManager, viewState.instructors.filters.courseManager)}</select></label><label>תוכנית<select id="instructorsProgram">${renderSelectOptions(options.program, viewState.instructors.filters.program)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="instructorsApply">סינון</button><button class="btn btn-secondary" id="instructorsReset">נקה סינון</button></div></section>`;
 }
 
 function buildInstructorsViewData(courses) {
@@ -1837,8 +1889,8 @@ function buildInstructorsViewData(courses) {
 
 function renderInstructorsCards(items) {
   return `<section class="cards-grid instructor-grid">${items.map((item) => {
-    const summary = `<div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">מנהל מדריכים: ${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || '-')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-summary-minimal"><strong>${esc(item.coursesCount)}</strong> קורסים</div>`;
-    const details = `<div class="card-meta"><span><strong>${esc(item.workDaysCount || 0)}</strong> ימי עבודה בשבוע</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">פרטים</button></div>`;
+    const summary = `<div class="card-head"><div><h3>${esc(item.name)}</h3></div></div><div class="card-summary-minimal"><strong>${esc(item.coursesCount)}</strong> קורסים</div>`;
+    const details = `<div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">פרטי קורסים</button></div>`;
     return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
 }
@@ -1846,7 +1898,17 @@ function renderInstructorsCards(items) {
 function renderInstructorCoursesDetails(instructorName, coursesByInstructor) {
   if (!instructorName) return '';
   const rows = coursesByInstructor[instructorName] || [];
-  return `<section class="course-form-modal" id="instructorDetailsModal"><div class="course-form-backdrop" id="instructorCloseDetails"></div><section class="course-form-card instructor-modal-card"><div class="panel-block-head"><h3>פרטי מדריך: ${esc(instructorName)}</h3><button class="btn btn-secondary" id="instructorCloseDetailsButton">סגור</button></div>${renderCourseCards(rows, { canEdit: false })}</section></section>`;
+  return `<section class="course-form-modal" id="instructorDetailsModal"><div class="course-form-backdrop" id="instructorCloseDetails"></div><section class="course-form-card instructor-modal-card"><div class="panel-block-head"><h3>פרטי מדריך: ${esc(instructorName)}</h3><button class="btn btn-secondary" id="instructorCloseDetailsButton">סגור</button></div><section class="cards-grid instructor-course-grid">${rows.map((row) => {
+    const hierarchy = buildCourseHierarchyDetails(row);
+    return `<article class="management-card">
+      <div class="card-meta">
+        <span><strong>שם קורס:</strong> ${esc(hierarchy.programActivity || '-')}</span>
+        <span><strong>בית ספר:</strong> ${esc(hierarchy.school || '-')}</span>
+        <span><strong>רשות:</strong> ${esc(hierarchy.authority || '-')}</span>
+        <span><strong>מנהל:</strong> ${esc(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '-')}</span>
+      </div>
+    </article>`;
+  }).join('') || '<div class="panel-empty">אין קורסים להצגה.</div>'}</section></section></section>`;
 }
 
 function bindInstructorsActions() {
@@ -1879,7 +1941,8 @@ function bindInstructorsActions() {
 }
 
 function renderEndDatesFilters() {
-  return `<section class="filters-wrap"><label>רשות<input id="endAuthority" value="${escAttr(viewState.endDates.filters.authority)}" /></label><label>מדריך<input id="endEmployee" value="${escAttr(viewState.endDates.filters.employee)}" /></label><label>מנהל קורס<input id="endManager" value="${escAttr(viewState.endDates.filters.courseManager)}" /></label><label>מתאריך סיום<input id="endFrom" type="date" value="${escAttr(viewState.endDates.filters.endFrom)}" /></label><label>עד תאריך סיום<input id="endTo" type="date" value="${escAttr(viewState.endDates.filters.endTo)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="endApply">סינון</button><button class="btn btn-secondary" id="endReset">נקה סינון</button></div></section>`;
+  const options = getUiFilterOptions();
+  return `<section class="filters-wrap"><label>רשות<select id="endAuthority">${renderSelectOptions(options.authority, viewState.endDates.filters.authority)}</select></label><label>מדריך<select id="endEmployee">${renderSelectOptions(options.employee, viewState.endDates.filters.employee)}</select></label><label>מנהל קורס<select id="endManager">${renderSelectOptions(options.courseManager, viewState.endDates.filters.courseManager)}</select></label><label>מתאריך סיום<input id="endFrom" type="date" value="${escAttr(viewState.endDates.filters.endFrom)}" /></label><label>עד תאריך סיום<input id="endTo" type="date" value="${escAttr(viewState.endDates.filters.endTo)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="endApply">סינון</button><button class="btn btn-secondary" id="endReset">נקה סינון</button></div></section>`;
 }
 
 function buildEndDateItems(courses) {
@@ -1935,7 +1998,8 @@ function bindEndDatesActions() {
 }
 
 function renderAssignmentsFilters() {
-  return `<section class="filters-wrap"><label>רשות<input id="assignAuthority" value="${escAttr(viewState.assignments.filters.authority)}" /></label><label>תוכנית<input id="assignProgram" value="${escAttr(viewState.assignments.filters.program)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="assignApply">סינון</button><button class="btn btn-secondary" id="assignReset">נקה סינון</button></div></section>`;
+  const options = getUiFilterOptions();
+  return `<section class="filters-wrap"><label>רשות<select id="assignAuthority">${renderSelectOptions(options.authority, viewState.assignments.filters.authority)}</select></label><label>תוכנית<select id="assignProgram">${renderSelectOptions(options.program, viewState.assignments.filters.program)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="assignApply">סינון</button><button class="btn btn-secondary" id="assignReset">נקה סינון</button></div></section>`;
 }
 
 function buildAssignmentsRows(courses) {
@@ -1981,7 +2045,8 @@ function bindAssignmentsActions() {
 }
 
 function renderExceptionsFilters() {
-  return `<section class="filters-wrap"><label>מדריך<input id="exceptionsEmployee" value="${escAttr(viewState.exceptions.filters.employee)}" /></label><label>רשות<input id="exceptionsAuthority" value="${escAttr(viewState.exceptions.filters.authority)}" /></label><label>מנהל קורס<input id="exceptionsManager" value="${escAttr(viewState.exceptions.filters.courseManager)}" /></label><label>סטטוס טיפול<select id="exceptionsTreatment">${renderSelectOptions(['open', 'resolved'], viewState.exceptions.filters.treatmentStatus)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="exceptionsApply">סינון</button><button class="btn btn-secondary" id="exceptionsReset">נקה סינון</button></div></section>`;
+  const options = getUiFilterOptions();
+  return `<section class="filters-wrap"><label>מדריך<select id="exceptionsEmployee">${renderSelectOptions(options.employee, viewState.exceptions.filters.employee)}</select></label><label>רשות<select id="exceptionsAuthority">${renderSelectOptions(options.authority, viewState.exceptions.filters.authority)}</select></label><label>מנהל קורס<select id="exceptionsManager">${renderSelectOptions(options.courseManager, viewState.exceptions.filters.courseManager)}</select></label><label>סטטוס טיפול<select id="exceptionsTreatment">${renderSelectOptions(['open', 'resolved'], viewState.exceptions.filters.treatmentStatus)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="exceptionsApply">סינון</button><button class="btn btn-secondary" id="exceptionsReset">נקה סינון</button></div></section>`;
 }
 
 function buildExceptionsRows(reviewRows, courses, filters) {
@@ -2412,11 +2477,20 @@ function withOperationalMetrics(baseData, courses) {
   const activeThisMonth = courses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
   const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
   const activeByManager = {};
+  const endingByManager = {};
   const instructorsByManager = {};
+  const requiresTreatmentByManager = {};
   managers.forEach((managerName) => {
-    const managerCourses = activeThisMonth.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
+    const managerCourses = courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
+    const managerActiveCourses = managerCourses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
     activeByManager[managerName] = managerCourses.length;
     instructorsByManager[managerName] = new Set(managerCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size;
+    endingByManager[managerName] = managerCourses.filter((row) => {
+      const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
+      return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
+    }).length;
+    requiresTreatmentByManager[managerName] = managerCourses.filter((row) => getCourseMissingTypes(row).length > 0).length;
+    activeByManager[managerName] = managerActiveCourses.length;
   });
   const missing = courses.map((row) => getCourseMissingTypes(row));
   return {
@@ -2427,8 +2501,11 @@ function withOperationalMetrics(baseData, courses) {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
       return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
     }).length,
+    activeThisMonthCount: activeThisMonth.length,
     activeByManager,
+    endingByManager,
     instructorsByManager,
+    requiresTreatmentByManager,
     missingHoursCount: missing.filter((types) => types.includes('ללא שעות')).length,
     missingDateCount: missing.filter((types) => types.includes('ללא תאריך')).length,
     missingInstructorCount: missing.filter((types) => types.includes('ללא מדריך')).length,
@@ -2491,10 +2568,10 @@ function registerServiceWorker() {
 
 function registerGlobalCardCloseBehavior() {
   document.addEventListener('click', (event) => {
-    const target = event.target;
-    const clickedDetails = target instanceof Element ? target.closest('details.expandable-card') : null;
+    const target = event.target instanceof Element ? event.target : null;
+    const summary = target?.closest('details.expandable-card > summary');
     document.querySelectorAll('details.expandable-card[open]').forEach((detailsElement) => {
-      if (clickedDetails === detailsElement) return;
+      if (summary && summary.parentElement === detailsElement) return;
       detailsElement.open = false;
     });
   });
