@@ -2,6 +2,7 @@ var Logic = (function () {
   // הנחה: מיפויי ההרשאה לפעולות כתיבה מרוכזים כאן כדי למנוע פיצול לוגיקה בין מסלולים שונים.
   var WRITE_ACTIONS = {
     UPDATE_COURSE: 'UPDATE_COURSE',
+    CREATE_MASTER_RECORD: 'CREATE_MASTER_RECORD',
     CREATE_EDIT_REQUEST: 'CREATE_EDIT_REQUEST',
     APPROVAL_DECISION: 'APPROVAL_DECISION',
     MARK_EXCEPTION_RESOLVED: 'MARK_EXCEPTION_RESOLVED',
@@ -27,6 +28,15 @@ var Logic = (function () {
     FINANCE_TTL: 240,
     DASHBOARD_RESPONSE_TTL: 90,
     INSTRUCTOR_LOOKUP_TTL: 240
+  };
+
+  var EDEN_WORKFLOW_STATUSES = {
+    PENDING_EDEN: 'pending_eden',
+    EDEN_SAVED: 'eden_saved',
+    PENDING_FINAL: 'pending_final',
+    FINAL_APPROVED: 'final_approved',
+    FINAL_REJECTED: 'final_rejected',
+    CLOSED: 'closed'
   };
 
   function login(userIdInput, codeInput) {
@@ -147,52 +157,30 @@ var Logic = (function () {
         var pendingEden = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_EDEN);
         var pendingFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_FINAL);
         var approvedFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.FINAL_APPROVED);
-
-        var summaryStage = perf.startStage('sheet.summary');
-        var summaryTable = Utils.readTable(CONFIG.SHEETS.SUMMARY, false, {
-          useScriptCache: true,
-          cacheKey: 'table:summary',
-          cacheTtlSeconds: PERF_CACHE.SUMMARY_TTL,
-          requestMemoKey: 'dashboard:summary'
-        });
-        perf.endStage(summaryStage, { rows: summaryTable.rows.length });
-
-        var exportStage = perf.startStage('sheet.dashboard_export');
-        var exportTable = Utils.readTable(CONFIG.SHEETS.DASHBOARD_EXPORT, false, {
-          useScriptCache: true,
-          cacheKey: 'table:dashboard_export',
-          cacheTtlSeconds: PERF_CACHE.DASHBOARD_EXPORT_TTL,
-          requestMemoKey: 'dashboard:export'
-        });
-        perf.endStage(exportStage, { rows: exportTable.rows.length });
-
-        var transformStage = perf.startStage('transform.metrics');
-        var summaryMetrics = parseSummaryMetrics_(summaryTable.headers, summaryTable.rows);
-        var exportMetrics = parseDashboardExportMetrics_(exportTable.headers, exportTable.rows);
-        var reviewCount = asNumber_(summaryMetrics.reviewRequiredCount);
-        if (!reviewCount) reviewCount = asNumber_(summaryMetrics.needsReviewCount);
-        if (!reviewCount) reviewCount = asNumber_(summaryMetrics.exceptionCount);
-        perf.endStage(transformStage, {});
+        var dmStage = perf.startStage('sheet.data_master');
+        var dataMasterTable = getCachedDataMasterTable_();
+        perf.endStage(dmStage, { rows: dataMasterTable.rows.length });
+        var metrics = computeDashboardMetricsFromDataMaster_(dataMasterTable.headers, dataMasterTable.rows);
 
         return {
-          totalDataMaster: getCachedDataMasterTable_().rows.length,
-          reviewRequiredCount: reviewCount || Utils.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED),
+          totalDataMaster: dataMasterTable.rows.length,
+          reviewRequiredCount: metrics.reviewRequiredCount,
           pendingRequests: pendingEden,
           pendingFinal: pendingFinal,
           approvedFinal: approvedFinal,
-          exportRows: exportTable.rows.length,
-          activeNowCount: asNumber_(summaryMetrics.activeNowCount) || asNumber_(exportMetrics.activeNowCount),
-          todayActivitiesCount: asNumber_(summaryMetrics.todayActivitiesCount) || asNumber_(exportMetrics.todayActivitiesCount),
-          weekActivitiesCount: asNumber_(summaryMetrics.weekActivitiesCount) || asNumber_(exportMetrics.weekActivitiesCount),
-          monthActivitiesCount: asNumber_(summaryMetrics.monthActivitiesCount) || asNumber_(exportMetrics.monthActivitiesCount),
-          activeCoursesCount: asNumber_(summaryMetrics.activeCoursesCount) || asNumber_(exportMetrics.activeCoursesCount),
-          activeInstructorsCount: asNumber_(summaryMetrics.activeInstructorsCount) || asNumber_(exportMetrics.activeInstructorsCount),
-          missingReportCount: asNumber_(summaryMetrics.missingReportCount) || asNumber_(exportMetrics.missingReportCount),
-          endingSoonCount: asNumber_(summaryMetrics.endingSoonCount) || asNumber_(exportMetrics.endingSoonCount),
-          exceptionCount: asNumber_(summaryMetrics.exceptionCount) || asNumber_(exportMetrics.exceptionCount),
-          changeRequestCount: asNumber_(summaryMetrics.changeRequestCount) || asNumber_(exportMetrics.changeRequestCount),
-          unassignedInstructorCount: asNumber_(summaryMetrics.unassignedInstructorCount) || asNumber_(exportMetrics.unassignedInstructorCount),
-          instructorGapCount: asNumber_(summaryMetrics.instructorGapCount) || asNumber_(exportMetrics.instructorGapCount)
+          exportRows: 0,
+          activeNowCount: metrics.activeNowCount,
+          todayActivitiesCount: metrics.todayActivitiesCount,
+          weekActivitiesCount: metrics.weekActivitiesCount,
+          monthActivitiesCount: metrics.monthActivitiesCount,
+          activeCoursesCount: metrics.activeCoursesCount,
+          activeInstructorsCount: metrics.activeInstructorsCount,
+          missingReportCount: metrics.missingReportCount,
+          endingSoonCount: metrics.endingSoonCount,
+          exceptionCount: metrics.exceptionCount,
+          changeRequestCount: pendingEden + pendingFinal,
+          unassignedInstructorCount: metrics.unassignedInstructorCount,
+          instructorGapCount: metrics.instructorGapCount
         };
       });
 
@@ -403,8 +391,7 @@ var Logic = (function () {
       if (!canEditCourseByRole_(session.user, courseId, body.Team)) return Utils.safeMessage('אין הרשאה לעדכן פעילות זו.');
 
       var sheetTargets = [
-        { sheetName: CONFIG.SHEETS.DATA_MASTER, required: true },
-        { sheetName: CONFIG.SHEETS.COURSES, required: true }
+        { sheetName: CONFIG.SHEETS.DATA_MASTER, required: true }
       ];
       var updateResult = {};
 
@@ -432,8 +419,7 @@ var Logic = (function () {
         success: true,
         data: {
           CourseID: courseId,
-          DATA_MASTER: updateResult[CONFIG.SHEETS.DATA_MASTER],
-          COURSES: updateResult[CONFIG.SHEETS.COURSES]
+          DATA_MASTER: updateResult[CONFIG.SHEETS.DATA_MASTER]
         }
       };
     } catch (err) {
@@ -441,10 +427,47 @@ var Logic = (function () {
     }
   }
 
+  function createDataMasterRecord(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      requireWritePermission_(session.user, WRITE_ACTIONS.CREATE_MASTER_RECORD, {});
+      var body = Utils.asObject(payload, {});
+      var record = Utils.asObject(body.record, {});
+      var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+      if (!table.sheet || !table.headers.length) return Utils.safeMessage('DATA_MASTER לא זמין.');
+      var row = table.headers.map(function (header) { return ''; });
+      var courseId = Utils.normalize(record.CourseID) || generateCourseId_();
+      Object.keys(record).forEach(function (fieldName) {
+        var idx = Utils.resolveIndex(table.headers, [fieldName]);
+        if (idx > -1) row[idx] = record[fieldName];
+      });
+      var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+      if (idxCourse > -1) row[idxCourse] = courseId;
+      var idxCreatedAt = Utils.resolveIndex(table.headers, ['CreatedAt']);
+      if (idxCreatedAt > -1 && !row[idxCreatedAt]) row[idxCreatedAt] = Utils.nowIso();
+      Utils.appendRow(CONFIG.SHEETS.DATA_MASTER, row);
+      var created = Utils.rowToObject(table.headers, row, 0);
+      created.CourseID = courseId;
+      return { success: true, data: created };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן ליצור רשומה חדשה.');
+    }
+  }
+
   function createEditRequest(payload) {
     var body = Utils.asObject(payload, {});
     if (Utils.toKey(body.operation) === Utils.toKey('MARK_EXCEPTION_RESOLVED')) {
       return markExceptionResolved_(body);
+    }
+    if (Utils.toKey(body.operation) === Utils.toKey('EDEN_SAVE')) {
+      return saveEdenDataMasterDraft_(body);
+    }
+    if (Utils.toKey(body.operation) === Utils.toKey('EDEN_SUBMIT_ADMIN')) {
+      return submitEdenToAdmin_(body);
+    }
+    if (Utils.toKey(body.operation) === Utils.toKey('EDEN_REFRESH_SOURCE')) {
+      return refreshEdenSource_(body);
     }
     return submitEditRequest(payload || {});
   }
@@ -477,10 +500,12 @@ var Logic = (function () {
 
       if (existing) {
         Utils.updateRow(CONFIG.SHEETS.EDIT_REQUESTS, existing.rowNumber, values);
+        syncRequestToEdenDataMaster_(record);
         return { success: true, data: { RequestID: requestId, ApprovalStatus: status, mode: 'update' } };
       }
 
       Utils.appendRow(CONFIG.SHEETS.EDIT_REQUESTS, values);
+      syncRequestToEdenDataMaster_(record);
       return { success: true, data: { RequestID: requestId, ApprovalStatus: status, mode: 'append' } };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לשמור בקשה.');
@@ -544,18 +569,63 @@ var Logic = (function () {
     if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
 
     try {
-      var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
-      var idx = resolveRequestIndexes_(table.headers);
+      syncEdenRowsWithMaster_();
+      var table = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, false);
+      if (!table.sheet || !table.headers.length) return { success: true, data: { items: [] } };
+      var requestsTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
+      var reqIdx = resolveRequestIndexes_(requestsTable.headers || []);
+      var reqMap = {};
+      (requestsTable.rows || []).forEach(function (row) {
+        var rid = valueAt_(row, reqIdx.requestId);
+        if (!rid) return;
+        reqMap[Utils.toKey(rid)] = row;
+      });
+      var idxRequestId = Utils.resolveIndex(table.headers, ['RequestID']);
+      var idxCourseId = Utils.resolveIndex(table.headers, ['CourseID']);
+      var idxWorkflow = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['EdenNotes']);
+      var idxHasDiff = Utils.resolveIndex(table.headers, ['HasDiffBetweenSourceAndEden']);
+      var idxHasMasterChanged = Utils.resolveIndex(table.headers, ['HasMasterChangedAfterEdenEdit']);
+      var idxSentToAdminAt = Utils.resolveIndex(table.headers, ['SentToAdminAt']);
+      var idxEdenLastSavedAt = Utils.resolveIndex(table.headers, ['EdenLastSavedAt']);
       var query = Utils.asObject(payload, {});
       var limit = Math.max(1, Math.min(Number(query.limit || 250), 500));
       var offset = Math.max(0, Number(query.offset || 0));
       var items = table.rows.filter(function (row) {
-        return Utils.toKey(row[idx.edenViewStatus]) === Utils.toKey(CONFIG.STATUSES.EDEN_APPROVED);
+        return Boolean(valueAt_(row, idxWorkflow));
       }).map(function (row) {
-        return projectRequestForFrontend_(row, idx);
+        var rowObj = Utils.rowToObject(table.headers, row, 0);
+        var requested = extractEdenDraftFromRow_(rowObj);
+        var source = extractEdenSourceFromRow_(rowObj);
+        return {
+          RequestID: valueAt_(row, idxRequestId),
+          CourseID: valueAt_(row, idxCourseId),
+          ApprovalStatus: valueAt_(row, idxWorkflow),
+          RequestedData: Utils.safeJson(requested),
+          SourceData: Utils.safeJson(source),
+          EdenNotes: valueAt_(row, idxNotes),
+          HasDiffBetweenSourceAndEden: valueAt_(row, idxHasDiff),
+          HasMasterChangedAfterEdenEdit: valueAt_(row, idxHasMasterChanged),
+          SentToAdminAt: valueAt_(row, idxSentToAdminAt),
+          EdenLastSavedAt: valueAt_(row, idxEdenLastSavedAt),
+          RequestedBy: reqMap[Utils.toKey(valueAt_(row, idxRequestId))] ? valueAt_(reqMap[Utils.toKey(valueAt_(row, idxRequestId))], reqIdx.requestedBy) : '',
+          OriginalData: reqMap[Utils.toKey(valueAt_(row, idxRequestId))] ? valueAt_(reqMap[Utils.toKey(valueAt_(row, idxRequestId))], reqIdx.originalData) : ''
+        };
       }).slice(offset, offset + limit);
-
-      return { success: true, data: { items: items } };
+      var counters = {
+        pending_eden: 0,
+        eden_saved: 0,
+        pending_final: 0,
+        master_changed_warning: 0
+      };
+      items.forEach(function (item) {
+        var wfKey = Utils.toKey(item.ApprovalStatus);
+        if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_EDEN)) counters.pending_eden += 1;
+        if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.EDEN_SAVED)) counters.eden_saved += 1;
+        if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_FINAL)) counters.pending_final += 1;
+        if (Utils.toKey(item.HasMasterChangedAfterEdenEdit) === 'true') counters.master_changed_warning += 1;
+      });
+      return { success: true, data: { items: items, counters: counters } };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון את תצוגת עדן.');
     }
@@ -600,7 +670,12 @@ var Logic = (function () {
         if (idx.finalApprovalStatus > -1) row[idx.finalApprovalStatus] = approved ? CONFIG.STATUSES.FINAL_APPROVED : CONFIG.STATUSES.DECLINED;
         if (idx.requestStatus > -1) row[idx.requestStatus] = approved ? CONFIG.STATUSES.FINAL_APPROVED : CONFIG.STATUSES.DECLINED;
         if (idx.finalizedAt > -1) row[idx.finalizedAt] = approved ? Utils.nowIso() : '';
-        if (approved) applyApprovedRequestToMainData_(row, idx);
+        if (approved) {
+          applyApprovedRequestToMainData_(row, idx);
+          updateEdenWorkflowByRequestId_(requestId, EDEN_WORKFLOW_STATUSES.FINAL_APPROVED, { AdminApprovedAt: Utils.nowIso(), AdminDecision: 'approved' });
+        } else {
+          updateEdenWorkflowByRequestId_(requestId, EDEN_WORKFLOW_STATUSES.FINAL_REJECTED, { AdminRejectedAt: Utils.nowIso(), AdminDecision: 'rejected' });
+        }
       } else {
         return Utils.safeMessage('אין הרשאה.');
       }
@@ -621,7 +696,6 @@ var Logic = (function () {
     if (Utils.isEmpty(courseId)) return;
     var requested = Utils.parseJson(valueAt_(requestRow, idx.requestedData));
     applyRequestedDataToCourseRow_(CONFIG.SHEETS.DATA_MASTER, courseId, requested);
-    applyRequestedDataToCourseRow_(CONFIG.SHEETS.COURSES, courseId, requested);
     try {
       rebuildFinanceSheet();
     } catch (err) {}
@@ -822,6 +896,86 @@ var Logic = (function () {
     return isNaN(number) ? 0 : number;
   }
 
+  function computeDashboardMetricsFromDataMaster_(headers, rows) {
+    var idxStatus = Utils.resolveIndex(headers, ['Status', 'OperationalStatus']);
+    var idxCourseId = Utils.resolveIndex(headers, ['CourseID']);
+    var idxInstructor = Utils.resolveIndex(headers, ['Instructor', 'Employee']);
+    var idxReportStatus = Utils.resolveIndex(headers, ['ReportStatus']);
+    var idxRequiresReview = Utils.resolveIndex(headers, ['RequiresReview', 'ReviewRequired']);
+    var idxIssue = Utils.resolveIndex(headers, ['IssueStatus']);
+    var idxDate = Utils.resolveIndex(headers, ['Date', 'StartDate']);
+    var idxEndDate = Utils.resolveIndex(headers, ['EndDate', 'End']);
+    var today = new Date();
+    var dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var weekEnd = new Date(dayStart.getTime() + (7 * 24 * 60 * 60 * 1000));
+    var monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    var metrics = {
+      activeNowCount: 0,
+      todayActivitiesCount: 0,
+      weekActivitiesCount: 0,
+      monthActivitiesCount: 0,
+      activeCoursesCount: 0,
+      activeInstructorsCount: 0,
+      missingReportCount: 0,
+      endingSoonCount: 0,
+      exceptionCount: 0,
+      reviewRequiredCount: 0,
+      unassignedInstructorCount: 0,
+      instructorGapCount: 0
+    };
+    var activeCourses = {};
+    var activeInstructors = {};
+
+    (rows || []).forEach(function (row) {
+      var status = Utils.toKey(valueAt_(row, idxStatus));
+      var isActive = status === 'active' || status === 'פעיל';
+      if (isActive) metrics.activeNowCount += 1;
+      if (isActive) {
+        var cid = Utils.normalize(valueAt_(row, idxCourseId));
+        if (cid) activeCourses[cid] = true;
+        var instructor = Utils.normalize(valueAt_(row, idxInstructor));
+        if (instructor) activeInstructors[instructor] = true;
+      }
+
+      var dateVal = asDate_(valueAt_(row, idxDate));
+      if (dateVal) {
+        if (sameDate_(dateVal, dayStart)) metrics.todayActivitiesCount += 1;
+        if (dateVal >= dayStart && dateVal < weekEnd) metrics.weekActivitiesCount += 1;
+        if (dateVal >= dayStart && dateVal < monthEnd) metrics.monthActivitiesCount += 1;
+      }
+
+      var reportStatus = Utils.toKey(valueAt_(row, idxReportStatus));
+      if (!reportStatus || reportStatus === 'missing' || reportStatus === 'חסר') metrics.missingReportCount += 1;
+
+      var requiresReview = Utils.toKey(valueAt_(row, idxRequiresReview));
+      var issueValue = Utils.toKey(valueAt_(row, idxIssue));
+      var hasException = requiresReview === 'true' || requiresReview === 'yes' || requiresReview === '1' || issueValue;
+      if (hasException) {
+        metrics.exceptionCount += 1;
+        metrics.reviewRequiredCount += 1;
+      }
+
+      var endDate = asDate_(valueAt_(row, idxEndDate));
+      if (endDate && endDate >= dayStart && endDate < weekEnd) metrics.endingSoonCount += 1;
+
+      var instructorName = Utils.normalize(valueAt_(row, idxInstructor));
+      if (!instructorName) {
+        metrics.unassignedInstructorCount += 1;
+        if (isActive) metrics.instructorGapCount += 1;
+      }
+    });
+
+    metrics.activeCoursesCount = Object.keys(activeCourses).length;
+    metrics.activeInstructorsCount = Object.keys(activeInstructors).length;
+    return metrics;
+  }
+
+  function sameDate_(left, right) {
+    return left.getFullYear() === right.getFullYear()
+      && left.getMonth() === right.getMonth()
+      && left.getDate() === right.getDate();
+  }
+
   function canCreateRequest_(user) {
     return !isInstructor_(user);
   }
@@ -855,7 +1009,6 @@ var Logic = (function () {
     }
 
     if (!Utils.normalize(out.RequestedBy)) out.RequestedBy = user.userId;
-    if (!Utils.normalize(out.ChangeSummary)) out.ChangeSummary = 'עדכון פעילות';
     if (!Utils.normalize(out.ApprovalStatus)) out.ApprovalStatus = CONFIG.STATUSES.PENDING_EDEN;
     if (!Utils.normalize(out.Team)) out.Team = resolveTeamScopeByCourseId_(courseId);
 
@@ -873,17 +1026,18 @@ var Logic = (function () {
     try {
       requireWritePermission_(session.user, WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED, {});
       var body = Utils.asObject(payload, {});
-      var table = Utils.readTable(CONFIG.SHEETS.REVIEW_REQUIRED, true);
-      if (!table.headers.length) return Utils.safeMessage('לא נמצאו כותרות ב-REVIEW_REQUIRED.');
+      var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+      if (!table.headers.length) return Utils.safeMessage('לא נמצאו כותרות ב-DATA_MASTER.');
 
       var target = resolveReviewRowTarget_(table, body);
       if (!target) return Utils.safeMessage('לא נמצאה רשומת חריגה לעדכון.');
 
       var updated = target.row.slice();
-      var idxStatus = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.status);
-      var idxNotes = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.notes);
-      var idxResolvedBy = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.resolvedBy);
-      var idxResolvedAt = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.resolvedAt);
+      var idxStatus = Utils.resolveIndex(table.headers, ['ReviewStatus', 'TreatmentStatus', 'Status']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['ReviewNotes', 'Notes', 'Remarks']);
+      var idxResolvedBy = Utils.resolveIndex(table.headers, ['ReviewHandledBy', 'ResolvedBy', 'ClosedBy']);
+      var idxResolvedAt = Utils.resolveIndex(table.headers, ['ReviewHandledAt', 'ResolvedAt', 'ClosedAt']);
+      var idxRequiresReview = Utils.resolveIndex(table.headers, ['RequiresReview', 'ReviewRequired']);
 
       if (idxStatus > -1) {
         updated[idxStatus] = 'RESOLVED';
@@ -898,8 +1052,9 @@ var Logic = (function () {
 
       if (idxResolvedBy > -1) updated[idxResolvedBy] = session.user.userId;
       if (idxResolvedAt > -1) updated[idxResolvedAt] = Utils.nowIso();
+      if (idxRequiresReview > -1) updated[idxRequiresReview] = 'false';
 
-      Utils.updateRow(CONFIG.SHEETS.REVIEW_REQUIRED, target.rowNumber, updated);
+      Utils.updateRow(CONFIG.SHEETS.DATA_MASTER, target.rowNumber, updated);
       return {
         success: true,
         data: {
@@ -915,7 +1070,7 @@ var Logic = (function () {
   }
 
   function resolveReviewRowTarget_(table, body) {
-    var reviewId = Utils.normalize(body.ReviewID || body.reviewId || body.RowID || body.ExceptionID);
+    var reviewId = Utils.normalize(body.ReviewID || body.reviewId || body.RowID || body.ExceptionID || body.CourseID || body.courseId);
     var requestedRowNumber = Number(body.reviewRowNumber || body.rowNumber || 0);
     if (requestedRowNumber > 0) {
       for (var i = 0; i < table.rowNumbers.length; i += 1) {
@@ -924,13 +1079,289 @@ var Logic = (function () {
       }
     }
     if (!reviewId) return null;
-    var idxId = Utils.resolveIndex(table.headers, REVIEW_REQUIRED_FIELD_ALIASES.id);
+    var idxId = Utils.resolveIndex(table.headers, ['CourseID', 'ReviewID', 'RowID', 'ExceptionID']);
     if (idxId === -1) return null;
     for (var j = 0; j < table.rows.length; j += 1) {
       if (Utils.toKey(table.rows[j][idxId]) !== Utils.toKey(reviewId)) continue;
       return { row: table.rows[j], rowNumber: table.rowNumbers[j] };
     }
     return null;
+  }
+
+  function syncRequestToEdenDataMaster_(requestRecord) {
+    var status = Utils.toKey(requestRecord.ApprovalStatus);
+    if (status !== Utils.toKey(CONFIG.STATUSES.PENDING_EDEN)
+      && status !== Utils.toKey(CONFIG.STATUSES.EDEN_APPROVED)
+      && status !== Utils.toKey(CONFIG.STATUSES.PENDING_FINAL)) return;
+
+    var edenTable = ensureEdenDataMasterSheet_();
+    var rowObj = buildEdenRowFromRequest_(requestRecord);
+    var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
+    var existing = findRowByRequestId_(edenTable, idxRequest, rowObj.RequestID);
+    var values = edenTable.headers.map(function (header) { return rowObj[header] || ''; });
+    if (existing) {
+      Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, values);
+    } else {
+      Utils.appendRow(CONFIG.SHEETS.EDEN_DATA_MASTER, values);
+    }
+  }
+
+  function buildEdenRowFromRequest_(requestRecord) {
+    var source = getCourseSnapshotById_(requestRecord.CourseID) || {};
+    var requested = Utils.parseJson(requestRecord.RequestedData) || {};
+    var rowObj = {};
+    var nowIso = Utils.nowIso();
+    var dataHeaders = getEdenDataHeaders_();
+    dataHeaders.forEach(function (field) {
+      rowObj['Source_' + field] = source[field] || '';
+      rowObj['Eden_' + field] = requested[field] !== undefined ? requested[field] : source[field] || '';
+    });
+    rowObj.RowID = source.RowID || '';
+    rowObj.CourseID = requestRecord.CourseID || source.CourseID || '';
+    rowObj.RequestID = requestRecord.RequestID;
+    rowObj.WorkflowStatus = EDEN_WORKFLOW_STATUSES.PENDING_EDEN;
+    rowObj.EdenNotes = requestRecord.ApprovalNotes || '';
+    rowObj.MasterLastUpdatedAt = source.UpdatedAt || source.LastUpdatedAt || '';
+    rowObj.LastSyncedAt = nowIso;
+    rowObj.EdenLastSavedAt = '';
+    rowObj.SentToAdminAt = '';
+    rowObj.AdminDecision = '';
+    rowObj.AdminApprovedAt = '';
+    rowObj.AdminRejectedAt = '';
+    rowObj.HasMasterChangedAfterEdenEdit = 'false';
+    rowObj.HasDiffBetweenSourceAndEden = hasDiffBetweenSourceAndEden_(rowObj) ? 'true' : 'false';
+    return rowObj;
+  }
+
+  function ensureEdenDataMasterSheet_() {
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.EDEN_DATA_MASTER);
+    var dmTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    var dmHeaders = getEdenDataHeaders_();
+    var headers = ['RowID', 'CourseID', 'RequestID'];
+    dmHeaders.forEach(function (field) { headers.push('Source_' + field); });
+    dmHeaders.forEach(function (field) { headers.push('Eden_' + field); });
+    [
+      'WorkflowStatus', 'MasterLastUpdatedAt', 'LastSyncedAt', 'EdenLastSavedAt', 'SentToAdminAt',
+      'AdminDecision', 'AdminApprovedAt', 'AdminRejectedAt', 'EdenNotes',
+      'HasMasterChangedAfterEdenEdit', 'HasDiffBetweenSourceAndEden'
+    ].forEach(function (field) { headers.push(field); });
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(CONFIG.SHEETS.EDEN_DATA_MASTER);
+      sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, headers.length).setValues([headers]);
+      sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, headers.length).setValues([headers]);
+    } else {
+      var currentHeaders = sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+      var hasHeaders = currentHeaders.some(function (cell) { return Utils.normalize(cell); });
+      if (!hasHeaders) {
+        sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, headers.length).setValues([headers]);
+        sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, headers.length).setValues([headers]);
+      }
+    }
+    return Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, true);
+  }
+
+  function findRowByRequestId_(table, idxRequestId, requestId) {
+    if (idxRequestId === -1) return null;
+    for (var i = 0; i < table.rows.length; i += 1) {
+      if (Utils.toKey(table.rows[i][idxRequestId]) !== Utils.toKey(requestId)) continue;
+      return { row: table.rows[i], rowNumber: table.rowNumbers[i] };
+    }
+    return null;
+  }
+
+  function getEdenDataHeaders_() {
+    var dmTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    return (dmTable.headers || []).filter(function (header) {
+      return ['RequestID', 'WorkflowStatus', 'EdenNotes'].indexOf(header) === -1;
+    });
+  }
+
+  function hasDiffBetweenSourceAndEden_(rowObj) {
+    var fields = getEdenDataHeaders_();
+    for (var i = 0; i < fields.length; i += 1) {
+      var sourceValue = Utils.normalize(rowObj['Source_' + fields[i]]);
+      var edenValue = Utils.normalize(rowObj['Eden_' + fields[i]]);
+      if (sourceValue !== edenValue) return true;
+    }
+    return false;
+  }
+
+  function extractEdenDraftFromRow_(rowObj) {
+    var out = {};
+    getEdenDataHeaders_().forEach(function (field) {
+      out[field] = rowObj['Eden_' + field];
+    });
+    return out;
+  }
+
+  function extractEdenSourceFromRow_(rowObj) {
+    var out = {};
+    getEdenDataHeaders_().forEach(function (field) {
+      out[field] = rowObj['Source_' + field];
+    });
+    return out;
+  }
+
+  function syncEdenRowsWithMaster_() {
+    var edenTable = ensureEdenDataMasterSheet_();
+    if (!edenTable.rows.length) return;
+    var dmTable = getCachedDataMasterTable_();
+    var idxDmRowId = Utils.resolveIndex(dmTable.headers, ['RowID']);
+    var idxDmCourse = Utils.resolveIndex(dmTable.headers, ['CourseID']);
+    var dataHeaders = getEdenDataHeaders_();
+    var lookup = {};
+    dmTable.rows.forEach(function (row, i) {
+      var keyRow = idxDmRowId > -1 ? Utils.normalize(row[idxDmRowId]) : '';
+      var keyCourse = idxDmCourse > -1 ? Utils.normalize(row[idxDmCourse]) : '';
+      var obj = Utils.rowToObject(dmTable.headers, row, dmTable.rowNumbers[i]);
+      if (keyRow) lookup['rowid:' + Utils.toKey(keyRow)] = obj;
+      if (keyCourse) lookup['courseid:' + Utils.toKey(keyCourse)] = obj;
+    });
+    var idxRowId = Utils.resolveIndex(edenTable.headers, ['RowID']);
+    var idxCourseId = Utils.resolveIndex(edenTable.headers, ['CourseID']);
+    var idxMasterChanged = Utils.resolveIndex(edenTable.headers, ['HasMasterChangedAfterEdenEdit']);
+    var idxLastSyncedAt = Utils.resolveIndex(edenTable.headers, ['LastSyncedAt']);
+    var idxMasterLastUpdated = Utils.resolveIndex(edenTable.headers, ['MasterLastUpdatedAt']);
+    var idxEdenSavedAt = Utils.resolveIndex(edenTable.headers, ['EdenLastSavedAt']);
+    var idxHasDiff = Utils.resolveIndex(edenTable.headers, ['HasDiffBetweenSourceAndEden']);
+
+    edenTable.rows.forEach(function (row, i) {
+      var rowId = idxRowId > -1 ? Utils.normalize(row[idxRowId]) : '';
+      var courseId = idxCourseId > -1 ? Utils.normalize(row[idxCourseId]) : '';
+      var masterObj = lookup['rowid:' + Utils.toKey(rowId)] || lookup['courseid:' + Utils.toKey(courseId)];
+      if (!masterObj) return;
+      var updated = row.slice();
+      var edenSavedAt = idxEdenSavedAt > -1 ? Utils.normalize(valueAt_(updated, idxEdenSavedAt)) : '';
+      var masterLastUpdated = Utils.normalize(masterObj.UpdatedAt || masterObj.LastUpdatedAt || masterObj.ModifiedAt || '');
+      dataHeaders.forEach(function (field) {
+        var sourceIdx = Utils.resolveIndex(edenTable.headers, ['Source_' + field]);
+        if (sourceIdx > -1) updated[sourceIdx] = masterObj[field] || '';
+      });
+      if (idxMasterLastUpdated > -1) updated[idxMasterLastUpdated] = masterLastUpdated;
+      if (idxLastSyncedAt > -1) updated[idxLastSyncedAt] = Utils.nowIso();
+      if (idxMasterChanged > -1 && edenSavedAt && masterLastUpdated && Utils.toKey(masterLastUpdated) !== Utils.toKey(edenSavedAt)) {
+        updated[idxMasterChanged] = 'true';
+      }
+      var rowObj = Utils.rowToObject(edenTable.headers, updated, edenTable.rowNumbers[i]);
+      if (idxHasDiff > -1) updated[idxHasDiff] = hasDiffBetweenSourceAndEden_(rowObj) ? 'true' : 'false';
+      Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, edenTable.rowNumbers[i], updated);
+    });
+  }
+
+  function saveEdenDataMasterDraft_(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
+    try {
+      var body = Utils.asObject(payload, {});
+      var requestId = Utils.normalize(body.RequestID);
+      if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var requestedData = Utils.asObject(body.RequestedData, {});
+      var edenNotes = Utils.normalize(body.EdenNotes || body.ApprovalNotes);
+
+      var edenTable = ensureEdenDataMasterSheet_();
+      var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
+      var existing = findRowByRequestId_(edenTable, idxRequest, requestId);
+      if (!existing) return Utils.safeMessage('לא נמצאה רשומה במסך עדן.');
+      var updated = existing.row.slice();
+      var headers = edenTable.headers;
+      Object.keys(requestedData).forEach(function (field) {
+        var idx = Utils.resolveIndex(headers, ['Eden_' + field]);
+        if (idx > -1) updated[idx] = requestedData[field];
+      });
+      var idxNotes = Utils.resolveIndex(headers, ['EdenNotes']);
+      if (idxNotes > -1) updated[idxNotes] = edenNotes;
+      var idxWorkflow = Utils.resolveIndex(headers, ['WorkflowStatus']);
+      if (idxWorkflow > -1) updated[idxWorkflow] = EDEN_WORKFLOW_STATUSES.EDEN_SAVED;
+      var idxSavedAt = Utils.resolveIndex(headers, ['EdenLastSavedAt']);
+      if (idxSavedAt > -1) updated[idxSavedAt] = Utils.nowIso();
+      var idxHasDiff = Utils.resolveIndex(headers, ['HasDiffBetweenSourceAndEden']);
+      if (idxHasDiff > -1) {
+        var rowObj = Utils.rowToObject(headers, updated, existing.rowNumber);
+        updated[idxHasDiff] = hasDiffBetweenSourceAndEden_(rowObj) ? 'true' : 'false';
+      }
+      Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, updated);
+      return { success: true, data: { RequestID: requestId, WorkflowStatus: EDEN_WORKFLOW_STATUSES.EDEN_SAVED } };
+    } catch (err) {
+      return Utils.safeMessage('שמירת טיוטת עדן נכשלה.');
+    }
+  }
+
+  function submitEdenToAdmin_(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
+    try {
+      var body = Utils.asObject(payload, {});
+      var requestId = Utils.normalize(body.RequestID);
+      if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var edenTable = ensureEdenDataMasterSheet_();
+      var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
+      var existing = findRowByRequestId_(edenTable, idxRequest, requestId);
+      if (!existing) return Utils.safeMessage('לא נמצאה רשומת עדן.');
+
+      var rowObj = Utils.rowToObject(edenTable.headers, existing.row, existing.rowNumber);
+      var requestedData = extractEdenDraftFromRow_(rowObj);
+
+      var reqTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
+      var reqIdx = resolveRequestIndexes_(reqTable.headers);
+      var requestMatch = findRequestById_(reqTable, reqIdx.requestId, requestId);
+      if (!requestMatch) return Utils.safeMessage('לא נמצאה בקשת שינוי.');
+      var reqRow = requestMatch.row.slice();
+      if (reqIdx.requestedData > -1) reqRow[reqIdx.requestedData] = Utils.safeJson(requestedData);
+      if (reqIdx.approvalStatus > -1) reqRow[reqIdx.approvalStatus] = CONFIG.STATUSES.PENDING_FINAL;
+      if (reqIdx.requestStatus > -1) reqRow[reqIdx.requestStatus] = CONFIG.STATUSES.PENDING_FINAL;
+      if (reqIdx.edenViewStatus > -1) reqRow[reqIdx.edenViewStatus] = CONFIG.STATUSES.EDEN_APPROVED;
+      if (reqIdx.approvalNotes > -1) reqRow[reqIdx.approvalNotes] = Utils.normalize(rowObj.EdenNotes);
+      Utils.updateRow(CONFIG.SHEETS.EDIT_REQUESTS, requestMatch.rowNumber, reqRow);
+
+      var edenUpdated = existing.row.slice();
+      var idxWorkflow = Utils.resolveIndex(edenTable.headers, ['WorkflowStatus']);
+      if (idxWorkflow > -1) edenUpdated[idxWorkflow] = EDEN_WORKFLOW_STATUSES.PENDING_FINAL;
+      var idxSent = Utils.resolveIndex(edenTable.headers, ['SentToAdminAt']);
+      if (idxSent > -1) edenUpdated[idxSent] = Utils.nowIso();
+      Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, edenUpdated);
+      return { success: true, data: { RequestID: requestId, ApprovalStatus: EDEN_WORKFLOW_STATUSES.PENDING_FINAL } };
+    } catch (err) {
+      return Utils.safeMessage('העברה לאדמין נכשלה.');
+    }
+  }
+
+  function refreshEdenSource_(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
+    try {
+      var body = Utils.asObject(payload, {});
+      var requestId = Utils.normalize(body.RequestID);
+      if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      syncEdenRowsWithMaster_();
+      var edenTable = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, true);
+      var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
+      var existing = findRowByRequestId_(edenTable, idxRequest, requestId);
+      if (!existing) return Utils.safeMessage('לא נמצאה רשומה.');
+      return { success: true, data: { RequestID: requestId, refreshedAt: Utils.nowIso() } };
+    } catch (err) {
+      return Utils.safeMessage('רענון מקור נכשל.');
+    }
+  }
+
+  function updateEdenWorkflowByRequestId_(requestId, workflowStatus, extraFields) {
+    if (!requestId) return;
+    var edenTable = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, false);
+    if (!edenTable.sheet || !edenTable.headers.length) return;
+    var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
+    var match = findRowByRequestId_(edenTable, idxRequest, requestId);
+    if (!match) return;
+    var updated = match.row.slice();
+    var idxWorkflow = Utils.resolveIndex(edenTable.headers, ['WorkflowStatus']);
+    if (idxWorkflow > -1) updated[idxWorkflow] = workflowStatus;
+    Object.keys(extraFields || {}).forEach(function (field) {
+      var idx = Utils.resolveIndex(edenTable.headers, [field]);
+      if (idx > -1) updated[idx] = extraFields[field];
+    });
+    Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, match.rowNumber, updated);
   }
 
   function requireWritePermission_(user, actionType, context) {
@@ -941,7 +1372,9 @@ var Logic = (function () {
     var allowed = false;
 
     if (actionType === WRITE_ACTIONS.UPDATE_COURSE) {
-      allowed = false;
+      allowed = role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager' || editScope === 'all' || editScope === 'full';
+    } else if (actionType === WRITE_ACTIONS.CREATE_MASTER_RECORD) {
+      allowed = role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager' || editScope === 'all' || editScope === 'full';
     } else if (actionType === WRITE_ACTIONS.CREATE_EDIT_REQUEST) {
       allowed = role !== 'instructor';
     } else if (actionType === WRITE_ACTIONS.APPROVAL_DECISION) {
@@ -1323,69 +1756,59 @@ var Logic = (function () {
     var idx = resolveDataMasterFinanceIndexes_(headers);
     var groups = {};
 
-    rows.forEach(function (row) {
+    rows.forEach(function (row, rowIndex) {
       if (!row || !row.length || isRowEmpty_(row)) return;
 
       var endValue = valueAt_(row, idx.end);
       if (Utils.isEmpty(endValue)) return;
 
       var normalizedFunding = normalizeFunding_(valueAt_(row, idx.funding));
-      var billingGroup = resolveBillingGroup_(normalizedFunding, valueAt_(row, idx.school), valueAt_(row, idx.authority));
+      var billingGroup = resolveBillingGroup_(normalizedFunding, valueAt_(row, idx.school));
       var endKey = normalizeDateKey_(endValue);
-      var groupKey = buildGroupKey_(endKey, billingGroup.type, billingGroup.key);
-
-      if (!groups[groupKey]) {
-        groups[groupKey] = {
-          end: endValue,
-          monthEnd: '',
-          funding: normalizedFunding,
-          billingGroupType: billingGroup.type,
-          billingGroupKey: billingGroup.key,
-          authorities: {},
-          schools: {},
-          programs: {},
-          courses: {},
-          sourceRows: {},
-          sourceSheets: {},
-          notes: {},
-          plannedTotal: 0,
-          actualTotal: 0,
-          paymentTotal: 0
-        };
-      }
-
-      var group = groups[groupKey];
-      // הנחה: אם מתקבלים ערכי End שונים באותה קבוצה, שומרים את המוקדם ביותר לצורך יציבות רישום.
-      group.end = pickEarlierDateLikeValue_(group.end, endValue);
+      var courseId = Utils.normalize(valueAt_(row, idx.courseId));
+      var rowId = Utils.normalize(valueAt_(row, idx.rowId)) || ('ROW-' + (rowIndex + 1));
+      var groupKey = buildGroupKey_(endKey, billingGroup.type, billingGroup.key) + '|' + courseId + '|' + rowId;
 
       var monthEndValue = Utils.normalize(valueAt_(row, idx.monthEnd));
-      if (!group.monthEnd && monthEndValue) group.monthEnd = monthEndValue;
-
-      addUniqueValue_(group.authorities, valueAt_(row, idx.authority));
-      addUniqueValue_(group.schools, valueAt_(row, idx.school));
-      addUniqueValue_(group.programs, valueAt_(row, idx.program));
-      addUniqueValue_(group.courses, valueAt_(row, idx.courseId));
-
-      var rowId = Utils.normalize(valueAt_(row, idx.rowId));
-      var sourceRow = Utils.normalize(valueAt_(row, idx.sourceRow));
-      addUniqueValue_(group.sourceRows, rowId || sourceRow);
-
-      var sourceSheet = Utils.normalize(valueAt_(row, idx.sourceSheet)) || CONFIG.SHEETS.DATA_MASTER;
-      addUniqueValue_(group.sourceSheets, sourceSheet);
-
-      addUniqueValue_(group.notes, Utils.normalizeWhitespace(valueAt_(row, idx.notes)));
-
-      group.plannedTotal += parseNumberOrZero_(valueAt_(row, idx.plannedMeetings));
-      group.actualTotal += parseNumberOrZero_(valueAt_(row, idx.actualMeetings));
-      group.paymentTotal += parseNumberOrZero_(valueAt_(row, idx.payment));
-    });
-
-    Object.keys(groups).forEach(function (key) {
-      var group = groups[key];
-      if (!group.monthEnd) group.monthEnd = deriveMonthEndFromEnd_(group.end);
+      var allDates = collectDateFields_(headers, row);
+      groups[groupKey] = {
+        rowId: rowId,
+        end: endValue,
+        monthEnd: monthEndValue || deriveMonthEndFromEnd_(endValue),
+        funding: normalizedFunding,
+        billingGroupType: billingGroup.type,
+        billingGroupKey: billingGroup.key,
+        payerName: billingGroup.key,
+        courseId: courseId,
+        program: Utils.normalize(valueAt_(row, idx.program)),
+        activity: Utils.normalize(valueAt_(row, idx.activity)),
+        authority: Utils.normalize(valueAt_(row, idx.authority)),
+        school: Utils.normalize(valueAt_(row, idx.school)),
+        instructor: Utils.normalize(valueAt_(row, idx.instructor)),
+        startDate: valueAt_(row, idx.startDate),
+        endDate: valueAt_(row, idx.endDate),
+        activityDate: valueAt_(row, idx.date),
+        allDates: allDates,
+        plannedMeetings: parseNumberOrZero_(valueAt_(row, idx.plannedMeetings)),
+        actualMeetings: parseNumberOrZero_(valueAt_(row, idx.actualMeetings)),
+        paymentTotal: parseNumberOrZero_(valueAt_(row, idx.payment)),
+        notes: Utils.normalizeWhitespace(valueAt_(row, idx.notes))
+      };
     });
 
     return groups;
+  }
+
+  function collectDateFields_(headers, row) {
+    var values = [];
+    (headers || []).forEach(function (header, index) {
+      var normalizedHeader = Utils.normalize(header);
+      if (/^Date([1-9]|[12][0-9]|30)$/.test(normalizedHeader)) {
+        var value = Utils.normalize(valueAt_(row, index));
+        if (value) values.push(value);
+      }
+    });
+    return values.join(', ');
   }
 
   function resolveDataMasterFinanceIndexes_(headers) {
@@ -1395,6 +1818,11 @@ var Logic = (function () {
       authority: Utils.resolveIndex(headers, ['Authority']),
       school: Utils.resolveIndex(headers, ['School']),
       program: Utils.resolveIndex(headers, ['Program']),
+      activity: Utils.resolveIndex(headers, ['Activity']),
+      instructor: Utils.resolveIndex(headers, ['Instructor', 'Employee']),
+      date: Utils.resolveIndex(headers, ['Date']),
+      startDate: Utils.resolveIndex(headers, ['StartDate']),
+      endDate: Utils.resolveIndex(headers, ['EndDate', 'End']),
       plannedMeetings: Utils.resolveIndex(headers, ['PlannedMeetings']),
       actualMeetings: Utils.resolveIndex(headers, ['ActualMeetings']),
       funding: Utils.resolveIndex(headers, ['Funding']),
@@ -1407,11 +1835,10 @@ var Logic = (function () {
     };
   }
 
-  function resolveBillingGroup_(funding, school, authority) {
+  function resolveBillingGroup_(funding, school) {
     var key = Utils.normalizeWhitespace(funding);
     if (key === 'גפ"ן') return { type: 'SCHOOL', key: Utils.normalizeWhitespace(school) };
-    if (key === 'רשות') return { type: 'AUTHORITY', key: Utils.normalizeWhitespace(authority) };
-    return { type: 'FUNDING', key: key };
+    return { type: 'FUNDING', key: key || 'לא מוגדר' };
   }
 
   function normalizeFunding_(value) {
@@ -1429,12 +1856,15 @@ var Logic = (function () {
     var idxEnd = Utils.resolveIndex(headers, ['End']);
     var idxType = Utils.resolveIndex(headers, ['BillingGroupType']);
     var idxKey = Utils.resolveIndex(headers, ['BillingGroupKey']);
+    var idxRowId = Utils.resolveIndex(headers, ['RowID']);
+    var idxCourseId = Utils.resolveIndex(headers, ['CourseID']);
     var idxStatus = Utils.resolveIndex(headers, ['FinanceStatus']);
 
     var out = {
       financeRowId: Utils.normalize(valueAt_(row, idxFinanceRowId)),
       financeStatus: Utils.normalize(valueAt_(row, idxStatus)),
-      groupKey: buildGroupKey_(normalizeDateKey_(valueAt_(row, idxEnd)), valueAt_(row, idxType), valueAt_(row, idxKey))
+      groupKey: buildGroupKey_(normalizeDateKey_(valueAt_(row, idxEnd)), valueAt_(row, idxType), valueAt_(row, idxKey)) + '|'
+        + Utils.normalize(valueAt_(row, idxCourseId)) + '|' + Utils.normalize(valueAt_(row, idxRowId))
     };
     return out;
   }
@@ -1444,20 +1874,28 @@ var Logic = (function () {
       FinanceRowID: financeRowId,
       End: group.end,
       MonthEnd: group.monthEnd,
+      RowID: group.rowId,
+      CourseID: group.courseId,
+      Course: group.program || group.activity || group.courseId,
+      Program: group.program,
+      Activity: group.activity,
       Funding: group.funding,
       BillingGroupType: group.billingGroupType,
       BillingGroupKey: group.billingGroupKey,
-      Authority: mapKeysToList_(group.authorities),
-      SchoolsList: mapKeysToList_(group.schools),
-      ProgramsList: mapKeysToList_(group.programs),
-      CoursesList: mapKeysToList_(group.courses),
-      PlannedMeetingsTotal: group.plannedTotal,
-      ActualMeetingsTotal: group.actualTotal,
+      Payer: group.payerName,
+      Authority: group.authority,
+      School: group.school,
+      Instructor: group.instructor,
+      Date: group.activityDate,
+      StartDate: group.startDate,
+      EndDate: group.endDate,
+      AllDates: group.allDates,
+      PlannedMeetings: group.plannedMeetings,
+      ActualMeetings: group.actualMeetings,
       PaymentTotal: group.paymentTotal,
-      SourceRows: mapKeysToList_(group.sourceRows),
-      SourceSheets: mapKeysToList_(group.sourceSheets),
+      Cost: group.paymentTotal,
       FinanceStatus: financeStatus,
-      Notes: mapKeysToList_(group.notes)
+      Notes: group.notes
     };
 
     return headers.map(function (header) {
@@ -1649,6 +2087,10 @@ var Logic = (function () {
     return 'REQ-' + new Date().getTime() + '-' + Math.floor(Math.random() * 1000000);
   }
 
+  function generateCourseId_() {
+    return 'CRS-' + new Date().getTime() + '-' + Math.floor(Math.random() * 1000);
+  }
+
   return {
     login: login,
     logout: logout,
@@ -1662,6 +2104,7 @@ var Logic = (function () {
     updateFinanceStatus: updateFinanceStatus,
     syncFinance: syncFinance,
     updateCourse: updateCourse,
+    createDataMasterRecord: createDataMasterRecord,
     createEditRequest: createEditRequest,
     getMyRequestsData: getMyRequestsData,
     getApprovalsData: getApprovalsData,

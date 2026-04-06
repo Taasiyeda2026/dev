@@ -91,6 +91,7 @@ function routeAction_(action, payload) {
   if (action === 'getFinanceArchiveDataAction') return getFinanceArchiveDataAction(payload);
   if (action === 'updateFinanceStatusAction') return updateFinanceStatusAction(payload);
   if (action === 'syncFinanceAction') return syncFinanceAction(payload);
+  if (action === 'createDataMasterRecordAction') return createDataMasterRecordAction(payload);
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
@@ -112,6 +113,7 @@ function getFinanceDataAction(payload) { return Logic.getFinanceData(payload || 
 function getFinanceArchiveDataAction(payload) { return Logic.getFinanceArchiveData(payload || {}); }
 function updateFinanceStatusAction(payload) { return Logic.updateFinanceStatus(payload || {}); }
 function syncFinanceAction(payload) { return Logic.syncFinance(payload || {}); }
+function createDataMasterRecordAction(payload) { return Logic.createDataMasterRecord(payload || {}); }
 
 
 function onOpen() {

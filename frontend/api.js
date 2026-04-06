@@ -90,5 +90,6 @@ export const api = {
   getFinanceArchiveData: () => callAction('getFinanceArchiveDataAction', {}),
   updateFinanceStatus: (payload) => callAction('updateFinanceStatusAction', payload),
   syncFinance: () => callAction('syncFinanceAction', {}),
+  createDataMasterRecord: (payload) => callAction('createDataMasterRecordAction', payload),
   clearCache: clearActionCache
 };
