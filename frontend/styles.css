@@ -671,8 +671,9 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(7, minmax(180px, 1fr));
   gap: 14px;
+  overflow-x: auto;
 }
 .week-day-column {
   display: flex;
@@ -710,6 +711,22 @@ a { color: var(--accent); text-decoration: none; }
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 8px;
+}
+.month-header {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 10px;
+}
+.month-weekday {
+  background: rgba(255,255,255,0.06);
+  color: var(--shell-text);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  padding: 8px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
 }
 .month-day {
   background: var(--surface);
@@ -758,6 +775,7 @@ a { color: var(--accent); text-decoration: none; }
   gap: 12px;
 }
 .finance-tabs { display: flex; gap: 8px; }
+.finance-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .finance-status-edit {
   display: flex;
@@ -777,6 +795,22 @@ a { color: var(--accent); text-decoration: none; }
   outline: none;
 }
 .finance-status-edit select:focus { border-color: var(--accent); }
+.finance-note-editor {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.finance-note-editor input {
+  flex: 1;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  background: var(--surface);
+}
+.week-nav-actions {
+  margin-inline-start: auto;
+}
 
 /* ============================================================
    DETAILS PANEL
@@ -1030,9 +1064,9 @@ a { color: var(--accent); text-decoration: none; }
   .main { margin-right: 0; padding: 16px; padding-top: 60px; }
   .kpi-grid, .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; }
   .finance-kpi-grid { grid-template-columns: 1fr 1fr; }
-  .month-grid { grid-template-columns: repeat(4, 1fr); }
+  .month-grid { grid-template-columns: repeat(7, minmax(130px, 1fr)); overflow-x: auto; }
   .cards-grid { grid-template-columns: 1fr; }
-  .week-grid { grid-template-columns: 1fr; }
+  .week-grid { grid-template-columns: repeat(7, minmax(180px, 1fr)); }
 }
 
 /* ============================================================
