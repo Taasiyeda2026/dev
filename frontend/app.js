@@ -344,7 +344,7 @@ function renderScreen() {
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
-    main.innerHTML = head('דשבורד ראשי', '') + panel(viewState.dashboard, 'אין נתונים.',
+    main.innerHTML = head('דשבורד ראשי', '') + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
       `<section class="kpi-section dashboard-kpi-top-section">
         <div class="dashboard-kpi-row-centered">
           <div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
@@ -368,7 +368,7 @@ function renderScreen() {
         </article>`).join('')}
         </div>
       </section>
-      `);
+      `) + `</div>`;
     document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter, button.dataset.kpiContext || '')));
     return;
   }
@@ -1822,8 +1822,8 @@ function renderWeekGrid(days) {
 }
 
 function renderWeekInstructorAccordion(day, group) {
-  const suffix = group.items.length > 1 ? ' ➕' : '';
-  return `<button type="button" class="mini-card week-session-card week-instructor-tile" data-week-instructor-day="${escAttr(day.isoDate)}" data-week-instructor="${escAttr(group.instructor)}"><strong>${esc(`${group.instructor}${suffix}`)}</strong></button>`;
+  const hasMultiple = group.items.length > 1;
+  return `<button type="button" class="mini-card week-session-card week-instructor-tile" data-week-instructor-day="${escAttr(day.isoDate)}" data-week-instructor="${escAttr(group.instructor)}"><span class="week-instructor-tile-inner"><strong class="week-instructor-name">${esc(group.instructor)}</strong><span class="week-instructor-more" aria-hidden="true">${hasMultiple ? '➕' : ''}</span></span></button>`;
 }
 
 function groupDayItemsByInstructor(items) {
