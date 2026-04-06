@@ -63,7 +63,7 @@ body {
   background: var(--shell);
   color: var(--text-primary);
   direction: rtl;
-  text-align: center;
+  text-align: right;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -170,8 +170,10 @@ a { color: var(--accent); text-decoration: none; }
   margin-right: var(--sidebar-w);
   flex: 1;
   min-width: 0;
+  max-width: calc(100vw - var(--sidebar-w));
   padding: 28px 32px 48px;
   background: var(--surface-2);
+  overflow-x: hidden;
 }
 
 /* ============================================================
@@ -290,7 +292,7 @@ a { color: var(--accent); text-decoration: none; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 36px 24px;
-  text-align: center;
+  text-align: right;
   color: var(--text-muted);
   font-size: 14px;
   display: flex;
@@ -303,7 +305,7 @@ a { color: var(--accent); text-decoration: none; }
 
 .panel-empty {
   padding: 24px;
-  text-align: center;
+  text-align: right;
   color: var(--text-muted);
   font-size: 13px;
 }
@@ -331,8 +333,8 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 12px;
   font-weight: 500;
   color: var(--text-secondary);
-  min-width: 130px;
-  flex: 1;
+  min-width: 0;
+  flex: 1 1 170px;
 }
 
 .filters-wrap input,
@@ -579,6 +581,37 @@ a { color: var(--accent); text-decoration: none; }
 .progress-warning .progress-fill { background: var(--amber); }
 .progress-danger  .progress-fill { background: var(--red); }
 
+
+
+.expandable-card {
+  text-align: right;
+}
+.expandable-card summary {
+  list-style: none;
+  cursor: pointer;
+}
+.expandable-card summary::-webkit-details-marker {
+  display: none;
+}
+.card-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.card-summary-minimal {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.expandable-card .card-details {
+  margin-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: right;
+}
+
 /* ============================================================
    STATUS CHIPS
    ============================================================ */
@@ -671,9 +704,10 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .week-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(180px, 1fr));
-  gap: 14px;
-  overflow-x: auto;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  overflow-x: hidden;
   padding-bottom: 6px;
 }
 .week-day-column {
@@ -710,9 +744,10 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(130px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 10px;
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden;
   padding-bottom: 6px;
 }
 .month-header {
@@ -1076,9 +1111,9 @@ a { color: var(--accent); text-decoration: none; }
   .main { margin-right: 0; padding: 16px; padding-top: 60px; }
   .kpi-grid, .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; }
   .finance-kpi-grid { grid-template-columns: 1fr 1fr; }
-  .month-grid { grid-template-columns: repeat(7, minmax(110px, 1fr)); overflow-x: auto; }
+  .month-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: hidden; }
   .cards-grid { grid-template-columns: 1fr; }
-  .week-grid { grid-template-columns: repeat(7, minmax(140px, 1fr)); overflow-x: auto; }
+  .week-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); overflow-x: hidden; }
 }
 
 /* ============================================================
