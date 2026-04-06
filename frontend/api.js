@@ -1,4 +1,4 @@
-const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxrKooP1BEXcLBo_QT5Qqp5NLCaity6CPJo1YPeDSAbKPCZOCzeiP9Z9b5N5_HSFGty0w/exec';
+const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbx7IZP0WsrUEguIJuWgtwu4uYQSWyQVzx2lbYRYs1TO3mFBM35Gd2rP-HanFX_4Cs3Vmg/exec';
 const actionCache = new Map();
 
 const ACTION_TTL_MS = {
