@@ -306,7 +306,7 @@ function render() {
 }
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
-function head(title, sub) { return `<header class="screen-head"><div><h2>${title}</h2><p>${sub}</p></div></header>`; }
+function head(title, sub) { return `<header class="screen-head"><div><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div></header>`; }
 
 function getBusinessCourseName(row = {}) {
   return getCourseField(row, COURSE_FIELDS.PROGRAM)
@@ -326,7 +326,7 @@ function renderScreen() {
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
-    main.innerHTML = head('דשבורד ראשי', 'תמונת מצב עסקית') + panel(viewState.dashboard, 'אין נתונים.',
+    main.innerHTML = head('דשבורד ראשי', '') + panel(viewState.dashboard, 'אין נתונים.',
       `<section class="kpi-section"><div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
         ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses', 'תצוגת כל הקורסים')}
         ${kpiCard('סך סדנאות', d.workshopsCount || 0, 'all_courses')}
@@ -337,25 +337,15 @@ function renderScreen() {
         <article class="panel-block dashboard-manager-column">
           <div class="panel-block-head"><h3>${esc(managerName)}</h3></div>
           <div class="kpi-grid dashboard-kpi-grid manager-kpi-grid">
-            ${kpiCard(`מדריכים של ${managerName === 'גיל נאמן' ? 'גיל' : 'לינוי'}`, d.instructorsByManager?.[managerName] || 0, 'all_courses', '', `manager:${managerName}|subtitle:מדריכים של ${managerName === 'גיל נאמן' ? 'גיל' : 'לינוי'}`)}
+            ${kpiCard('מדריכים', d.instructorsByManager?.[managerName] || 0, 'all_courses', '', `manager:${managerName}|subtitle:מדריכים`)}
             ${kpiCard('פעילים החודש', d.activeByManager?.[managerName] || 0, 'active_now', '', `manager:${managerName}|subtitle:פעילים החודש - ${managerName}`)}
             ${kpiCard('מסתיימים החודש', d.endingByManager?.[managerName] || 0, 'this_month', '', `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}`)}
             ${kpiCard('דורשים טיפול', d.requiresTreatmentByManager?.[managerName] || 0, 'exceptions', '', `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}`)}
           </div>
         </article>`).join('')}
       </div></section>
-      <section class="panel-block"><div class="dashboard-shortcuts">
-        <button class="btn btn-secondary" data-shortcut-route="courses">קורסים</button>
-        <button class="btn btn-secondary" data-shortcut-route="week">שבוע</button>
-        <button class="btn btn-secondary" data-shortcut-route="month">חודש</button>
-        <button class="btn btn-secondary" data-shortcut-route="instructors">מדריכים</button>
-        <button class="btn btn-secondary" data-shortcut-route="end-dates">תאריכי סיום</button>
-        <button class="btn btn-secondary" data-shortcut-route="assignments">שיבוץ</button>
-        <button class="btn btn-secondary" data-shortcut-route="exceptions">חריגות</button>
-        ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? '<button class="btn btn-secondary" data-shortcut-route="finance">כספים</button>' : ''}
-      </div></section>`);
+      `);
     document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter, button.dataset.kpiContext || '')));
-    document.querySelectorAll('[data-shortcut-route]').forEach((button) => button.addEventListener('click', () => setRoute(button.dataset.shortcutRoute || 'courses')));
     return;
   }
 
@@ -373,8 +363,8 @@ function renderScreen() {
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
       <label>מנהל קורס<select id="courseManagerFilter">${renderSelectOptions(viewState.courses.filterOptions.courseManager, viewState.courses.filters.courseManager)}</select></label>
       <label>מדריך<select id="employeeFilter">${renderSelectOptions(viewState.courses.filterOptions.employee, viewState.courses.filters.employee)}</select></label>
-      <label>מתאריך<input id="monthStartFilter" type="date" value="${escAttr(viewState.courses.filters.monthStart)}"></label>
-      <label>עד תאריך<input id="monthEndFilter" type="date" value="${escAttr(viewState.courses.filters.monthEnd)}"></label>
+      <label>מחודש<input id="monthStartFilter" type="month" value="${escAttr(viewState.courses.filters.monthStart)}"></label>
+      <label>עד חודש<input id="monthEndFilter" type="month" value="${escAttr(viewState.courses.filters.monthEnd)}"></label>
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
@@ -611,7 +601,7 @@ function renderScreen() {
 }
 
 function enforceDatePickerInputs() {
-  document.querySelectorAll('input[type="date"]').forEach((input) => {
+  document.querySelectorAll('input[type="date"], input[type="month"]').forEach((input) => {
     input.setAttribute('readonly', 'readonly');
     input.addEventListener('focus', () => input.showPicker?.());
     input.addEventListener('click', () => input.showPicker?.());
@@ -863,7 +853,7 @@ function renderCourseCards(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const managerLabel = options.showInstructorManager ? 'מנהל מדריכים' : 'מנהל קורס';
   const managerValue = (row) => options.showInstructorManager ? row.InstructorManager : row.CourseManager;
-  return `<section class="cards-grid ${options.compact ? 'cards-grid-compact' : ''}">${rows.map((row) => {
+  return `<section class="cards-grid course-cards-grid ${options.compact ? 'cards-grid-compact' : ''}">${rows.map((row) => {
     const issueText = summarizeIssue(row);
     const progress = courseProgress(row);
     const hierarchy = buildCourseHierarchyDetails(row);
@@ -884,7 +874,6 @@ function renderCourseCards(rows, options = {}) {
           <div class="progress-mini">
             <div class="progress-mini-fill ${progress.level}" style="width:${progress.percent}%"></div>
           </div>
-          <span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span>
         </div>
       </div>
       ${issueText ? `<div class="card-issue ${issueFlag ? 'has-issue' : ''}"><strong>מה חסר בפועל:</strong> ${esc(issueText)}</div>` : ''}
@@ -900,8 +889,8 @@ function renderCourseCards(rows, options = {}) {
 function renderInstructorCards(rows, selectedInstructor) {
   if (!rows.length) return '<section class="panel-empty">אין נתוני מדריכים זמינים.</section>';
   return `<section class="cards-grid instructor-grid">${rows.map((row) => {
-    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} קורסים · ${row.hasGap ? 'דורש טיפול' : 'תקין'}</div>`;
-    const details = `<div class="card-meta"><span>📚 קורסים: ${esc(row.coursesCount)}</span><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span><span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
+    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} קורסים${row.hasGap ? ' · דורש טיפול' : ''}</div>`;
+    const details = `<div class="card-meta"><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>${row.hasGap ? '<span>🧩 סטטוס: דורש טיפול</span>' : ''}</div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
     return renderExpandableCard({ summary, details, classes: `management-card instructor-card expandable-card ${selectedInstructor === row.instructor ? 'active' : ''}` });
   }).join('')}</section>`;
 }
@@ -1120,6 +1109,17 @@ function parseDateLike(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function parseMonthBoundary(value, boundary = 'start') {
+  const monthMatch = String(value || '').trim().match(/^(\d{4})-(\d{1,2})$/);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const month = Number(monthMatch[2]) - 1;
+    if (boundary === 'end') return new Date(year, month + 1, 0, 23, 59, 59, 999);
+    return new Date(year, month, 1, 0, 0, 0, 0);
+  }
+  return parseDateLike(value);
+}
+
 function isDateInRange(date, from, to) {
   if (!date || !from || !to) return false;
   return date >= startOfDay(from) && date <= endOfDay(to);
@@ -1295,7 +1295,7 @@ function renderIssueBadge(row) {
   if (hasException(row)) return '<span class="status-chip status-declined">דורש טיפול</span>';
   if (isMissingReport(row)) return '<span class="status-chip status-pending">חסר דיווח</span>';
   if (!hasInstructor(row)) return '<span class="status-chip status-pending-final">חסר מדריך</span>';
-  return '<span class="status-chip status-approved">תקין</span>';
+  return '';
 }
 
 function renderStatusBadge(row) {
@@ -1307,7 +1307,7 @@ function renderStatusBadge(row) {
 function renderInstructorState(row) {
   if (!row.instructor || row.instructor === 'לא משויך') return '<span class="status-chip status-declined">חוסר שיוך</span>';
   if (row.hasGap) return '<span class="status-chip status-pending">פער תפעולי</span>';
-  return '<span class="status-chip status-approved">תקין</span>';
+  return '';
 }
 
 function summarizeIssue(row) {
@@ -1671,11 +1671,11 @@ function renderWeekFilters() {
 function renderWeekGrid(days) {
   return `<section class="week-grid">${days.map((day) => {
     const groupedItems = groupDayItemsByInstructor(day.items);
-    const dayTitle = day.isShabbat ? 'ש' : `${day.weekdayLabel} · ${day.dateLabel}`;
     const countText = `${day.items.length} פעילויות`;
     return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''}">
       <div class="panel-block-head week-day-head">
-        <h3>${esc(dayTitle)}</h3>
+        <h3>${esc(day.isShabbat ? 'ש' : day.weekdayLabel)}</h3>
+        <small class="week-day-date">${esc(day.dateLabel)}</small>
         <button class="btn btn-tertiary week-day-count" data-week-open="${escAttr(day.isoDate)}" aria-label="פתח פירוט ליום ${escAttr(day.label)}">${countText}</button>
       </div>
       ${groupedItems.map((group, index) => renderWeekInstructorAccordion(day, group, index)).join('') || '<div class="panel-empty">אין מפגשים</div>'}
@@ -1684,24 +1684,8 @@ function renderWeekGrid(days) {
 }
 
 function renderWeekInstructorAccordion(day, group, index) {
-  const accordionId = `week-accordion-${day.isoDate}-${index}`;
-  const detailsRows = group.items.map((item) => {
-    const hierarchy = buildCourseHierarchyDetails(item);
-    return `<li class="week-accordion-item-row">
-      <div><strong>${esc(hierarchy.programActivity || 'פעילות ללא שם')}</strong></div>
-      <div class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</div>
-      <div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button></div>
-    </li>`;
-  }).join('');
-  return `<details class="mini-card week-session-card week-accordion">
-    <summary id="${escAttr(accordionId)}" class="week-accordion-summary" role="button" aria-controls="${escAttr(`${accordionId}-panel`)}" aria-expanded="false">
-      <span class="week-accordion-title">${esc(group.instructor)}</span>
-      <span class="week-accordion-meta"><span>${group.items.length} פעילויות</span><span aria-hidden="true">➕</span></span>
-    </summary>
-    <div id="${escAttr(`${accordionId}-panel`)}" class="week-accordion-panel" role="region" aria-labelledby="${escAttr(accordionId)}">
-      <ul class="week-accordion-list">${detailsRows}</ul>
-    </div>
-  </details>`;
+  const suffix = group.items.length > 1 ? ' ➕' : '';
+  return `<article class="mini-card week-session-card"><strong>${esc(`${group.instructor}${suffix}`)}</strong></article>`;
 }
 
 function groupDayItemsByInstructor(items) {
@@ -2021,7 +2005,7 @@ function buildEndDateItems(courses) {
 function renderEndDateCards(items) {
   return `<section class="cards-grid">${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    const summary = `<div class="card-head"><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'נדחה' : 'תקין'}</span></div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
+    const summary = `<div class="card-head"><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3>${(item.postpone.isPostponed || item.hasReviewDelay) ? '<span class="status-chip status-pending-final">נדחה</span>' : ''}</div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
     const details = `${renderCourseHierarchyStrip(item)}<div class="card-meta"><span>מפגשים שנותרו: ${esc(item.remaining)}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div>`;
     return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
@@ -2472,12 +2456,12 @@ function applyCoursesFiltersByUiScope(rows, filters) {
       if (!text.includes(clean.program)) return false;
     }
     if (clean.monthStart) {
-      const monthStart = parseDateLike(clean.monthStart);
+      const monthStart = parseMonthBoundary(clean.monthStart, 'start');
       const end = getCourseField(row, COURSE_FIELDS.END);
       if (monthStart && end && end < startOfDay(monthStart)) return false;
     }
     if (clean.monthEnd) {
-      const monthEnd = parseDateLike(clean.monthEnd);
+      const monthEnd = parseMonthBoundary(clean.monthEnd, 'end');
       const end = getCourseField(row, COURSE_FIELDS.END);
       if (monthEnd && end && end > endOfDay(monthEnd)) return false;
     }
@@ -2621,14 +2605,7 @@ function registerServiceWorker() {
 }
 
 function registerGlobalCardCloseBehavior() {
-  document.addEventListener('click', (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const summary = target?.closest('details.expandable-card > summary');
-    document.querySelectorAll('details.expandable-card[open]').forEach((detailsElement) => {
-      if (summary && summary.parentElement === detailsElement) return;
-      detailsElement.open = false;
-    });
-  });
+  return undefined;
 }
 
 async function boot() {
