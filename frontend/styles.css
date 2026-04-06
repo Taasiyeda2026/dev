@@ -53,18 +53,22 @@
   --shadow-lg: 0 10px 30px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.05);
 
   --font: 'Segoe UI', 'Arial', sans-serif;
+  --canvas-width: 1440px;
+  --ui-scale: 0.85;
+  --header-h: 0px;
 }
 
 /* --- Reset --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 15px; }
+html { font-size: 15px; height: 100%; margin: 0; }
 body {
   font-family: var(--font);
   background: var(--shell);
   color: var(--text-primary);
   direction: rtl;
   text-align: right;
-  min-height: 100vh;
+  height: 100%;
+  margin: 0;
   -webkit-font-smoothing: antialiased;
 }
 button { cursor: pointer; font-family: inherit; font-size: inherit; }
@@ -76,7 +80,24 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .layout {
   display: flex;
-  min-height: 100vh;
+  min-height: 900px;
+  width: calc(var(--canvas-width) / var(--ui-scale));
+}
+
+.dashboard-viewport {
+  width: 100vw;
+  height: calc(100vh - var(--header-h));
+  overflow: auto;
+  background: #f5f5f5;
+}
+
+.dashboard-canvas {
+  width: calc(var(--canvas-width) / var(--ui-scale));
+  min-height: 900px;
+  margin: 0 auto;
+  background: #fff;
+  transform: scale(var(--ui-scale));
+  transform-origin: top center;
 }
 
 /* --- Sidebar --- */
@@ -169,11 +190,10 @@ a { color: var(--accent); text-decoration: none; }
 .main {
   margin-right: var(--sidebar-w);
   flex: 1;
-  min-width: 0;
-  max-width: calc(100vw - var(--sidebar-w));
+  min-width: 1180px;
   padding: 28px 32px 48px;
   background: var(--surface-2);
-  overflow-x: hidden;
+  overflow-x: visible;
 }
 
 /* ============================================================
@@ -211,7 +231,7 @@ a { color: var(--accent); text-decoration: none; }
 
 .kpi-grid, .dashboard-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
   margin-bottom: 0;
 }
@@ -428,11 +448,12 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(4, 250px);
   gap: 16px;
+  justify-content: start;
 }
 .cards-grid-compact {
-  grid-template-columns: repeat(auto-fill, minmax(210px, 240px));
+  grid-template-columns: repeat(4, 240px);
   justify-content: start;
 }
 
@@ -446,6 +467,7 @@ a { color: var(--accent); text-decoration: none; }
   gap: 12px;
   box-shadow: var(--shadow-sm);
   transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+  min-width: 250px;
 }
 .management-card:hover {
   box-shadow: var(--shadow-md);
@@ -538,7 +560,7 @@ a { color: var(--accent); text-decoration: none; }
 
 .course-core-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
   gap: 8px 16px;
 }
 .course-core-col {
@@ -646,9 +668,11 @@ a { color: var(--accent); text-decoration: none; }
   overflow-x: auto;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
+  min-width: 0;
 }
 .table-wrap table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   text-align: right;
@@ -720,7 +744,8 @@ a { color: var(--accent); text-decoration: none; }
   grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(44px, 0.55fr);
   gap: 10px;
   width: 100%;
-  overflow-x: hidden;
+  min-width: 1050px;
+  overflow-x: visible;
   padding-bottom: 6px;
 }
 .week-day-head {
@@ -830,7 +855,8 @@ a { color: var(--accent); text-decoration: none; }
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
-  overflow-x: hidden;
+  min-width: 980px;
+  overflow-x: visible;
   padding-bottom: 6px;
 }
 .month-header {
@@ -878,14 +904,14 @@ a { color: var(--accent); text-decoration: none; }
 /* ============================================================
    INSTRUCTOR CARDS
    ============================================================ */
-.instructor-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+.instructor-grid { grid-template-columns: repeat(3, 280px); justify-content: start; }
 .instructor-course-grid { grid-template-columns: 1fr; gap: 10px; }
 .instructor-card .card-head h3 { font-size: 16px; }
 
 /* ============================================================
    FINANCE
    ============================================================ */
-.finance-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.finance-grid { grid-template-columns: repeat(4, 260px); justify-content: start; }
 
 .finance-card { border-right: 4px solid var(--border); }
 .finance-open          { border-right-color: var(--text-muted); }
@@ -953,7 +979,7 @@ a { color: var(--accent); text-decoration: none; }
 .details-panel header h3 { font-size: 15px; font-weight: 700; }
 .details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
   gap: 14px;
 }
 .details-grid > div {
@@ -1192,12 +1218,12 @@ a { color: var(--accent); text-decoration: none; }
     transition: transform 0.25s;
   }
   .sidebar.open { transform: translateX(0); }
-  .main { margin-right: 0; padding: 16px; padding-top: 60px; }
-  .kpi-grid, .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; }
-  .finance-kpi-grid { grid-template-columns: 1fr 1fr; }
-  .month-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-x: hidden; }
-  .cards-grid { grid-template-columns: 1fr; }
-  .week-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); overflow-x: hidden; }
+  .main { margin-right: 0; padding: 16px; padding-top: 60px; min-width: 980px; }
+  .kpi-grid, .dashboard-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .finance-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .month-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); overflow-x: visible; }
+  .cards-grid { grid-template-columns: repeat(2, 250px); }
+  .week-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(44px, 0.55fr); overflow-x: visible; }
 }
 
 /* ============================================================
