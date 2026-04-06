@@ -19,6 +19,16 @@ var Logic = (function () {
     resolvedAt: ['ResolvedAt', 'ClosedAt', 'HandledAt', 'UpdatedAt']
   };
 
+  var PERF_CACHE = {
+    DATA_MASTER_TTL: 240,
+    PERMISSIONS_TTL: 240,
+    SUMMARY_TTL: 120,
+    DASHBOARD_EXPORT_TTL: 120,
+    FINANCE_TTL: 240,
+    DASHBOARD_RESPONSE_TTL: 90,
+    INSTRUCTOR_LOOKUP_TTL: 240
+  };
+
   function login(userIdInput, codeInput) {
     try {
       var userId = normalizeCredential_(userIdInput);
@@ -26,7 +36,7 @@ var Logic = (function () {
       Logger.log('loginAction: received userId=%s, code=%s', userId, code);
       if (Utils.isEmpty(userId) || Utils.isEmpty(code)) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-      var table = Utils.readTable(CONFIG.SHEETS.PERMISSIONS, true);
+      var table = getCachedPermissionsTable_(true);
       Logger.log('loginAction: PERMISSIONS data rows=%s', table.rows.length);
 
       var idx = resolvePermissionIndexes_(table.headers);
@@ -128,29 +138,49 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
-      var requestsTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
-      var requestIndexes = resolveRequestIndexes_(requestsTable.headers);
-      var pendingEden = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_EDEN);
-      var pendingFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_FINAL);
-      var approvedFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.FINAL_APPROVED);
+      var perf = startPerf_('getDashboardData');
+      var data = Utils.withScriptCache('dashboard:metrics', PERF_CACHE.DASHBOARD_RESPONSE_TTL, function () {
+        var requestsStage = perf.startStage('sheet.edit_requests');
+        var requestsTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false, { requestMemoKey: 'dashboard:requests' });
+        perf.endStage(requestsStage, { rows: requestsTable.rows.length });
+        var requestIndexes = resolveRequestIndexes_(requestsTable.headers);
+        var pendingEden = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_EDEN);
+        var pendingFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.PENDING_FINAL);
+        var approvedFinal = countByStatus_(requestsTable.rows, requestIndexes.approvalStatus, CONFIG.STATUSES.FINAL_APPROVED);
 
-      var summaryTable = Utils.readTable(CONFIG.SHEETS.SUMMARY, false);
-      var exportTable = Utils.readTable(CONFIG.SHEETS.DASHBOARD_EXPORT, false);
-      var summaryMetrics = parseSummaryMetrics_(summaryTable.headers, summaryTable.rows);
-      var exportMetrics = parseDashboardExportMetrics_(exportTable.headers, exportTable.rows);
-      var reviewCount = asNumber_(summaryMetrics.reviewRequiredCount);
-      if (!reviewCount) reviewCount = asNumber_(summaryMetrics.needsReviewCount);
-      if (!reviewCount) reviewCount = asNumber_(summaryMetrics.exceptionCount);
+        var summaryStage = perf.startStage('sheet.summary');
+        var summaryTable = Utils.readTable(CONFIG.SHEETS.SUMMARY, false, {
+          useScriptCache: true,
+          cacheKey: 'table:summary',
+          cacheTtlSeconds: PERF_CACHE.SUMMARY_TTL,
+          requestMemoKey: 'dashboard:summary'
+        });
+        perf.endStage(summaryStage, { rows: summaryTable.rows.length });
 
-      return {
-        success: true,
-        data: {
-          totalDataMaster: Utils.countDataRows(CONFIG.SHEETS.DATA_MASTER),
+        var exportStage = perf.startStage('sheet.dashboard_export');
+        var exportTable = Utils.readTable(CONFIG.SHEETS.DASHBOARD_EXPORT, false, {
+          useScriptCache: true,
+          cacheKey: 'table:dashboard_export',
+          cacheTtlSeconds: PERF_CACHE.DASHBOARD_EXPORT_TTL,
+          requestMemoKey: 'dashboard:export'
+        });
+        perf.endStage(exportStage, { rows: exportTable.rows.length });
+
+        var transformStage = perf.startStage('transform.metrics');
+        var summaryMetrics = parseSummaryMetrics_(summaryTable.headers, summaryTable.rows);
+        var exportMetrics = parseDashboardExportMetrics_(exportTable.headers, exportTable.rows);
+        var reviewCount = asNumber_(summaryMetrics.reviewRequiredCount);
+        if (!reviewCount) reviewCount = asNumber_(summaryMetrics.needsReviewCount);
+        if (!reviewCount) reviewCount = asNumber_(summaryMetrics.exceptionCount);
+        perf.endStage(transformStage, {});
+
+        return {
+          totalDataMaster: getCachedDataMasterTable_().rows.length,
           reviewRequiredCount: reviewCount || Utils.countDataRows(CONFIG.SHEETS.REVIEW_REQUIRED),
           pendingRequests: pendingEden,
           pendingFinal: pendingFinal,
           approvedFinal: approvedFinal,
-          exportRows: Utils.countDataRows(CONFIG.SHEETS.DASHBOARD_EXPORT),
+          exportRows: exportTable.rows.length,
           activeNowCount: asNumber_(summaryMetrics.activeNowCount) || asNumber_(exportMetrics.activeNowCount),
           todayActivitiesCount: asNumber_(summaryMetrics.todayActivitiesCount) || asNumber_(exportMetrics.todayActivitiesCount),
           weekActivitiesCount: asNumber_(summaryMetrics.weekActivitiesCount) || asNumber_(exportMetrics.weekActivitiesCount),
@@ -163,8 +193,11 @@ var Logic = (function () {
           changeRequestCount: asNumber_(summaryMetrics.changeRequestCount) || asNumber_(exportMetrics.changeRequestCount),
           unassignedInstructorCount: asNumber_(summaryMetrics.unassignedInstructorCount) || asNumber_(exportMetrics.unassignedInstructorCount),
           instructorGapCount: asNumber_(summaryMetrics.instructorGapCount) || asNumber_(exportMetrics.instructorGapCount)
-        }
-      };
+        };
+      });
+
+      perf.finish({ success: true });
+      return { success: true, data: data };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון דשבורד.');
     }
@@ -174,7 +207,10 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
-      var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+      var perf = startPerf_('getMyCoursesData');
+      var readStage = perf.startStage('sheet.data_master');
+      var table = getCachedDataMasterTable_();
+      perf.endStage(readStage, { rows: table.rows.length });
       var instructorIndexes = resolveInstructorRowIndexes_(table.headers);
       var idxProgram = Utils.resolveIndex(table.headers, CONFIG.FIELDS.PROGRAM);
       var idxStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.STATUS);
@@ -204,12 +240,14 @@ var Logic = (function () {
         return Number(String(a).replace('Date', '')) - Number(String(b).replace('Date', ''));
       });
       var frontendFields = CONFIG.FRONTEND_FIELDS.COURSES.concat(dynamicDateFields, ['InstructorDisplayRole']);
+      var transformStage = perf.startStage('transform.courses');
       var permissionsLookup = buildInstructorLookup_();
+      var fieldIndexes = buildFieldIndexMap_(table.headers, frontendFields);
 
       var items = rows.map(function (row) {
         var out = {};
         frontendFields.forEach(function (field) {
-          var fieldIdx = Utils.resolveIndex(table.headers, CONFIG.FIELDS[field] || [field]);
+          var fieldIdx = fieldIndexes[field];
           out[field] = fieldIdx > -1 ? row[fieldIdx] : '';
         });
         var assignment = resolveInstructorAssignment_(out, permissionsLookup);
@@ -219,6 +257,8 @@ var Logic = (function () {
         out.InstructorDisplayRole = assignment.displayRole;
         return out;
       });
+      perf.endStage(transformStage, { rows: items.length });
+      perf.finish({ success: true, rows: items.length });
 
       return { success: true, data: { items: items, sourceSheet: CONFIG.SHEETS.DATA_MASTER, fields: frontendFields } };
     } catch (err) {
@@ -253,11 +293,22 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
+      var perf = startPerf_('getFinanceData');
       requireFinanceAccess_(session.user, { archive: false, requireEdit: false });
-      var table = Utils.readTable('FINANCE', true);
+      var readStage = perf.startStage('sheet.finance');
+      var table = Utils.readTable('FINANCE', true, {
+        useScriptCache: true,
+        cacheKey: 'table:finance',
+        cacheTtlSeconds: PERF_CACHE.FINANCE_TTL,
+        requestMemoKey: 'finance:active'
+      });
+      perf.endStage(readStage, { rows: table.rows.length });
+      var transformStage = perf.startStage('transform.finance');
       var items = table.rows.map(function (row, index) {
         return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
       });
+      perf.endStage(transformStage, { rows: items.length });
+      perf.finish({ success: true, rows: items.length });
       return { success: true, data: { items: items } };
     } catch (err) {
       return Utils.safeMessage('אין הרשאה לצפייה בגבייה פעילה.');
@@ -268,12 +319,23 @@ var Logic = (function () {
     var session = requireSession_();
     if (!session.success) return session;
     try {
+      var perf = startPerf_('getFinanceArchiveData');
       requireFinanceAccess_(session.user, { archive: true, requireEdit: false });
-      var table = Utils.readTable('FINANCE_ARCHIVE', false);
+      var readStage = perf.startStage('sheet.finance_archive');
+      var table = Utils.readTable('FINANCE_ARCHIVE', false, {
+        useScriptCache: true,
+        cacheKey: 'table:finance_archive',
+        cacheTtlSeconds: PERF_CACHE.FINANCE_TTL,
+        requestMemoKey: 'finance:archive'
+      });
+      perf.endStage(readStage, { rows: table.rows.length });
       if (!table.sheet) return { success: true, data: { items: [] } };
+      var transformStage = perf.startStage('transform.finance_archive');
       var items = table.rows.map(function (row, index) {
         return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
       });
+      perf.endStage(transformStage, { rows: items.length });
+      perf.finish({ success: true, rows: items.length });
       return { success: true, data: { items: items } };
     } catch (err) {
       return Utils.safeMessage('אין הרשאה לצפייה בארכיון גבייה.');
@@ -918,7 +980,7 @@ var Logic = (function () {
 
   function resolveTeamScopeByCourseId_(courseId) {
     if (Utils.isEmpty(courseId)) return '';
-    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, false);
+    var table = getCachedDataMasterTable_();
     if (!table.sheet || !table.headers.length) return '';
     var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
     var idxTeam = Utils.resolveIndex(table.headers, CONFIG.FIELDS.TEAM);
@@ -930,6 +992,24 @@ var Logic = (function () {
     return '';
   }
 
+  function getCachedDataMasterTable_() {
+    return Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true, {
+      useScriptCache: true,
+      cacheKey: 'table:data_master',
+      cacheTtlSeconds: PERF_CACHE.DATA_MASTER_TTL,
+      requestMemoKey: 'table:data_master'
+    });
+  }
+
+  function getCachedPermissionsTable_(required) {
+    return Utils.readTable(CONFIG.SHEETS.PERMISSIONS, required !== false, {
+      useScriptCache: true,
+      cacheKey: 'table:permissions',
+      cacheTtlSeconds: PERF_CACHE.PERMISSIONS_TTL,
+      requestMemoKey: 'table:permissions'
+    });
+  }
+
   function normalizeCredential_(value) {
     var byId = Utils.normalizeID(value);
     if (!Utils.isEmpty(byId)) return byId;
@@ -937,38 +1017,69 @@ var Logic = (function () {
   }
 
   function buildInstructorLookup_() {
-    var table = Utils.readTable(CONFIG.SHEETS.PERMISSIONS, false);
-    if (!table.sheet || !table.headers.length) return { byId: {}, byName: {} };
+    return Utils.withScriptCache('lookup:instructors', PERF_CACHE.INSTRUCTOR_LOOKUP_TTL, function () {
+      var table = getCachedPermissionsTable_(false);
+      if (!table.sheet || !table.headers.length) return { byId: {}, byName: {} };
 
-    var idxId = Utils.resolveIndex(table.headers, CONFIG.FIELDS.EMPLOYEE_ID);
-    var idxEntryCode = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ENTRY_CODE);
-    var idxName = Utils.resolveIndex(table.headers, ['Employee', 'EmployeeName', 'DisplayName']);
-    var idxDisplayRole = Utils.resolveIndex(table.headers, ['DisplayRole']);
-    var idxActive = Utils.resolveIndex(table.headers, ['ActiveFlag']);
-    var byId = {};
-    var byEntryCode = {};
-    var byName = {};
+      var idxId = Utils.resolveIndex(table.headers, CONFIG.FIELDS.EMPLOYEE_ID);
+      var idxEntryCode = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ENTRY_CODE);
+      var idxName = Utils.resolveIndex(table.headers, ['Employee', 'EmployeeName', 'DisplayName']);
+      var idxDisplayRole = Utils.resolveIndex(table.headers, ['DisplayRole']);
+      var idxActive = Utils.resolveIndex(table.headers, ['ActiveFlag']);
+      var byId = {};
+      var byEntryCode = {};
+      var byName = {};
 
-    table.rows.forEach(function (row) {
-      if (idxActive > -1 && isInactiveFlag_(valueAt_(row, idxActive))) return;
-      var employeeId = Utils.normalizeID(valueAt_(row, idxId));
-      var entryCode = normalizeCredential_(valueAt_(row, idxEntryCode));
-      var employeeName = Utils.normalizeWhitespace(valueAt_(row, idxName));
-      var displayRole = Utils.normalizeWhitespace(valueAt_(row, idxDisplayRole));
-      if (!employeeId && !entryCode && !employeeName) return;
-      var entry = {
-        id: employeeId,
-        entryCode: entryCode,
-        name: employeeName,
-        displayRole: displayRole
-      };
-      if (employeeId && !byId[employeeId]) byId[employeeId] = entry;
-      if (entryCode && !byEntryCode[entryCode]) byEntryCode[entryCode] = entry;
-      var normalizedName = Utils.normalizeName(employeeName);
-      if (normalizedName && !byName[normalizedName]) byName[normalizedName] = entry;
+      table.rows.forEach(function (row) {
+        if (idxActive > -1 && isInactiveFlag_(valueAt_(row, idxActive))) return;
+        var employeeId = Utils.normalizeID(valueAt_(row, idxId));
+        var entryCode = normalizeCredential_(valueAt_(row, idxEntryCode));
+        var employeeName = Utils.normalizeWhitespace(valueAt_(row, idxName));
+        var displayRole = Utils.normalizeWhitespace(valueAt_(row, idxDisplayRole));
+        if (!employeeId && !entryCode && !employeeName) return;
+        var entry = {
+          id: employeeId,
+          entryCode: entryCode,
+          name: employeeName,
+          displayRole: displayRole
+        };
+        if (employeeId && !byId[employeeId]) byId[employeeId] = entry;
+        if (entryCode && !byEntryCode[entryCode]) byEntryCode[entryCode] = entry;
+        var normalizedName = Utils.normalizeName(employeeName);
+        if (normalizedName && !byName[normalizedName]) byName[normalizedName] = entry;
+      });
+
+      return { byId: byId, byEntryCode: byEntryCode, byName: byName };
     });
+  }
 
-    return { byId: byId, byEntryCode: byEntryCode, byName: byName };
+  function buildFieldIndexMap_(headers, fields) {
+    var out = {};
+    (fields || []).forEach(function (field) {
+      if (out[field] !== undefined) return;
+      out[field] = Utils.resolveIndex(headers, CONFIG.FIELDS[field] || [field]);
+    });
+    return out;
+  }
+
+  function startPerf_(endpoint) {
+    var startedAt = new Date().getTime();
+    Logger.log('[PERF][%s] start=%s', endpoint, new Date(startedAt).toISOString());
+    return {
+      startStage: function (name) {
+        return { name: name, startedAt: new Date().getTime() };
+      },
+      endStage: function (stage, meta) {
+        var endedAt = new Date().getTime();
+        var payload = meta ? JSON.stringify(meta) : '{}';
+        Logger.log('[PERF][%s] %s=%sms meta=%s', endpoint, stage.name, endedAt - stage.startedAt, payload);
+      },
+      finish: function (meta) {
+        var endedAt = new Date().getTime();
+        var payload = meta ? JSON.stringify(meta) : '{}';
+        Logger.log('[PERF][%s] total=%sms meta=%s', endpoint, endedAt - startedAt, payload);
+      }
+    };
   }
 
   function resolveInstructorAssignment_(rowObject, lookup) {

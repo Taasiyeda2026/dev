@@ -1,4 +1,12 @@
 const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwD_ImrH86slw_JEh2iyMF2RlrVgqH_-Vb2V3LRgpJ6_n_wB0QVWYoyLeJtQXSjJa57wg/exec';
+const actionCache = new Map();
+
+const ACTION_TTL_MS = {
+  getDashboardDataAction: 90 * 1000,
+  getMyCoursesDataAction: 180 * 1000,
+  getFinanceDataAction: 180 * 1000,
+  getFinanceArchiveDataAction: 180 * 1000
+};
 
 function appendPayload(params, value, path) {
   if (value === null || typeof value === 'undefined') return;
@@ -23,6 +31,12 @@ function buildRequestParams(action, payload) {
 }
 
 async function callAction(action, payload) {
+  const key = `${action}:${JSON.stringify(payload || {})}`;
+  const ttl = ACTION_TTL_MS[action] || 0;
+  if (ttl > 0) {
+    const cached = actionCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+  }
   try {
     const response = await fetch(WEB_APP_URL, {
       method: 'POST',
@@ -34,10 +48,26 @@ async function callAction(action, payload) {
     }
 
     const data = await response.json();
-    return data && typeof data === 'object' ? data : { success: false, message: 'התקבלה תשובה לא תקינה.' };
+    const resolved = data && typeof data === 'object' ? data : { success: false, message: 'התקבלה תשובה לא תקינה.' };
+    if (ttl > 0 && resolved?.success) {
+      actionCache.set(key, { value: resolved, expiresAt: Date.now() + ttl });
+    }
+    return resolved;
   } catch (error) {
     return { success: false, message: 'לא ניתן להשלים את הפעולה כעת.' };
   }
+}
+
+function clearActionCache(actions = []) {
+  if (!Array.isArray(actions) || !actions.length) {
+    actionCache.clear();
+    return;
+  }
+  const target = new Set(actions);
+  Array.from(actionCache.keys()).forEach((key) => {
+    const action = key.split(':')[0];
+    if (target.has(action)) actionCache.delete(key);
+  });
 }
 
 export const api = {
@@ -59,5 +89,6 @@ export const api = {
   getFinanceData: () => callAction('getFinanceDataAction', {}),
   getFinanceArchiveData: () => callAction('getFinanceArchiveDataAction', {}),
   updateFinanceStatus: (payload) => callAction('updateFinanceStatusAction', payload),
-  syncFinance: () => callAction('syncFinanceAction', {})
+  syncFinance: () => callAction('syncFinanceAction', {}),
+  clearCache: clearActionCache
 };
