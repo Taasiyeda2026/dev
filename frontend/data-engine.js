@@ -305,6 +305,7 @@ export async function updateCourse(courseId, changes, actor = {}) {
   if (!apiRef?.updateCourse) return { success: false, message: 'API לא זמין לעדכון קורס.' };
   const res = await apiRef.updateCourse({ [COURSE_FIELDS.COURSE_ID]: courseId, changes, actor });
   if (res?.success) {
+    apiRef?.clearCache?.(['getMyCoursesDataAction', 'getDashboardDataAction']);
     const updated = res?.data?.COURSES || null;
     if (updated && updated[COURSE_FIELDS.COURSE_ID]) {
       const mapped = mapCourseRow(updated);
@@ -325,7 +326,10 @@ export async function createEditRequest(courseId, changes, actor = {}) {
     changes
   };
   const res = await apiRef.createEditRequest(payload);
-  if (res?.success) await loadEditRequests(true);
+  if (res?.success) {
+    apiRef?.clearCache?.(['getDashboardDataAction']);
+    await loadEditRequests(true);
+  }
   return res;
 }
 
@@ -357,6 +361,7 @@ export async function updateFinanceStatus(financeRowId, financeStatus, options =
   };
   const res = await apiRef.updateFinanceStatus(payload);
   if (res?.success) {
+    apiRef?.clearCache?.(['getFinanceDataAction', 'getFinanceArchiveDataAction', 'getDashboardDataAction']);
     await Promise.all([
       loadFinanceItems(true),
       loadFinanceArchiveItems(true)
@@ -369,6 +374,7 @@ export async function syncFinance() {
   if (!apiRef?.syncFinance) return { success: false, message: 'API לא זמין לרענון כספים.' };
   const res = await apiRef.syncFinance();
   if (res?.success) {
+    apiRef?.clearCache?.(['getFinanceDataAction', 'getFinanceArchiveDataAction', 'getDashboardDataAction']);
     await Promise.all([
       loadFinanceItems(true),
       loadFinanceArchiveItems(true)

@@ -1,4 +1,6 @@
 var Utils = (function () {
+  var requestMemo = {};
+
   function normalize(value) {
     return value === null || value === undefined ? '' : String(value).trim();
   }
@@ -83,6 +85,25 @@ var Utils = (function () {
   }
 
   function readTable(sheetName, required) {
+    var options = arguments.length > 2 ? asObject(arguments[2], {}) : {};
+    var requestMemoKey = options.requestMemoKey || ('table:' + sheetName + ':' + (required ? 'required' : 'optional'));
+    if (!options.bypassRequestMemo && requestMemo[requestMemoKey]) {
+      return cloneTable_(requestMemo[requestMemoKey]);
+    }
+
+    if (options.useScriptCache) {
+      var cacheKey = normalize(options.cacheKey || ('sheet:' + sheetName));
+      var ttl = Number(options.cacheTtlSeconds || 120);
+      if (cacheKey && ttl > 0) {
+        var cached = getScriptCacheJson_(cacheKey);
+        if (cached && cached.headers && cached.rows) {
+          cached.sheet = getSheet(sheetName, false);
+          requestMemo[requestMemoKey] = cached;
+          return cloneTable_(cached);
+        }
+      }
+    }
+
     var sheet = getSheet(sheetName, required);
     if (!sheet) return { sheet: null, headers: [], displayHeaders: [], rows: [], rowNumbers: [] };
 
@@ -112,7 +133,23 @@ var Utils = (function () {
       rowNumbers.push(structure.dataStartRow + offset);
     });
 
-    return { sheet: sheet, headers: headers, displayHeaders: displayHeaders, rows: rows, rowNumbers: rowNumbers };
+    var table = { sheet: sheet, headers: headers, displayHeaders: displayHeaders, rows: rows, rowNumbers: rowNumbers };
+    requestMemo[requestMemoKey] = table;
+
+    if (options.useScriptCache) {
+      var scriptCacheKey = normalize(options.cacheKey || ('sheet:' + sheetName));
+      var scriptCacheTtl = Number(options.cacheTtlSeconds || 120);
+      if (scriptCacheKey && scriptCacheTtl > 0) {
+        putScriptCacheJson_(scriptCacheKey, {
+          headers: headers,
+          displayHeaders: displayHeaders,
+          rows: rows,
+          rowNumbers: rowNumbers
+        }, scriptCacheTtl);
+      }
+    }
+
+    return cloneTable_(table);
   }
 
   function countDataRows(sheetName) {
@@ -159,13 +196,87 @@ var Utils = (function () {
     var sheet = getSheet(sheetName, true);
     var rowNumber = Math.max(sheet.getLastRow() + 1, CONFIG.STRUCTURE.DATA_START_ROW);
     sheet.getRange(rowNumber, 1, 1, rowValues.length).setValues([rowValues]);
+    invalidateCacheBySheet_(sheetName);
     return rowNumber;
   }
 
   function updateRow(sheetName, rowNumber, rowValues) {
     var sheet = getSheet(sheetName, true);
     sheet.getRange(rowNumber, 1, 1, rowValues.length).setValues([rowValues]);
+    invalidateCacheBySheet_(sheetName);
     return rowNumber;
+  }
+
+  function clearRequestMemo() {
+    requestMemo = {};
+  }
+
+  function withScriptCache(cacheKey, ttlSeconds, producerFn) {
+    var key = normalize(cacheKey);
+    var ttl = Number(ttlSeconds || 120);
+    if (!key || typeof producerFn !== 'function') return producerFn();
+
+    var cached = getScriptCacheJson_(key);
+    if (cached && cached.__hasValue) return cached.value;
+
+    var produced = producerFn();
+    putScriptCacheJson_(key, { __hasValue: true, value: produced }, ttl);
+    return produced;
+  }
+
+  function getScriptCacheJson_(key) {
+    try {
+      var raw = CacheService.getScriptCache().get(key);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function putScriptCacheJson_(key, value, ttlSeconds) {
+    try {
+      CacheService.getScriptCache().put(key, JSON.stringify(value), Math.max(1, Math.floor(ttlSeconds || 120)));
+    } catch (err) {}
+  }
+
+  function removeScriptCache(keys) {
+    var list = Array.isArray(keys) ? keys : [keys];
+    var clean = list.map(function (key) { return normalize(key); }).filter(function (key) { return Boolean(key); });
+    if (!clean.length) return;
+    try {
+      CacheService.getScriptCache().removeAll(clean);
+    } catch (err) {}
+  }
+
+  function invalidateCacheBySheet_(sheetName) {
+    clearRequestMemo();
+    var sheet = normalize(sheetName);
+    if (!sheet) return;
+    var keys = [
+      'sheet:' + sheet,
+      'lookup:instructors',
+      'dashboard:metrics',
+      'table:summary',
+      'table:dashboard_export',
+      'table:permissions',
+      'table:data_master',
+      'table:finance',
+      'table:finance_archive'
+    ];
+    if (sheet === CONFIG.SHEETS.EDIT_REQUESTS) keys.push('dashboard:requests');
+    removeScriptCache(keys);
+  }
+
+  function cloneTable_(table) {
+    if (!table) return table;
+    return {
+      sheet: table.sheet || null,
+      headers: (table.headers || []).slice(),
+      displayHeaders: (table.displayHeaders || []).slice(),
+      rows: (table.rows || []).map(function (row) { return row.slice(); }),
+      rowNumbers: (table.rowNumbers || []).slice()
+    };
   }
 
   function ensureEditRequestsSheet() {
@@ -247,6 +358,9 @@ var Utils = (function () {
     rowToObject: rowToObject,
     appendRow: appendRow,
     updateRow: updateRow,
+    clearRequestMemo: clearRequestMemo,
+    withScriptCache: withScriptCache,
+    removeScriptCache: removeScriptCache,
     ensureEditRequestsSheet: ensureEditRequestsSheet,
     validateRequired: validateRequired
   };
