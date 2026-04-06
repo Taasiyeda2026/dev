@@ -1612,7 +1612,10 @@ var Logic = (function () {
     return key === '1' || key === 'true' || key === 'yes' || key === 'כן' || key === 'y';
   }
 
-  function isIdan_(user) { return Utils.toKey(user.SystemRole) === 'admin'; }
+  function isIdan_(user) {
+    var r = Utils.toKey(user.SystemRole);
+    return r === 'admin' || r === 'idan_main_admin';
+  }
   function isEden_(user) { return Utils.toKey(user.SystemRole) === 'admin-ops'; }
   function isManager_(user) { return Utils.toKey(user.SystemRole) === 'manager'; }
   function isManagerLead_(user) { return Utils.toKey(user.SystemRole) === 'manager-lead'; }
