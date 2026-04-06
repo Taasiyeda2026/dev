@@ -6,11 +6,9 @@ import {
 } from './data-contracts.js';
 
 const SHEETS_WITH_DISPLAY_ROW = new Set([
-  SHEET_NAMES.COURSES,
   SHEET_NAMES.DATA_MASTER,
   SHEET_NAMES.PERMISSIONS,
   SHEET_NAMES.EDIT_REQUESTS,
-  SHEET_NAMES.REVIEW_REQUIRED,
   SHEET_NAMES.LISTS,
   SHEET_NAMES.PROGRAM_CODES,
   'SUMMARY'
@@ -140,7 +138,7 @@ async function fetchSheet(sheetName) {
 
 async function loadCourses() {
   if (!apiRef) return [];
-  const rows = await fetchSheet(SHEET_NAMES.COURSES);
+  const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
   dataStore.courses = rows.map(mapCourseRow);
   dataStore.loadedAt.courses = now();
   return dataStore.courses;
@@ -255,7 +253,11 @@ export async function loadEditRequests(force = false) {
 
 export async function loadReviewItems(force = false) {
   if (!force && isReviewCacheFresh()) return dataStore.reviewItems;
-  dataStore.reviewItems = await fetchSheet(SHEET_NAMES.REVIEW_REQUIRED);
+  const dataMasterRows = await loadDataMaster(force);
+  dataStore.reviewItems = (dataMasterRows || []).filter((row) => {
+    const requiresReview = String(row?.RequiresReview ?? row?.ReviewRequired ?? '').trim().toLowerCase();
+    return ['true', '1', 'yes', 'כן', 'open', 'pending'].includes(requiresReview);
+  });
   dataStore.loadedAt.reviewItems = now();
   return dataStore.reviewItems;
 }
@@ -327,7 +329,7 @@ export function getCoursesForUser(userState = {}, filters = {}) {
 export async function refreshCourse(courseId) {
   const courseKey = String(courseId || '').trim();
   if (!courseKey) return null;
-  const rows = await fetchSheet(SHEET_NAMES.COURSES);
+  const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
   if (rows.length) {
     const mappedRows = rows.map(mapCourseRow);
     const found = mappedRows.find((item) => String(item[COURSE_FIELDS.COURSE_ID]) === courseKey) || null;
@@ -349,7 +351,7 @@ export async function updateCourse(courseId, changes, actor = {}) {
   const res = await apiRef.updateCourse({ [COURSE_FIELDS.COURSE_ID]: courseId, changes, actor });
   if (res?.success) {
     apiRef?.clearCache?.(['getMyCoursesDataAction', 'getDashboardDataAction']);
-    const updated = res?.data?.COURSES || null;
+    const updated = res?.data?.DATA_MASTER || null;
     if (updated && updated[COURSE_FIELDS.COURSE_ID]) {
       const mapped = mapCourseRow(updated);
       const existingIndex = dataStore.courses.findIndex((item) => String(item[COURSE_FIELDS.COURSE_ID]) === String(mapped[COURSE_FIELDS.COURSE_ID]));
@@ -372,6 +374,16 @@ export async function createEditRequest(courseId, changes, actor = {}) {
   if (res?.success) {
     apiRef?.clearCache?.(['getDashboardDataAction']);
     await loadEditRequests(true);
+  }
+  return res;
+}
+
+export async function createDataMasterRecord(record = {}, actor = {}) {
+  if (!apiRef?.createDataMasterRecord) return { success: false, message: 'API לא זמין ליצירת רשומה.' };
+  const res = await apiRef.createDataMasterRecord({ record, actor });
+  if (res?.success) {
+    apiRef?.clearCache?.(['getMyCoursesDataAction', 'getDashboardDataAction']);
+    await loadCourses();
   }
   return res;
 }

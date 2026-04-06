@@ -1,8 +1,6 @@
 export const TAASIYEDA_DATA_CONTRACTS = {
   sheets: {
-    COURSES: 'COURSES',
     DATA_MASTER: 'DATA_MASTER',
-    REVIEW_REQUIRED: 'REVIEW_REQUIRED',
     EDIT_REQUESTS: 'EDIT_REQUESTS',
     PERMISSIONS: 'PERMISSIONS',
     FINANCE: 'FINANCE',
@@ -35,8 +33,13 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       DATE: 'Date',
       START_DATE: 'StartDate',
       END_DATE: 'EndDate',
+      ACTIVITY_TYPE: 'ActivityType',
       REVIEW_REQUIRED: 'ReviewRequired',
       REQUIRES_REVIEW: 'RequiresReview',
+      REVIEW_STATUS: 'ReviewStatus',
+      REVIEW_NOTES: 'ReviewNotes',
+      REVIEW_HANDLED_BY: 'ReviewHandledBy',
+      REVIEW_HANDLED_AT: 'ReviewHandledAt',
       DATE_FIELDS: Array.from({ length: 30 }, (_, index) => `Date${index + 1}`)
     },
     exception: {

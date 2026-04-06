@@ -7,6 +7,7 @@ import {
   getPermissionForUser,
   refreshCourse,
   createEditRequest,
+  createDataMasterRecord,
   buildFilterOptions,
   loadEditRequests,
   loadReviewItems,
@@ -51,7 +52,7 @@ const viewState = {
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
-  eden: { loading: false, error: '', data: { queue: [], exceptions: [] }, filters: { type: '', instructor: '', authority: '', treatment: '' } },
+  eden: { loading: false, error: '', data: { queue: [], exceptions: [], counters: {} }, filters: { workflow: '', instructor: '', authority: '', school: '', search: '' } },
   week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null, instructorPanel: null },
   month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '', program: '' }, selectedDate: '' },
   instructors: { loading: false, error: '', filters: { authority: '', courseManager: '', program: '' }, selectedInstructor: '' },
@@ -391,6 +392,7 @@ function renderScreen() {
       <div class="filter-actions">
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
+        ${canEditMasterCourses() ? '<button class="btn btn-primary" id="addCourseRecordBtn">＋ רשומה חדשה</button>' : ''}
       </div>
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
@@ -418,6 +420,14 @@ function renderScreen() {
     document.getElementById('clearInstructorDetails')?.addEventListener('click', () => {
       viewState.courses.selectedInstructor = '';
       renderScreen();
+    });
+    document.getElementById('addCourseRecordBtn')?.addEventListener('click', async () => {
+      const formResult = await openAddRecordForm();
+      if (!formResult) return;
+      const res = await createDataMasterRecord(formResult, userState);
+      if (!res?.success) return showToast(res?.message || 'יצירת רשומה נכשלה.', 'error');
+      await loadCourses();
+      showToast('הרשומה נוספה בהצלחה ל-DATA_MASTER.', 'success');
     });
     bindInstructorCards();
     bindCourseActions();
@@ -597,43 +607,49 @@ function renderScreen() {
 
   if (currentRoute === 'my-requests') {
     main.innerHTML = head('הבקשות שלי', 'טיוטות, סטטוסים והערות') + panel(viewState.requests, 'אין בקשות.',
-      table(viewState.requests.data, [['CourseLabel','קורס'],['ChangeSummary','תקציר'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], canEditMasterCourses()));
+      table(viewState.requests.data, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], canEditMasterCourses()));
     return;
   }
 
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') {
     const title = currentRoute === 'approvals' ? 'אישורי בקרה ותפעול' : 'אישור סופי';
     main.innerHTML = head(title, 'השוואה בין מקור לשינוי לפני החלטה') + panel(viewState.approvals, 'אין בקשות.',
-      table(viewState.approvals.data, [['CourseLabel','קורס'],['ChangeSummary','תקציר'],['OriginalDataView','מקור'],['RequestedDataView','שינוי']], false, true));
+      table(viewState.approvals.data, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי']], false, true, currentRoute === 'final-approvals'));
     bindApprovalButtons();
     return;
   }
 
   if (currentRoute === 'eden-view') {
-    const exceptions = applyExceptionFilters(viewState.eden.data.exceptions || []);
-    const issueTypes = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.type || '').trim()).filter(Boolean)));
-    const issueInstructors = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.instructor || '').trim()).filter(Boolean)));
-    const issueAuthorities = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.authority || '').trim()).filter(Boolean)));
-    const treatmentStatuses = Array.from(new Set((viewState.eden.data.exceptions || []).map((item) => String(item?.treatment || '').trim()).filter(Boolean)));
-    main.innerHTML = head('מסך עדן', 'עבודה על שורת קורס מלאה לפני אישור סופי') +
-    `<section class="filters-wrap"><label>סוג בעיה<select id="issueTypeFilter">${renderSelectOptions(issueTypes, viewState.eden.filters.type)}</select></label>
-    <label>מדריך<select id="issueInstructorFilter">${renderSelectOptions(issueInstructors, viewState.eden.filters.instructor)}</select></label>
-    <label>רשות<select id="issueAuthorityFilter">${renderSelectOptions(issueAuthorities, viewState.eden.filters.authority)}</select></label>
-    <label>סטטוס טיפול<select id="issueTreatmentFilter">${renderSelectOptions(treatmentStatuses, viewState.eden.filters.treatment)}</select></label>
-    <button class="btn btn-secondary" id="filterIssues">סינון</button></section>` +
-    panel(viewState.eden, 'אין חריגות פתוחות.', `${renderExceptionCards(exceptions)}
-    ${renderEdenQueue(viewState.eden.data.queue || [])}`);
+    const queue = viewState.eden.data.queue || [];
+    const counters = viewState.eden.data.counters || {};
+    const filteredQueue = applyEdenQueueFilters(queue);
+    main.innerHTML = head('מסך עדן', 'Source / Eden Draft עם שליטה מלאה ב-workflow') +
+    `<section class="kpi-grid">
+      <article class="kpi-card"><span class="kpi-title">ממתין עדן</span><span class="kpi-value">${counters.pending_eden || 0}</span></article>
+      <article class="kpi-card"><span class="kpi-title">נשמר אצל עדן</span><span class="kpi-value">${counters.eden_saved || 0}</span></article>
+      <article class="kpi-card"><span class="kpi-title">נשלח לאדמין</span><span class="kpi-value">${counters.pending_final || 0}</span></article>
+      <article class="kpi-card"><span class="kpi-title">התראת שינוי מאסטר</span><span class="kpi-value">${counters.master_changed_warning || 0}</span></article>
+    </section>
+    <section class="filters-wrap">
+      <label>סטטוס<select id="edenWorkflowFilter">${renderSelectOptions(['pending_eden','eden_saved','pending_final','final_approved','final_rejected','closed'], viewState.eden.filters.workflow)}</select></label>
+      <label>חיפוש<select id="edenAuthorityFilter">${renderSelectOptions(uniqueValues(queue, 'Authority'), viewState.eden.filters.authority)}</select></label>
+      <label>בית ספר<select id="edenSchoolFilter">${renderSelectOptions(uniqueValues(queue, 'School'), viewState.eden.filters.school)}</select></label>
+      <label>מדריך<select id="edenInstructorFilter">${renderSelectOptions(uniqueValues(queue, 'Instructor'), viewState.eden.filters.instructor)}</select></label>
+      <label>חופשי<input id="edenSearchFilter" value="${escAttr(viewState.eden.filters.search || '')}" /></label>
+      <button class="btn btn-secondary" id="filterIssues">סינון</button>
+    </section>` +
+    panel(viewState.eden, 'אין רשומות בתור עדן.', `${renderEdenQueue(filteredQueue)}`);
     document.getElementById('filterIssues')?.addEventListener('click', () => {
       viewState.eden.filters = {
-        type: document.getElementById('issueTypeFilter')?.value.trim() || '',
-        instructor: document.getElementById('issueInstructorFilter')?.value.trim() || '',
-        authority: document.getElementById('issueAuthorityFilter')?.value.trim() || '',
-        treatment: document.getElementById('issueTreatmentFilter')?.value.trim() || ''
+        workflow: document.getElementById('edenWorkflowFilter')?.value.trim() || '',
+        instructor: document.getElementById('edenInstructorFilter')?.value.trim() || '',
+        authority: document.getElementById('edenAuthorityFilter')?.value.trim() || '',
+        school: document.getElementById('edenSchoolFilter')?.value.trim() || '',
+        search: document.getElementById('edenSearchFilter')?.value.trim() || ''
       };
       renderScreen();
     });
     bindEdenActions();
-    bindExceptionActions();
   }
   enforceDatePickerInputs();
 }
@@ -691,35 +707,83 @@ function renderCellContent(fieldKey, rawValue) {
 function renderEdenQueue(queue = []) {
   const rows = queue || [];
   if (!rows.length) return '<section class="panel-block"><div class="panel-empty">אין בקשות ממתינות במסך עדן.</div></section>';
-  const coursesById = new Map((getStoreSnapshot().courses || []).map((course) => [String(course.CourseID || ''), course]));
   return `<section class="panel-block"><div class="panel-block-head"><h3>תור עבודה עדן</h3></div>
     ${rows.map((row) => {
-      const course = coursesById.get(String(row.CourseID || '')) || {};
-      const fullRow = { ...course, ...safeParseJson(row.RequestedData) };
-      const fullRowEntries = Object.entries(fullRow).filter(([key]) => !String(key).startsWith('_'));
+      const sourceRow = safeParseJson(row.SourceData || row.OriginalData);
+      const edenRow = safeParseJson(row.RequestedData);
+      const compared = buildEdenComparedRows(sourceRow, edenRow);
+      const changedMaster = String(row?.HasMasterChangedAfterEdenEdit || '').toLowerCase() === 'true';
+      const hasDiff = String(row?.HasDiffBetweenSourceAndEden || '').toLowerCase() === 'true';
+      const warning = changedMaster ? '<span class="status-chip status-declined">⚠ המאסטר השתנה מאז עריכת עדן</span>' : '';
       return `<article class="management-card">
         <div class="card-head">
-          <h3>${esc(getBusinessCourseName(course))}</h3>
+          <h3>${esc(edenRow?.Program || edenRow?.Activity || row.CourseID || '-')}</h3>
           <span class="status-chip ${statusClass(row.ApprovalStatus)}">${statusLabel(row.ApprovalStatus)}</span>
         </div>
-        <div class="card-meta"><span>תקציר: ${esc(row.ChangeSummary || '-')}</span><span>מבקש: ${esc(row.RequestedBy || '-')}</span><span>רשות: ${esc(course?.Authority || '-')}</span><span>בית ספר: ${esc(course?.School || '-')}</span></div>
-        <details><summary>פרטים לעדכון</summary>
+        <div class="card-meta">
+          <span>CourseID: ${esc(row.CourseID || '-')}</span>
+          <span>רשות: ${esc(edenRow?.Authority || sourceRow?.Authority || '-')}</span>
+          <span>בית ספר: ${esc(edenRow?.School || sourceRow?.School || '-')}</span>
+          <span>מדריך: ${esc(edenRow?.Instructor || sourceRow?.Instructor || '-')}</span>
+          <span>${hasDiff ? 'Δ יש פער בין מקור לטיוטה' : 'ללא פערים'}</span>
+          ${warning}
+        </div>
+        <details open><summary>לפני / אחרי</summary>
           <div class="table-wrap compact-table"><table><tbody>
-          ${fullRowEntries
-            .filter(([key]) => !['CourseID', 'ProgramCode', 'ReviewRequired', 'RequiresReview'].includes(String(key)))
-            .map(([key, value]) => `<tr><th>${esc(key)}</th><td>${esc(String(value ?? '-'))}</td></tr>`).join('')}
+          ${compared.map((item) => `<tr class="${item.changed ? 'row-changed' : ''}">
+            <th>${esc(item.field)}</th><td>${esc(item.source)}</td><td>${esc(item.eden)}</td></tr>`).join('')}
           </tbody></table></div>
         </details>
+        <div class="card-meta"><span>שמירה אחרונה: ${esc(formatDate(parseDateLike(row.EdenLastSavedAt)) || row.EdenLastSavedAt || '-')}</span><span>נשלח לאדמין: ${esc(formatDate(parseDateLike(row.SentToAdminAt)) || row.SentToAdminAt || '-')}</span></div>
+        <label>הערות עדן<textarea data-eden-notes="${escAttr(row.RequestID || '')}" rows="2">${esc(row.EdenNotes || '')}</textarea></label>
         <div class="card-actions">
-          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">עדכון בקשה</button>
-          <button class="btn btn-primary" data-eden-submit="${escAttr(row.RequestID || '')}">העבר לאישור סופי</button>
+          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">שמור ב-Eden Data Master</button>
+          <button class="btn btn-primary" data-eden-submit="${escAttr(row.RequestID || '')}">שליחה לאדמין</button>
+          <button class="btn btn-secondary" data-eden-refresh="${escAttr(row.RequestID || '')}">רענן מקור</button>
         </div>
       </article>`;
     }).join('')}
   </section>`;
 }
 
-function table(rows, cols, canEdit, canApprove) {
+function buildEdenComparedRows(source = {}, eden = {}) {
+  const keys = new Set([...Object.keys(source || {}), ...Object.keys(eden || {})]);
+  return Array.from(keys)
+    .filter((field) => !String(field).startsWith('_') && !['RequestID', 'WorkflowStatus', 'EdenNotes'].includes(String(field)))
+    .map((field) => {
+      const sourceText = String(source?.[field] ?? '');
+      const edenText = String(eden?.[field] ?? '');
+      return { field, source: sourceText || '-', eden: edenText || '-', changed: sourceText !== edenText };
+    });
+}
+
+function uniqueValues(rows = [], field) {
+  return Array.from(new Set((rows || []).map((item) => String(safeParseJson(item.RequestedData)?.[field] || safeParseJson(item.SourceData)?.[field] || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+}
+
+function applyEdenQueueFilters(rows = []) {
+  const filters = viewState.eden.filters || {};
+  const workflow = String(filters.workflow || '').toLowerCase();
+  const authority = String(filters.authority || '').toLowerCase();
+  const school = String(filters.school || '').toLowerCase();
+  const instructor = String(filters.instructor || '').toLowerCase();
+  const search = String(filters.search || '').toLowerCase();
+  return (rows || []).filter((item) => {
+    const eden = safeParseJson(item.RequestedData);
+    const source = safeParseJson(item.SourceData);
+    if (workflow && String(item.ApprovalStatus || '').toLowerCase() !== workflow) return false;
+    if (authority && !String(eden.Authority || source.Authority || '').toLowerCase().includes(authority)) return false;
+    if (school && !String(eden.School || source.School || '').toLowerCase().includes(school)) return false;
+    if (instructor && !String(eden.Instructor || source.Instructor || '').toLowerCase().includes(instructor)) return false;
+    if (search) {
+      const haystack = `${item.CourseID || ''} ${eden.Program || ''} ${eden.Activity || ''} ${source.Program || ''} ${source.Activity || ''}`.toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+}
+
+function table(rows, cols, canEdit, canApprove, isApplyMode = false) {
   const body = (rows || []).map((r, i) => `<tr>${cols.map((c) => {
     const fieldKey = c[0];
     const rawValue = r[fieldKey];
@@ -727,7 +791,7 @@ function table(rows, cols, canEdit, canApprove) {
     const tdClass = WRAP_TABLE_FIELDS.has(fieldKey) ? 'cell-wrap' : '';
     if (fieldKey === 'ApprovalStatus') return `<td class="${tdClass}" title="${escAttr(textValue || '-')}"><span class="status-chip ${statusClass(rawValue)}">${statusLabel(rawValue)}</span></td>`;
     return `<td class="${tdClass}" title="${escAttr(textValue || '-')}">${renderCellContent(fieldKey, rawValue)}</td>`;
-  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">${canEditMasterCourses() ? 'עריכה' : 'בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">אשר</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
+  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">${canEditMasterCourses() ? 'עריכה' : 'בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">${isApplyMode ? 'Apply to Master' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
@@ -769,8 +833,8 @@ function renderFinanceCards(rows, options = {}) {
     const status = String(item?.FinanceStatus || 'ממתין');
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const statusBucket = getFinanceStatusBucket(status);
-    const schoolLine = String(item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const programLine = String(item?.ProgramsList || item?.BillingGroupType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const programLine = String(item?.Course || item?.CourseID || item?.ProgramsList || item?.BillingGroupType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
     const authLine = String(item?.Authority || '').trim()
       || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     return `<article class="management-card finance-card finance-${escAttr(statusBucket.key)}">
@@ -783,6 +847,9 @@ function renderFinanceCards(rows, options = {}) {
       </header>
       <div class="card-meta">
         <span><strong>רשות:</strong> ${esc(authLine)}</span>
+        <span><strong>גורם מימון:</strong> ${esc(String(item?.Funding || '-'))}</span>
+        <span><strong>גורם משלם:</strong> ${esc(String(item?.Payer || item?.BillingGroupKey || '-'))}</span>
+        <span><strong>מפגשים:</strong> ${esc(String(item?.ActualMeetings || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
       </div>
       <footer class="card-actions">
         <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">תאריכי ביצוע</button>
@@ -1545,7 +1612,7 @@ function bindEditButtons() {
     if (!res?.success) showToast(res?.message || 'הפעולה נכשלה', 'error');
     else {
       await loadMyRequests();
-      showToast('בקשת השינוי נפתחה ונרשמה ב-EDIT_REQUESTS.', 'success');
+      showToast('בקשת השינוי הועברה לעדן ונשמרה לזרימת אישור.', 'success');
     }
   }));
 }
@@ -1563,10 +1630,9 @@ function openCourseActionForm(course, mode) {
         <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
         <label>מפגשים בפועל<input id="courseFormActualMeetings" type="number" min="1" max="30" value="${escAttr(String(course.ActualMeetings || ''))}" placeholder="מספר מפגשים שבוצעו" /></label>
         <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
-        <label>תקציר שינוי<input id="courseFormSummary" value="" placeholder="בקשת שינוי במסך קורסים" /></label>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
-          <button class="btn btn-primary" id="courseFormSubmit">שלח בקשה</button>
+          <button class="btn btn-primary" id="courseFormSubmit">שליחה לעדן</button>
         </div>
       </div>
     `;
@@ -1579,7 +1645,6 @@ function openCourseActionForm(course, mode) {
 
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
-      const summary = root.querySelector('#courseFormSummary')?.value.trim() || 'בקשת שינוי';
       const actualMeetingsRaw = root.querySelector('#courseFormActualMeetings')?.value.trim() || '';
       const actualMeetingsNum = Number(actualMeetingsRaw);
       if (actualMeetingsRaw !== '' && (!Number.isFinite(actualMeetingsNum) || actualMeetingsNum < 1 || actualMeetingsNum > 30)) {
@@ -1589,11 +1654,68 @@ function openCourseActionForm(course, mode) {
       const changes = {
         StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
         EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
-        Notes: root.querySelector('#courseFormNotes')?.value.trim() || '',
-        summary
+        Notes: root.querySelector('#courseFormNotes')?.value.trim() || ''
       };
       if (actualMeetingsRaw !== '') changes.ActualMeetings = actualMeetingsRaw;
       close({ changes });
+    });
+  });
+}
+
+function openAddRecordForm() {
+  return new Promise((resolve) => {
+    const root = document.createElement('div');
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card">
+        <h3>יצירת רשומה חדשה</h3>
+        <label>CourseID (אופציונלי)<input id="newCourseId" placeholder="אם ריק ייווצר אוטומטית" /></label>
+        <label>Program<input id="newProgram" /></label>
+        <label>Activity<input id="newActivity" /></label>
+        <label>Authority<input id="newAuthority" /></label>
+        <label>School<input id="newSchool" /></label>
+        <label>Instructor<input id="newInstructor" /></label>
+        <label>Date<input id="newDate" type="date" /></label>
+        <label>StartTime<input id="newStartTime" placeholder="hh:mm" /></label>
+        <label>EndTime<input id="newEndTime" placeholder="hh:mm" /></label>
+        <label>Funding<input id="newFunding" /></label>
+        <label>Payment<input id="newPayment" type="number" step="0.01" min="0" /></label>
+        <label>Status<input id="newStatus" value="active" /></label>
+        <label>Notes<input id="newNotes" /></label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="newRecordSubmit">יצירה</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const close = (result = null) => {
+      root.remove();
+      resolve(result);
+    };
+    root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
+    root.querySelector('#newRecordSubmit')?.addEventListener('click', () => {
+      const out = {
+        CourseID: root.querySelector('#newCourseId')?.value.trim() || '',
+        Program: root.querySelector('#newProgram')?.value.trim() || '',
+        Activity: root.querySelector('#newActivity')?.value.trim() || '',
+        Authority: root.querySelector('#newAuthority')?.value.trim() || '',
+        School: root.querySelector('#newSchool')?.value.trim() || '',
+        Instructor: root.querySelector('#newInstructor')?.value.trim() || '',
+        Date: root.querySelector('#newDate')?.value.trim() || '',
+        StartTime: root.querySelector('#newStartTime')?.value.trim() || '',
+        EndTime: root.querySelector('#newEndTime')?.value.trim() || '',
+        Funding: root.querySelector('#newFunding')?.value.trim() || '',
+        Payment: root.querySelector('#newPayment')?.value.trim() || '',
+        Status: root.querySelector('#newStatus')?.value.trim() || '',
+        Notes: root.querySelector('#newNotes')?.value.trim() || ''
+      };
+      if (!out.Program && !out.Activity) {
+        showToast('יש להזין לפחות Program או Activity.', 'warning');
+        return;
+      }
+      close(out);
     });
   });
 }
@@ -1616,7 +1738,8 @@ async function doDecision(button, approved) {
   if (!res?.success) return showToast(res?.message || 'הפעולה נכשלה', 'error');
   await loadApprovals();
   await loadEdenView();
-  showToast(approved ? 'הבקשה אושרה בהצלחה' : 'הבקשה נדחתה', approved ? 'success' : 'error');
+  const approveText = currentRoute === 'final-approvals' ? 'Apply to Master הושלם בהצלחה' : 'הבקשה נשלחה לאדמין בהצלחה';
+  showToast(approved ? approveText : 'הבקשה נדחתה', approved ? 'success' : 'error');
 }
 
 function safeParseJson(raw) {
@@ -1632,15 +1755,15 @@ function bindEdenActions() {
     const requestId = button.dataset.edenEdit || '';
     const row = (viewState.eden.data.queue || []).find((item) => String(item.RequestID || '') === requestId);
     if (!row) return;
-    const course = findCourseById(row.CourseID) || {};
-    const formResult = await openEdenFullRowForm(row, course);
+    const formResult = await openEdenFullRowForm(row, {});
     if (!formResult) return;
+    const notesInput = document.querySelector(`[data-eden-notes="${cssEscape(requestId)}"]`);
     const res = await api.createEditRequest({
+      operation: 'EDEN_SAVE',
       RequestID: row.RequestID,
       CourseID: row.CourseID,
-      ChangeSummary: formResult.summary || row.ChangeSummary || 'עדכון בקשה',
       RequestedData: formResult.requestedData,
-      ApprovalStatus: 'eden_approved'
+      EdenNotes: (notesInput?.value || formResult.edenNotes || '').trim()
     });
     if (!res?.success) {
       showToast(res?.message || 'עדכון בקשת עדן נכשל.', 'error');
@@ -1655,11 +1778,9 @@ function bindEdenActions() {
     const row = (viewState.eden.data.queue || []).find((item) => String(item.RequestID || '') === requestId);
     if (!row) return;
     const res = await api.createEditRequest({
+      operation: 'EDEN_SUBMIT_ADMIN',
       RequestID: row.RequestID,
-      CourseID: row.CourseID,
-      ChangeSummary: row.ChangeSummary || 'העברה לאישור סופי',
-      RequestedData: safeParseJson(row.RequestedData),
-      ApprovalStatus: 'pending_final'
+      CourseID: row.CourseID
     });
     if (!res?.success) {
       showToast(res?.message || 'העברה לאישור סופי נכשלה.', 'error');
@@ -1667,6 +1788,18 @@ function bindEdenActions() {
     }
     await Promise.all([loadEdenView(), loadApprovals()]);
     showToast('הבקשה הועברה לאישור סופי.', 'success');
+  }));
+
+  document.querySelectorAll('[data-eden-refresh]').forEach((button) => button.addEventListener('click', async () => {
+    const requestId = button.dataset.edenRefresh || '';
+    if (!requestId) return;
+    const res = await api.createEditRequest({ operation: 'EDEN_REFRESH_SOURCE', RequestID: requestId });
+    if (!res?.success) {
+      showToast(res?.message || 'רענון מקור נכשל.', 'error');
+      return;
+    }
+    await loadEdenView();
+    showToast('מקור DATA_MASTER רוענן בהצלחה.', 'success');
   }));
 }
 
@@ -1681,7 +1814,7 @@ function openEdenFullRowForm(requestRow, courseRow) {
       <div class="course-form-card">
         <h3>עדכון מלא לשורת קורס</h3>
         <p>${esc(getBusinessCourseName(courseRow))}</p>
-        <label>תקציר שינוי<input id="edenSummary" value="${escAttr(requestRow?.ChangeSummary || '')}" placeholder="תקציר שינוי" /></label>
+        <label>הערות עדן<input id="edenNotes" value="${escAttr(requestRow?.EdenNotes || '')}" placeholder="הערות פנימיות של עדן" /></label>
         <label>שורת קורס מלאה (JSON)
           <textarea id="edenRequestedData" rows="12">${esc(JSON.stringify(compactRequested, null, 2))}</textarea>
         </label>
@@ -1698,7 +1831,7 @@ function openEdenFullRowForm(requestRow, courseRow) {
     };
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#edenSubmit')?.addEventListener('click', () => {
-      const summary = root.querySelector('#edenSummary')?.value.trim() || 'עדכון בקשה';
+      const edenNotes = root.querySelector('#edenNotes')?.value.trim() || '';
       const raw = root.querySelector('#edenRequestedData')?.value || '{}';
       try {
         const requestedData = JSON.parse(raw);
@@ -1706,7 +1839,7 @@ function openEdenFullRowForm(requestRow, courseRow) {
           showToast('יש להזין אובייקט JSON תקין.', 'error');
           return;
         }
-        close({ summary, requestedData });
+        close({ edenNotes, requestedData });
       } catch (error) {
         showToast('פורמט JSON לא תקין.', 'error');
       }
@@ -2346,12 +2479,21 @@ function bindExceptionsActions() {
 
 function exportFinanceToExcel(rows, filename) {
   if (!rows.length) return;
-  const headers = ['שם קורס', 'רשות', 'בית ספר', 'תאריך סיום', 'סטטוס', 'הערות'];
+  const headers = ['קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'כל התאריכים', 'תאריך', 'תאריך התחלה', 'תאריך סיום', 'מפגשים מתוכננים', 'מפגשים בפועל', 'עלות', 'גורם מימון', 'גורם משלם', 'סטטוס', 'הערות'];
   const dataRows = rows.map((row) => [
-    String(row?.ProgramsList || row?.BillingGroupType || ''),
+    String(row?.Course || row?.Program || row?.Activity || row?.CourseID || row?.ProgramsList || row?.BillingGroupType || ''),
     String(row?.Authority || ''),
-    String(row?.SchoolsList || ''),
-    String(formatDate(parseDateLike(row?.End)) || row?.End || ''),
+    String(row?.School || row?.SchoolsList || ''),
+    String(row?.Instructor || ''),
+    String(row?.AllDates || ''),
+    String(formatDate(parseDateLike(row?.Date)) || row?.Date || ''),
+    String(formatDate(parseDateLike(row?.StartDate)) || row?.StartDate || ''),
+    String(formatDate(parseDateLike(row?.EndDate || row?.End)) || row?.EndDate || row?.End || ''),
+    String(row?.PlannedMeetings || ''),
+    String(row?.ActualMeetings || ''),
+    String(row?.Cost || row?.PaymentTotal || ''),
+    String(row?.Funding || ''),
+    String(row?.Payer || row?.BillingGroupKey || ''),
     String(row?.FinanceStatus || ''),
     String(row?.Notes || '')
   ]);
@@ -2555,14 +2697,15 @@ async function loadEdenView() {
   viewState.eden.loading = false;
   if (!queueRes?.success) {
     viewState.eden.error = queueRes?.message || 'לא ניתן לטעון את תצוגת עדן.';
-    viewState.eden.data = { queue: [], exceptions: [] };
+    viewState.eden.data = { queue: [], exceptions: [], counters: {} };
     renderScreen();
     return;
   }
   const courses = getStoreSnapshot().courses || [];
   viewState.eden.data = {
     queue: queueRes?.data?.items || [],
-    exceptions: buildExceptionRecords(courses)
+    exceptions: buildExceptionRecords(courses),
+    counters: queueRes?.data?.counters || {}
   };
   renderScreen();
 }
@@ -2734,9 +2877,12 @@ function statusLabel(status) {
   const s = String(status || '').toLowerCase();
   if (s === 'draft') return 'טיוטה';
   if (s === 'pending_eden') return 'ממתין לבדיקת בקרה ותפעול';
+  if (s === 'eden_saved') return 'נשמר אצל עדן';
   if (s === 'eden_approved') return 'אושר לתצוגת בקרה ותפעול';
   if (s === 'pending_final') return 'ממתין לאישור סופי';
   if (s === 'final_approved') return 'אושר לדאטה הראשית';
+  if (s === 'final_rejected') return 'נדחה סופית';
+  if (s === 'closed') return 'נסגר';
   if (s === 'declined') return 'נדחה';
   return 'ללא סטטוס';
 }
