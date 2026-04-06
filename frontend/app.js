@@ -259,28 +259,33 @@ function render() {
     return;
   }
 
-  app.innerHTML = `<div class="layout">
-    <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
-    <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">${APP_NAME}</div>
-    <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
-    <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
-    ${nav('dashboard', 'דשבורד פעילות ארצי')}
-    ${nav('courses', 'קורסים')}
-    ${nav('week', 'שבוע')}
-    ${nav('month', 'חודש')}
-    ${nav('instructors', 'מדריכים')}
-    ${nav('end-dates', 'תאריכי סיום')}
-    ${nav('assignments', 'שיבוץ')}
-    ${nav('exceptions', 'חריגות')}
-    ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? nav('finance', 'כספים') : ''}
-    ${nav('my-requests', 'הבקשות שלי')}
-    ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
-    ${canAccessEdenView() ? nav('eden-view', 'מסך עדן') : ''}
-    ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
-    ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
-    </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
-    <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
-    <main class="main" id="main"></main></div>`;
+  app.innerHTML = `<div class="dashboard-viewport">
+    <div class="dashboard-canvas">
+      <div class="layout">
+        <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
+        <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">${APP_NAME}</div>
+        <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
+        <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
+        ${nav('dashboard', 'דשבורד פעילות ארצי')}
+        ${nav('courses', 'קורסים')}
+        ${nav('week', 'שבוע')}
+        ${nav('month', 'חודש')}
+        ${nav('instructors', 'מדריכים')}
+        ${nav('end-dates', 'תאריכי סיום')}
+        ${nav('assignments', 'שיבוץ')}
+        ${nav('exceptions', 'חריגות')}
+        ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? nav('finance', 'כספים') : ''}
+        ${nav('my-requests', 'הבקשות שלי')}
+        ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
+        ${canAccessEdenView() ? nav('eden-view', 'מסך עדן') : ''}
+        ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
+        ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
+        </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
+        <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
+        <main class="main" id="main"></main>
+      </div>
+    </div>
+  </div>`;
 
   document.querySelectorAll('[data-route]').forEach((b) => b.addEventListener('click', async () => {
     const route = b.dataset.route;
