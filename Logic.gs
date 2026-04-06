@@ -527,8 +527,8 @@ var Logic = (function () {
 
       if (isEden_(session.user)) {
         if (current !== Utils.toKey(CONFIG.STATUSES.PENDING_EDEN)) return Utils.safeMessage('הבקשה אינה בשלב בקרה ותפעול.');
-        row[idx.approvalStatus] = approved ? CONFIG.STATUSES.PENDING_FINAL : CONFIG.STATUSES.DECLINED;
-        if (idx.requestStatus > -1) row[idx.requestStatus] = approved ? CONFIG.STATUSES.PENDING_FINAL : CONFIG.STATUSES.DECLINED;
+        row[idx.approvalStatus] = approved ? CONFIG.STATUSES.EDEN_APPROVED : CONFIG.STATUSES.DECLINED;
+        if (idx.requestStatus > -1) row[idx.requestStatus] = approved ? CONFIG.STATUSES.EDEN_APPROVED : CONFIG.STATUSES.DECLINED;
         if (idx.edenViewStatus > -1) row[idx.edenViewStatus] = approved ? CONFIG.STATUSES.EDEN_APPROVED : CONFIG.STATUSES.DECLINED;
         if (idx.finalApprovalStatus > -1) row[idx.finalApprovalStatus] = '';
         if (idx.edenApprovedAt > -1) row[idx.edenApprovedAt] = approved ? Utils.nowIso() : '';
@@ -538,7 +538,7 @@ var Logic = (function () {
         if (idx.finalApprovalStatus > -1) row[idx.finalApprovalStatus] = approved ? CONFIG.STATUSES.FINAL_APPROVED : CONFIG.STATUSES.DECLINED;
         if (idx.requestStatus > -1) row[idx.requestStatus] = approved ? CONFIG.STATUSES.FINAL_APPROVED : CONFIG.STATUSES.DECLINED;
         if (idx.finalizedAt > -1) row[idx.finalizedAt] = approved ? Utils.nowIso() : '';
-        if (approved) applyToDataMaster_(row, idx);
+        if (approved) applyApprovedRequestToMainData_(row, idx);
       } else {
         return Utils.safeMessage('אין הרשאה.');
       }
@@ -554,43 +554,39 @@ var Logic = (function () {
     }
   }
 
-  function applyToDataMaster_(requestRow, idx) {
+  function applyApprovedRequestToMainData_(requestRow, idx) {
     var courseId = valueAt_(requestRow, idx.courseId);
     if (Utils.isEmpty(courseId)) return;
     var requested = Utils.parseJson(valueAt_(requestRow, idx.requestedData));
-    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, false);
-    if (!table.sheet || !table.headers.length) return;
+    applyRequestedDataToCourseRow_(CONFIG.SHEETS.DATA_MASTER, courseId, requested);
+    applyRequestedDataToCourseRow_(CONFIG.SHEETS.COURSES, courseId, requested);
+    try {
+      rebuildFinanceSheet();
+    } catch (err) {}
+  }
 
+  function applyRequestedDataToCourseRow_(sheetName, courseId, requestedData) {
+    var table = Utils.readTable(sheetName, false);
+    if (!table.sheet || !table.headers.length) return;
     var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
     if (idxCourse === -1) return;
-
     for (var i = 0; i < table.rows.length; i += 1) {
       if (Utils.toKey(table.rows[i][idxCourse]) !== Utils.toKey(courseId)) continue;
       var updated = table.rows[i].slice();
-      setMasterField_(table.headers, updated, ['Date'], requested.date);
-      setMasterField_(table.headers, updated, ['Day'], requested.day);
-      setMasterField_(table.headers, updated, ['StartTime'], requested.startTime);
-      setMasterField_(table.headers, updated, ['EndTime'], requested.endTime);
-      setMasterField_(table.headers, updated, ['ClassGroup'], requested.classGroup);
-      setMasterField_(table.headers, updated, ['ActualMeetings'], requested.actualMeetings);
-      setMasterField_(table.headers, updated, ['CourseManager'], requested.courseManager);
-      setMasterField_(table.headers, updated, ['Instructor'], requested.instructor);
-      setMasterField_(table.headers, updated, ['Notes'], requested.notes);
-      setMasterField_(table.headers, updated, ['PlannedMeetings'], requested.plannedMeetings);
-      setMasterField_(table.headers, updated, ['Funding'], requested.funding);
-      setMasterField_(table.headers, updated, ['Payment'], requested.payment);
-      setMasterField_(table.headers, updated, ['Authority'], requested.authority);
-      setMasterField_(table.headers, updated, ['School'], requested.school);
-      setMasterField_(table.headers, updated, ['InstructorManager'], requested.instructorManager);
-      Utils.updateRow(CONFIG.SHEETS.DATA_MASTER, table.rowNumbers[i], updated);
+      Object.keys(requestedData || {}).forEach(function (fieldName) {
+        var aliases = [fieldName, toPascalCase_(fieldName)];
+        var fieldIndex = Utils.resolveIndex(table.headers, aliases);
+        if (fieldIndex > -1) updated[fieldIndex] = requestedData[fieldName];
+      });
+      Utils.updateRow(sheetName, table.rowNumbers[i], updated);
       break;
     }
   }
 
-  function setMasterField_(headers, row, aliases, value) {
-    if (Utils.isEmpty(value)) return;
-    var i = Utils.resolveIndex(headers, aliases);
-    if (i > -1) row[i] = value;
+  function toPascalCase_(value) {
+    var text = Utils.normalize(value);
+    if (!text) return '';
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
   function buildRequestRecord_(headers, idx, body, user, requestId, status, existingRow) {
@@ -605,7 +601,7 @@ var Logic = (function () {
     setField_(record, headers, idx.requestedBy, existingRow ? valueAt_(existingRow, idx.requestedBy) : user.userId);
     setField_(record, headers, idx.requestedAt, existingRow ? valueAt_(existingRow, idx.requestedAt) : Utils.nowIso());
     setField_(record, headers, idx.requestStatus, status);
-    setField_(record, headers, idx.edenViewStatus, status === CONFIG.STATUSES.PENDING_FINAL ? CONFIG.STATUSES.EDEN_APPROVED : '');
+    setField_(record, headers, idx.edenViewStatus, (status === CONFIG.STATUSES.EDEN_APPROVED || status === CONFIG.STATUSES.PENDING_FINAL || status === CONFIG.STATUSES.FINAL_APPROVED) ? CONFIG.STATUSES.EDEN_APPROVED : '');
     setField_(record, headers, idx.finalApprovalStatus, status === CONFIG.STATUSES.FINAL_APPROVED ? CONFIG.STATUSES.FINAL_APPROVED : '');
     setField_(record, headers, idx.approvalStatus, status);
     setField_(record, headers, idx.approvalNotes, Utils.normalize(body.ApprovalNotes));
@@ -675,6 +671,10 @@ var Logic = (function () {
   function normalizeInputStatus_(requestedStatus, fallback) {
     var normalized = Utils.toKey(requestedStatus);
     if (normalized === Utils.toKey(CONFIG.STATUSES.DRAFT)) return CONFIG.STATUSES.DRAFT;
+    if (normalized === Utils.toKey(CONFIG.STATUSES.EDEN_APPROVED)) return CONFIG.STATUSES.EDEN_APPROVED;
+    if (normalized === Utils.toKey(CONFIG.STATUSES.PENDING_FINAL)) return CONFIG.STATUSES.PENDING_FINAL;
+    if (normalized === Utils.toKey(CONFIG.STATUSES.FINAL_APPROVED)) return CONFIG.STATUSES.FINAL_APPROVED;
+    if (normalized === Utils.toKey(CONFIG.STATUSES.DECLINED)) return CONFIG.STATUSES.DECLINED;
     if (normalized === Utils.toKey(CONFIG.STATUSES.PENDING_EDEN) || normalized === Utils.toKey('pending')) return CONFIG.STATUSES.PENDING_EDEN;
     if (Utils.toKey(fallback) === Utils.toKey(CONFIG.STATUSES.DRAFT)) return CONFIG.STATUSES.DRAFT;
     return CONFIG.STATUSES.PENDING_EDEN;
@@ -879,7 +879,7 @@ var Logic = (function () {
     var allowed = false;
 
     if (actionType === WRITE_ACTIONS.UPDATE_COURSE) {
-      allowed = role === 'admin' || role === 'idan_main_admin' || editScope === 'main_data_direct_edit' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
+      allowed = false;
     } else if (actionType === WRITE_ACTIONS.CREATE_EDIT_REQUEST) {
       allowed = role !== 'instructor';
     } else if (actionType === WRITE_ACTIONS.APPROVAL_DECISION) {

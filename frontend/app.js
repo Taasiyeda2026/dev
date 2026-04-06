@@ -6,7 +6,6 @@ import {
   getCoursesForUser,
   getPermissionForUser,
   refreshCourse,
-  updateCourse,
   createEditRequest,
   buildFilterOptions,
   loadEditRequests,
@@ -75,12 +74,12 @@ const roleMap = {
 };
 
 const routeLabels = {
-  login: 'כניסה למערכת',
+  login: 'התחברות',
   dashboard: 'דשבורד פעילות ארצי',
   courses: 'פעילות / קורסים / סדנאות',
   'my-requests': 'הבקשות שלי',
   approvals: 'אישורי בקרה ותפעול',
-  'eden-view': 'תצוגת בקרה ותפעול',
+  'eden-view': 'מסך עדן',
   'final-approvals': 'אישור סופי הנהלה',
   'instructor-view': 'תצוגת מדריכים',
   week: 'שבוע',
@@ -149,16 +148,6 @@ function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].
 function isInstructor() { return role() === 'instructor'; }
 function isDualMode() { return String(userState.IsDualMode || '').trim().toUpperCase() === 'BOTH'; }
 function currentPermission() { return getPermissionForUser(userState); }
-function canDirectEditCourses() {
-  const permission = currentPermission();
-  if (permission) {
-    return String(permission.systemRole || '').toUpperCase() === 'IDAN_MAIN_ADMIN'
-      || String(permission.editScope || '').toUpperCase() === 'MAIN_DATA_DIRECT_EDIT'
-      || permission.canEditMasterData;
-  }
-  return isIdan();
-}
-
 function canAccessFinanceActive() {
   const permission = currentPermission();
   if (permission) return Boolean(permission.canAccessFinance);
@@ -230,7 +219,7 @@ function render() {
   if (!isAuth()) {
     app.innerHTML = `<section class="login-wrap"><div class="login-card">
     <div class="login-logo-slot"><img class="login-logo" src="./assets/logo.png" alt="לוגו המערכת" /></div>
-    <h1 class="login-title">כניסה למערכת</h1>
+    <h1 class="login-title">התחברות</h1>
     <p class="login-subtitle">${APP_NAME}</p>
     <form id="loginForm" novalidate>
       <input id="userId" class="login-input" placeholder="מזהה משתמש" aria-label="מזהה משתמש" autocomplete="username" />
@@ -271,7 +260,7 @@ function render() {
     ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? nav('finance', 'כספים') : ''}
     ${nav('my-requests', 'הבקשות שלי')}
     ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
-    ${(isEden() || isIdan()) ? nav('eden-view', 'תצוגת בקרה ותפעול') : ''}
+    ${(isEden() || isIdan()) ? nav('eden-view', 'מסך עדן') : ''}
     ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
     ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
     </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
@@ -358,7 +347,7 @@ function renderScreen() {
       ? filteredCourses.filter((row) => String(row?.Instructor || '').trim() === selectedInstructor)
       : filteredCourses;
     const activeFiltersCount = Object.values(viewState.courses.filters).filter((value) => String(value || '').trim()).length;
-    main.innerHTML = head(currentRoute === 'courses' ? 'ניהול קורסים' : 'תצוגת מדריכים', `${subtitle} · קורסים מוצגים: ${visibleCourses.length} · פילטרים פעילים: ${activeFiltersCount}`) +
+    main.innerHTML = head(currentRoute === 'courses' ? 'קורסים' : 'תצוגת מדריכים', `${subtitle} · קורסים מוצגים: ${visibleCourses.length} · פילטרים פעילים: ${activeFiltersCount}`) +
     `<section class="filters-wrap courses-filters">
       <label>רשות<select id="authorityFilter">${renderSelectOptions(viewState.courses.filterOptions.authority, viewState.courses.filters.authority)}</select></label>
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
@@ -375,8 +364,8 @@ function renderScreen() {
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
     ${selectedInstructor ? `<section class="drilldown-head"><span>מדריך</span><strong>${esc(selectedInstructor)}</strong><button class="btn btn-secondary" id="clearInstructorDrilldown">חזרה לכל המדריכים</button></section>` : ''}
-    ${renderCourseCards(visibleCourses, { canEdit: canDirectEditCourses() })}`) +
-    renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canDirectEditCourses() });
+    ${renderCourseCards(visibleCourses, { canEdit: false })}`) +
+    renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: false });
     document.getElementById('filterCourses')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
@@ -412,7 +401,7 @@ function renderScreen() {
   if (currentRoute === 'week') {
     const weekCourses = getRoleScopedCourses(viewState.week.filters);
     const weekData = buildWeeklyBuckets(weekCourses, viewState.week.rangeStart);
-    main.innerHTML = head('מסך שבוע', 'תמונת מצב שבועית תפעולית') +
+    main.innerHTML = head('שבוע', 'תמונת מצב שבועית תפעולית') +
       renderWeekFilters() +
       panel({ loading: viewState.week.loading, error: viewState.week.error, data: weekData.days }, 'אין מפגשים לשבוע זה.', renderWeekGrid(weekData.days)) +
       renderWeekDetails(viewState.week.selected);
@@ -423,7 +412,7 @@ function renderScreen() {
   if (currentRoute === 'month') {
     const monthCourses = getRoleScopedCourses(viewState.month.filters);
     const monthData = buildMonthlyCalendar(monthCourses, viewState.month.monthDate);
-    main.innerHTML = head('מסך חודש', 'מבט חודשי על סטטוס פעילויות') +
+    main.innerHTML = head('חודש', 'מבט חודשי על סטטוס פעילויות') +
       renderMonthFilters() +
       panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
       renderMonthDayDetails(monthData.selectedItems, viewState.month.selectedDate);
@@ -433,7 +422,7 @@ function renderScreen() {
 
   if (currentRoute === 'instructors') {
     const instructorsData = buildInstructorsViewData(getRoleScopedCourses(viewState.instructors.filters));
-    main.innerHTML = head('מסך מדריכים', 'סטטוס, חריגות ופעילות לפי מדריך') +
+    main.innerHTML = head('מדריכים', 'סטטוס, חריגות ופעילות לפי מדריך') +
       renderInstructorsFilters() +
       '<div class="filter-actions"><button class="btn btn-secondary" id="exportBtn">ייצוא CSV</button></div>' +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
@@ -447,7 +436,7 @@ function renderScreen() {
 
   if (currentRoute === 'end-dates') {
     const endDateItems = buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters));
-    main.innerHTML = head('מסך תאריכי סיום', 'בקרת קורסים לקראת סיום') +
+    main.innerHTML = head('תאריכי סיום', 'בקרת קורסים לקראת סיום') +
       renderEndDatesFilters() +
       '<div class="filter-actions"><button class="btn btn-secondary" id="exportBtn">ייצוא CSV</button></div>' +
       panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems));
@@ -460,7 +449,7 @@ function renderScreen() {
 
   if (currentRoute === 'assignments') {
     const assignmentRows = buildAssignmentsRows(getRoleScopedCourses(viewState.assignments.filters));
-    main.innerHTML = head('מסך שיבוץ', 'תצפית סטטוס לשיבוץ (ללא כתיבה)') +
+    main.innerHTML = head('שיבוץ', 'תצפית סטטוס לשיבוץ (ללא כתיבה)') +
       renderAssignmentsFilters() +
       panel({ loading: viewState.assignments.loading, error: viewState.assignments.error, data: assignmentRows }, 'אין נתוני שיבוץ להצגה.', renderAssignmentsTable(assignmentRows));
     bindAssignmentsActions();
@@ -469,7 +458,7 @@ function renderScreen() {
 
   if (currentRoute === 'exceptions') {
     const exceptionRows = buildExceptionsRows(getStoreSnapshot().reviewItems || [], getRoleScopedCourses({}), viewState.exceptions.filters);
-    main.innerHTML = head('מסך חריגות', 'רשומות REVIEW_REQUIRED וחריגות תפעוליות') +
+    main.innerHTML = head('חריגות', 'רק חוסרים מהותיים בקורסים') +
       renderExceptionsFilters() +
       panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows));
     bindExceptionsActions();
@@ -551,7 +540,7 @@ function renderScreen() {
   }
 
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') {
-    const title = currentRoute === 'approvals' ? 'מסך אישורי בקרה ותפעול' : 'מסך אישור סופי הנהלה';
+    const title = currentRoute === 'approvals' ? 'אישורי בקרה ותפעול' : 'אישור סופי';
     main.innerHTML = head(title, 'השוואה בין מקור לשינוי לפני החלטה') + panel(viewState.approvals, 'אין בקשות.',
       table(viewState.approvals.data, [['RequestID','מזהה'],['CourseID','קורס'],['ChangeSummary','תקציר'],['OriginalDataView','מקור'],['RequestedDataView','שינוי']], false, true));
     bindApprovalButtons();
@@ -560,14 +549,14 @@ function renderScreen() {
 
   if (currentRoute === 'eden-view') {
     const exceptions = applyExceptionFilters(viewState.eden.data.exceptions || []);
-    main.innerHTML = head('חריגות וחוסרים', 'מסך עבודה אופרטיבי לטיפול בבעיות') +
+    main.innerHTML = head('מסך עדן', 'עבודה על שורת קורס מלאה לפני אישור סופי') +
     `<section class="filters-wrap"><label>סוג בעיה<input id="issueTypeFilter" value="${escAttr(viewState.eden.filters.type)}"></label>
     <label>מדריך<input id="issueInstructorFilter" value="${escAttr(viewState.eden.filters.instructor)}"></label>
     <label>רשות<input id="issueAuthorityFilter" value="${escAttr(viewState.eden.filters.authority)}"></label>
     <label>סטטוס טיפול<input id="issueTreatmentFilter" value="${escAttr(viewState.eden.filters.treatment)}"></label>
     <button class="btn btn-secondary" id="filterIssues">סינון</button></section>` +
     panel(viewState.eden, 'אין חריגות פתוחות.', `${renderExceptionCards(exceptions)}
-    <section class="panel-block"><div class="panel-block-head"><h3>תור אישורי בקרה</h3></div>${table(viewState.eden.data.queue || [], [['RequestID','מזהה'],['CourseID','קורס'],['ChangeSummary','תקציר'],['ApprovalStatus','סטטוס']], false)}</section>`);
+    ${renderEdenQueue(viewState.eden.data.queue || [])}`);
     document.getElementById('filterIssues')?.addEventListener('click', () => {
       viewState.eden.filters = {
         type: document.getElementById('issueTypeFilter')?.value.trim() || '',
@@ -577,6 +566,7 @@ function renderScreen() {
       };
       renderScreen();
     });
+    bindEdenActions();
     bindExceptionActions();
   }
 }
@@ -621,6 +611,35 @@ function renderCellContent(fieldKey, rawValue) {
     return renderListChips(value);
   }
   return `<span class="cell-ellipsis">${esc(value)}</span>`;
+}
+
+function renderEdenQueue(queue = []) {
+  const rows = queue || [];
+  if (!rows.length) return '<section class="panel-block"><div class="panel-empty">אין בקשות ממתינות במסך עדן.</div></section>';
+  const coursesById = new Map((getStoreSnapshot().courses || []).map((course) => [String(course.CourseID || ''), course]));
+  return `<section class="panel-block"><div class="panel-block-head"><h3>תור עבודה עדן</h3></div>
+    ${rows.map((row) => {
+      const course = coursesById.get(String(row.CourseID || '')) || {};
+      const fullRow = { ...course, ...safeParseJson(row.RequestedData) };
+      const fullRowEntries = Object.entries(fullRow).filter(([key]) => !String(key).startsWith('_'));
+      return `<article class="management-card">
+        <div class="card-head">
+          <h3>בקשה ${esc(row.RequestID || '-')} · קורס ${esc(row.CourseID || '-')}</h3>
+          <span class="status-chip ${statusClass(row.ApprovalStatus)}">${statusLabel(row.ApprovalStatus)}</span>
+        </div>
+        <div class="card-meta"><span>תקציר: ${esc(row.ChangeSummary || '-')}</span><span>מבקש: ${esc(row.RequestedBy || '-')}</span></div>
+        <details><summary>שורת קורס מלאה</summary>
+          <div class="table-wrap compact-table"><table><tbody>
+          ${fullRowEntries.map(([key, value]) => `<tr><th>${esc(key)}</th><td>${esc(String(value ?? '-'))}</td></tr>`).join('')}
+          </tbody></table></div>
+        </details>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">עדכון בקשה</button>
+          <button class="btn btn-primary" data-eden-submit="${escAttr(row.RequestID || '')}">העבר לאישור סופי</button>
+        </div>
+      </article>`;
+    }).join('')}
+  </section>`;
 }
 
 function table(rows, cols, canEdit, canApprove) {
@@ -806,7 +825,7 @@ function renderCourseCards(rows, options = {}) {
       ${renderCourseSecondaryDetails(row)}
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
-        ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">עריכת קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">בקשת שינוי</button>`}
+        <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
       </footer>
     </article>`;
   }).join('')}</section>`;
@@ -826,7 +845,7 @@ function renderInstructorCards(rows, selectedInstructor) {
         <span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>
         <span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span>
       </div>
-      <footer class="card-actions"><button class="btn btn-secondary" data-instructor-drilldown="${escAttr(row.instructor)}">כניסה ל-Drill-down</button></footer>
+      <footer class="card-actions"><button class="btn btn-secondary" data-instructor-drilldown="${escAttr(row.instructor)}">פרטי מדריך</button></footer>
     </article>`;
   }).join('')}</section>`;
 }
@@ -957,6 +976,29 @@ function hasInstructor(row) {
   return hasValue(row, [COURSE_FIELDS.EMPLOYEE, COURSE_FIELDS.EMPLOYEE_ID, INSTRUCTOR_FALLBACK_FIELD]);
 }
 
+function hasHours(row) {
+  return hasValue(row, [COURSE_FIELDS.START_TIME]) && hasValue(row, [COURSE_FIELDS.END_TIME]);
+}
+
+function hasCourseDate(row) {
+  const scheduleDates = getScheduleDates(row);
+  if (scheduleDates.length > 0) return true;
+  return Boolean(firstDate(row, [...COURSE_DATE_RANGE_FIELDS, ...COURSE_END_RANGE_FIELDS]));
+}
+
+function isPostponedCourse(row) {
+  return parseDelayInfo(getCourseField(row, COURSE_FIELDS.NOTES)).isPostponed;
+}
+
+function getCourseMissingTypes(row) {
+  if (isPostponedCourse(row)) return [];
+  const missing = [];
+  if (!hasInstructor(row)) missing.push('ללא מדריך');
+  if (!hasHours(row)) missing.push('ללא שעות');
+  if (!hasCourseDate(row)) missing.push('ללא תאריך');
+  return missing;
+}
+
 function firstDate(row, names) {
   for (const name of names) {
     const parsed = parseDateLike(row?.[name]);
@@ -1032,20 +1074,11 @@ function isMissingReport(row) {
 }
 
 function hasException(row) {
-  const courseId = String(getCourseField(row, COURSE_FIELDS.COURSE_ID) || '');
-  if (!courseId) return false;
-  const reviewItems = getStoreSnapshot().reviewItems || [];
-  return reviewItems.some((r) => {
-    const rId = String(
-      getExceptionField(r, EXCEPTION_FIELDS.COURSE_ID) ||
-      r.CourseID || r.SourceCourseID || ''
-    );
-    return rId === courseId && getExceptionTreatmentStatus(r) === 'open';
-  });
+  return getCourseMissingTypes(row).length > 0;
 }
 
 function hasInstructorGap(row) {
-  return isMissingReport(row) || !hasInstructor(row);
+  return hasException(row);
 }
 
 function hasOperationalIssue(row) {
@@ -1139,7 +1172,7 @@ function renderCourseDetailsPanel(course, options = {}) {
   const progress = getSessionProgress(course);
   return `<section class="panel-block course-details-panel">
     <div class="panel-block-head">
-      <h3>Drill-down לקורס: ${esc(course[COURSE_FIELDS.PROGRAM] || course[COURSE_FIELDS.ACTIVITY] || course[COURSE_FIELDS.COURSE_ID] || '')}</h3>
+      <h3>פרטי קורס: ${esc(course[COURSE_FIELDS.PROGRAM] || course[COURSE_FIELDS.ACTIVITY] || course[COURSE_FIELDS.COURSE_ID] || '')}</h3>
       <button class="btn btn-secondary" id="closeCourseDetails">סגור</button>
     </div>
     <div class="course-core-grid">
@@ -1170,7 +1203,7 @@ function renderCourseDetailsPanel(course, options = {}) {
     </div>
     <div class="card-issue ${reviewFlag ? 'has-issue' : ''}"><strong>הערות:</strong> ${esc(course[COURSE_FIELDS.NOTES] || 'אין הערות')}</div>
     <footer class="card-actions">
-      ${options.canEdit ? `<button class="btn btn-primary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">עריכת קורס</button>` : `<button class="btn btn-secondary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">בקשת שינוי</button>`}
+      <button class="btn btn-primary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
     </footer>
   </section>`;
 }
@@ -1269,27 +1302,9 @@ function bindExceptionActions() {
 function bindEditButtons() {
   document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', async () => {
     const row = findCourseById(b.dataset.editRow) || {};
-    const mode = canDirectEditCourses() ? 'edit' : 'request';
+    const mode = 'request';
     const formResult = await openCourseActionForm(row, mode);
     if (!formResult) return;
-    if (canDirectEditCourses()) {
-      const res = await updateCourse(row.CourseID, formResult.changes, userState);
-      if (!res?.success) {
-        showToast(res?.message || 'עדכון הקורס נכשל', 'error');
-        return;
-      }
-      const updated = await refreshCourse(row.CourseID);
-      if (updated) {
-        viewState.courses.data = viewState.courses.data.map((course) => (String(course.CourseID) === String(updated.CourseID) ? { ...course, ...updated } : course));
-        if (viewState.courses.selectedCourseId && String(viewState.courses.selectedCourseId) === String(updated.CourseID)) {
-          viewState.courses.selectedCourseDetails = { ...viewState.courses.selectedCourseDetails, ...updated };
-        }
-      }
-      renderScreen();
-      syncFinance().catch(() => {});
-      showToast('הקורס עודכן בהצלחה מול הגיליון.', 'success');
-      return;
-    }
     const res = await createEditRequest(row.CourseID, formResult.changes, userState);
     if (!res?.success) showToast(res?.message || 'הפעולה נכשלה', 'error');
     else {
@@ -1306,16 +1321,16 @@ function openCourseActionForm(course, mode) {
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card">
-        <h3>${mode === 'edit' ? 'עריכת קורס' : 'בקשת שינוי'}</h3>
+        <h3>בקשת שינוי</h3>
         <p>${esc(course.Program || course.Activity || course.CourseID || '')}</p>
         <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
         <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
         <label>מפגשים בפועל<input id="courseFormActualMeetings" type="number" min="0" max="30" value="${escAttr(String(course.ActualMeetings || ''))}" placeholder="מספר מפגשים שבוצעו" /></label>
         <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
-        <label>תקציר שינוי<input id="courseFormSummary" value="" placeholder="${mode === 'edit' ? 'עדכון שעות/הערות' : 'בקשת שינוי במסך קורסים'}" /></label>
+        <label>תקציר שינוי<input id="courseFormSummary" value="" placeholder="בקשת שינוי במסך קורסים" /></label>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
-          <button class="btn btn-primary" id="courseFormSubmit">${mode === 'edit' ? 'שמור' : 'שלח בקשה'}</button>
+          <button class="btn btn-primary" id="courseFormSubmit">שלח בקשה</button>
         </div>
       </div>
     `;
@@ -1328,7 +1343,7 @@ function openCourseActionForm(course, mode) {
 
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
-      const summary = root.querySelector('#courseFormSummary')?.value.trim() || (mode === 'edit' ? 'עדכון קורס' : 'בקשת שינוי');
+      const summary = root.querySelector('#courseFormSummary')?.value.trim() || 'בקשת שינוי';
       const actualMeetingsRaw = root.querySelector('#courseFormActualMeetings')?.value.trim() || '';
       const changes = {
         StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
@@ -1363,6 +1378,101 @@ async function doDecision(button, approved) {
   showToast(approved ? 'הבקשה אושרה בהצלחה' : 'הבקשה נדחתה', approved ? 'success' : 'error');
 }
 
+function safeParseJson(raw) {
+  try {
+    return typeof raw === 'string' ? (JSON.parse(raw || '{}') || {}) : (raw || {});
+  } catch (error) {
+    return {};
+  }
+}
+
+function bindEdenActions() {
+  document.querySelectorAll('[data-eden-edit]').forEach((button) => button.addEventListener('click', async () => {
+    const requestId = button.dataset.edenEdit || '';
+    const row = (viewState.eden.data.queue || []).find((item) => String(item.RequestID || '') === requestId);
+    if (!row) return;
+    const course = findCourseById(row.CourseID) || {};
+    const formResult = await openEdenFullRowForm(row, course);
+    if (!formResult) return;
+    const res = await api.createEditRequest({
+      RequestID: row.RequestID,
+      CourseID: row.CourseID,
+      ChangeSummary: formResult.summary || row.ChangeSummary || 'עדכון בקשה',
+      RequestedData: formResult.requestedData,
+      ApprovalStatus: 'eden_approved'
+    });
+    if (!res?.success) {
+      showToast(res?.message || 'עדכון בקשת עדן נכשל.', 'error');
+      return;
+    }
+    await Promise.all([loadEdenView(), loadMyRequests()]);
+    showToast('בקשת עדן עודכנה בהצלחה.', 'success');
+  }));
+
+  document.querySelectorAll('[data-eden-submit]').forEach((button) => button.addEventListener('click', async () => {
+    const requestId = button.dataset.edenSubmit || '';
+    const row = (viewState.eden.data.queue || []).find((item) => String(item.RequestID || '') === requestId);
+    if (!row) return;
+    const res = await api.createEditRequest({
+      RequestID: row.RequestID,
+      CourseID: row.CourseID,
+      ChangeSummary: row.ChangeSummary || 'העברה לאישור סופי',
+      RequestedData: safeParseJson(row.RequestedData),
+      ApprovalStatus: 'pending_final'
+    });
+    if (!res?.success) {
+      showToast(res?.message || 'העברה לאישור סופי נכשלה.', 'error');
+      return;
+    }
+    await Promise.all([loadEdenView(), loadApprovals()]);
+    showToast('הבקשה הועברה לאישור סופי.', 'success');
+  }));
+}
+
+function openEdenFullRowForm(requestRow, courseRow) {
+  return new Promise((resolve) => {
+    const root = document.createElement('div');
+    const initialRequested = { ...courseRow, ...safeParseJson(requestRow?.RequestedData) };
+    const compactRequested = Object.fromEntries(Object.entries(initialRequested).filter(([key]) => !String(key).startsWith('_')));
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card">
+        <h3>עדכון מלא לשורת קורס</h3>
+        <p>בקשה ${esc(requestRow?.RequestID || '-')} · קורס ${esc(requestRow?.CourseID || '-')}</p>
+        <label>תקציר שינוי<input id="edenSummary" value="${escAttr(requestRow?.ChangeSummary || '')}" placeholder="תקציר שינוי" /></label>
+        <label>שורת קורס מלאה (JSON)
+          <textarea id="edenRequestedData" rows="12">${esc(JSON.stringify(compactRequested, null, 2))}</textarea>
+        </label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="edenSubmit">שמור במסך עדן</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const close = (result = null) => {
+      root.remove();
+      resolve(result);
+    };
+    root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
+    root.querySelector('#edenSubmit')?.addEventListener('click', () => {
+      const summary = root.querySelector('#edenSummary')?.value.trim() || 'עדכון בקשה';
+      const raw = root.querySelector('#edenRequestedData')?.value || '{}';
+      try {
+        const requestedData = JSON.parse(raw);
+        if (!requestedData || typeof requestedData !== 'object' || Array.isArray(requestedData)) {
+          showToast('יש להזין אובייקט JSON תקין.', 'error');
+          return;
+        }
+        close({ summary, requestedData });
+      } catch (error) {
+        showToast('פורמט JSON לא תקין.', 'error');
+      }
+    });
+  });
+}
+
 async function loadWeekView() {
   viewState.week.loading = true;
   viewState.week.error = '';
@@ -1370,7 +1480,7 @@ async function loadWeekView() {
   try {
     await Promise.all([reloadCourses(), loadReviewItems(true)]);
   } catch (error) {
-    viewState.week.error = 'לא ניתן לרענן נתוני קורסים למסך שבוע.';
+    viewState.week.error = 'לא ניתן לרענן נתוני קורסים לשבוע.';
   }
   viewState.week.loading = false;
   renderScreen();
@@ -1383,7 +1493,7 @@ async function loadMonthView() {
   try {
     await Promise.all([reloadCourses(), loadReviewItems(true)]);
   } catch (error) {
-    viewState.month.error = 'לא ניתן לרענן נתוני קורסים למסך חודש.';
+    viewState.month.error = 'לא ניתן לרענן נתוני קורסים לחודש.';
   }
   viewState.month.loading = false;
   renderScreen();
@@ -1396,7 +1506,7 @@ async function loadInstructorsView() {
   try {
     await Promise.all([reloadCourses(), loadReviewItems(true)]);
   } catch (error) {
-    viewState.instructors.error = 'לא ניתן לרענן נתוני קורסים למסך מדריכים.';
+    viewState.instructors.error = 'לא ניתן לרענן נתוני קורסים למדריכים.';
   }
   viewState.instructors.loading = false;
   renderScreen();
@@ -1409,7 +1519,7 @@ async function loadEndDatesView() {
   try {
     await Promise.all([reloadCourses(), loadReviewItems(true)]);
   } catch (error) {
-    viewState.endDates.error = 'לא ניתן לרענן נתוני קורסים למסך תאריכי סיום.';
+    viewState.endDates.error = 'לא ניתן לרענן נתוני קורסים לתאריכי סיום.';
   }
   viewState.endDates.loading = false;
   renderScreen();
@@ -1422,7 +1532,7 @@ async function loadAssignmentsView() {
   try {
     await Promise.all([reloadCourses(), loadReviewItems(true)]);
   } catch (error) {
-    viewState.assignments.error = 'לא ניתן לרענן נתוני קורסים למסך שיבוץ.';
+    viewState.assignments.error = 'לא ניתן לרענן נתוני קורסים לשיבוץ.';
   }
   viewState.assignments.loading = false;
   renderScreen();
@@ -1434,7 +1544,7 @@ async function loadExceptionsView() {
   try {
     await Promise.all([reloadCourses(), loadReviewItems(true)]);
   } catch (error) {
-    viewState.exceptions.error = 'לא ניתן לרענן נתוני קורסים למסך חריגות.';
+    viewState.exceptions.error = 'לא ניתן לרענן נתוני קורסים לחריגות.';
   }
   viewState.exceptions.loading = false;
   renderScreen();
@@ -1455,7 +1565,7 @@ function renderWeekGrid(days) {
     const dayExceptionCount = day.items.filter((item) => item.hasReviewItem).length;
     return `<article class="panel-block week-day-column"><div class="panel-block-head"><h3>${esc(day.label)} ${dayExceptionCount ? `<span class="status-chip status-pending">${dayExceptionCount} חריגות</span>` : ''}</h3><button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${day.items.length} מפגשים</button></div>${day.items.map((item) => {
       const hierarchy = buildCourseHierarchyDetails(item);
-      return `<div class="mini-card week-session-card"><div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong>${(item.hasReviewItem || item.hasDelay) ? '<span class="status-chip status-declined compact-badge">חריגה</span>' : ''}</div><span class="meta-small">${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc(hierarchy.school || '-')}</span><span>${esc(hierarchy.timeLabel || '-')}</span><span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">Drill-down לקורס</button>${item.hasReviewItem ? `<button class="btn btn-tertiary" data-week-exception-open="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">חריגה פעילה</button>` : ''}</div>`;
+      return `<div class="mini-card week-session-card"><div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong>${(item.hasReviewItem || item.hasDelay) ? '<span class="status-chip status-declined compact-badge">חריגה</span>' : ''}</div><span class="meta-small">${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc(hierarchy.school || '-')}</span><span>${esc(hierarchy.timeLabel || '-')}</span><span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button>${item.hasReviewItem ? `<button class="btn btn-tertiary" data-week-exception-open="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">חריגה פעילה</button>` : ''}</div>`;
     }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`;
   }).join('')}</section>`;
 }
@@ -1464,7 +1574,7 @@ function renderWeekDetails(selected) {
   if (!selected) return '';
   return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button class="btn btn-secondary" id="weekCloseDetails">סגור</button></div>${selected.items.map((item) => {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
-    return `<article class="mini-card"><strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span><span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>סוג פעילות: ${esc(item[COURSE_FIELDS.EVENT_TYPE] || '-')}</span><span>סטטוס מפגש: ${esc(item[COURSE_FIELDS.STATUS] || item[COURSE_FIELDS.PERIOD] || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">למסך חריגות</button>' : ''}</div></article>`;
+    return `<article class="mini-card"><strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span><span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>סוג פעילות: ${esc(item[COURSE_FIELDS.EVENT_TYPE] || '-')}</span><span>סטטוס מפגש: ${esc(item[COURSE_FIELDS.STATUS] || item[COURSE_FIELDS.PERIOD] || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div></article>`;
   }).join('')}</section>`;
 }
 
@@ -1557,7 +1667,7 @@ function renderMonthDayDetails(items, dateLabel) {
   if (!dateLabel) return '';
   return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button class="btn btn-secondary" id="monthCloseDetails">סגור</button></div>${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    return `<article class="mini-card"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(hierarchy.meetingProgressLabel)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">Drill-down לקורס</button></article>`;
+    return `<article class="mini-card"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(hierarchy.meetingProgressLabel)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button></article>`;
   }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
 }
 
@@ -1639,13 +1749,13 @@ function buildInstructorsViewData(courses) {
 }
 
 function renderInstructorsCards(items) {
-  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span><strong>${esc(item.workDaysCount || 0)}</strong> ימי עבודה בשבוע</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">Drill-down</button></div></article>`).join('')}</section>`;
+  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span><strong>${esc(item.workDaysCount || 0)}</strong> ימי עבודה בשבוע</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">פרטים</button></div></article>`).join('')}</section>`;
 }
 
 function renderInstructorCoursesDrilldown(instructorName, coursesByInstructor) {
   if (!instructorName) return '';
   const rows = coursesByInstructor[instructorName] || [];
-  return `<section class="panel-block"><div class="panel-block-head"><h3>קורסים של ${esc(instructorName)}</h3><button class="btn btn-secondary" id="instructorCloseDrilldown">סגור</button></div>${renderCourseCards(rows, { canEdit: canDirectEditCourses() })}</section>`;
+  return `<section class="panel-block"><div class="panel-block-head"><h3>קורסים של ${esc(instructorName)}</h3><button class="btn btn-secondary" id="instructorCloseDrilldown">סגור</button></div>${renderCourseCards(rows, { canEdit: false })}</section>`;
 }
 
 function bindInstructorsActions() {
@@ -1699,7 +1809,7 @@ function buildEndDateItems(courses) {
 function renderEndDateCards(items) {
   return `<section class="cards-grid">${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    return `<article class="management-card"><div class="card-head"><h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'עם דחיות' : 'ללא דחיות'}</span></div>${renderCourseHierarchyStrip(item)}<div class="card-meta"><span><strong>${esc(hierarchy.endDate || '-')}</strong></span><span>מפגשים שנותרו: ${esc(item.remaining)}</span><span>דחיות שזוהו: ${(item.postpone.isPostponed || item.hasReviewDelay) ? '1+' : '0'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">Drill-down לקורס</button></div></article>`;
+    return `<article class="management-card"><div class="card-head"><h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'עם דחיות' : 'ללא דחיות'}</span></div>${renderCourseHierarchyStrip(item)}<div class="card-meta"><span><strong>${esc(hierarchy.endDate || '-')}</strong></span><span>מפגשים שנותרו: ${esc(item.remaining)}</span><span>דחיות שזוהו: ${(item.postpone.isPostponed || item.hasReviewDelay) ? '1+' : '0'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button></div></article>`;
   }).join('')}</section>`;
 }
 
@@ -1779,28 +1889,23 @@ function renderExceptionsFilters() {
 
 function buildExceptionsRows(reviewRows, courses, filters) {
   const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
-  return (reviewRows || []).map((row) => {
-    const reviewCourseId = String(getExceptionField(row, EXCEPTION_FIELDS.COURSE_ID) || '');
-    const reviewSourceRow = String(row._rowNumber || row.SourceRow || '');
-    const linkedCourse = (courses || []).find((course) => {
-      if (reviewCourseId) return String(getCourseField(course, COURSE_FIELDS.COURSE_ID) || '') === reviewCourseId;
-      if (reviewSourceRow) return String(course._rowNumber || '') === reviewSourceRow;
-      return false;
-    }) || {};
+  return (courses || []).map((course) => {
+    const missingTypes = getCourseMissingTypes(course);
     return {
-      ...row,
-      ReviewRowNumber: Number(getExceptionField(row, EXCEPTION_FIELDS.ROW_NUMBER) || 0),
-      Program: getExceptionField(row, COURSE_FIELDS.PROGRAM) || getCourseField(linkedCourse, COURSE_FIELDS.PROGRAM) || getCourseField(linkedCourse, COURSE_FIELDS.ACTIVITY) || '',
-      Employee: getExceptionField(row, EXCEPTION_FIELDS.EMPLOYEE) || getCourseField(linkedCourse, COURSE_FIELDS.EMPLOYEE) || resolveInstructorName(linkedCourse) || '',
-      CourseManager: getExceptionField(row, EXCEPTION_FIELDS.COURSE_MANAGER) || getCourseField(linkedCourse, COURSE_FIELDS.COURSE_MANAGER) || '',
-      Authority: getExceptionField(row, EXCEPTION_FIELDS.AUTHORITY) || getCourseField(linkedCourse, COURSE_FIELDS.AUTHORITY) || '',
-      School: getExceptionField(row, EXCEPTION_FIELDS.SCHOOL) || getCourseField(linkedCourse, COURSE_FIELDS.SCHOOL) || '',
-      ExceptionType: getExceptionField(row, EXCEPTION_FIELDS.TYPE) || getExceptionField(row, EXCEPTION_FIELDS.ISSUES) || row[EXCEPTION_TYPE_FALLBACK_FIELD] || '',
-      TreatmentStatus: getExceptionTreatmentStatus(row),
-      Date: getExceptionField(row, EXCEPTION_FIELDS.DATE) || getCourseField(linkedCourse, COURSE_FIELDS.DATE) || getCourseField(linkedCourse, COURSE_FIELDS.END) || '',
-      CourseID: getExceptionField(row, EXCEPTION_FIELDS.COURSE_ID) || getCourseField(linkedCourse, COURSE_FIELDS.COURSE_ID) || ''
+      CourseID: getCourseField(course, COURSE_FIELDS.COURSE_ID) || '',
+      Program: getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '',
+      Employee: resolveInstructorName(course) || '',
+      CourseManager: getCourseField(course, COURSE_FIELDS.COURSE_MANAGER) || '',
+      Authority: getCourseField(course, COURSE_FIELDS.AUTHORITY) || '',
+      School: getCourseField(course, COURSE_FIELDS.SCHOOL) || '',
+      ExceptionType: missingTypes.join(' / '),
+      TreatmentStatus: 'open',
+      Issues: missingTypes.join(' / '),
+      Date: getCourseField(course, COURSE_FIELDS.DATE) || getCourseField(course, COURSE_FIELDS.END) || '',
+      MissingTypes: missingTypes
     };
   }).filter((row) => {
+    if (!row.MissingTypes.length) return false;
     if (clean.employee && !String(row.Employee || '').toLowerCase().includes(clean.employee)) return false;
     if (clean.authority && !String(row.Authority || '').toLowerCase().includes(clean.authority)) return false;
     if (clean.courseManager && !String(row.CourseManager || '').toLowerCase().includes(clean.courseManager)) return false;
@@ -1810,7 +1915,7 @@ function buildExceptionsRows(reviewRows, courses, filters) {
 }
 
 function renderExceptionsCards(rows) {
-  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card ${recentlyResolvedExceptions.has(String(row.CourseID || '')) ? 'just-resolved' : ''}"><div class="card-head"><h3>${esc(row.Issues || row.ExceptionType || 'חריגה')}</h3><span class="status-chip ${row.TreatmentStatus === 'resolved' ? 'status-approved' : 'status-declined'}">${row.TreatmentStatus === 'resolved' ? 'טופל' : 'פתוח'}</span></div><div class="card-meta"><span>קורס: ${esc(row.Program || '-')} (${esc(row.CourseID || '-')})</span><span>מדריך/מנהל: ${esc(row.Employee || '-')} / ${esc(row.CourseManager || '-')}</span><span>רשות/בית ספר: ${esc(row.Authority || '-')} / ${esc(row.School || '-')}</span><span>תאריך רלוונטי: ${esc(formatDate(parseDateLike(row.Date)) || row.Date || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פתח קורס</button>${row.TreatmentStatus === 'open' ? `<button class="btn btn-primary btn-success" data-mark-exception="${escAttr(row.CourseID || '')}" data-mark-review-row="${escAttr(row.ReviewRowNumber || '')}" data-mark-review-id="${escAttr(row.ReviewID || row.RowID || row.ExceptionID || '')}">סמן כטופל</button>` : ''}</div></article>`).join('')}</section>`;
+  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card"><div class="card-head"><h3>${esc(row.Issues || row.ExceptionType || 'חריגה')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-meta"><span>קורס: ${esc(row.Program || '-')} (${esc(row.CourseID || '-')})</span><span>מדריך/מנהל: ${esc(row.Employee || '-')} / ${esc(row.CourseManager || '-')}</span><span>רשות/בית ספר: ${esc(row.Authority || '-')} / ${esc(row.School || '-')}</span><span>סוג חוסר: ${esc((row.MissingTypes || []).join(' / ') || row.ExceptionType || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div></article>`).join('')}</section>`;
 }
 
 function bindExceptionsActions() {
@@ -1835,24 +1940,7 @@ function bindExceptionsActions() {
     viewState.courses.selectedCourseDetails = row;
     setRoute('courses');
   }));
-  document.querySelectorAll('[data-mark-exception]').forEach((button) => button.addEventListener('click', async () => {
-    const reviewRowNumber = Number(button.dataset.markReviewRow || 0);
-    const reviewId = button.dataset.markReviewId || '';
-    const res = await api.markExceptionResolved({
-      reviewRowNumber,
-      ReviewID: reviewId,
-      CourseID: button.dataset.markException || ''
-    });
-      if (!res?.success) {
-      showToast(res?.message || 'לא ניתן לעדכן סטטוס חריגה.', 'error');
-      return;
-    }
-    await loadReviewItems(true);
-    recentlyResolvedExceptions.add(String(button.dataset.markException || ''));
-    window.setTimeout(() => recentlyResolvedExceptions.clear(), 1500);
-    renderScreen();
-    showToast('החריגה סומנה כטופלה.', 'success');
-  }));
+  bindEditButtons();
 }
 
 function exportToCSV(rows, filename) {
@@ -2041,6 +2129,35 @@ async function loadApprovals() {
     RequestedDataView: toHuman(item.RequestedData)
   }));
   renderScreen();
+}
+
+function buildExceptionRecords(courses = []) {
+  return (courses || []).map((course) => {
+    const missingTypes = getCourseMissingTypes(course);
+    return {
+      courseId: getCourseField(course, COURSE_FIELDS.COURSE_ID) || '',
+      activity: getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '',
+      instructor: resolveInstructorName(course) || '',
+      authority: getCourseField(course, COURSE_FIELDS.AUTHORITY) || '',
+      school: getCourseField(course, COURSE_FIELDS.SCHOOL) || '',
+      type: missingTypes.join(' / '),
+      description: missingTypes.join(' / '),
+      treatmentStatus: missingTypes.length ? 'open' : 'resolved',
+      treatmentStatusLabel: missingTypes.length ? 'פתוח' : 'טופל',
+      missingTypes
+    };
+  }).filter((item) => item.missingTypes.length > 0);
+}
+
+function applyExceptionFilters(rows = []) {
+  const clean = Object.fromEntries(Object.entries(viewState.eden.filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
+  return (rows || []).filter((item) => {
+    if (clean.type && !String(item.type || '').toLowerCase().includes(clean.type)) return false;
+    if (clean.instructor && !String(item.instructor || '').toLowerCase().includes(clean.instructor)) return false;
+    if (clean.authority && !String(item.authority || '').toLowerCase().includes(clean.authority)) return false;
+    if (clean.treatment && !String(item.treatmentStatus || '').toLowerCase().includes(clean.treatment)) return false;
+    return true;
+  });
 }
 
 async function withLoad(key, fn, emptyValue, errorText) {
