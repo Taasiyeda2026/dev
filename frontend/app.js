@@ -784,6 +784,10 @@ function renderInfoRow(label, value) {
   return `<span><strong>${esc(label)}:</strong> ${esc(value)}</span>`;
 }
 
+function renderExpandableCard({ summary, details, open = false, classes = 'management-card expandable-card' }) {
+  return `<details class="${classes}" ${open ? 'open' : ''}><summary class="card-summary">${summary}</summary><div class="card-details">${details}</div></details>`;
+}
+
 function buildCourseHierarchyDetails(row = {}) {
   const progress = getSessionProgress(row);
   const actual = progress.actualMeetings;
@@ -830,15 +834,8 @@ function renderCourseCards(rows, options = {}) {
     const progress = courseProgress(row);
     const hierarchy = buildCourseHierarchyDetails(row);
     const issueFlag = hasException(row) || isMissingReport(row) || !hasInstructor(row);
-    return `<article class="management-card">
-      <header class="card-head">
-        <div>
-          <h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3>
-          <p class="card-subtitle">${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</p>
-        </div>
-        <div class="card-status">${renderStatusBadge(row)}${renderIssueBadge(row)}</div>
-      </header>
-      ${renderCourseHierarchyStrip(row)}
+    const summary = `<header class="card-head"><div><h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3><p class="card-subtitle">${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</p></div><div class="card-status">${renderStatusBadge(row)}${renderIssueBadge(row)}</div></header><div class="card-summary-minimal">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</div>`;
+    const details = `${renderCourseHierarchyStrip(row)}
       <div class="course-core-grid">
         <div class="course-core-col">
           <span><strong>מנהל קורס:</strong> ${esc(row.CourseManager || '-')}</span>
@@ -856,44 +853,32 @@ function renderCourseCards(rows, options = {}) {
           <span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span>
         </div>
       </div>
-      <div class="card-issue ${issueFlag ? 'has-issue' : ''}">
-        <strong>מה חסר:</strong> ${esc(issueText)}
-      </div>
+      <div class="card-issue ${issueFlag ? 'has-issue' : ''}"><strong>מה חסר:</strong> ${esc(issueText)}</div>
       ${renderCourseSecondaryDetails(row)}
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
         <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
-      </footer>
-    </article>`;
+      </footer>`;
+    return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
 }
 
 function renderInstructorCards(rows, selectedInstructor) {
   if (!rows.length) return '<section class="panel-empty">אין נתוני מדריכים זמינים.</section>';
   return `<section class="cards-grid instructor-grid">${rows.map((row) => {
-    return `<article class="management-card instructor-card ${selectedInstructor === row.instructor ? 'active' : ''}">
-      <header class="card-head">
-        <h3>${esc(row.instructor)}</h3>
-        ${renderInstructorState(row)}
-      </header>
-      <div class="card-meta">
-        <span>📚 פעילויות: ${esc(row.coursesCount)}</span>
-        <span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span>
-        <span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>
-        <span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span>
-      </div>
-      <footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>
-    </article>`;
+    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} פעילויות · ${row.hasGap ? 'דורש טיפול' : 'תקין'}</div>`;
+    const details = `<div class="card-meta"><span>📚 פעילויות: ${esc(row.coursesCount)}</span><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span><span>🧩 סטטוס: ${row.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
+    return renderExpandableCard({ summary, details, classes: `management-card instructor-card expandable-card ${selectedInstructor === row.instructor ? 'active' : ''}` });
   }).join('')}</section>`;
 }
 
 function renderExceptionCards(rows) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו חריגות בהתאם לסינון.</section>';
-  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card exception-card">
-    <div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div>
-    <div class="card-meta"><span>בית ספר: ${esc(row.School || '-')}</span><span>רשות: ${esc(row.Authority || '-')}</span></div>
-    <details class="course-secondary-details"><summary>פרטים</summary><div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div></details>
-  </article>`).join('')}</section>`;
+  return `<section class="cards-grid">${rows.map((row) => {
+    const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
+    const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
+    return renderExpandableCard({ summary, details, classes: 'management-card exception-card expandable-card' });
+  }).join('')}</section>`;
 }
 
 function dashboardOperationalTable(rows) {
@@ -1620,7 +1605,9 @@ function renderWeekGrid(days) {
     const dayExceptionCount = day.items.filter((item) => item.hasReviewItem).length;
     return `<article class="panel-block week-day-column"><div class="panel-block-head"><h3>${esc(day.label)} ${dayExceptionCount ? `<span class="status-chip status-pending">${dayExceptionCount} חריגות</span>` : ''}</h3><button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${day.items.length} מפגשים</button></div>${day.items.map((item) => {
       const hierarchy = buildCourseHierarchyDetails(item);
-      return `<div class="mini-card week-session-card"><div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong>${(item.hasReviewItem || item.hasDelay) ? '<span class="status-chip status-declined compact-badge">חריגה</span>' : ''}</div><span class="meta-small">${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</span><span>${esc(hierarchy.timeLabel || '-')}</span><span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button>${item.hasReviewItem ? `<button class="btn btn-tertiary" data-week-exception-open="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">חריגה פעילה</button>` : ''}</div>`;
+      const summary = `<div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong>${(item.hasReviewItem || item.hasDelay) ? '<span class="status-chip status-declined compact-badge">חריגה</span>' : ''}</div><span class="meta-small">${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc(hierarchy.timeLabel || '-')}</span>`;
+      const details = `<span class="meta-small">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</span><span class="meta-small">${esc(hierarchy.meetingProgressLabel)}</span><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button>${item.hasReviewItem ? `<button class="btn btn-tertiary" data-week-exception-open="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">חריגה פעילה</button>` : ''}`;
+      return renderExpandableCard({ summary, details, classes: 'mini-card week-session-card expandable-card' });
     }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`;
   }).join('')}</section>`;
 }
@@ -1629,7 +1616,9 @@ function renderWeekDetails(selected) {
   if (!selected) return '';
   return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button class="btn btn-secondary" id="weekCloseDetails">סגור</button></div>${selected.items.map((item) => {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
-    return `<article class="mini-card"><strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span><span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item[COURSE_FIELDS.DATE])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div></article>`;
+    const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span>`;
+    const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item[COURSE_FIELDS.DATE])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
   }).join('')}</section>`;
 }
 
@@ -1739,7 +1728,9 @@ function renderMonthDayDetails(items, dateLabel) {
   if (!dateLabel) return '';
   return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button class="btn btn-secondary" id="monthCloseDetails">סגור</button></div>${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    return `<article class="mini-card"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span><span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(hierarchy.meetingProgressLabel)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button></article>`;
+    const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>`;
+    const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(hierarchy.meetingProgressLabel)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
   }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
 }
 
@@ -1823,7 +1814,11 @@ function buildInstructorsViewData(courses) {
 }
 
 function renderInstructorsCards(items) {
-  return `<section class="cards-grid instructor-grid">${items.map((item) => `<article class="management-card"><div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-meta"><span><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</span><span><strong>${esc(item.workDaysCount || 0)}</strong> ימי עבודה בשבוע</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">פרטים</button></div></article>`).join('')}</section>`;
+  return `<section class="cards-grid instructor-grid">${items.map((item) => {
+    const summary = `<div class="card-head"><div><h3>${esc(item.name)}</h3><p class="card-subtitle">${esc(getDisplayRoleForInstructor(item.name, item.employeeId) || 'ללא תפקיד')}</p></div><span class="status-chip ${item.hasIssues || item.hasGap ? 'status-pending' : 'status-approved'}">${item.hasIssues || item.hasGap ? 'דורש טיפול' : 'תקין'}</span></div><div class="card-summary-minimal"><strong>${esc(item.coursesCount)}</strong> קורסים / <strong>${esc(item.meetingsCount)}</strong> מפגשים</div>`;
+    const details = `<div class="card-meta"><span><strong>${esc(item.workDaysCount || 0)}</strong> ימי עבודה בשבוע</span><span>רשויות: ${esc(item.authorities.join(', ') || '-')}</span><span>בתי ספר: ${esc(item.schools.join(', ') || '-')}</span><span>חריגות פעילות: ${item.hasIssues ? 'יש' : 'אין'}</span></div><div class="card-actions"><button class="btn btn-secondary" data-instructor-open="${escAttr(item.name)}">פרטים</button></div>`;
+    return renderExpandableCard({ summary, details });
+  }).join('')}</section>`;
 }
 
 function renderInstructorCoursesDetails(instructorName, coursesByInstructor) {
@@ -1887,7 +1882,9 @@ function buildEndDateItems(courses) {
 function renderEndDateCards(items) {
   return `<section class="cards-grid">${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    return `<article class="management-card"><div class="card-head"><h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'דחייה' : 'תקין'}</span></div>${renderCourseHierarchyStrip(item)}<div class="card-meta"><span><strong>${esc(hierarchy.endDate || '-')}</strong></span><span>מפגשים שנותרו: ${esc(item.remaining)}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div></article>`;
+    const summary = `<div class="card-head"><h3>${esc(hierarchy.instructor || 'טרם שויך')}</h3><span class="status-chip ${(item.postpone.isPostponed || item.hasReviewDelay) ? 'status-pending-final' : 'status-approved'}">${(item.postpone.isPostponed || item.hasReviewDelay) ? 'דחייה' : 'תקין'}</span></div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
+    const details = `${renderCourseHierarchyStrip(item)}<div class="card-meta"><span>מפגשים שנותרו: ${esc(item.remaining)}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div>`;
+    return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
 }
 
@@ -1993,7 +1990,11 @@ function buildExceptionsRows(reviewRows, courses, filters) {
 }
 
 function renderExceptionsCards(rows) {
-  return `<section class="cards-grid">${rows.map((row) => `<article class="management-card"><div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-meta"><span>בית ספר: ${esc(row.School || '-')}</span><span>רשות: ${esc(row.Authority || '-')}</span></div><details class="course-secondary-details"><summary>פרטים</summary><div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div></details></article>`).join('')}</section>`;
+  return `<section class="cards-grid">${rows.map((row) => {
+    const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
+    const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
+    return renderExpandableCard({ summary, details });
+  }).join('')}</section>`;
 }
 
 function bindExceptionsActions() {
