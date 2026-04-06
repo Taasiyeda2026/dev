@@ -1665,14 +1665,50 @@ function renderWeekFilters() {
 
 function renderWeekGrid(days) {
   return `<section class="week-grid">${days.map((day) => {
-    const countText = day.isShabbat && day.items.length === 0 ? '' : `${day.items.length} קורסים`;
-    return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''}"><div class="panel-block-head week-day-head"><h3>${esc(day.weekdayLabel)}</h3><small>${esc(day.dateLabel)}</small>${countText ? `<button class="btn btn-tertiary" data-week-open="${escAttr(day.isoDate)}">${countText}</button>` : ''}</div>${day.items.map((item) => {
-      const hierarchy = buildCourseHierarchyDetails(item);
-      const summary = `<div class="mini-card-top"><strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${item.sameInstructorCount > 1 ? '➕' : ''}</span></div>`;
-      const details = `<div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button></div>`;
-      return renderExpandableCard({ summary, details, classes: 'mini-card week-session-card expandable-card' });
-    }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</article>`;
+    const groupedItems = groupDayItemsByInstructor(day.items);
+    const dayTitle = day.isShabbat ? 'ש' : `${day.weekdayLabel} · ${day.dateLabel}`;
+    const countText = `${day.items.length} פעילויות`;
+    return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''}">
+      <div class="panel-block-head week-day-head">
+        <h3>${esc(dayTitle)}</h3>
+        <button class="btn btn-tertiary week-day-count" data-week-open="${escAttr(day.isoDate)}" aria-label="פתח פירוט ליום ${escAttr(day.label)}">${countText}</button>
+      </div>
+      ${groupedItems.map((group, index) => renderWeekInstructorAccordion(day, group, index)).join('') || '<div class="panel-empty">אין מפגשים</div>'}
+    </article>`;
   }).join('')}</section>`;
+}
+
+function renderWeekInstructorAccordion(day, group, index) {
+  const accordionId = `week-accordion-${day.isoDate}-${index}`;
+  const detailsRows = group.items.map((item) => {
+    const hierarchy = buildCourseHierarchyDetails(item);
+    return `<li class="week-accordion-item-row">
+      <div><strong>${esc(hierarchy.programActivity || 'פעילות ללא שם')}</strong></div>
+      <div class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</div>
+      <div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פרטי קורס</button></div>
+    </li>`;
+  }).join('');
+  return `<details class="mini-card week-session-card week-accordion">
+    <summary id="${escAttr(accordionId)}" class="week-accordion-summary" role="button" aria-controls="${escAttr(`${accordionId}-panel`)}" aria-expanded="false">
+      <span class="week-accordion-title">${esc(group.instructor)}</span>
+      <span class="week-accordion-meta"><span>${group.items.length} פעילויות</span><span aria-hidden="true">➕</span></span>
+    </summary>
+    <div id="${escAttr(`${accordionId}-panel`)}" class="week-accordion-panel" role="region" aria-labelledby="${escAttr(accordionId)}">
+      <ul class="week-accordion-list">${detailsRows}</ul>
+    </div>
+  </details>`;
+}
+
+function groupDayItemsByInstructor(items) {
+  return (items || []).reduce((groups, item) => {
+    const instructor = resolveInstructorName(item) || 'טרם שויך';
+    const existingGroup = groups.find((group) => group.instructor === instructor);
+    if (existingGroup) {
+      existingGroup.items.push(item);
+      return groups;
+    }
+    return [...groups, { instructor, items: [item] }];
+  }, []);
 }
 
 function renderWeekDetails(selected) {
@@ -1727,10 +1763,23 @@ function bindWeekActions(weekData) {
   document.querySelectorAll('[data-go-exceptions]').forEach((button) => button.addEventListener('click', () => {
     setRoute('exceptions');
   }));
+  bindWeekAccordionState();
   bindCourseActions();
   document.getElementById('weekCloseDetails')?.addEventListener('click', () => {
     viewState.week.selected = null;
     renderScreen();
+  });
+}
+
+function bindWeekAccordionState() {
+  document.querySelectorAll('.week-accordion').forEach((accordion) => {
+    const summary = accordion.querySelector('.week-accordion-summary');
+    if (!summary) return;
+    const syncState = () => {
+      summary.setAttribute('aria-expanded', accordion.open ? 'true' : 'false');
+    };
+    syncState();
+    accordion.addEventListener('toggle', syncState);
   });
 }
 
