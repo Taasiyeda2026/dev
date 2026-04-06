@@ -1671,14 +1671,16 @@ function renderWeekFilters() {
 function renderWeekGrid(days) {
   return `<section class="week-grid">${days.map((day) => {
     const groupedItems = groupDayItemsByInstructor(day.items);
-    const countText = `${day.items.length} פעילויות`;
+    const countText = day.isShabbat ? '' : `${day.items.length} פעילויות`;
+    const dayTitle = day.weekdayLabel;
+    const emptyState = day.isShabbat ? '' : '<div class="panel-empty">אין מפגשים</div>';
     return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''}">
       <div class="panel-block-head week-day-head">
-        <h3>${esc(day.isShabbat ? 'ש' : day.weekdayLabel)}</h3>
+        <h3>${esc(dayTitle)}</h3>
         <small class="week-day-date">${esc(day.dateLabel)}</small>
-        <button class="btn btn-tertiary week-day-count" data-week-open="${escAttr(day.isoDate)}" aria-label="פתח פירוט ליום ${escAttr(day.label)}">${countText}</button>
+        ${day.isShabbat ? '' : `<button class="btn btn-tertiary week-day-count" data-week-open="${escAttr(day.isoDate)}" aria-label="פתח פירוט ליום ${escAttr(day.label)}">${countText}</button>`}
       </div>
-      ${groupedItems.map((group, index) => renderWeekInstructorAccordion(day, group, index)).join('') || '<div class="panel-empty">אין מפגשים</div>'}
+      ${groupedItems.map((group, index) => renderWeekInstructorAccordion(day, group, index)).join('') || emptyState}
     </article>`;
   }).join('')}</section>`;
 }
