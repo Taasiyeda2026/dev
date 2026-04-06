@@ -442,21 +442,21 @@ function renderScreen() {
     const monthData = buildMonthlyCalendar(monthCourses, viewState.month.monthDate);
     const monthTitleNav = monthData.monthStart ? monthData.monthStart.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : '';
     const sideOpen = Boolean(viewState.month.selectedDate);
-    main.innerHTML = head('חודש', 'מבט חודשי על סטטוס קורסים') +
+    main.innerHTML = `<div class="month-page">` + head('חודש', '') +
       `<div class="month-page-shell${sideOpen ? ' month-page-shell--open' : ''}"><div class="month-page-main">` +
       renderMonthFilters(monthTitleNav) +
       panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
-      `</div>${sideOpen ? renderMonthSidePanel(monthData.selectedItems, viewState.month.selectedDate) : ''}${sideOpen ? '<button type="button" class="month-side-backdrop" id="monthBackdrop" aria-label="סגור"></button>' : ''}</div>`;
+      `</div>${sideOpen ? renderMonthSidePanel(monthData.selectedItems, viewState.month.selectedDate) : ''}${sideOpen ? '<button type="button" class="month-side-backdrop" id="monthBackdrop" aria-label="סגור"></button>' : ''}</div></div>`;
     bindMonthActions(monthData);
     return;
   }
 
   if (currentRoute === 'instructors') {
     const instructorsData = buildInstructorsViewData(getRoleScopedCourses(viewState.instructors.filters));
-    main.innerHTML = head('מדריכים', 'סטטוס, חריגות וקורסים לפי מדריך') +
+    main.innerHTML = `<div class="instructors-page">` + head('מדריכים', '') +
       renderInstructorsFilters() +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
-      renderInstructorCoursesDetails(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor);
+      renderInstructorCoursesDetails(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor) + `</div>`;
     bindInstructorsActions();
     return;
   }
@@ -472,7 +472,7 @@ function renderScreen() {
 
   if (currentRoute === 'exceptions') {
     const exceptionRows = buildExceptionsRows(getStoreSnapshot().reviewItems || [], getRoleScopedCourses({}), viewState.exceptions.filters);
-    main.innerHTML = head('חריגות', 'רק חוסרים מהותיים בקורסים') +
+    main.innerHTML = head('חריגות', 'ללא מדריך / ללא שעות / חסר Date1 (מפגש ראשון) / או סיום ביוני 2026') +
       renderExceptionsFilters() +
       panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows));
     bindExceptionsActions();
@@ -1057,7 +1057,7 @@ function applyCourseQuickFilter(rows) {
   if (key === 'active_this_month') {
     return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
   }
-  if (key === 'requires_treatment') return list.filter((row) => getCourseMissingTypes(row).length > 0);
+  if (key === 'requires_treatment') return list.filter((row) => getExceptionsPageIssues(row).length > 0);
   if (key === 'today') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, now)));
   if (key === 'this_week') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, now, weekEnd)));
   if (key === 'this_month') return list.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, startOfDay(now), monthEnd)));
@@ -1100,23 +1100,30 @@ function hasHours(row) {
   return hasValue(row, [COURSE_FIELDS.START_TIME]) && hasValue(row, [COURSE_FIELDS.END_TIME]);
 }
 
-function hasCourseDate(row) {
-  const scheduleDates = getScheduleDates(row);
-  if (scheduleDates.length > 0) return true;
-  return Boolean(firstDate(row, [...COURSE_DATE_RANGE_FIELDS, ...COURSE_END_RANGE_FIELDS]));
-}
-
 function isPostponedCourse(row) {
   return parseDelayInfo(getCourseField(row, COURSE_FIELDS.NOTES)).isPostponed;
 }
 
-function getCourseMissingTypes(row) {
-  if (isPostponedCourse(row)) return [];
-  const missing = [];
-  if (!hasInstructor(row)) missing.push('ללא מדריך');
-  if (!hasHours(row)) missing.push('ללא שעות');
-  if (!hasCourseDate(row)) missing.push('ללא תאריך');
-  return missing;
+/** תאריך התחלה לעמוד חריגות: רק עמודת המפגש הראשון בגיליון — Date1 (כפי שמוגדר ב־DATE_FIELDS) */
+function hasCourseStartDateForExceptions(row) {
+  const date1Field = COURSE_DATE_FIELDS[0];
+  return Boolean(date1Field && parseDateLike(getCourseField(row, date1Field)));
+}
+
+function isCourseEndInJune2026(row) {
+  const end = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
+  if (!end) return false;
+  return end.getFullYear() === 2026 && end.getMonth() === 5;
+}
+
+/** כל סיבות ההצגה בעמוד חריגות לפי הדרישה העסקית */
+function getExceptionsPageIssues(row) {
+  const issues = [];
+  if (!hasInstructor(row)) issues.push('ללא מדריך');
+  if (!hasHours(row)) issues.push('ללא שעות');
+  if (!isPostponedCourse(row) && !hasCourseStartDateForExceptions(row)) issues.push('חסר Date1');
+  if (isCourseEndInJune2026(row)) issues.push('סיום ביוני 2026');
+  return issues;
 }
 
 function firstDate(row, names) {
@@ -1279,7 +1286,7 @@ function isMissingReport(row) {
 }
 
 function hasException(row) {
-  return getCourseMissingTypes(row).length > 0;
+  return getExceptionsPageIssues(row).length > 0;
 }
 
 function hasInstructorGap(row) {
@@ -1434,7 +1441,7 @@ function renderInstructorState(row) {
 }
 
 function summarizeIssue(row) {
-  if (hasException(row)) return getCourseMissingTypes(row).join(' / ');
+  if (hasException(row)) return getExceptionsPageIssues(row).join(' / ');
   if (isMissingReport(row)) return row.ReportStatus || 'דיווח מפגשים חסר';
   if (!hasInstructor(row)) return 'ללא מדריך';
   return '';
@@ -2021,17 +2028,19 @@ function buildMonthlyCalendar(courses, monthValue) {
 
 function renderMonthGrid(days) {
   const firstDate = days[0] ? parseDateLike(days[0].isoDate) : null;
-  const monthTitle = firstDate ? firstDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : '';
   const firstWeekday = firstDate ? firstDate.getDay() : 0;
   const leadingCells = Array.from({ length: firstWeekday }).map(() => '<div class="month-day month-day-empty" aria-hidden="true"></div>').join('');
   const todayIso = formatIsoDateLocal(startOfDay(new Date()));
   const weekdayNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש'];
-  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${weekdayNames.map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => {
+  return `<section class="month-grid">${weekdayNames.map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => {
     const n = day.items.length;
     const dotClass = n > 0 ? 'month-activity-dot month-activity-dot--on' : 'month-activity-dot month-activity-dot--off';
-    const countHtml = n > 0 ? `<span class="month-day-count">${n} פעילויות</span>` : '';
+    const dateStr = formatDate(parseDateLike(day.isoDate));
+    const activitiesLine = n > 0
+      ? `<span class="month-day-activities-line">פרטי פעילויות${n > 1 ? `<span class="month-day-activities-count"> · ${n}</span>` : ''}</span>`
+      : '';
     const ariaAct = n === 0 ? 'אין פעילויות' : `${n} פעילויות`;
-    return `<button type="button" class="month-day ${day.hasException ? 'has-exception' : ''} ${day.isoDate === todayIso ? 'month-day-today' : ''}" data-month-open="${escAttr(day.isoDate)}" aria-label="${escAttr(`יום ${day.day}, ${ariaAct}`)}"><span class="${dotClass}" aria-hidden="true"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div>${countHtml}<small class="month-day-date-label">${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`;
+    return `<button type="button" class="month-day ${day.hasException ? 'has-exception' : ''} ${day.isoDate === todayIso ? 'month-day-today' : ''}" data-month-open="${escAttr(day.isoDate)}" aria-label="${escAttr(`תאריך ${dateStr}, ${ariaAct}`)}"><span class="${dotClass}" aria-hidden="true"></span><div class="month-day-date-row"><span class="month-day-date-primary">${esc(dateStr)}</span>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div>${activitiesLine}</button>`;
   }).join('')}</section>`;
 }
 
@@ -2278,7 +2287,7 @@ function renderExceptionsFilters() {
 function buildExceptionsRows(reviewRows, courses, filters) {
   const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
   return (courses || []).map((course) => {
-    const missingTypes = getCourseMissingTypes(course);
+    const missingTypes = getExceptionsPageIssues(course);
     return {
       CourseID: getCourseField(course, COURSE_FIELDS.COURSE_ID) || '',
       Program: getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '',
@@ -2574,7 +2583,7 @@ async function loadApprovals() {
 
 function buildExceptionRecords(courses = []) {
   return (courses || []).map((course) => {
-    const missingTypes = getCourseMissingTypes(course);
+    const missingTypes = getExceptionsPageIssues(course);
     return {
       courseId: getCourseField(course, COURSE_FIELDS.COURSE_ID) || '',
       activity: getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '',
@@ -2753,10 +2762,10 @@ function withOperationalMetrics(baseData, courses) {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
       return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
     }).length;
-    requiresTreatmentByManager[managerName] = managerCourses.filter((row) => getCourseMissingTypes(row).length > 0).length;
+    requiresTreatmentByManager[managerName] = managerCourses.filter((row) => getExceptionsPageIssues(row).length > 0).length;
     activeByManager[managerName] = managerActiveCourses.length;
   });
-  const missing = courses.map((row) => getCourseMissingTypes(row));
+  const missing = courses.map((row) => getExceptionsPageIssues(row));
   return {
     ...baseData,
     totalCoursesCount: courses.length,
@@ -2771,12 +2780,9 @@ function withOperationalMetrics(baseData, courses) {
     instructorsByManager,
     requiresTreatmentByManager,
     missingHoursCount: missing.filter((types) => types.includes('ללא שעות')).length,
-    missingDateCount: missing.filter((types) => types.includes('ללא תאריך')).length,
+    missingDateCount: missing.filter((types) => types.includes('חסר Date1')).length,
     missingInstructorCount: missing.filter((types) => types.includes('ללא מדריך')).length,
-    juneEndingCount: courses.filter((row) => {
-      const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
-      return endDate && endDate.getMonth() === 5;
-    }).length
+    juneEndingCount: courses.filter((row) => isCourseEndInJune2026(row)).length
   };
 }
 
@@ -2804,7 +2810,7 @@ function buildActionItems(courses) {
     const location = joinLocation(row);
     if (!instructor) items.push({ type: 'חסר מדריך', activity: activity, instructor: '', location: location, filter: 'unassigned_instructor' });
     if (isMissingReport(row)) items.push({ type: 'חסר דיווח', activity: activity, instructor: instructor, location: location, filter: 'missing_report' });
-    if (hasException(row)) items.push({ type: getCourseMissingTypes(row).join(' / '), activity: activity, instructor: instructor, location: location, filter: 'exceptions' });
+    if (hasException(row)) items.push({ type: getExceptionsPageIssues(row).join(' / '), activity: activity, instructor: instructor, location: location, filter: 'exceptions' });
     if (hasOperationalIssue(row)) {
       items.push({ type: 'דורש בקרה', activity: activity, instructor: instructor, location: location, filter: 'needs_review' });
     }
