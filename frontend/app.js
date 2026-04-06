@@ -49,11 +49,10 @@ const viewState = {
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
   eden: { loading: false, error: '', data: { queue: [], exceptions: [] }, filters: { type: '', instructor: '', authority: '', treatment: '' } },
-  week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null },
+  week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null, instructorPanel: null },
   month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '', program: '' }, selectedDate: '' },
   instructors: { loading: false, error: '', filters: { authority: '', courseManager: '', program: '' }, selectedInstructor: '' },
   endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', endFrom: '', endTo: '' } },
-  assignments: { loading: false, error: '', filters: { authority: '', program: '' } },
   exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
   ,
   finance: {
@@ -62,7 +61,8 @@ const viewState = {
     tab: 'active',
     activeItems: [],
     archiveItems: [],
-    selectedFinanceRowId: ''
+    selectedFinanceRowId: '',
+    displayMonth: ''
   },
   uiContext: {
     coursesSubtitle: '',
@@ -91,7 +91,6 @@ const routeLabels = {
   month: 'חודש',
   instructors: 'מדריכים',
   'end-dates': 'תאריכי סיום',
-  assignments: 'שיבוץ',
   exceptions: 'חריגות',
   finance: 'כספים'
 };
@@ -108,7 +107,6 @@ const routeIcons = {
   month: '📅',
   instructors: '🧑‍🏫',
   'end-dates': '⏳',
-  assignments: '📌',
   exceptions: '⚠️',
   finance: '💳',
   logout: '↩'
@@ -153,6 +151,9 @@ function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].
 function isInstructor() { return role() === 'instructor'; }
 function isDualMode() { return String(userState.IsDualMode || '').trim().toUpperCase() === 'BOTH'; }
 function currentPermission() { return getPermissionForUser(userState); }
+function canEditMasterCourses() {
+  return Boolean(currentPermission()?.canEditMasterData);
+}
 function canAccessEdenView() {
   const permission = currentPermission();
   if (permission) {
@@ -221,8 +222,17 @@ function toggleMobileNav(force) {
   loadRouteData();
 }
 
+function resetCoursesNavFromMenu() {
+  viewState.uiContext.coursesSubtitle = '';
+  viewState.courses.quickFilter = '';
+  viewState.courses.filters = {
+    authority: '', school: '', courseManager: '', employee: '', dateFrom: '', dateTo: '', monthStart: '', monthEnd: ''
+  };
+}
+
 function setRoute(route) {
   if (!isAuth() && route !== 'login') currentRoute = 'login';
+  else if (route === 'assignments') currentRoute = 'dashboard';
   else currentRoute = route;
   mobileNavOpen = false;
   document.body.classList.remove('nav-open');
@@ -273,7 +283,6 @@ function render() {
         ${nav('month', 'חודש')}
         ${nav('instructors', 'מדריכים')}
         ${nav('end-dates', 'תאריכי סיום')}
-        ${nav('assignments', 'שיבוץ')}
         ${nav('exceptions', 'חריגות')}
         ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? nav('finance', 'כספים') : ''}
         ${nav('my-requests', 'הבקשות שלי')}
@@ -295,6 +304,9 @@ function render() {
       clearUserState();
       setRoute('login');
       return;
+    }
+    if (route === 'courses' || route === 'instructor-view') {
+      resetCoursesNavFromMenu();
     }
     setRoute(route);
   }));
@@ -328,13 +340,13 @@ function renderScreen() {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
     main.innerHTML = head('דשבורד ראשי', '') + panel(viewState.dashboard, 'אין נתונים.',
-      `<section class="kpi-section"><div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
-        ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses', 'תצוגת כל הקורסים')}
+      `<section class="kpi-section dashboard-kpi-scope"><div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
+        ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses')}
         ${kpiCard('סך סדנאות', d.workshopsCount || 0, 'all_courses')}
-        ${kpiCard('מסתיימים החודש', d.endingCurrentMonthCount || 0, 'this_month', 'קורסים שמסתיימים החודש')}
+        ${kpiCard('מסתיימים החודש', d.endingCurrentMonthCount || 0, 'this_month')}
         ${kpiCard('פעילים החודש', d.activeThisMonthCount || 0, 'active_now')}
       </div></section>
-      <section class="dashboard-managers-grid">${managers.map((managerName) => `
+      <section class="dashboard-managers-grid dashboard-kpi-scope">${managers.map((managerName) => `
         <article class="panel-block dashboard-manager-column">
           <div class="panel-block-head"><h3>${esc(managerName)}</h3></div>
           <div class="kpi-grid dashboard-kpi-grid manager-kpi-grid">
@@ -351,7 +363,7 @@ function renderScreen() {
   }
 
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') {
-    const subtitle = viewState.uiContext.coursesSubtitle || (isInstructor() ? 'רק קורסים שמשויכים אליך' : 'תצוגה עסקית לפי הרשאות המשתמש');
+    const subtitle = viewState.uiContext.coursesSubtitle || (isInstructor() ? 'רק קורסים שמשויכים אליך' : '');
     const filteredCourses = applyCourseQuickFilter(viewState.courses.data);
     const selectedInstructor = viewState.courses.selectedInstructor;
     const instructorOverview = buildInstructorOverview(filteredCourses);
@@ -375,8 +387,8 @@ function renderScreen() {
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
     ${selectedInstructor ? `<section class="instructor-details-head"><span>מדריך</span><strong>${esc(selectedInstructor)}</strong><button class="btn btn-secondary" id="clearInstructorDetails">חזרה לכל המדריכים</button></section>` : ''}
-    ${renderCourseCards(visibleCourses, { canEdit: false, compact: currentRoute === 'courses', showInstructorManager: currentRoute === 'instructor-view' })}`) +
-    renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: false });
+    ${renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses(), compact: currentRoute === 'courses', showInstructorManager: currentRoute === 'instructor-view' })}`) +
+    renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     document.getElementById('filterCourses')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
@@ -410,10 +422,12 @@ function renderScreen() {
   if (currentRoute === 'week') {
     const weekCourses = getRoleScopedCourses(viewState.week.filters);
     const weekData = buildWeeklyBuckets(weekCourses, viewState.week.rangeStart);
+    const weekSideOpen = Boolean(viewState.week.selected || viewState.week.instructorPanel);
     main.innerHTML = head('שבוע', 'תמונת מצב שבועית תפעולית') +
+      `<div class="week-page-shell${weekSideOpen ? ' week-page-shell--open' : ''}"><div class="week-page-main">` +
       renderWeekFilters() +
       panel({ loading: viewState.week.loading, error: viewState.week.error, data: weekData.days }, 'אין מפגשים לשבוע זה.', renderWeekGrid(weekData.days)) +
-      renderWeekDetails(viewState.week.selected);
+      `</div>${viewState.week.selected ? renderWeekDetails(viewState.week.selected) : ''}${viewState.week.instructorPanel ? renderWeekInstructorSidePanel(viewState.week.instructorPanel) : ''}${weekSideOpen ? '<button type="button" class="week-side-backdrop" id="weekBackdrop" aria-label="סגור"></button>' : ''}</div>`;
     bindWeekActions(weekData);
     return;
   }
@@ -421,10 +435,13 @@ function renderScreen() {
   if (currentRoute === 'month') {
     const monthCourses = getRoleScopedCourses(viewState.month.filters);
     const monthData = buildMonthlyCalendar(monthCourses, viewState.month.monthDate);
+    const monthTitleNav = monthData.monthStart ? monthData.monthStart.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : '';
+    const sideOpen = Boolean(viewState.month.selectedDate);
     main.innerHTML = head('חודש', 'מבט חודשי על סטטוס קורסים') +
-      renderMonthFilters() +
+      `<div class="month-page-shell${sideOpen ? ' month-page-shell--open' : ''}"><div class="month-page-main">` +
+      renderMonthFilters(monthTitleNav) +
       panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
-      renderMonthDayDetails(monthData.selectedItems, viewState.month.selectedDate);
+      `</div>${sideOpen ? renderMonthSidePanel(monthData.selectedItems, viewState.month.selectedDate) : ''}${sideOpen ? '<button type="button" class="month-side-backdrop" id="monthBackdrop" aria-label="סגור"></button>' : ''}</div>`;
     bindMonthActions(monthData);
     return;
   }
@@ -448,15 +465,6 @@ function renderScreen() {
     return;
   }
 
-  if (currentRoute === 'assignments') {
-    const assignmentRows = buildAssignmentsRows(getRoleScopedCourses(viewState.assignments.filters));
-    main.innerHTML = head('שיבוץ', 'תצפית סטטוס לשיבוץ (ללא כתיבה)') +
-      renderAssignmentsFilters() +
-      panel({ loading: viewState.assignments.loading, error: viewState.assignments.error, data: assignmentRows }, 'אין נתוני שיבוץ להצגה.', renderAssignmentsTable(assignmentRows));
-    bindAssignmentsActions();
-    return;
-  }
-
   if (currentRoute === 'exceptions') {
     const exceptionRows = buildExceptionsRows(getStoreSnapshot().reviewItems || [], getRoleScopedCourses({}), viewState.exceptions.filters);
     main.innerHTML = head('חריגות', 'רק חוסרים מהותיים בקורסים') +
@@ -476,7 +484,11 @@ function renderScreen() {
     const showActive = viewState.finance.tab !== 'archive';
     const rows = showActive ? viewState.finance.activeItems : viewState.finance.archiveItems;
     const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
-    const financeSummary = summarizeFinanceBuckets(rows);
+    const dm = viewState.finance.displayMonth || '';
+    const filteredFinance = (rows || []).filter((item) => financeRowInDisplayMonth(item, dm));
+    const financeSummary = summarizeFinanceBuckets(filteredFinance);
+    const dmParsed = parseMonthValue(dm) || new Date();
+    const financeMonthLabel = dmParsed.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
     const emptyFinanceMessage = showActive
       ? 'אין נתוני גבייה פעילה להצגה. אם ציפית לנתונים, בדוק הרשאות או רענן FINANCE.'
       : 'אין נתוני ארכיון להצגה כרגע.';
@@ -492,14 +504,30 @@ function renderScreen() {
           ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן FINANCE</button>' : ''}
         </div>
       </section>
+      <section class="finance-month-toolbar">
+        <button type="button" class="btn btn-secondary" id="financeMonthPrev" aria-label="חודש קודם">◀</button>
+        <span class="finance-month-label">${esc(financeMonthLabel)}</span>
+        <button type="button" class="btn btn-secondary" id="financeMonthNext" aria-label="חודש הבא">▶</button>
+      </section>
       <section class="kpi-grid finance-kpi-grid">
         <article class="kpi-card"><span class="kpi-title">פתוח</span><span class="kpi-value">${financeSummary.open}</span></article>
         <article class="kpi-card"><span class="kpi-title">בטיפול</span><span class="kpi-value">${financeSummary.inProgress}</span></article>
         <article class="kpi-card"><span class="kpi-title">הושלם</span><span class="kpi-value">${financeSummary.completed}</span></article>
         <article class="kpi-card"><span class="kpi-title">דורש פעולה</span><span class="kpi-value">${financeSummary.needsAction}</span></article>
       </section>` +
-      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage, renderFinanceCards(rows, { showArchive: !showActive, canEdit })) +
+      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage, renderFinanceCards(rows, { showArchive: !showActive, canEdit, displayMonth: dm })) +
       renderFinanceDetailsPanel(rows.find((item) => String(item?.FinanceRowID || '') === viewState.finance.selectedFinanceRowId) || null);
+
+    document.getElementById('financeMonthPrev')?.addEventListener('click', () => {
+      viewState.finance.displayMonth = addMonthsToMonthString(viewState.finance.displayMonth || formatMonthInputLocal(new Date()), -1);
+      viewState.finance.selectedFinanceRowId = '';
+      renderScreen();
+    });
+    document.getElementById('financeMonthNext')?.addEventListener('click', () => {
+      viewState.finance.displayMonth = addMonthsToMonthString(viewState.finance.displayMonth || formatMonthInputLocal(new Date()), 1);
+      viewState.finance.selectedFinanceRowId = '';
+      renderScreen();
+    });
 
     document.querySelectorAll('[data-finance-tab]').forEach((button) => button.addEventListener('click', () => {
       viewState.finance.tab = button.dataset.financeTab || 'active';
@@ -520,7 +548,7 @@ function renderScreen() {
     });
     document.getElementById('financeExportBtn')?.addEventListener('click', () => {
       const fileName = `מסך_כספים_${formatIsoDateLocal(new Date())}.xlsx`;
-      exportFinanceToExcel(rows, fileName);
+      exportFinanceToExcel(filteredFinance, fileName);
     });
 
     document.querySelectorAll('[data-finance-status]').forEach((select) => select.addEventListener('change', async (event) => {
@@ -564,7 +592,7 @@ function renderScreen() {
 
   if (currentRoute === 'my-requests') {
     main.innerHTML = head('הבקשות שלי', 'טיוטות, סטטוסים והערות') + panel(viewState.requests, 'אין בקשות.',
-      table(viewState.requests.data, [['CourseLabel','קורס'],['ChangeSummary','תקציר'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], false));
+      table(viewState.requests.data, [['CourseLabel','קורס'],['ChangeSummary','תקציר'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], canEditMasterCourses()));
     return;
   }
 
@@ -694,7 +722,7 @@ function table(rows, cols, canEdit, canApprove) {
     const tdClass = WRAP_TABLE_FIELDS.has(fieldKey) ? 'cell-wrap' : '';
     if (fieldKey === 'ApprovalStatus') return `<td class="${tdClass}" title="${escAttr(textValue || '-')}"><span class="status-chip ${statusClass(rawValue)}">${statusLabel(rawValue)}</span></td>`;
     return `<td class="${tdClass}" title="${escAttr(textValue || '-')}">${renderCellContent(fieldKey, rawValue)}</td>`;
-  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">בקשת שינוי</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">אשר</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
+  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">${canEditMasterCourses() ? 'עריכה' : 'בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">אשר</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
@@ -718,32 +746,41 @@ function getUiFilterOptions() {
   };
 }
 
+function financeRowInDisplayMonth(item, displayMonth) {
+  if (!displayMonth) return true;
+  const candidates = ['MonthEnd', 'MonthStart', 'End', 'Period'].map((k) => parseDateLike(item?.[k])).filter(Boolean);
+  if (!candidates.length) return true;
+  return candidates.some((d) => formatMonthInputLocal(d) === displayMonth);
+}
+
 function renderFinanceCards(rows, options = {}) {
-  const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : []);
-  if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים.</section>';
+  const displayMonth = String(options.displayMonth || '').trim();
+  const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : []).filter((item) => financeRowInDisplayMonth(item, displayMonth));
+  if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים לחודש שנבחר.</section>';
   const showArchive = Boolean(options.showArchive);
   const canEdit = Boolean(options.canEdit);
   return `<section class="cards-grid finance-grid">${list.map((item) => {
     const financeRowId = String(item?.FinanceRowID || '');
-    const billingKey = String(item?.BillingGroupKey || '-');
     const status = String(item?.FinanceStatus || 'ממתין');
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const statusBucket = getFinanceStatusBucket(status);
+    const schoolLine = String(item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const programLine = String(item?.ProgramsList || item?.BillingGroupType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const authLine = String(item?.Authority || '').trim()
+      || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     return `<article class="management-card finance-card finance-${escAttr(statusBucket.key)}">
       <header class="card-head">
         <div>
-          <h3>${esc(item?.ProgramsList || item?.BillingGroupType || 'פריט כספי')}</h3>
-          <p class="card-subtitle">${esc(item?.Authority || '-')} · ${esc(item?.SchoolsList || '-')}</p>
+          <h3>${esc(schoolLine)} · ${esc(programLine)}</h3>
+          <p class="card-subtitle">${esc(authLine)}</p>
         </div>
         <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
       </header>
       <div class="card-meta">
-        <span><strong>רשות:</strong> ${esc(item?.Authority || '-')}</span>
-        <span><strong>בית ספר:</strong> ${esc(item?.SchoolsList || '-')}</span>
-        <span><strong>קורס:</strong> ${esc(item?.ProgramsList || '-')}</span>
+        <span><strong>רשות:</strong> ${esc(authLine)}</span>
       </div>
       <footer class="card-actions">
-        <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">פרטים</button>
+        <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">תאריכי ביצוע</button>
         ${canEdit ? `<label class=\"finance-status-edit\">סטטוס
           <select data-finance-status=\"1\" data-finance-row-id=\"${escAttr(financeRowId)}\" data-finance-sheet=\"${sourceSheet}\">
             ${renderStatusOption('ממתין', status)}
@@ -754,7 +791,7 @@ function renderFinanceCards(rows, options = {}) {
       </footer>
       ${canEdit ? `<details class="finance-inline-details"><summary>הערות ועדכון</summary><div class="finance-note-editor">
         <input data-finance-note-input="${escAttr(financeRowId)}" placeholder="הערות" value="${escAttr(item?.Notes || '')}" />
-        <button class="btn btn-secondary" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}">שמור הערה</button>
+        <button class="btn btn-secondary finance-save-note-btn" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}" title="שמור הערה">💾</button>
       </div></details>` : ''}
     </article>`;
   }).join('')}</section>`;
@@ -779,34 +816,19 @@ function renderStatusOption(value, selected) {
 
 function renderFinanceDetailsPanel(item) {
   if (!item) return '';
-  const financeLabels = [
-    ['FinanceRowID', 'מזהה שורת גבייה'],
-    ['End', 'תאריך סיום'],
-    ['MonthEnd', 'חודש סיום'],
-    ['MonthStart', 'חודש התחלה'],
-    ['Period', 'תקופה'],
-    ['Funding', 'גורם מימון'],
-    ['BillingGroupType', 'סוג ריכוז גבייה'],
-    ['BillingGroupKey', 'ערך ריכוז'],
-    ['AuthoritiesList', 'רשימת רשויות'],
-    ['SchoolsList', 'רשימת בתי ספר'],
-    ['ProgramsList', 'רשימת תוכניות'],
-    ['CourseIDsList', 'רשימת קורסים'],
-    ['RecordsCount', 'מספר רשומות מקור'],
-    ['PlannedMeetingsTotal', 'סך הכול מפגשים מתוכננים'],
-    ['ActualMeetingsTotal', 'סך הכול מפגשים בפועל'],
-    ['PaymentTotal', 'סך הכול לתשלום'],
-    ['SourceSheets', 'גיליונות מקור'],
-    ['SourceRows', 'שורות מקור'],
-    ['RowIDsList', 'מזהי שורות מקור'],
-    ['NotesSummary', 'סיכום הערות'],
-    ['FinanceStatus', 'סטטוס גבייה']
-  ];
+  const ids = String(item.CourseIDsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean);
+  const courses = getStoreSnapshot().courses || [];
+  const blocks = ids.map((id) => {
+    const row = courses.find((c) => String(c[COURSE_FIELDS.COURSE_ID] || '') === id);
+    if (!row) return `<div><strong>${esc(id)}</strong><p class="details-text">לא נמצא קורס במערכת</p></div>`;
+    const name = getBusinessCourseName(row);
+    const dates = getScheduleDates(row).map((d) => formatDate(d)).filter(Boolean);
+    return `<div><span>קורס</span><strong class="details-text">${esc(name)}</strong><p class="details-text">${esc(dates.length ? dates.join(', ') : 'אין תאריכי מפגש ברשומה')}</p></div>`;
+  });
+  const body = blocks.length ? blocks.join('') : '<p class="details-text">אין רשימת קורסים לשורה זו.</p>';
   return `<section class="details-panel">
-    <header><h3>פרטי סל גבייה</h3></header>
-    <div class="details-grid">
-      ${financeLabels.map(([field, label]) => `<div><span>${esc(label)}</span><strong class="details-text">${esc(String(item?.[field] ?? '-'))}</strong></div>`).join('')}
-    </div>
+    <header><h3>תאריכי ביצוע לפי קורס</h3></header>
+    <div class="details-grid">${body}</div>
   </section>`;
 }
 
@@ -840,10 +862,6 @@ function buildCourseHierarchyDetails(row = {}) {
 function renderCourseHierarchyStrip(row = {}) {
   const hierarchy = buildCourseHierarchyDetails(row);
   const segments = [
-    hierarchy.instructor && `<span><strong>מדריך:</strong> ${esc(hierarchy.instructor)}</span>`,
-    hierarchy.programActivity && `<span><strong>קורס:</strong> ${esc(hierarchy.programActivity)}</span>`,
-    hierarchy.school && `<span><strong>בית ספר:</strong> ${esc(hierarchy.school)}</span>`,
-    hierarchy.authority && `<span><strong>רשות:</strong> ${esc(hierarchy.authority)}</span>`,
     hierarchy.meetingsTotal ? `<span><strong>מפגשים שבוצעו:</strong> ${esc(String(hierarchy.meetingsCompleted))} / ${esc(String(hierarchy.meetingsTotal))}</span>` : '',
     (!hierarchy.isCompleted && hierarchy.meetingsRemaining > 0) ? `<span><strong>מפגשים שנותרו:</strong> ${esc(String(hierarchy.meetingsRemaining))}</span>` : '',
     (!hierarchy.isCompleted && hierarchy.nextMeetingDate) ? `<span><strong>מפגש קרוב:</strong> ${esc(hierarchy.nextMeetingDate)}</span>` : '',
@@ -897,6 +915,7 @@ function renderCourseCards(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const managerLabel = options.showInstructorManager ? 'מנהל מדריכים' : 'מנהל קורס';
   const managerValue = (row) => options.showInstructorManager ? row.InstructorManager : row.CourseManager;
+  const canEdit = Boolean(options.canEdit);
   return `<section class="cards-grid course-cards-grid ${options.compact ? 'cards-grid-compact' : ''}">${rows.map((row) => {
     const issueText = summarizeIssue(row);
     const progress = courseProgress(row);
@@ -930,7 +949,7 @@ function renderCourseCards(rows, options = {}) {
       ${renderCourseSecondaryDetails(row)}
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
-        <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
+        <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">${canEdit ? 'עריכה' : 'שלח בקשת שינוי'}</button>
       </footer>`;
     return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
@@ -1099,6 +1118,14 @@ function firstDate(row, names) {
     if (parsed) return parsed;
   }
   return null;
+}
+
+function isCourseShownOnCoursesScreen(row) {
+  const startOfCurrentMonth = startOfDay(new Date());
+  startOfCurrentMonth.setDate(1);
+  const end = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
+  if (end && end < startOfCurrentMonth) return false;
+  return true;
 }
 
 function getScheduleDates(row) {
@@ -1687,6 +1714,9 @@ async function loadWeekView() {
 }
 
 async function loadMonthView() {
+  if (!viewState.month.monthDate) {
+    viewState.month.monthDate = formatMonthInputLocal(new Date());
+  }
   viewState.month.loading = true;
   viewState.month.error = '';
   renderScreen();
@@ -1725,19 +1755,6 @@ async function loadEndDatesView() {
   renderScreen();
 }
 
-async function loadAssignmentsView() {
-  viewState.assignments.loading = true;
-  viewState.assignments.error = '';
-  renderScreen();
-  try {
-    await Promise.all([reloadCourses(), loadReviewItems(true)]);
-  } catch (error) {
-    viewState.assignments.error = 'לא ניתן לרענן נתוני קורסים לשיבוץ.';
-  }
-  viewState.assignments.loading = false;
-  renderScreen();
-}
-
 async function loadExceptionsView() {
   viewState.exceptions.loading = true;
   viewState.exceptions.error = '';
@@ -1763,12 +1780,13 @@ function renderWeekFilters() {
 }
 
 function renderWeekGrid(days) {
+  const todayIso = formatIsoDateLocal(startOfDay(new Date()));
   return `<section class="week-grid">${days.map((day) => {
     const groupedItems = groupDayItemsByInstructor(day.items);
     const countText = day.isShabbat ? '' : `${day.items.length} פעילויות`;
     const dayTitle = day.weekdayLabel;
     const emptyState = day.isShabbat ? '' : '<div class="panel-empty">אין מפגשים</div>';
-    return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''}">
+    return `<article class="panel-block week-day-column ${day.isShabbat ? 'week-day-shabbat' : ''} ${day.isoDate === todayIso ? 'week-day-today' : ''}">
       <div class="panel-block-head week-day-head">
         <h3>${esc(dayTitle)}</h3>
         <small class="week-day-date">${esc(day.dateLabel)}</small>
@@ -1779,9 +1797,9 @@ function renderWeekGrid(days) {
   }).join('')}</section>`;
 }
 
-function renderWeekInstructorAccordion(day, group, index) {
+function renderWeekInstructorAccordion(day, group) {
   const suffix = group.items.length > 1 ? ' ➕' : '';
-  return `<article class="mini-card week-session-card"><strong>${esc(`${group.instructor}${suffix}`)}</strong></article>`;
+  return `<button type="button" class="mini-card week-session-card week-instructor-tile" data-week-instructor-day="${escAttr(day.isoDate)}" data-week-instructor="${escAttr(group.instructor)}"><strong>${esc(`${group.instructor}${suffix}`)}</strong></button>`;
 }
 
 function groupDayItemsByInstructor(items) {
@@ -1798,12 +1816,24 @@ function groupDayItemsByInstructor(items) {
 
 function renderWeekDetails(selected) {
   if (!selected) return '';
-  return `<section class="panel-block"><div class="panel-block-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button class="btn btn-secondary" id="weekCloseDetails">סגור</button></div>${selected.items.map((item) => {
+  return `<aside class="week-side-panel" id="weekSidePanel"><div class="week-side-panel-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button type="button" class="btn btn-secondary" id="weekCloseDetails">סגור</button></div><div class="week-side-panel-body">${selected.items.map((item) => {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
     const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span>`;
     const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item[COURSE_FIELDS.DATE])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
     return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
-  }).join('')}</section>`;
+  }).join('')}</div></aside>`;
+}
+
+function renderWeekInstructorSidePanel(panel) {
+  if (!panel || !panel.items?.length) return '';
+  const dayLabel = formatDate(parseDateLike(panel.dayIso)) || panel.dayIso || '';
+  const body = panel.items.map((item) => {
+    const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
+    const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span>`;
+    const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item[COURSE_FIELDS.DATE])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button></div>`;
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
+  }).join('');
+  return `<aside class="week-side-panel" id="weekSidePanel"><div class="week-side-panel-head"><h3 class="section-title">${esc(panel.instructor)} — ${esc(dayLabel)}</h3><button type="button" class="btn btn-secondary" id="weekCloseDetails">סגור</button></div><div class="week-side-panel-body">${body}</div></aside>`;
 }
 
 function bindWeekActions(weekData) {
@@ -1820,6 +1850,7 @@ function bindWeekActions(weekData) {
     viewState.week.filters = { authority: '', employee: '', courseManager: '' };
     viewState.week.rangeStart = '';
     viewState.week.selected = null;
+    viewState.week.instructorPanel = null;
     renderScreen();
   });
   document.getElementById('weekPrev')?.addEventListener('click', () => {
@@ -1827,6 +1858,7 @@ function bindWeekActions(weekData) {
     const prev = new Date(current.getFullYear(), current.getMonth(), current.getDate() - 7);
     viewState.week.rangeStart = formatIsoDateLocal(prev);
     viewState.week.selected = null;
+    viewState.week.instructorPanel = null;
     renderScreen();
   });
   document.getElementById('weekNext')?.addEventListener('click', () => {
@@ -1834,11 +1866,23 @@ function bindWeekActions(weekData) {
     const next = new Date(current.getFullYear(), current.getMonth(), current.getDate() + 7);
     viewState.week.rangeStart = formatIsoDateLocal(next);
     viewState.week.selected = null;
+    viewState.week.instructorPanel = null;
     renderScreen();
   });
   document.querySelectorAll('[data-week-open]').forEach((button) => button.addEventListener('click', () => {
     const day = weekData.days.find((item) => item.isoDate === button.dataset.weekOpen);
+    viewState.week.instructorPanel = null;
     viewState.week.selected = day || null;
+    renderScreen();
+  }));
+  document.querySelectorAll('.week-instructor-tile').forEach((button) => button.addEventListener('click', () => {
+    const dayIso = button.dataset.weekInstructorDay || '';
+    const instructor = button.dataset.weekInstructor || '';
+    const day = weekData.days.find((item) => item.isoDate === dayIso);
+    const group = day ? groupDayItemsByInstructor(day.items).find((g) => g.instructor === instructor) : null;
+    if (!group) return;
+    viewState.week.selected = null;
+    viewState.week.instructorPanel = { dayIso, instructor, items: group.items };
     renderScreen();
   }));
   document.querySelectorAll('[data-week-exception-open]').forEach((button) => button.addEventListener('click', () => {
@@ -1852,6 +1896,12 @@ function bindWeekActions(weekData) {
   bindCourseActions();
   document.getElementById('weekCloseDetails')?.addEventListener('click', () => {
     viewState.week.selected = null;
+    viewState.week.instructorPanel = null;
+    renderScreen();
+  });
+  document.getElementById('weekBackdrop')?.addEventListener('click', () => {
+    viewState.week.selected = null;
+    viewState.week.instructorPanel = null;
     renderScreen();
   });
 }
@@ -1875,7 +1925,7 @@ function buildWeeklyBuckets(courses, weekStartValue) {
   const days = TAASIYEDA_CONFIG.weekdays.map((weekday, idx) => {
     const current = new Date(start.getTime() + (idx * 24 * 60 * 60 * 1000));
     return {
-      weekdayLabel: current.toLocaleDateString('he-IL', { weekday: 'long' }),
+      weekdayLabel: idx === 6 ? 'ש' : current.toLocaleDateString('he-IL', { weekday: 'long' }),
       dateLabel: current.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }),
       label: current.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }),
       isShabbat: idx === 6,
@@ -1905,9 +1955,16 @@ function buildWeeklyBuckets(courses, weekStartValue) {
   return { days, start };
 }
 
-function renderMonthFilters() {
+function renderMonthFilters(monthTitleDisplay = '') {
   const options = getUiFilterOptions();
-  return `<section class="filters-wrap"><label>חודש<input id="monthDate" type="month" value="${escAttr(viewState.month.monthDate)}" /></label><label>רשות<select id="monthAuthority">${renderSelectOptions(options.authority, viewState.month.filters.authority)}</select></label><label>מדריך<select id="monthEmployee">${renderSelectOptions(options.employee, viewState.month.filters.employee)}</select></label><label>מנהל קורס<select id="monthCourseManager">${renderSelectOptions(options.courseManager, viewState.month.filters.courseManager)}</select></label><label>תוכנית<select id="monthProgram">${renderSelectOptions(options.program, viewState.month.filters.program)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="monthApply">סינון</button><button class="btn btn-secondary" id="monthReset">נקה סינון</button></div></section>`;
+  const hiddenMonth = viewState.month.monthDate || formatMonthInputLocal(new Date());
+  return `<section class="filters-wrap month-filters-wrap"><div class="month-nav-centered">
+    <button type="button" class="btn btn-secondary" id="monthNavPrev" aria-label="חודש קודם">◀</button>
+    <span class="month-nav-label">${esc(monthTitleDisplay)}</span>
+    <button type="button" class="btn btn-secondary" id="monthNavNext" aria-label="חודש הבא">▶</button>
+  </div>
+  <input type="hidden" id="monthDate" value="${escAttr(hiddenMonth)}" />
+  <label>רשות<select id="monthAuthority">${renderSelectOptions(options.authority, viewState.month.filters.authority)}</select></label><label>מדריך<select id="monthEmployee">${renderSelectOptions(options.employee, viewState.month.filters.employee)}</select></label><label>מנהל קורס<select id="monthCourseManager">${renderSelectOptions(options.courseManager, viewState.month.filters.courseManager)}</select></label><label>תוכנית<select id="monthProgram">${renderSelectOptions(options.program, viewState.month.filters.program)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="monthApply">סינון</button><button class="btn btn-secondary" id="monthReset">נקה סינון</button></div></section>`;
 }
 
 function buildMonthlyCalendar(courses, monthValue) {
@@ -1930,7 +1987,9 @@ function renderMonthGrid(days) {
   const monthTitle = firstDate ? firstDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : '';
   const firstWeekday = firstDate ? firstDate.getDay() : 0;
   const leadingCells = Array.from({ length: firstWeekday }).map(() => '<div class="month-day month-day-empty" aria-hidden="true"></div>').join('');
-  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'].map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''}" data-month-open="${escAttr(day.isoDate)}"><span class="month-status-indicator ${day.hasException ? 'has-issue' : 'is-ok'}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span>${day.items.length} קורסים</span><small>${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`).join('')}</section>`;
+  const todayIso = formatIsoDateLocal(startOfDay(new Date()));
+  const weekdayNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש'];
+  return `<div class="month-header">${esc(monthTitle)}</div><section class="month-grid">${weekdayNames.map((name) => `<div class="month-weekday">${name}</div>`).join('')}${leadingCells}${days.map((day) => `<button class="month-day ${day.hasException ? 'has-exception' : ''} ${day.isoDate === todayIso ? 'month-day-today' : ''}" data-month-open="${escAttr(day.isoDate)}"><span class="month-status-indicator ${day.hasException ? 'has-issue' : 'is-ok'}"></span><div class="month-day-head"><strong>${day.day}</strong>${day.hasException ? '<span class="status-chip status-declined compact-badge">!</span>' : ''}</div><span class="month-day-count">${day.items.length} פעילויות</span><small class="month-day-date-label">${esc(formatDate(parseDateLike(day.isoDate)))}</small></button>`).join('')}</section>`;
 }
 
 function renderMonthDayDetails(items, dateLabel) {
@@ -1943,9 +2002,30 @@ function renderMonthDayDetails(items, dateLabel) {
   }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
 }
 
+function renderMonthSidePanel(items, dateLabel) {
+  if (!dateLabel) return '';
+  const inner = items.map((item) => {
+    const hierarchy = buildCourseHierarchyDetails(item);
+    const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>`;
+    const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(`${hierarchy.meetingsCompleted}/${hierarchy.meetingsTotal || 0} בוצעו`)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
+  }).join('') || '<div class="panel-empty">אין מפגשים</div>';
+  return `<aside class="month-side-panel" id="monthSidePanel"><div class="month-side-panel-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button type="button" class="btn btn-secondary" id="monthCloseDetails">סגור</button></div><div class="month-side-panel-body">${inner}</div></aside>`;
+}
+
 function bindMonthActions(monthData) {
+  document.getElementById('monthNavPrev')?.addEventListener('click', () => {
+    viewState.month.monthDate = addMonthsToMonthString(viewState.month.monthDate || formatMonthInputLocal(new Date()), -1);
+    viewState.month.selectedDate = '';
+    renderScreen();
+  });
+  document.getElementById('monthNavNext')?.addEventListener('click', () => {
+    viewState.month.monthDate = addMonthsToMonthString(viewState.month.monthDate || formatMonthInputLocal(new Date()), 1);
+    viewState.month.selectedDate = '';
+    renderScreen();
+  });
   document.getElementById('monthApply')?.addEventListener('click', () => {
-    viewState.month.monthDate = document.getElementById('monthDate')?.value.trim() || '';
+    viewState.month.monthDate = document.getElementById('monthDate')?.value.trim() || formatMonthInputLocal(new Date());
     viewState.month.filters = {
       authority: document.getElementById('monthAuthority')?.value.trim() || '',
       employee: document.getElementById('monthEmployee')?.value.trim() || '',
@@ -1955,7 +2035,7 @@ function bindMonthActions(monthData) {
     renderScreen();
   });
   document.getElementById('monthReset')?.addEventListener('click', () => {
-    viewState.month.monthDate = '';
+    viewState.month.monthDate = formatMonthInputLocal(new Date());
     viewState.month.filters = { authority: '', employee: '', courseManager: '', program: '' };
     viewState.month.selectedDate = '';
     renderScreen();
@@ -1965,6 +2045,10 @@ function bindMonthActions(monthData) {
     renderScreen();
   }));
   document.getElementById('monthCloseDetails')?.addEventListener('click', () => {
+    viewState.month.selectedDate = '';
+    renderScreen();
+  });
+  document.getElementById('monthBackdrop')?.addEventListener('click', () => {
     viewState.month.selectedDate = '';
     renderScreen();
   });
@@ -2134,53 +2218,6 @@ function bindEndDatesActions() {
   }));
 }
 
-function renderAssignmentsFilters() {
-  const options = getUiFilterOptions();
-  return `<section class="filters-wrap"><label>רשות<select id="assignAuthority">${renderSelectOptions(options.authority, viewState.assignments.filters.authority)}</select></label><label>תוכנית<select id="assignProgram">${renderSelectOptions(options.program, viewState.assignments.filters.program)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="assignApply">סינון</button><button class="btn btn-secondary" id="assignReset">נקה סינון</button></div></section>`;
-}
-
-function buildAssignmentsRows(courses) {
-  const programFilter = String(viewState.assignments.filters.program || '').trim().toLowerCase();
-  const byInstructor = new Map();
-  (courses || []).forEach((course) => {
-    if (programFilter) {
-      const programText = `${String(getCourseField(course, COURSE_FIELDS.PROGRAM) || '')} ${String(getCourseField(course, COURSE_FIELDS.PROGRAM_CODE) || '')}`.toLowerCase();
-      if (!programText.includes(programFilter)) return;
-    }
-    const key = String(course[COURSE_FIELDS.EMPLOYEE_ID] || resolveInstructorName(course) || 'לא משויך');
-    if (!byInstructor.has(key)) byInstructor.set(key, []);
-    byInstructor.get(key).push(course);
-  });
-  return Array.from(byInstructor.values()).map((list) => {
-    const instructor = resolveInstructorName(list[0]) || 'לא משויך';
-    const activeCourses = list.length;
-    const upcomingMeetings = list.reduce((sum, course) => sum + getScheduleDates(course).filter((dateObj) => dateObj >= startOfDay(new Date())).length, 0);
-    const authorities = Array.from(new Set(list.map((course) => getCourseField(course, COURSE_FIELDS.AUTHORITY)).filter(Boolean)));
-    const schools = Array.from(new Set(list.map((course) => getCourseField(course, COURSE_FIELDS.SCHOOL)).filter(Boolean)));
-    const hasIssues = list.some((course) => hasOperationalIssue(course));
-    return { instructor, activeCourses, upcomingMeetings, authorities, schools, hasIssues };
-  }).sort((a, b) => b.upcomingMeetings - a.upcomingMeetings);
-}
-
-function renderAssignmentsTable(rows) {
-  const body = rows.map((row) => `<tr><td>${esc(row.instructor)}</td><td>${esc(row.activeCourses)}</td><td>${esc(row.upcomingMeetings)}</td><td>${esc(row.authorities.join(', ') || '-')}</td><td>${esc(row.schools.join(', ') || '-')}</td><td><span class="status-chip ${row.hasIssues ? 'status-pending' : 'status-approved'}">${row.hasIssues ? 'דורש טיפול' : 'תקין'}</span></td></tr>`).join('');
-  return `<section class="table-wrap"><table><thead><tr><th>מדריך</th><th>קורסים פעילים</th><th>מפגשים קרובים</th><th>רשויות</th><th>בתי ספר</th><th>סטטוס</th></tr></thead><tbody>${body || '<tr><td colspan=\"6\">אין נתונים</td></tr>'}</tbody></table></section>`;
-}
-
-function bindAssignmentsActions() {
-  document.getElementById('assignApply')?.addEventListener('click', () => {
-    viewState.assignments.filters = {
-      authority: document.getElementById('assignAuthority')?.value.trim() || '',
-      program: document.getElementById('assignProgram')?.value.trim() || ''
-    };
-    renderScreen();
-  });
-  document.getElementById('assignReset')?.addEventListener('click', () => {
-    viewState.assignments.filters = { authority: '', program: '' };
-    renderScreen();
-  });
-}
-
 function renderExceptionsFilters() {
   const options = getUiFilterOptions();
   return `<section class="filters-wrap"><label>מדריך<select id="exceptionsEmployee">${renderSelectOptions(options.employee, viewState.exceptions.filters.employee)}</select></label><label>רשות<select id="exceptionsAuthority">${renderSelectOptions(options.authority, viewState.exceptions.filters.authority)}</select></label><label>מנהל קורס<select id="exceptionsManager">${renderSelectOptions(options.courseManager, viewState.exceptions.filters.courseManager)}</select></label><label>סטטוס טיפול<select id="exceptionsTreatment">${renderSelectOptions(['open', 'resolved'], viewState.exceptions.filters.treatmentStatus)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="exceptionsApply">סינון</button><button class="btn btn-secondary" id="exceptionsReset">נקה סינון</button></div></section>`;
@@ -2216,7 +2253,7 @@ function buildExceptionsRows(reviewRows, courses, filters) {
 function renderExceptionsCards(rows) {
   return `<section class="cards-grid">${rows.map((row) => {
     const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
-    const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
+    const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button></div>`;
     return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
 }
@@ -2270,6 +2307,17 @@ function formatIsoDateLocal(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function formatMonthInputLocal(date) {
+  if (!date) return '';
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function addMonthsToMonthString(monthStr, delta) {
+  const d = parseMonthValue(monthStr) || new Date();
+  const next = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+  return formatMonthInputLocal(next);
+}
+
 function cssEscape(value) {
   return String(value || '').replace(/"/g, '\\"');
 }
@@ -2304,7 +2352,9 @@ async function onLogin(event) {
     return;
   }
   setUserState(res);
+  const dashboardPromise = api.getDashboard();
   await initDataEngine(api, { userState });
+  await dashboardPromise;
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
   setRoute('dashboard');
@@ -2318,7 +2368,6 @@ async function loadRouteData() {
   if (currentRoute === 'month') return loadMonthView();
   if (currentRoute === 'instructors') return loadInstructorsView();
   if (currentRoute === 'end-dates') return loadEndDatesView();
-  if (currentRoute === 'assignments') return loadAssignmentsView();
   if (currentRoute === 'exceptions') return loadExceptionsView();
   if (currentRoute === 'finance') return loadFinanceView();
   if (currentRoute === 'my-requests') return loadMyRequests();
@@ -2347,7 +2396,7 @@ async function loadCourses(options = {}) {
   const filtered = getCoursesForUser(userState, viewState.courses.filters);
   viewState.courses.loading = false;
   viewState.courses.error = '';
-  viewState.courses.data = applyCoursesFiltersByUiScope(filtered, viewState.courses.filters);
+  viewState.courses.data = applyCoursesFiltersByUiScope(filtered, viewState.courses.filters).filter(isCourseShownOnCoursesScreen);
   viewState.courses.filterOptions = buildFilterOptions(getCoursesForUser(userState, {}));
   if (viewState.courses.selectedCourseId) {
     viewState.courses.selectedCourseDetails = viewState.courses.data.find((item) => String(item.CourseID) === viewState.courses.selectedCourseId) || null;
@@ -2383,6 +2432,11 @@ async function loadMyRequests() {
 
 async function loadFinanceView(options = {}) {
   const { silent = false, force = false } = options;
+  if (!viewState.finance.displayMonth) {
+    const prev = new Date();
+    prev.setMonth(prev.getMonth() - 1);
+    viewState.finance.displayMonth = formatMonthInputLocal(prev);
+  }
   if (!silent) {
     viewState.finance.loading = true;
     viewState.finance.error = '';
@@ -2723,7 +2777,9 @@ async function boot() {
     const profile = await api.getSessionProfile();
     if (profile?.authenticated) {
       setUserState(profile);
+      const dashboardPromise = api.getDashboard();
       await initDataEngine(api, { userState });
+      await dashboardPromise;
       setRoute('dashboard');
       return;
     }

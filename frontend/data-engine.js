@@ -148,13 +148,17 @@ export async function reloadCourses() {
 
 export async function initDataEngine(api, options = {}) {
   apiRef = api;
-  const [courses, permissions, lists, programCodes] = await Promise.all([
+  const [courses, permissions] = await Promise.all([
     loadCourses(),
-    loadPermissions(options.userState),
-    loadLists(),
-    loadProgramCodes()
+    loadPermissions(options.userState)
   ]);
-  return { courses, permissions, lists, programCodes };
+  void Promise.all([loadLists(), loadProgramCodes()]).catch(() => {});
+  return {
+    courses,
+    permissions,
+    lists: dataStore.lists,
+    programCodes: dataStore.programCodes
+  };
 }
 
 export async function loadPermissions(userState = {}) {
