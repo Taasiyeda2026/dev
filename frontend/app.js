@@ -35,7 +35,6 @@ const APP_NAME = 'Dashboard Taasiyeda';
 let currentRoute = 'login';
 let mobileNavOpen = false;
 let sidebarOpen = true;
-let topSubbarOpen = true;
 const recentlyResolvedExceptions = new Set();
 
 const viewState = {
@@ -230,11 +229,6 @@ function toggleMobileNav(force) {
   loadRouteData();
 }
 
-function toggleTopSubbar() {
-  topSubbarOpen = !topSubbarOpen;
-  render();
-}
-
 function toggleSidebar() {
   sidebarOpen = !sidebarOpen;
   if (!sidebarOpen) {
@@ -326,25 +320,20 @@ function render() {
         <section class="main-shell">
           <header class="app-top-header">
             <div class="app-top-header-brand-wrap">
-              <button class="app-sidebar-toggle" id="headerSidebarToggle" type="button" aria-expanded="${isMobileViewport() ? (mobileNavOpen ? 'true' : 'false') : (sidebarOpen ? 'true' : 'false')}" aria-label="${isMobileViewport() ? (mobileNavOpen ? 'סגור סרגל צד' : 'פתח סרגל צד') : (sidebarOpen ? 'סגור סרגל צד' : 'פתח סרגל צד')}">
-                <span aria-hidden="true">${isMobileViewport() ? (mobileNavOpen ? '✕' : '☰') : (sidebarOpen ? '⇥' : '⇤')}</span>
-              </button>
               <div class="app-top-header-brand">${APP_NAME}</div>
+              <div class="app-top-header-page-title">${esc(routeLabels[currentRoute] || routeLabels.dashboard)}</div>
             </div>
             <div class="app-top-header-user">
               <div class="app-top-header-user-text">
                 <strong>עידן נחום</strong>
                 <span>מנהל מערכת ראשי</span>
               </div>
-              <button class="app-top-header-toggle" id="topSubbarToggle" type="button" aria-expanded="${topSubbarOpen ? 'true' : 'false'}" aria-label="${topSubbarOpen ? 'סגור סרגל עליון' : 'פתח סרגל עליון'}">
-                <span class="app-top-header-arrow" aria-hidden="true">${topSubbarOpen ? '▾' : '▸'}</span>
+              <button class="app-top-header-toggle" id="topSubbarToggle" type="button" aria-expanded="${isMobileViewport() ? (mobileNavOpen ? 'true' : 'false') : (sidebarOpen ? 'true' : 'false')}" aria-label="${isMobileViewport() ? (mobileNavOpen ? 'סגור סרגל צד' : 'פתח סרגל צד') : (sidebarOpen ? 'סגור סרגל צד' : 'פתח סרגל צד')}">
+                <span class="app-top-header-arrow" aria-hidden="true">${isMobileViewport() ? (mobileNavOpen ? '✕' : '☰') : (sidebarOpen ? '⇥' : '⇤')}</span>
               </button>
             </div>
           </header>
-          <div class="app-top-subbar ${topSubbarOpen ? 'open' : 'closed'}" id="topSubbar">
-            <span>${esc(routeLabels[currentRoute] || routeLabels.dashboard)}</span>
-          </div>
-          <main class="main ${topSubbarOpen ? '' : 'main--expanded'}" id="main"></main>
+          <main class="main" id="main"></main>
         </section>
       </div>
     </div>
@@ -369,14 +358,13 @@ function render() {
 
   document.getElementById('mobileNavToggle')?.addEventListener('click', () => toggleMobileNav());
   document.getElementById('mobileNavBackdrop')?.addEventListener('click', () => toggleMobileNav(false));
-  document.getElementById('topSubbarToggle')?.addEventListener('click', toggleTopSubbar);
-  document.getElementById('headerSidebarToggle')?.addEventListener('click', toggleHeaderSidebarControl);
+  document.getElementById('topSubbarToggle')?.addEventListener('click', toggleHeaderSidebarControl);
 
   renderScreen();
 }
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
-function head(title, sub) { return `<header class="screen-head"><div><h2>${title}</h2>${sub ? `<p>${sub}</p>` : ''}</div></header>`; }
+function head(_title, sub) { return sub ? `<header class="screen-head"><p>${sub}</p></header>` : ''; }
 
 function getBusinessCourseName(row = {}) {
   return getCourseField(row, COURSE_FIELDS.PROGRAM)
