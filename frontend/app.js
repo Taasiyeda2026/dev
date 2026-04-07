@@ -658,6 +658,7 @@ function renderScreen() {
     <section class="filters-wrap">
       <button class="btn btn-secondary" id="edenStartExisting">פתיחת שינוי על רשומה קיימת</button>
       <button class="btn btn-primary" id="edenStartNew">יצירת רשומה חדשה (יוזמת עדן)</button>
+      <span class="status-chip">New Record = טופס מלא ידני בלבד</span>
     </section>
     <section class="filters-wrap">
       <label>סטטוס<select id="edenWorkflowFilter">${renderSelectOptions(['pending_eden','eden_saved','pending_final','final_approved','final_rejected','closed'], viewState.eden.filters.workflow)}</select></label>
@@ -871,6 +872,8 @@ function renderFinanceCards(rows, options = {}) {
   const canEdit = Boolean(options.canEdit);
   return `<section class="cards-grid finance-grid">${list.map((item) => {
     const financeRowId = String(item?.FinanceRowID || '');
+    const rowId = String(item?.RowID || '-');
+    const courseId = String(item?.CourseID || '-');
     const status = String(item?.FinanceStatus || 'ממתין');
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const statusBucket = getFinanceStatusBucket(status);
@@ -895,11 +898,15 @@ function renderFinanceCards(rows, options = {}) {
         <span><strong>רשות:</strong> ${esc(authLine)}</span>
         <span><strong>בית ספר:</strong> ${esc(schoolLine)}</span>
         <span><strong>מדריך:</strong> ${esc(String(item?.Instructor || '-'))}</span>
+        <span><strong>מנהל קורס:</strong> ${esc(String(item?.CourseManager || '-'))}</span>
+        <span><strong>FinanceRowID:</strong> ${esc(financeRowId || '-')}</span>
+        <span><strong>RowID:</strong> ${esc(rowId)}</span>
+        <span><strong>CourseID:</strong> ${esc(courseId)}</span>
         <span><strong>כל התאריכים:</strong> ${esc(datesLine || '-')}</span>
         <span><strong>גורם מימון:</strong> ${esc(String(item?.Funding || '-'))}</span>
-        <span><strong>גורם משלם:</strong> ${esc(String(item?.Payer || item?.Payer || '-'))}</span>
+        <span><strong>גורם משלם:</strong> ${esc(String(item?.Payer || '-'))}</span>
         <span><strong>מפגשים:</strong> ${esc(String(item?.DatesListedCount || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
-        <span><strong>עלות / תשלום:</strong> ${esc(String(item?.Payment || item?.Payment || '-'))}</span>
+        <span><strong>עלות / תשלום:</strong> ${esc(String(item?.Payment || '-'))}</span>
         <span><strong>סטטוס:</strong> ${esc(status || '-')}</span>
         <span><strong>הערות:</strong> ${esc(String(item?.FinanceNotes || '-'))}</span>
       </div>
@@ -940,7 +947,7 @@ function renderStatusOption(value, selected) {
 
 function renderFinanceDetailsPanel(item) {
   if (!item) return '';
-  const ids = String(item.CourseIDsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean);
+  const ids = String(item.CourseIDsList || item.CourseID || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean);
   const courses = getStoreSnapshot().courses || [];
   const blocks = ids.map((id) => {
     const row = courses.find((c) => String(c[COURSE_FIELDS.COURSE_ID] || '') === id);
@@ -1845,14 +1852,18 @@ function openCourseActionForm(course, mode) {
   });
 }
 
-function openAddRecordForm() {
+function openAddRecordForm(options = {}) {
+  const formTitle = String(options?.title || 'יצירת רשומה חדשה');
+  const submitLabel = String(options?.submitLabel || 'יצירה');
+  const enforceCourseId = Boolean(options?.enforceCourseId);
   return new Promise((resolve) => {
     const root = document.createElement('div');
     root.className = 'course-form-modal';
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card">
-        <h3>יצירת רשומה חדשה</h3>
+        <h3>${esc(formTitle)}</h3>
+        <p class="details-text">מצב New Record פעיל: הזנה ידנית מלאה ללא טעינת רשומה קיימת.</p>
         <label>CourseID (אופציונלי)<input id="newCourseId" placeholder="אם ריק ייווצר אוטומטית" /></label>
         <label>Program<input id="newProgram" /></label>
         <label>EventType<input id="newActivity" /></label>
@@ -1864,7 +1875,7 @@ function openAddRecordForm() {
         <label>Payment<input id="newPayment" type="number" step="0.01" min="0" /></label>        <label>Notes<input id="newNotes" /></label>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
-          <button class="btn btn-primary" id="newRecordSubmit">יצירה</button>
+          <button class="btn btn-primary" id="newRecordSubmit">${esc(submitLabel)}</button>
         </div>
       </div>
     `;
@@ -1890,6 +1901,10 @@ function openAddRecordForm() {
       };
       if (!out.Program && !out.EventType) {
         showToast('יש להזין לפחות Program או EventType.', 'warning');
+        return;
+      }
+      if (enforceCourseId && !out.CourseID) {
+        showToast('במצב New Record יש להזין CourseID.', 'warning');
         return;
       }
       close(out);
@@ -1953,10 +1968,15 @@ function bindEdenActions() {
   });
 
   document.getElementById('edenStartNew')?.addEventListener('click', async () => {
-    const draftCourseId = await openEdenCoursePicker();
-    const requestedData = draftCourseId ? { CourseID: draftCourseId } : {};
+    const newRecordInput = await openAddRecordForm({
+      title: 'יצירת רשומה חדשה (מצב New Record)',
+      submitLabel: 'פתיחת New Record',
+      enforceCourseId: true
+    });
+    if (!newRecordInput) return;
+    const requestedData = { ...newRecordInput };
     const res = await api.createEditRequest({
-      CourseID: draftCourseId,
+      CourseID: requestedData.CourseID,
       ApprovalStatus: 'pending_eden',
       Origin: 'EDEN_INITIATED',
       ChangeType: 'NEW_RECORD',
