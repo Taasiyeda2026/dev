@@ -34,6 +34,7 @@ const app = document.getElementById('app');
 const APP_NAME = 'Dashboard Taasiyeda';
 let currentRoute = 'login';
 let mobileNavOpen = false;
+let topSubbarOpen = true;
 const recentlyResolvedExceptions = new Set();
 
 const viewState = {
@@ -227,6 +228,11 @@ function toggleMobileNav(force) {
   loadRouteData();
 }
 
+function toggleTopSubbar() {
+  topSubbarOpen = !topSubbarOpen;
+  render();
+}
+
 function resetCoursesNavFromMenu() {
   viewState.uiContext.coursesSubtitle = '';
   viewState.courses.quickFilter = '';
@@ -297,7 +303,24 @@ function render() {
         ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
         </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
         <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
-        <main class="main" id="main"></main>
+        <section class="main-shell">
+          <header class="app-top-header">
+            <div class="app-top-header-brand">${APP_NAME}</div>
+            <div class="app-top-header-user">
+              <div class="app-top-header-user-text">
+                <strong>עידן נחום</strong>
+                <span>מנהל מערכת ראשי</span>
+              </div>
+              <button class="app-top-header-toggle" id="topSubbarToggle" type="button" aria-expanded="${topSubbarOpen ? 'true' : 'false'}" aria-label="${topSubbarOpen ? 'סגור סרגל עליון' : 'פתח סרגל עליון'}">
+                <span class="app-top-header-arrow" aria-hidden="true">${topSubbarOpen ? '▾' : '▸'}</span>
+              </button>
+            </div>
+          </header>
+          <div class="app-top-subbar ${topSubbarOpen ? 'open' : 'closed'}" id="topSubbar">
+            <span>${esc(routeLabels[currentRoute] || routeLabels.dashboard)}</span>
+          </div>
+          <main class="main ${topSubbarOpen ? '' : 'main--expanded'}" id="main"></main>
+        </section>
       </div>
     </div>
   </div>`;
@@ -321,6 +344,7 @@ function render() {
 
   document.getElementById('mobileNavToggle')?.addEventListener('click', () => toggleMobileNav());
   document.getElementById('mobileNavBackdrop')?.addEventListener('click', () => toggleMobileNav(false));
+  document.getElementById('topSubbarToggle')?.addEventListener('click', toggleTopSubbar);
 
   renderScreen();
 }
@@ -1040,7 +1064,7 @@ function renderCourseCards(rows, options = {}) {
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
         <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">${canEdit ? 'עריכה' : 'שלח בקשת שינוי'}</button>
       </footer>`;
-    return renderExpandableCard({ summary, details });
+    return renderExpandableCard({ summary, details, classes: `management-card expandable-card ${options.compact ? 'course-card-external' : ''}`.trim() });
   }).join('')}</section>`;
 }
 
