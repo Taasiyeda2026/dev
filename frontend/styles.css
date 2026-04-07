@@ -951,10 +951,11 @@ a { color: var(--accent); text-decoration: none; }
   display: grid;
   /* שישה ימי חול + עמודת שבת צרה */
   grid-template-columns: repeat(6, minmax(88px, 1fr)) minmax(40px, 52px);
+  grid-auto-rows: 1fr;
   gap: 10px;
   width: 100%;
   min-width: 0;
-  align-items: start;
+  align-items: stretch;
   overflow-x: visible;
   padding-bottom: 6px;
   box-sizing: border-box;
@@ -979,9 +980,12 @@ a { color: var(--accent); text-decoration: none; }
 .week-day-column {
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
   gap: 8px;
-  min-height: 0;
+  min-height: 100%;
   min-width: 0;
+  text-align: center;
 }
 .week-day-column.panel-block {
   margin-bottom: 0;
@@ -1087,6 +1091,7 @@ a { color: var(--accent); text-decoration: none; }
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.5;
+  text-align: center;
 }
 .week-panel-activity-list li span {
   color: var(--text-muted);
@@ -1374,11 +1379,11 @@ a { color: var(--accent); text-decoration: none; }
   flex-wrap: wrap;
 }
 .month-day-date-primary {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 .month-day-activities-line {
   display: block;
@@ -1395,7 +1400,12 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--accent);
 }
 .month-day.has-exception .month-day-date-primary {
-  color: #92400e;
+  color: #475569;
+}
+.month-day .compact-badge.status-declined {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #64748b;
 }
 .month-activity-dot {
   width: 8px;
