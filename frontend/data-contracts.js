@@ -14,7 +14,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       COURSE_ID: 'CourseID',
       PROGRAM_CODE: 'ProgramCode',
       PROGRAM: 'Program',
-      ACTIVITY: 'Activity',
+      EVENT_TYPE: 'EventType',
       AUTHORITY: 'Authority',
       SCHOOL: 'School',
       EMPLOYEE: 'Employee',
@@ -26,17 +26,9 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       END: 'End',
       NOTES: 'Notes',
       PLANNED_MEETINGS: 'PlannedMeetings',
-      ACTUAL_MEETINGS: 'ActualMeetings',
-      SOURCE_ACTUAL_MEETINGS: 'SourceActualMeetings',
-      STATUS: 'Status',
       PERIOD: 'Period',
-      EVENT_TYPE: 'EventType',
-      DATE: 'Date',
-      START_DATE: 'StartDate',
-      END_DATE: 'EndDate',
-      ACTIVITY_TYPE: 'ActivityType',
-      REVIEW_REQUIRED: 'ReviewRequired',
-      REQUIRES_REVIEW: 'RequiresReview',
+      MONTH_START: 'MonthStart',
+      MONTH_END: 'MonthEnd',
       REVIEW_STATUS: 'ReviewStatus',
       REVIEW_NOTES: 'ReviewNotes',
       REVIEW_HANDLED_BY: 'ReviewHandledBy',
@@ -69,7 +61,6 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       EMPLOYEE_NAME: 'EmployeeName',
       EMPLOYEE_ID: 'EmployeeID',
       ENTRY_CODE: 'EntryCode',
-      BASE_ROLE: 'BaseRole',
       SYSTEM_ROLE: 'SystemRole',
       DISPLAY_ROLE: 'DisplayRole',
       VIEW_SCOPE: 'ViewScope',
@@ -77,11 +68,8 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       APPROVAL_SCOPE: 'ApprovalScope',
       UI_PROFILE: 'UiProfile',
       TEAM_SCOPE: 'TeamScope',
-      IS_DUAL_MODE: 'IsDualMode',
+      INSTRUCTOR_MANAGER: 'InstructorManager',
       ACTIVE_FLAG: 'ActiveFlag',
-      CAN_VIEW_DASHBOARD: 'CanViewDashboard',
-      CAN_EDIT_MASTER_DATA: 'CanEditMasterData',
-      CAN_APPROVE_TO_MAIN_DATA: 'CanApproveToMainData',
       CAN_ACCESS_FINANCE: 'CanAccessFinance',
       CAN_EDIT_FINANCE: 'CanEditFinance',
       CAN_ACCESS_FINANCE_ARCHIVE: 'CanAccessFinanceArchive',
@@ -90,9 +78,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
   },
   aliases: {
     // הנחה: בשלב מעבר החוזים, השדה Instructor משמש כגיבוי לשם מדריך כש-Employee ריק.
-    instructorNameFallback: 'Instructor',
-    // הנחה: בשלב מעבר החוזים, IssueStatus הוא גיבוי ישן לתיאור סוג חריגה.
-    exceptionTypeFallback: 'IssueStatus'
+    instructorNameFallback: 'Instructor'
   },
   // הנחה: חריגה נחשבת כ"טופלה" אם שדה Status/TreatmentStatus/Notes כולל אחד מהסימנים הבאים.
   resolvedMarkers: ['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'],
@@ -119,8 +105,10 @@ function numberFrom(...values) {
 
 export function getSessionProgress(course = {}) {
   const plannedMeetings = Math.max(0, numberFrom(course?.[COURSE_FIELDS.PLANNED_MEETINGS]));
-  // הנחה: X (מפגש נוכחי) נקבע לפי ActualMeetings בפועל.
-  const actualMeetings = Math.max(0, numberFrom(course?.[COURSE_FIELDS.ACTUAL_MEETINGS], course?.[COURSE_FIELDS.SOURCE_ACTUAL_MEETINGS]));
+  const datesListed = (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => {
+    return String(course?.[field] || '').trim() ? count + 1 : count;
+  }, 0);
+  const actualMeetings = datesListed;
   return {
     plannedMeetings,
     actualMeetings,

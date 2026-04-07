@@ -9,8 +9,6 @@ const SHEETS_WITH_DISPLAY_ROW = new Set([
   SHEET_NAMES.DATA_MASTER,
   SHEET_NAMES.PERMISSIONS,
   SHEET_NAMES.EDIT_REQUESTS,
-  SHEET_NAMES.LISTS,
-  SHEET_NAMES.PROGRAM_CODES,
   'SUMMARY'
 ]);
 
@@ -80,7 +78,6 @@ function mapPermissionRow(raw = {}) {
     employeeName: String(raw[PERMISSION_FIELDS.EMPLOYEE_NAME] || '').trim(),
     employeeId: toNumber(raw[PERMISSION_FIELDS.EMPLOYEE_ID]),
     entryCode: String(raw[PERMISSION_FIELDS.ENTRY_CODE] || '').trim(),
-    baseRole: String(raw[PERMISSION_FIELDS.BASE_ROLE] || '').trim(),
     systemRole: String(raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim(),
     displayRole: String(raw[PERMISSION_FIELDS.DISPLAY_ROLE] || '').trim(),
     viewScope: String(raw[PERMISSION_FIELDS.VIEW_SCOPE] || '').trim(),
@@ -88,11 +85,8 @@ function mapPermissionRow(raw = {}) {
     approvalScope: String(raw[PERMISSION_FIELDS.APPROVAL_SCOPE] || '').trim(),
     uiProfile: String(raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
     teamScope: String(raw[PERMISSION_FIELDS.TEAM_SCOPE] || '').trim(),
-    isDualMode: toBool(raw[PERMISSION_FIELDS.IS_DUAL_MODE]),
+    instructorManager: String(raw[PERMISSION_FIELDS.INSTRUCTOR_MANAGER] || '').trim(),
     activeFlag: toBool(raw[PERMISSION_FIELDS.ACTIVE_FLAG]),
-    canViewDashboard: toBool(raw[PERMISSION_FIELDS.CAN_VIEW_DASHBOARD]),
-    canEditMasterData: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_MASTER_DATA]),
-    canApproveToMainData: toBool(raw[PERMISSION_FIELDS.CAN_APPROVE_TO_MAIN_DATA]),
     canAccessFinance: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE]),
     canEditFinance: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE]),
     canAccessFinanceArchive: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE_ARCHIVE]),
@@ -108,7 +102,6 @@ function mapCourseRow(raw = {}) {
     [COURSE_FIELDS.PROGRAM_CODE]: toNumber(raw[COURSE_FIELDS.PROGRAM_CODE]),
     [COURSE_FIELDS.EMPLOYEE_ID]: toNumber(raw[COURSE_FIELDS.EMPLOYEE_ID]),
     [COURSE_FIELDS.PLANNED_MEETINGS]: toNumber(raw[COURSE_FIELDS.PLANNED_MEETINGS]),
-    [COURSE_FIELDS.ACTUAL_MEETINGS]: toNumber(raw[COURSE_FIELDS.ACTUAL_MEETINGS]),
     [COURSE_FIELDS.START_TIME]: raw[COURSE_FIELDS.START_TIME],
     [COURSE_FIELDS.END_TIME]: raw[COURSE_FIELDS.END_TIME]
   };
@@ -208,7 +201,6 @@ export async function loadPermissions(userState = {}) {
       employeeName: String(userState.displayName || '').trim(),
       employeeId: toNumber(userState.EmployeeID || userState.userId),
       entryCode: '',
-      baseRole: String(userState.BaseRole || '').trim(),
       systemRole: String(userState.SystemRole || '').trim(),
       displayRole: String(userState.DisplayRole || '').trim(),
       viewScope: String(userState.ViewScope || '').trim(),
@@ -216,10 +208,7 @@ export async function loadPermissions(userState = {}) {
       approvalScope: String(userState.ApprovalScope || '').trim(),
       uiProfile: String(userState.UiProfile || '').trim(),
       teamScope: String(userState.TeamScope || '').trim(),
-      isDualMode: toBool(userState.IsDualMode),
-      canViewDashboard: true,
-      canEditMasterData: false,
-      canApproveToMainData: false,
+      instructorManager: String(userState.InstructorManager || '').trim(),
       canAccessFinance: false,
       canEditFinance: false,
       canAccessFinanceArchive: false,
@@ -255,8 +244,8 @@ export async function loadReviewItems(force = false) {
   if (!force && isReviewCacheFresh()) return dataStore.reviewItems;
   const dataMasterRows = await loadDataMaster(force);
   dataStore.reviewItems = (dataMasterRows || []).filter((row) => {
-    const requiresReview = String(row?.RequiresReview ?? row?.ReviewRequired ?? '').trim().toLowerCase();
-    return ['true', '1', 'yes', 'כן', 'open', 'pending'].includes(requiresReview);
+    const reviewStatus = String(row?.ReviewStatus || '').trim().toLowerCase();
+    return !!reviewStatus && !['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'].includes(reviewStatus);
   });
   dataStore.loadedAt.reviewItems = now();
   return dataStore.reviewItems;

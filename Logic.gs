@@ -15,7 +15,7 @@ var Logic = (function () {
   // הנחה: REVIEW_REQUIRED עשוי להכיל אחד מהשדות הבאים לזיהוי/סטטוס/אודיט.
   var REVIEW_REQUIRED_FIELD_ALIASES = {
     id: ['ReviewID', 'RowID', 'ExceptionID', 'RecordID'],
-    status: ['TreatmentStatus', 'Status', 'IssueStatus'],
+    status: ['ReviewStatus'],
     notes: ['Notes', 'Remarks', 'Comment'],
     resolvedBy: ['ResolvedBy', 'ClosedBy', 'HandledBy', 'UpdatedBy'],
     resolvedAt: ['ResolvedAt', 'ClosedAt', 'HandledAt', 'UpdatedAt']
@@ -95,13 +95,11 @@ var Logic = (function () {
       if (!profile.PermissionRows) profile.PermissionRows = matchedRows.length;
 
       var first = matchedRows[0];
-      if (Utils.isEmpty(profile.BaseRole)) profile.BaseRole = Utils.normalize(valueAt_(first, idx.baseRole));
       if (Utils.isEmpty(profile.UiProfile)) profile.UiProfile = Utils.normalize(valueAt_(first, idx.uiProfile));
       if (Utils.isEmpty(profile.DisplayRole)) profile.DisplayRole = Utils.normalize(valueAt_(first, idx.displayRole));
       if (Utils.isEmpty(profile.ViewScope)) profile.ViewScope = Utils.normalize(valueAt_(first, idx.viewScope));
       if (Utils.isEmpty(profile.EditScope)) profile.EditScope = Utils.normalize(valueAt_(first, idx.editScope));
       if (Utils.isEmpty(profile.ApprovalScope)) profile.ApprovalScope = Utils.normalize(valueAt_(first, idx.approvalScope));
-      if (Utils.isEmpty(profile.IsDualMode)) profile.IsDualMode = Utils.normalize(valueAt_(first, idx.isDualMode));
 
       Logger.log('loginAction: matched SystemRole=%s', profile.SystemRole);
       PropertiesService.getUserProperties().setProperty(CONFIG.SESSION_KEY, JSON.stringify(profile));
@@ -114,19 +112,11 @@ var Logic = (function () {
   function buildSessionProfileFromPermissions_(rows, idx) {
     var scopeJoin = function (index) { return joinUniqueValues_(rows, index, ', '); };
     var primary = choosePrimaryPermissionRow_(rows, idx.systemRole);
-    var roleCounts = countRoles_(rows, idx.systemRole);
     var primaryRole = Utils.normalize(valueAt_(primary, idx.systemRole));
-    var dualFlag = Utils.normalize(valueAt_(primary, idx.isDualMode));
-
-    if (!dualFlag && roleCounts.instructor > 0 && (roleCounts.manager > 0 || roleCounts.managerLead > 0 || roleCounts.admin > 0 || roleCounts.adminOps > 0)) {
-      dualFlag = 'BOTH';
-    }
-
     return {
         authenticated: true,
         displayName: Utils.normalize(valueAt_(primary, idx.employeeName)),
         EmployeeName: Utils.normalize(valueAt_(primary, idx.employeeName)),
-        BaseRole: Utils.normalize(valueAt_(primary, idx.baseRole)),
         SystemRole: primaryRole,
         DisplayRole: Utils.normalize(valueAt_(primary, idx.displayRole)),
         ViewScope: scopeJoin(idx.viewScope),
@@ -134,7 +124,7 @@ var Logic = (function () {
         ApprovalScope: scopeJoin(idx.approvalScope),
         UiProfile: Utils.normalize(valueAt_(primary, idx.uiProfile)),
         TeamScope: scopeJoin(idx.teamScope),
-        IsDualMode: dualFlag,
+        InstructorManager: scopeJoin(idx.instructorManager),
         ActiveFlag: Utils.normalize(valueAt_(primary, idx.activeFlag)),
         CanAccessFinance: anyTrueInRows_(rows, idx.canAccessFinance),
         CanEditFinance: anyTrueInRows_(rows, idx.canEditFinance),
@@ -356,7 +346,7 @@ var Logic = (function () {
       var table = Utils.readTable(targetSheet, true);
       var idxFinanceRowId = Utils.resolveIndex(table.headers, ['FinanceRowID']);
       var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
-      var idxNotes = Utils.resolveIndex(table.headers, ['Notes']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
       if (idxFinanceRowId === -1 || idxFinanceStatus === -1) return Utils.safeMessage('חסרות עמודות חובה בגיליון הכספים.');
 
       for (var i = 0; i < table.rows.length; i += 1) {
@@ -398,8 +388,8 @@ var Logic = (function () {
       var changes = Utils.asObject(body.changes, {});
       if (Utils.isEmpty(courseId)) return Utils.safeMessage('CourseID הוא שדה חובה.');
       if (!Object.keys(changes).length) return Utils.safeMessage('changes חייב להכיל לפחות שדה אחד.');
-      requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_COURSE, { courseId: courseId, team: body.Team });
-      if (!canEditCourseByRole_(session.user, courseId, body.Team)) return Utils.safeMessage('אין הרשאה לעדכן פעילות זו.');
+      requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_COURSE, { courseId: courseId, team: body.InstructorManager });
+      if (!canEditCourseByRole_(session.user, courseId, body.InstructorManager)) return Utils.safeMessage('אין הרשאה לעדכן פעילות זו.');
 
       var sheetTargets = [
         { sheetName: CONFIG.SHEETS.DATA_MASTER, required: true }
@@ -482,7 +472,7 @@ var Logic = (function () {
       if (!Number.isFinite(meetingNumber) || meetingNumber < 1) return Utils.safeMessage('MeetingNumber לא תקין.');
       if (!newMeetingDate) return Utils.safeMessage('תאריך מפגש חדש הוא שדה חובה.');
       if (!changeNote) return Utils.safeMessage('ChangeNote הוא שדה חובה.');
-      requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_MEETINGS, { courseId: courseId, team: body.Team });
+      requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_MEETINGS, { courseId: courseId, team: body.InstructorManager });
 
       Utils.ensureCourseMeetingsSheet();
       var meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
@@ -627,10 +617,10 @@ var Logic = (function () {
         return Utils.safeMessage('אין הרשאה לערוך בקשה זו.');
       }
 
-      requireWritePermission_(session.user, WRITE_ACTIONS.CREATE_EDIT_REQUEST, { courseId: Utils.normalize(body.CourseID), team: body.Team });
+      requireWritePermission_(session.user, WRITE_ACTIONS.CREATE_EDIT_REQUEST, { courseId: Utils.normalize(body.CourseID), team: body.InstructorManager });
       var requestCourseId = Utils.normalize(body.CourseID);
       var requestChangeType = normalizeChangeType_(body.ChangeType, requestCourseId);
-      if (requestChangeType === EDEN_CHANGE_TYPES.UPDATE_EXISTING && !canEditCourseByRole_(session.user, requestCourseId, body.Team)) {
+      if (requestChangeType === EDEN_CHANGE_TYPES.UPDATE_EXISTING && !canEditCourseByRole_(session.user, requestCourseId, body.InstructorManager)) {
         return Utils.safeMessage('ניתן לערוך רק פעילות צוותית מורשית.');
       }
 
@@ -716,14 +706,11 @@ var Logic = (function () {
       var reqIdx = resolveRequestIndexes_(requestsTable.headers || []);
       var reqMap = {};
       (requestsTable.rows || []).forEach(function (row) {
-        var rid = valueAt_(row, reqIdx.requestId);
-        if (!rid) return;
-        reqMap[Utils.toKey(rid)] = row;
+        var courseIdForMap = valueAt_(row, reqIdx.courseId);
+        if (!courseIdForMap) return;
+        reqMap[Utils.toKey(courseIdForMap)] = row;
       });
-      var idxRequestId = Utils.resolveIndex(table.headers, ['RequestID']);
       var idxCourseId = Utils.resolveIndex(table.headers, ['CourseID']);
-      var idxOrigin = Utils.resolveIndex(table.headers, ['Origin']);
-      var idxChangeType = Utils.resolveIndex(table.headers, ['ChangeType']);
       var idxWorkflow = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
       var idxNotes = Utils.resolveIndex(table.headers, ['EdenNotes']);
       var idxHasDiff = Utils.resolveIndex(table.headers, ['HasDiffBetweenSourceAndEden']);
@@ -739,11 +726,13 @@ var Logic = (function () {
         var rowObj = Utils.rowToObject(table.headers, row, 0);
         var requested = extractEdenDraftFromRow_(rowObj);
         var source = extractEdenSourceFromRow_(rowObj);
+        var courseId = valueAt_(row, idxCourseId);
+        var linkedRequest = reqMap[Utils.toKey(courseId)] || null;
         return {
-          RequestID: valueAt_(row, idxRequestId),
-          CourseID: valueAt_(row, idxCourseId),
-          Origin: valueAt_(row, idxOrigin),
-          ChangeType: valueAt_(row, idxChangeType),
+          RequestID: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestId) : '',
+          CourseID: courseId,
+          Origin: linkedRequest ? valueAt_(linkedRequest, reqIdx.origin) : '',
+          ChangeType: linkedRequest ? valueAt_(linkedRequest, reqIdx.changeType) : '',
           ApprovalStatus: valueAt_(row, idxWorkflow),
           RequestedData: Utils.safeJson(requested),
           SourceData: Utils.safeJson(source),
@@ -752,8 +741,8 @@ var Logic = (function () {
           HasMasterChangedAfterEdenEdit: valueAt_(row, idxHasMasterChanged),
           SentToAdminAt: valueAt_(row, idxSentToAdminAt),
           EdenLastSavedAt: valueAt_(row, idxEdenLastSavedAt),
-          RequestedBy: reqMap[Utils.toKey(valueAt_(row, idxRequestId))] ? valueAt_(reqMap[Utils.toKey(valueAt_(row, idxRequestId))], reqIdx.requestedBy) : '',
-          OriginalData: reqMap[Utils.toKey(valueAt_(row, idxRequestId))] ? valueAt_(reqMap[Utils.toKey(valueAt_(row, idxRequestId))], reqIdx.originalData) : ''
+          RequestedBy: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestedBy) : '',
+          OriginalData: linkedRequest ? valueAt_(linkedRequest, reqIdx.originalData) : ''
         };
       }).slice(offset, offset + limit);
       var counters = {
@@ -1069,14 +1058,16 @@ var Logic = (function () {
   }
 
   function computeDashboardMetricsFromDataMaster_(headers, rows) {
-    var idxStatus = Utils.resolveIndex(headers, ['Status', 'OperationalStatus']);
+    var idxWorkflow = Utils.resolveIndex(headers, ['WorkflowStatus']);
     var idxCourseId = Utils.resolveIndex(headers, ['CourseID']);
-    var idxInstructor = Utils.resolveIndex(headers, ['Instructor', 'Employee']);
-    var idxReportStatus = Utils.resolveIndex(headers, ['ReportStatus']);
-    var idxRequiresReview = Utils.resolveIndex(headers, ['RequiresReview', 'ReviewRequired']);
-    var idxIssue = Utils.resolveIndex(headers, ['IssueStatus']);
-    var idxDate = Utils.resolveIndex(headers, ['Date', 'StartDate']);
-    var idxEndDate = Utils.resolveIndex(headers, ['EndDate', 'End']);
+    var idxInstructor = Utils.resolveIndex(headers, ['Employee']);
+    var idxReviewStatus = Utils.resolveIndex(headers, ['ReviewStatus']);
+    var idxReviewNotes = Utils.resolveIndex(headers, ['ReviewNotes']);
+    var idxEndDate = Utils.resolveIndex(headers, ['End']);
+    var dateIndexes = [];
+    headers.forEach(function (header, index) {
+      if (/^Date([1-9]|[12][0-9]|30)$/.test(Utils.normalize(header))) dateIndexes.push(index);
+    });
     var today = new Date();
     var dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     var weekEnd = new Date(dayStart.getTime() + (7 * 24 * 60 * 60 * 1000));
@@ -1099,8 +1090,8 @@ var Logic = (function () {
     var activeInstructors = {};
 
     (rows || []).forEach(function (row) {
-      var status = Utils.toKey(valueAt_(row, idxStatus));
-      var isActive = status === 'active' || status === 'פעיל';
+      var workflow = Utils.toKey(valueAt_(row, idxWorkflow));
+      var isActive = workflow !== 'final_approved' && workflow !== 'closed' && workflow !== 'final_rejected';
       if (isActive) metrics.activeNowCount += 1;
       if (isActive) {
         var cid = Utils.normalize(valueAt_(row, idxCourseId));
@@ -1109,19 +1100,23 @@ var Logic = (function () {
         if (instructor) activeInstructors[instructor] = true;
       }
 
-      var dateVal = asDate_(valueAt_(row, idxDate));
-      if (dateVal) {
-        if (sameDate_(dateVal, dayStart)) metrics.todayActivitiesCount += 1;
-        if (dateVal >= dayStart && dateVal < weekEnd) metrics.weekActivitiesCount += 1;
-        if (dateVal >= dayStart && dateVal < monthEnd) metrics.monthActivitiesCount += 1;
-      }
+      var hasToday = false;
+      var hasWeek = false;
+      var hasMonth = false;
+      dateIndexes.forEach(function (dateIdx) {
+        var dateVal = asDate_(valueAt_(row, dateIdx));
+        if (!dateVal) return;
+        if (sameDate_(dateVal, dayStart)) hasToday = true;
+        if (dateVal >= dayStart && dateVal < weekEnd) hasWeek = true;
+        if (dateVal >= dayStart && dateVal < monthEnd) hasMonth = true;
+      });
+      if (hasToday) metrics.todayActivitiesCount += 1;
+      if (hasWeek) metrics.weekActivitiesCount += 1;
+      if (hasMonth) metrics.monthActivitiesCount += 1;
 
-      var reportStatus = Utils.toKey(valueAt_(row, idxReportStatus));
-      if (!reportStatus || reportStatus === 'missing' || reportStatus === 'חסר') metrics.missingReportCount += 1;
+      metrics.missingReportCount = 0;
 
-      var requiresReview = Utils.toKey(valueAt_(row, idxRequiresReview));
-      var issueValue = Utils.toKey(valueAt_(row, idxIssue));
-      var hasException = requiresReview === 'true' || requiresReview === 'yes' || requiresReview === '1' || issueValue;
+      var hasException = !!Utils.toKey(valueAt_(row, idxReviewStatus)) || !!Utils.toKey(valueAt_(row, idxReviewNotes));
       if (hasException) {
         metrics.exceptionCount += 1;
         metrics.reviewRequiredCount += 1;
@@ -1183,7 +1178,7 @@ var Logic = (function () {
 
     if (!Utils.normalize(out.RequestedBy)) out.RequestedBy = user.userId;
     if (!Utils.normalize(out.ApprovalStatus)) out.ApprovalStatus = CONFIG.STATUSES.PENDING_EDEN;
-    if (!Utils.normalize(out.Team) && courseId) out.Team = resolveTeamScopeByCourseId_(courseId);
+    if (!Utils.normalize(out.InstructorManager) && courseId) out.InstructorManager = resolveTeamScopeByCourseId_(courseId);
     if (!courseId && changeType === EDEN_CHANGE_TYPES.NEW_RECORD) {
       courseId = Utils.normalize(requestedData.CourseID || requestedData.courseId);
     }
@@ -1228,7 +1223,6 @@ var Logic = (function () {
       var idxNotes = Utils.resolveIndex(table.headers, ['ReviewNotes', 'Notes', 'Remarks']);
       var idxResolvedBy = Utils.resolveIndex(table.headers, ['ReviewHandledBy', 'ResolvedBy', 'ClosedBy']);
       var idxResolvedAt = Utils.resolveIndex(table.headers, ['ReviewHandledAt', 'ResolvedAt', 'ClosedAt']);
-      var idxRequiresReview = Utils.resolveIndex(table.headers, ['RequiresReview', 'ReviewRequired']);
 
       if (idxStatus > -1) {
         updated[idxStatus] = 'RESOLVED';
@@ -1243,7 +1237,6 @@ var Logic = (function () {
 
       if (idxResolvedBy > -1) updated[idxResolvedBy] = session.user.userId;
       if (idxResolvedAt > -1) updated[idxResolvedAt] = Utils.nowIso();
-      if (idxRequiresReview > -1) updated[idxRequiresReview] = 'false';
 
       Utils.updateRow(CONFIG.SHEETS.DATA_MASTER, target.rowNumber, updated);
       return {
@@ -1287,8 +1280,7 @@ var Logic = (function () {
 
     var edenTable = ensureEdenDataMasterSheet_();
     var rowObj = buildEdenRowFromRequest_(requestRecord);
-    var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
-    var existing = findRowByRequestId_(edenTable, idxRequest, rowObj.RequestID);
+    var existing = findEdenRowByCourseId_(edenTable, rowObj.CourseID);
     var values = edenTable.headers.map(function (header) { return rowObj[header] || ''; });
     if (existing) {
       Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, values);
@@ -1298,22 +1290,17 @@ var Logic = (function () {
   }
 
   function buildEdenRowFromRequest_(requestRecord) {
-    var origin = normalizeOrigin_(requestRecord.Origin);
-    var changeType = normalizeChangeType_(requestRecord.ChangeType, requestRecord.CourseID);
-    var source = changeType === EDEN_CHANGE_TYPES.NEW_RECORD ? {} : (getCourseSnapshotById_(requestRecord.CourseID) || {});
+    var source = getCourseSnapshotById_(requestRecord.CourseID) || {};
     var requested = Utils.parseJson(requestRecord.RequestedData) || {};
     var rowObj = {};
     var nowIso = Utils.nowIso();
     var dataHeaders = getEdenDataHeaders_();
     dataHeaders.forEach(function (field) {
-      rowObj['Source_' + field] = changeType === EDEN_CHANGE_TYPES.NEW_RECORD ? '' : (source[field] || '');
+      rowObj['Source_' + field] = source[field] || '';
       rowObj['Eden_' + field] = requested[field] !== undefined ? requested[field] : (source[field] || '');
     });
     rowObj.RowID = source.RowID || '';
     rowObj.CourseID = requestRecord.CourseID || requested.CourseID || source.CourseID || '';
-    rowObj.RequestID = requestRecord.RequestID;
-    rowObj.Origin = origin;
-    rowObj.ChangeType = changeType;
     rowObj.WorkflowStatus = EDEN_WORKFLOW_STATUSES.PENDING_EDEN;
     rowObj.EdenNotes = requestRecord.ApprovalNotes || '';
     rowObj.MasterLastUpdatedAt = source.UpdatedAt || source.LastUpdatedAt || '';
@@ -1333,7 +1320,7 @@ var Logic = (function () {
     var sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.EDEN_DATA_MASTER);
     var dmTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
     var dmHeaders = getEdenDataHeaders_();
-    var headers = ['RowID', 'CourseID', 'RequestID', 'Origin', 'ChangeType'];
+    var headers = ['RowID', 'CourseID'];
     dmHeaders.forEach(function (field) { headers.push('Source_' + field); });
     dmHeaders.forEach(function (field) { headers.push('Eden_' + field); });
     [
@@ -1365,10 +1352,27 @@ var Logic = (function () {
     return null;
   }
 
+  function findEdenRowByCourseId_(table, courseId) {
+    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    if (idxCourse === -1) return null;
+    for (var i = 0; i < table.rows.length; i += 1) {
+      if (Utils.toKey(table.rows[i][idxCourse]) !== Utils.toKey(courseId)) continue;
+      return { row: table.rows[i], rowNumber: table.rowNumbers[i] };
+    }
+    return null;
+  }
+
+  function resolveCourseIdByRequestId_(requestId) {
+    var reqTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
+    var reqIdx = resolveRequestIndexes_(reqTable.headers || []);
+    var match = findRequestById_(reqTable, reqIdx.requestId, requestId);
+    return match ? Utils.normalize(valueAt_(match.row, reqIdx.courseId)) : '';
+  }
+
   function getEdenDataHeaders_() {
     var dmTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
     return (dmTable.headers || []).filter(function (header) {
-      return ['RequestID', 'WorkflowStatus', 'EdenNotes'].indexOf(header) === -1;
+      return ['WorkflowStatus', 'EdenNotes'].indexOf(header) === -1;
     });
   }
 
@@ -1415,7 +1419,6 @@ var Logic = (function () {
     });
     var idxRowId = Utils.resolveIndex(edenTable.headers, ['RowID']);
     var idxCourseId = Utils.resolveIndex(edenTable.headers, ['CourseID']);
-    var idxChangeType = Utils.resolveIndex(edenTable.headers, ['ChangeType']);
     var idxMasterChanged = Utils.resolveIndex(edenTable.headers, ['HasMasterChangedAfterEdenEdit']);
     var idxLastSyncedAt = Utils.resolveIndex(edenTable.headers, ['LastSyncedAt']);
     var idxMasterLastUpdated = Utils.resolveIndex(edenTable.headers, ['MasterLastUpdatedAt']);
@@ -1425,8 +1428,6 @@ var Logic = (function () {
     edenTable.rows.forEach(function (row, i) {
       var rowId = idxRowId > -1 ? Utils.normalize(row[idxRowId]) : '';
       var courseId = idxCourseId > -1 ? Utils.normalize(row[idxCourseId]) : '';
-      var changeType = idxChangeType > -1 ? normalizeChangeType_(valueAt_(row, idxChangeType), courseId) : EDEN_CHANGE_TYPES.UPDATE_EXISTING;
-      if (changeType === EDEN_CHANGE_TYPES.NEW_RECORD) return;
       var masterObj = lookup['rowid:' + Utils.toKey(rowId)] || lookup['courseid:' + Utils.toKey(courseId)];
       if (!masterObj) return;
       var updated = row.slice();
@@ -1455,12 +1456,13 @@ var Logic = (function () {
       var body = Utils.asObject(payload, {});
       var requestId = Utils.normalize(body.RequestID);
       if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var courseId = resolveCourseIdByRequestId_(requestId);
+      if (!courseId) return Utils.safeMessage('לא נמצא CourseID לבקשה.');
       var requestedData = Utils.asObject(body.RequestedData, {});
       var edenNotes = Utils.normalize(body.EdenNotes || body.ApprovalNotes);
 
       var edenTable = ensureEdenDataMasterSheet_();
-      var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
-      var existing = findRowByRequestId_(edenTable, idxRequest, requestId);
+      var existing = findEdenRowByCourseId_(edenTable, courseId);
       if (!existing) return Utils.safeMessage('לא נמצאה רשומה במסך עדן.');
       var updated = existing.row.slice();
       var headers = edenTable.headers;
@@ -1480,7 +1482,7 @@ var Logic = (function () {
         updated[idxHasDiff] = hasDiffBetweenSourceAndEden_(rowObj) ? 'true' : 'false';
       }
       Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, updated);
-      return { success: true, data: { RequestID: requestId, WorkflowStatus: EDEN_WORKFLOW_STATUSES.EDEN_SAVED } };
+      return { success: true, data: { RequestID: requestId, CourseID: courseId, WorkflowStatus: EDEN_WORKFLOW_STATUSES.EDEN_SAVED } };
     } catch (err) {
       return Utils.safeMessage('שמירת טיוטת עדן נכשלה.');
     }
@@ -1494,9 +1496,10 @@ var Logic = (function () {
       var body = Utils.asObject(payload, {});
       var requestId = Utils.normalize(body.RequestID);
       if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var courseId = resolveCourseIdByRequestId_(requestId);
+      if (!courseId) return Utils.safeMessage('לא נמצא CourseID לבקשה.');
       var edenTable = ensureEdenDataMasterSheet_();
-      var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
-      var existing = findRowByRequestId_(edenTable, idxRequest, requestId);
+      var existing = findEdenRowByCourseId_(edenTable, courseId);
       if (!existing) return Utils.safeMessage('לא נמצאה רשומת עדן.');
 
       var rowObj = Utils.rowToObject(edenTable.headers, existing.row, existing.rowNumber);
@@ -1520,7 +1523,7 @@ var Logic = (function () {
       var idxSent = Utils.resolveIndex(edenTable.headers, ['SentToAdminAt']);
       if (idxSent > -1) edenUpdated[idxSent] = Utils.nowIso();
       Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, edenUpdated);
-      return { success: true, data: { RequestID: requestId, ApprovalStatus: EDEN_WORKFLOW_STATUSES.PENDING_FINAL } };
+      return { success: true, data: { RequestID: requestId, CourseID: courseId, ApprovalStatus: EDEN_WORKFLOW_STATUSES.PENDING_FINAL } };
     } catch (err) {
       return Utils.safeMessage('העברה לאדמין נכשלה.');
     }
@@ -1534,12 +1537,13 @@ var Logic = (function () {
       var body = Utils.asObject(payload, {});
       var requestId = Utils.normalize(body.RequestID);
       if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var courseId = resolveCourseIdByRequestId_(requestId);
+      if (!courseId) return Utils.safeMessage('לא נמצא CourseID לבקשה.');
       syncEdenRowsWithMaster_();
       var edenTable = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, true);
-      var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
-      var existing = findRowByRequestId_(edenTable, idxRequest, requestId);
+      var existing = findEdenRowByCourseId_(edenTable, courseId);
       if (!existing) return Utils.safeMessage('לא נמצאה רשומה.');
-      return { success: true, data: { RequestID: requestId, refreshedAt: Utils.nowIso() } };
+      return { success: true, data: { RequestID: requestId, CourseID: courseId, refreshedAt: Utils.nowIso() } };
     } catch (err) {
       return Utils.safeMessage('רענון מקור נכשל.');
     }
@@ -1547,10 +1551,11 @@ var Logic = (function () {
 
   function updateEdenWorkflowByRequestId_(requestId, workflowStatus, extraFields) {
     if (!requestId) return;
+    var courseId = resolveCourseIdByRequestId_(requestId);
+    if (!courseId) return;
     var edenTable = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, false);
     if (!edenTable.sheet || !edenTable.headers.length) return;
-    var idxRequest = Utils.resolveIndex(edenTable.headers, ['RequestID']);
-    var match = findRowByRequestId_(edenTable, idxRequest, requestId);
+    var match = findEdenRowByCourseId_(edenTable, courseId);
     if (!match) return;
     var updated = match.row.slice();
     var idxWorkflow = Utils.resolveIndex(edenTable.headers, ['WorkflowStatus']);
@@ -1608,7 +1613,7 @@ var Logic = (function () {
     if (!match) return [];
     var idxStartTime = Utils.resolveIndex(table.headers, ['StartTime']);
     var idxEndTime = Utils.resolveIndex(table.headers, ['EndTime']);
-    var idxStatus = Utils.resolveIndex(table.headers, ['OperationalStatus', 'Status']);
+    var idxStatus = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
     var created = [];
     for (var meetingNumber = 1; meetingNumber <= 30; meetingNumber += 1) {
       var idxDate = Utils.resolveIndex(table.headers, ['Date' + meetingNumber]);
@@ -1874,7 +1879,6 @@ var Logic = (function () {
       employeeId: Utils.resolveIndex(headers, CONFIG.FIELDS.EMPLOYEE_ID),
       entryCode: Utils.resolveIndex(headers, CONFIG.FIELDS.ENTRY_CODE),
       employeeName: Utils.resolveIndex(headers, ['EmployeeName', 'Employee', 'DisplayName']),
-      baseRole: Utils.resolveIndex(headers, ['BaseRole']),
       systemRole: Utils.resolveIndex(headers, ['SystemRole']),
       displayRole: Utils.resolveIndex(headers, ['DisplayRole']),
       viewScope: Utils.resolveIndex(headers, ['ViewScope']),
@@ -1882,7 +1886,7 @@ var Logic = (function () {
       approvalScope: Utils.resolveIndex(headers, ['ApprovalScope']),
       uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
-      isDualMode: Utils.resolveIndex(headers, ['IsDualMode']),
+      instructorManager: Utils.resolveIndex(headers, ['InstructorManager']),
       activeFlag: Utils.resolveIndex(headers, ['ActiveFlag']),
       canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance']),
       canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance']),
@@ -2111,27 +2115,30 @@ var Logic = (function () {
       var groupKey = buildGroupKey_(endKey, billingGroup.type, billingGroup.key) + '|' + courseId + '|' + rowId;
 
       var monthEndValue = Utils.normalize(valueAt_(row, idx.monthEnd));
-      var allDates = collectDateFields_(headers, row);
+      var dateValues = collectDateFieldValues_(headers, row);
       groups[groupKey] = {
         rowId: rowId,
         end: endValue,
         monthEnd: monthEndValue || deriveMonthEndFromEnd_(endValue),
         funding: normalizedFunding,
-        billingGroupType: billingGroup.type,
-        billingGroupKey: billingGroup.key,
+        payerType: billingGroup.type,
+        payer: billingGroup.key,
         payerName: billingGroup.key,
         courseId: courseId,
         program: Utils.normalize(valueAt_(row, idx.program)),
-        activity: Utils.normalize(valueAt_(row, idx.activity)),
+        eventType: Utils.normalize(valueAt_(row, idx.eventType)),
         authority: Utils.normalize(valueAt_(row, idx.authority)),
         school: Utils.normalize(valueAt_(row, idx.school)),
         instructor: Utils.normalize(valueAt_(row, idx.instructor)),
-        startDate: valueAt_(row, idx.startDate),
-        endDate: valueAt_(row, idx.endDate),
-        activityDate: valueAt_(row, idx.date),
-        allDates: allDates,
+        employeeId: Utils.normalize(valueAt_(row, idx.employeeId)),
+        courseManager: Utils.normalize(valueAt_(row, idx.courseManager)),
+        classGroup: Utils.normalize(valueAt_(row, idx.classGroup)),
+        dayName: Utils.normalize(valueAt_(row, idx.dayName)),
+        startTime: valueAt_(row, idx.startTime),
+        endTime: valueAt_(row, idx.endTime),
+        dateValues: dateValues,
         plannedMeetings: parseNumberOrZero_(valueAt_(row, idx.plannedMeetings)),
-        actualMeetings: parseNumberOrZero_(valueAt_(row, idx.actualMeetings)),
+        datesListedCount: dateValues.filter(function (value) { return Utils.normalize(value); }).length,
         paymentTotal: parseNumberOrZero_(valueAt_(row, idx.payment)),
         notes: Utils.normalizeWhitespace(valueAt_(row, idx.notes))
       };
@@ -2140,16 +2147,16 @@ var Logic = (function () {
     return groups;
   }
 
-  function collectDateFields_(headers, row) {
-    var values = [];
+  function collectDateFieldValues_(headers, row) {
+    var values = new Array(30).fill('');
     (headers || []).forEach(function (header, index) {
-      var normalizedHeader = Utils.normalize(header);
-      if (/^Date([1-9]|[12][0-9]|30)$/.test(normalizedHeader)) {
-        var value = Utils.normalize(valueAt_(row, index));
-        if (value) values.push(value);
-      }
+      var match = /^Date([1-9]|[12][0-9]|30)$/.exec(Utils.normalize(header));
+      if (!match) return;
+      var position = Number(match[1]) - 1;
+      if (position < 0 || position >= 30) return;
+      values[position] = valueAt_(row, index);
     });
-    return values.join(', ');
+    return values;
   }
 
   function resolveDataMasterFinanceIndexes_(headers) {
@@ -2159,18 +2166,18 @@ var Logic = (function () {
       authority: Utils.resolveIndex(headers, ['Authority']),
       school: Utils.resolveIndex(headers, ['School']),
       program: Utils.resolveIndex(headers, ['Program']),
-      activity: Utils.resolveIndex(headers, ['Activity']),
-      instructor: Utils.resolveIndex(headers, ['Instructor', 'Employee']),
-      date: Utils.resolveIndex(headers, ['Date']),
-      startDate: Utils.resolveIndex(headers, ['StartDate']),
-      endDate: Utils.resolveIndex(headers, ['EndDate', 'End']),
+      eventType: Utils.resolveIndex(headers, ['EventType']),
+      instructor: Utils.resolveIndex(headers, ['Employee']),
+      employeeId: Utils.resolveIndex(headers, ['EmployeeID']),
+      courseManager: Utils.resolveIndex(headers, ['CourseManager']),
+      classGroup: Utils.resolveIndex(headers, ['ClassGroup']),
+      dayName: Utils.resolveIndex(headers, ['DayName']),
+      startTime: Utils.resolveIndex(headers, ['StartTime']),
+      endTime: Utils.resolveIndex(headers, ['EndTime']),
       plannedMeetings: Utils.resolveIndex(headers, ['PlannedMeetings']),
-      actualMeetings: Utils.resolveIndex(headers, ['ActualMeetings']),
       funding: Utils.resolveIndex(headers, ['Funding']),
       payment: Utils.resolveIndex(headers, ['Payment']),
       notes: Utils.resolveIndex(headers, ['Notes']),
-      sourceSheet: Utils.resolveIndex(headers, ['SourceSheet']),
-      sourceRow: Utils.resolveIndex(headers, ['SourceRow']),
       end: Utils.resolveIndex(headers, ['End']),
       monthEnd: Utils.resolveIndex(headers, ['MonthEnd'])
     };
@@ -2195,8 +2202,8 @@ var Logic = (function () {
   function buildExistingFinanceIdentity_(headers, row) {
     var idxFinanceRowId = Utils.resolveIndex(headers, ['FinanceRowID']);
     var idxEnd = Utils.resolveIndex(headers, ['End']);
-    var idxType = Utils.resolveIndex(headers, ['BillingGroupType']);
-    var idxKey = Utils.resolveIndex(headers, ['BillingGroupKey']);
+    var idxType = Utils.resolveIndex(headers, ['PayerType']);
+    var idxKey = Utils.resolveIndex(headers, ['Payer']);
     var idxRowId = Utils.resolveIndex(headers, ['RowID']);
     var idxCourseId = Utils.resolveIndex(headers, ['CourseID']);
     var idxStatus = Utils.resolveIndex(headers, ['FinanceStatus']);
@@ -2217,27 +2224,27 @@ var Logic = (function () {
       MonthEnd: group.monthEnd,
       RowID: group.rowId,
       CourseID: group.courseId,
-      Course: group.program || group.activity || group.courseId,
       Program: group.program,
-      Activity: group.activity,
+      EventType: group.eventType,
       Funding: group.funding,
-      BillingGroupType: group.billingGroupType,
-      BillingGroupKey: group.billingGroupKey,
+      PayerType: group.payerType,
       Payer: group.payerName,
       Authority: group.authority,
       School: group.school,
       Instructor: group.instructor,
-      Date: group.activityDate,
-      StartDate: group.startDate,
-      EndDate: group.endDate,
-      AllDates: group.allDates,
+      EmployeeID: group.employeeId,
+      CourseManager: group.courseManager,
+      ClassGroup: group.classGroup,
+      DayName: group.dayName,
+      StartTime: group.startTime,
+      EndTime: group.endTime,
       PlannedMeetings: group.plannedMeetings,
-      ActualMeetings: group.actualMeetings,
-      PaymentTotal: group.paymentTotal,
-      Cost: group.paymentTotal,
+      DatesListedCount: group.datesListedCount,
+      Payment: group.paymentTotal,
       FinanceStatus: financeStatus,
-      Notes: group.notes
+      FinanceNotes: group.notes
     };
+    for (var i = 1; i <= 30; i += 1) record['Date' + i] = group.dateValues[i - 1] || '';
 
     return headers.map(function (header) {
       return record.hasOwnProperty(header) ? record[header] : '';
@@ -2301,8 +2308,8 @@ var Logic = (function () {
 
   function sortFinanceRows_(rows, headers) {
     var idxEnd = Utils.resolveIndex(headers, ['End']);
-    var idxType = Utils.resolveIndex(headers, ['BillingGroupType']);
-    var idxKey = Utils.resolveIndex(headers, ['BillingGroupKey']);
+    var idxType = Utils.resolveIndex(headers, ['PayerType']);
+    var idxKey = Utils.resolveIndex(headers, ['Payer']);
 
     rows.sort(function (a, b) {
       var endDiff = compareDateLikeValues_(a[idxEnd], b[idxEnd]);

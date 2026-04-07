@@ -98,27 +98,22 @@ var CONFIG = (function () {
     ENTRY_CODE: ['EntryCode', 'LoginCode', 'Password', 'קוד כניסה'],
     DISPLAY_NAME: ['DisplayName', 'EmployeeName', 'שם מלא', 'שם עובד'],
     LOGIN_CODE: ['LoginCode', 'EntryCode', 'Password', 'קוד כניסה'],
-    BASE_ROLE: ['BaseRole', 'תפקיד בסיס'],
     SYSTEM_ROLE: ['SystemRole', 'תפקיד מערכת'],
     ACCESS_SCOPE: ['AccessScope', 'תחום גישה'],
-    TEAM: ['Team', 'צוות'],
-    TEAM_LEAD: ['TeamLead', 'מנהל צוות', 'LeadManager'],
     PROGRAM: ['Program', 'תוכנית'],
-    STATUS: ['Status', 'סטטוס'],
     INSTRUCTOR: ['Instructor', 'מדריך', 'AssignedInstructor'],
-    ACTIVITY: ['Activity', 'פעילות', 'Workshop', 'CourseName', 'ActivityName'],
+    EVENT_TYPE: ['EventType', 'פעילות', 'Workshop', 'CourseName', 'ActivityName'],
     AUTHORITY: ['Authority', 'רשות', 'Municipality'],
     SCHOOL: ['School', 'בית ספר', 'SchoolName'],
-    LOCATION: ['Location', 'מיקום', 'כתובת', 'Address'],
     COURSE_MANAGER: ['CourseManager', 'מנהל קורס'],
+    TEAM: ['InstructorManager', 'מנהל מדריכים', 'TeamLead'],
     INSTRUCTOR_MANAGER: ['InstructorManager', 'מנהל מדריכים', 'TeamLead'],
-    START_DATE: ['StartDate', 'תאריך התחלה', 'Date', 'StartTime'],
-    END_DATE: ['EndDate', 'תאריך סיום', 'EndTime'],
+    START_DATE: ['MonthStart', 'Date1'],
+    END_DATE: ['End', 'תאריך סיום', 'EndTime'],
     PLANNED_MEETINGS: ['PlannedMeetings', 'מפגשים מתוכננים', 'MeetingsPlanned'],
-    ACTUAL_MEETINGS: ['ActualMeetings', 'מספר מפגשים בפועל', 'MeetingsDone'],
-    OPERATIONAL_STATUS: ['OperationalStatus', 'סטטוס תפעולי'],
-    REPORT_STATUS: ['ReportStatus', 'סטטוס דיווח'],
-    ISSUE_STATUS: ['IssueStatus', 'חריגה', 'Issue'],
+    ACTUAL_MEETINGS: ['DatesListedCount'],
+    REVIEW_STATUS: ['ReviewStatus'],
+    ISSUE_STATUS: ['ReviewStatus', 'ReviewNotes'],
     CHANGE_REQUEST: ['ChangeRequest', 'בקשת שינוי']
   };
 
@@ -128,13 +123,13 @@ var CONFIG = (function () {
 
   var FRONTEND_FIELDS = {
     COURSES: [
-      'CourseID', 'ProgramCode', 'Program', 'Activity', 'Status', 'OperationalStatus',
+      'CourseID', 'ProgramCode', 'Program', 'EventType',
       'Employee', 'EmployeeID', 'Instructor', 'CourseManager', 'InstructorManager',
-      'Authority', 'School', 'Location', 'ClassGroup',
-      'DayName', 'Day', 'Date', 'StartDate', 'EndDate', 'StartTime', 'EndTime', 'End',
-      'PlannedMeetings', 'ActualMeetings', 'SourceActualMeetings',
-      'Funding', 'Payment', 'ReportStatus', 'IssueStatus', 'ChangeRequest',
-      'Notes', 'Team'
+      'Authority', 'School', 'ClassGroup',
+      'DayName', 'StartTime', 'EndTime', 'End', 'MonthStart', 'MonthEnd', 'Period',
+      'PlannedMeetings',
+      'Funding', 'Payment', 'ReviewStatus', 'ReviewNotes',
+      'Notes', 'WorkflowStatus'
     ],
     REQUESTS: EDIT_REQUESTS_HEADER_ROW.slice(),
     APPROVALS: EDIT_REQUESTS_HEADER_ROW.slice()

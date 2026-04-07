@@ -11,7 +11,7 @@ import {
 
 const mem = {
   DATA_MASTER: [
-    { CourseID: 'C-1', Program: 'P1', Activity: 'A1', RequiresReview: 'true', Authority: 'Auth1', School: 'School1' }
+    { CourseID: 'C-1', Program: 'P1', EventType: 'A1', ReviewStatus: 'open', Authority: 'Auth1', School: 'School1' }
   ],
   EDIT_REQUESTS: []
 };
@@ -53,7 +53,7 @@ await loadEditRequests(true);
 snap = getStoreSnapshot();
 assert.equal(snap.editRequests.length, 1, 'request should be tracked');
 
-const createRes = await createDataMasterRecord({ Program: 'P2', Activity: 'A2' }, {});
+const createRes = await createDataMasterRecord({ Program: 'P2', EventType: 'A2' }, {});
 assert.equal(createRes.success, true, 'createDataMasterRecord should succeed');
 await loadDataMaster(true);
 snap = getStoreSnapshot();
