@@ -48,7 +48,8 @@ const viewState = {
     selectedInstructor: '',
     selectedCourseId: '',
     selectedCourseDetails: null,
-    selectedInstructorDayCourseId: ''
+    selectedInstructorDayCourseId: '',
+    meetingsByCourseId: {}
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
@@ -1455,10 +1456,42 @@ function collectCourseDates(row) {
   return dates;
 }
 
+function getMeetingChangeSourceForUser() {
+  if (isEden()) return 'EDEN';
+  if (isIdan()) return 'ADMIN';
+  return 'MANAGER';
+}
+
+function getCourseMeetingsForDisplay(course) {
+  const courseId = String(course?.CourseID || '');
+  const cached = viewState.courses.meetingsByCourseId?.[courseId];
+  if (Array.isArray(cached) && cached.length) return cached;
+  return collectCourseDates(course).map((item) => ({
+    MeetingNumber: item.index,
+    MeetingDate: item.value,
+    OriginalMeetingDate: item.value,
+    StartTime: course?.[COURSE_FIELDS.START_TIME] || '',
+    EndTime: course?.[COURSE_FIELDS.END_TIME] || '',
+    MeetingStatus: item.isEndDate ? 'END_DATE' : ''
+  }));
+}
+
+async function loadCourseMeetings(courseId) {
+  const normalized = String(courseId || '').trim();
+  if (!normalized) return [];
+  const res = await api.getCourseMeetings({ CourseID: normalized });
+  if (!res?.success) {
+    showToast(res?.message || 'טעינת המפגשים נכשלה.', 'error');
+    return [];
+  }
+  const items = Array.isArray(res?.data?.items) ? res.data.items : [];
+  viewState.courses.meetingsByCourseId[normalized] = items;
+  return items;
+}
+
 function renderCourseDetailsPanel(course, options = {}) {
   if (!course) return '';
-  const meetings = collectCourseDates(course);
-  const postponeInfo = parseDelayInfo(course[COURSE_FIELDS.NOTES]);
+  const meetings = getCourseMeetingsForDisplay(course);
   const meetingStats = getMeetingStatsFromDates(course);
   const delayText = formatDelayNotes(course[COURSE_FIELDS.NOTES]);
   return `<section class="panel-block course-details-panel">
@@ -1471,21 +1504,24 @@ function renderCourseDetailsPanel(course, options = {}) {
       <div class="course-core-col"><span><strong>בית ספר:</strong> ${esc(course[COURSE_FIELDS.SCHOOL] || '-')}</span><span><strong>רשות:</strong> ${esc(course[COURSE_FIELDS.AUTHORITY] || '-')}</span></div>
       <div class="course-core-col">${summarizeIssue(course) ? `<span><strong>מה חסר בפועל:</strong> ${esc(summarizeIssue(course))}</span>` : ''}<span><strong>הערות דחייה:</strong> ${esc(delayText)}</span></div>
     </div>
-    <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>שעות</th><th>דחייה</th><th>תאריך מקורי</th><th>תאריך חדש</th></tr></thead><tbody>
+    <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>תאריך מקורי</th><th>שעות</th><th>סטטוס</th><th>הערה אחרונה</th><th>פעולות</th></tr></thead><tbody>
       ${meetings.length ? meetings.map((item) => {
-        const meetingNumber = item.isEndDate ? Math.max(meetingStats.total, meetings.length - 1) : item.index;
-        const dayLabel = item.value.toLocaleDateString('he-IL', { weekday: 'long' });
-        const postponed = postponeInfo.isPostponed && !item.isEndDate;
+        const meetingDate = parseDateLike(item.MeetingDate || item.value);
+        const originalDate = parseDateLike(item.OriginalMeetingDate || item.value);
+        const meetingNumber = Number(item.MeetingNumber || item.index || 0);
+        const dayLabel = meetingDate ? meetingDate.toLocaleDateString('he-IL', { weekday: 'long' }) : '-';
+        const isChanged = originalDate && meetingDate && formatDate(originalDate) !== formatDate(meetingDate);
         return `<tr>
-          <td>${esc(item.isEndDate ? 'תאריך סיום' : `מפגש ${meetingNumber}`)}</td>
-          <td>${esc(formatDate(item.value))}</td>
+          <td>${esc(`מפגש ${meetingNumber}`)}</td>
+          <td>${esc(formatDate(meetingDate) || '-')} ${isChanged ? '<span class="status-chip status-pending">שונה</span>' : ''}</td>
           <td>${esc(dayLabel)}</td>
-          <td>${esc(`${formatTimeValue(course[COURSE_FIELDS.START_TIME])}-${formatTimeValue(course[COURSE_FIELDS.END_TIME])}`)}</td>
-          <td>${postponed ? 'כן' : 'לא'}</td>
-          <td>${esc(postponed ? postponeInfo.originalDate : '-')}</td>
-          <td>${esc(postponed ? postponeInfo.newDate : '-')}</td>
+          <td>${esc(formatDate(originalDate) || '-')}</td>
+          <td>${esc(`${formatTimeValue(item.StartTime || course[COURSE_FIELDS.START_TIME])}-${formatTimeValue(item.EndTime || course[COURSE_FIELDS.END_TIME])}`)}</td>
+          <td>${esc(String(item.MeetingStatus || '-'))}</td>
+          <td>${esc(String(item.ChangeNote || '-'))}</td>
+          <td><button class="btn btn-tertiary" data-edit-meeting="${escAttr(`${course.CourseID}::${meetingNumber}`)}" data-meeting-date="${escAttr(meetingDate ? meetingDate.toISOString().slice(0, 10) : '')}">שינוי</button></td>
         </tr>`;
-      }).join('') : '<tr><td colspan="7">אין תאריכי מפגש</td></tr>'}
+      }).join('') : '<tr><td colspan="8">אין תאריכי מפגש</td></tr>'}
     </tbody></table></div>
     <div class="card-kpi-row">
       <span><strong>מפגשים שבוצעו:</strong> ${esc(String(meetingStats.completedCount))} מתוך ${esc(String(meetingStats.total || 0))}</span>
@@ -1557,16 +1593,18 @@ function getCourseDisplayNameById(courseId) {
 
 function bindCourseActions() {
   bindEditButtons();
+  bindMeetingEditButtons();
   document.querySelectorAll('[data-instructor-day-toggle]').forEach((button) => button.addEventListener('click', () => {
     const courseId = button.dataset.instructorDayToggle || '';
     viewState.courses.selectedInstructorDayCourseId = viewState.courses.selectedInstructorDayCourseId === courseId ? '' : courseId;
     renderScreen();
   }));
-  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
     const row = findCourseById(button.dataset.openCourse);
     if (!row) return;
     viewState.courses.selectedCourseId = String(row.CourseID || '');
     viewState.courses.selectedCourseDetails = row;
+    await loadCourseMeetings(row.CourseID);
     renderScreen();
   }));
   document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
@@ -1627,6 +1665,73 @@ function bindEditButtons() {
       showToast('בקשת השינוי הועברה לעדן ונשמרה לזרימת אישור.', 'success');
     }
   }));
+}
+
+function bindMeetingEditButtons() {
+  document.querySelectorAll('[data-edit-meeting]').forEach((button) => button.addEventListener('click', async () => {
+    const [courseId, meetingNumberRaw] = String(button.dataset.editMeeting || '').split('::');
+    const meetingNumber = Number(meetingNumberRaw || 0);
+    if (!courseId || !Number.isFinite(meetingNumber) || meetingNumber < 1) return;
+    const initialDate = button.dataset.meetingDate || '';
+    const result = await openMeetingChangeModal({ meetingNumber, initialDate });
+    if (!result) return;
+    const response = await api.updateCourseMeeting({
+      CourseID: courseId,
+      MeetingNumber: meetingNumber,
+      NewMeetingDate: result.newDate,
+      UpdateMode: result.mode,
+      ChangeNote: result.note,
+      ChangeSource: getMeetingChangeSourceForUser()
+    });
+    if (!response?.success) {
+      showToast(response?.message || 'עדכון מפגש נכשל.', 'error');
+      return;
+    }
+    await loadCourseMeetings(courseId);
+    showToast('המפגש עודכן בהצלחה.', 'success');
+    renderScreen();
+  }));
+}
+
+function openMeetingChangeModal({ meetingNumber, initialDate }) {
+  return new Promise((resolve) => {
+    const root = document.createElement('div');
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card">
+        <h3>עדכון מפגש ${esc(String(meetingNumber))}</h3>
+        <label>תאריך חדש<input id="meetingDateInput" type="date" value="${escAttr(initialDate || '')}" /></label>
+        <label><input type="radio" name="meetingUpdateMode" value="single" checked /> עדכן רק את המפגש הזה</label>
+        <label><input type="radio" name="meetingUpdateMode" value="shift_series" /> הזז את המפגש הזה ואת כל המפגשים שאחריו</label>
+        <label>הערת שינוי (חובה)<textarea id="meetingChangeNote" rows="3" placeholder="סיבת השינוי"></textarea></label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="meetingChangeSubmit">שמירה</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const close = (result = null) => {
+      root.remove();
+      resolve(result);
+    };
+    root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
+    root.querySelector('#meetingChangeSubmit')?.addEventListener('click', () => {
+      const newDate = root.querySelector('#meetingDateInput')?.value || '';
+      const note = root.querySelector('#meetingChangeNote')?.value.trim() || '';
+      const mode = root.querySelector('input[name="meetingUpdateMode"]:checked')?.value || 'single';
+      if (!newDate) {
+        showToast('יש לבחור תאריך חדש למפגש.', 'warning');
+        return;
+      }
+      if (!note) {
+        showToast('יש להזין הערת שינוי.', 'warning');
+        return;
+      }
+      close({ newDate, note, mode });
+    });
+  });
 }
 
 function openCourseActionForm(course, mode) {

@@ -2,6 +2,7 @@ var Logic = (function () {
   // הנחה: מיפויי ההרשאה לפעולות כתיבה מרוכזים כאן כדי למנוע פיצול לוגיקה בין מסלולים שונים.
   var WRITE_ACTIONS = {
     UPDATE_COURSE: 'UPDATE_COURSE',
+    UPDATE_MEETINGS: 'UPDATE_MEETINGS',
     CREATE_MASTER_RECORD: 'CREATE_MASTER_RECORD',
     CREATE_EDIT_REQUEST: 'CREATE_EDIT_REQUEST',
     APPROVAL_DECISION: 'APPROVAL_DECISION',
@@ -434,6 +435,133 @@ var Logic = (function () {
       };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לעדכן קורס.');
+    }
+  }
+
+  function getCourseMeetings(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      var body = Utils.asObject(payload, {});
+      var courseId = Utils.normalize(body.CourseID || body.courseId);
+      if (!courseId) return Utils.safeMessage('CourseID הוא שדה חובה.');
+      Utils.ensureCourseMeetingsSheet();
+      var meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+      var idxCourse = Utils.resolveIndex(meetingTable.headers, ['CourseID']);
+      var meetings = [];
+      for (var i = 0; i < meetingTable.rows.length; i += 1) {
+        var row = meetingTable.rows[i];
+        if (Utils.toKey(valueAt_(row, idxCourse)) !== Utils.toKey(courseId)) continue;
+        meetings.push(Utils.rowToObject(meetingTable.headers, row, meetingTable.rowNumbers[i]));
+      }
+
+      if (!meetings.length) {
+        meetings = bootstrapMeetingsForCourse_(courseId);
+      }
+      meetings.sort(function (a, b) {
+        return Number(a.MeetingNumber || 0) - Number(b.MeetingNumber || 0);
+      });
+      return { success: true, data: { CourseID: courseId, items: meetings } };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לטעון מפגשים לקורס.');
+    }
+  }
+
+  function updateCourseMeeting(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    try {
+      var body = Utils.asObject(payload, {});
+      var courseId = Utils.normalize(body.CourseID || body.courseId);
+      var meetingNumber = Number(body.MeetingNumber || body.meetingNumber);
+      var newMeetingDate = asDate_(body.NewMeetingDate || body.newMeetingDate);
+      var mode = Utils.toKey(body.UpdateMode || body.updateMode || 'single');
+      var changeSource = normalizeChangeSource_(body.ChangeSource || body.changeSource, session.user);
+      var changeNote = Utils.normalize(body.ChangeNote || body.changeNote);
+      if (!courseId) return Utils.safeMessage('CourseID הוא שדה חובה.');
+      if (!Number.isFinite(meetingNumber) || meetingNumber < 1) return Utils.safeMessage('MeetingNumber לא תקין.');
+      if (!newMeetingDate) return Utils.safeMessage('תאריך מפגש חדש הוא שדה חובה.');
+      if (!changeNote) return Utils.safeMessage('ChangeNote הוא שדה חובה.');
+      requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_MEETINGS, { courseId: courseId, team: body.Team });
+
+      Utils.ensureCourseMeetingsSheet();
+      var meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+      var idx = resolveMeetingIndexes_(meetingTable.headers);
+      var nowIso = Utils.nowIso();
+      var meetingsWithIdx = [];
+      for (var i = 0; i < meetingTable.rows.length; i += 1) {
+        var row = meetingTable.rows[i];
+        if (Utils.toKey(valueAt_(row, idx.courseId)) !== Utils.toKey(courseId)) continue;
+        meetingsWithIdx.push({ row: row, rowNumber: meetingTable.rowNumbers[i] });
+      }
+      if (!meetingsWithIdx.length) {
+        bootstrapMeetingsForCourse_(courseId);
+        meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+        idx = resolveMeetingIndexes_(meetingTable.headers);
+        for (var j = 0; j < meetingTable.rows.length; j += 1) {
+          var row2 = meetingTable.rows[j];
+          if (Utils.toKey(valueAt_(row2, idx.courseId)) !== Utils.toKey(courseId)) continue;
+          meetingsWithIdx.push({ row: row2, rowNumber: meetingTable.rowNumbers[j] });
+        }
+      }
+      meetingsWithIdx.sort(function (a, b) {
+        return Number(valueAt_(a.row, idx.meetingNumber) || 0) - Number(valueAt_(b.row, idx.meetingNumber) || 0);
+      });
+      var target = null;
+      meetingsWithIdx.forEach(function (entry) {
+        if (Number(valueAt_(entry.row, idx.meetingNumber) || 0) === meetingNumber) target = entry;
+      });
+      if (!target) return Utils.safeMessage('המפגש המבוקש לא נמצא.');
+
+      var oldDate = asDate_(valueAt_(target.row, idx.meetingDate));
+      if (!oldDate) return Utils.safeMessage('לא קיים תאריך קודם למפגש.');
+      var shiftGroupId = mode === 'shift_series' ? ('SHIFT-' + new Date().getTime() + '-' + Math.floor(Math.random() * 10000)) : '';
+      var deltaDays = Math.round((stripTime_(newMeetingDate).getTime() - stripTime_(oldDate).getTime()) / (24 * 60 * 60 * 1000));
+      if (mode !== 'shift_series') mode = 'single';
+      meetingsWithIdx.forEach(function (entry) {
+        var currentNumber = Number(valueAt_(entry.row, idx.meetingNumber) || 0);
+        if (mode === 'single' && currentNumber !== meetingNumber) return;
+        if (mode === 'shift_series' && currentNumber < meetingNumber) return;
+        var updated = entry.row.slice();
+        var currentDate = asDate_(valueAt_(updated, idx.meetingDate));
+        var nextDate = mode === 'single'
+          ? stripTime_(newMeetingDate)
+          : new Date(stripTime_(currentDate).getTime() + (deltaDays * 24 * 60 * 60 * 1000));
+        if (idx.originalMeetingDate > -1 && !valueAt_(updated, idx.originalMeetingDate) && currentDate) {
+          updated[idx.originalMeetingDate] = currentDate;
+        }
+        if (idx.meetingDate > -1) updated[idx.meetingDate] = nextDate;
+        if (idx.changedBy > -1) updated[idx.changedBy] = session.user.userId;
+        if (idx.changedAt > -1) updated[idx.changedAt] = nowIso;
+        if (idx.changeSource > -1) updated[idx.changeSource] = changeSource;
+        if (idx.changeNote > -1) updated[idx.changeNote] = changeNote;
+        if (idx.shiftGroupId > -1) updated[idx.shiftGroupId] = shiftGroupId;
+        if (idx.meetingStatus > -1 && !Utils.normalize(updated[idx.meetingStatus])) updated[idx.meetingStatus] = 'UPDATED';
+        Utils.updateRow(CONFIG.SHEETS.COURSE_MEETINGS, entry.rowNumber, updated);
+      });
+
+      var syncResult = syncCourseMeetingsToDataMaster_(courseId);
+      var financeRefreshed = false;
+      if (syncResult.monthEndChanged) {
+        rebuildFinanceSheet();
+        financeRefreshed = true;
+      }
+
+      var refreshed = getCourseMeetings({ CourseID: courseId });
+      if (!refreshed.success) return refreshed;
+      return {
+        success: true,
+        data: {
+          CourseID: courseId,
+          mode: mode,
+          shiftGroupId: shiftGroupId,
+          monthEndChanged: syncResult.monthEndChanged,
+          financeRefreshed: financeRefreshed,
+          items: refreshed.data.items
+        }
+      };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לעדכן מפגש.');
     }
   }
 
@@ -1434,6 +1562,148 @@ var Logic = (function () {
     Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, match.rowNumber, updated);
   }
 
+  function resolveMeetingIndexes_(headers) {
+    return {
+      meetingId: Utils.resolveIndex(headers, ['MeetingID']),
+      rowId: Utils.resolveIndex(headers, ['RowID']),
+      courseId: Utils.resolveIndex(headers, ['CourseID']),
+      meetingNumber: Utils.resolveIndex(headers, ['MeetingNumber']),
+      meetingDate: Utils.resolveIndex(headers, ['MeetingDate']),
+      originalMeetingDate: Utils.resolveIndex(headers, ['OriginalMeetingDate']),
+      startTime: Utils.resolveIndex(headers, ['StartTime']),
+      endTime: Utils.resolveIndex(headers, ['EndTime']),
+      meetingStatus: Utils.resolveIndex(headers, ['MeetingStatus']),
+      changedBy: Utils.resolveIndex(headers, ['ChangedBy']),
+      changedAt: Utils.resolveIndex(headers, ['ChangedAt']),
+      changeSource: Utils.resolveIndex(headers, ['ChangeSource']),
+      shiftGroupId: Utils.resolveIndex(headers, ['ShiftGroupID']),
+      changeNote: Utils.resolveIndex(headers, ['ChangeNote'])
+    };
+  }
+
+  function normalizeChangeSource_(sourceInput, user) {
+    var key = Utils.toKey(sourceInput);
+    if (key === 'manager' || key === 'eden' || key === 'admin') return key.toUpperCase();
+    if (isEden_(user)) return 'EDEN';
+    if (isIdan_(user)) return 'ADMIN';
+    return 'MANAGER';
+  }
+
+  function stripTime_(dateValue) {
+    var source = asDate_(dateValue);
+    if (!source) return null;
+    return new Date(source.getFullYear(), source.getMonth(), source.getDate());
+  }
+
+  function bootstrapMeetingsForCourse_(courseId) {
+    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    if (idxCourse === -1) return [];
+    var match = null;
+    for (var i = 0; i < table.rows.length; i += 1) {
+      if (Utils.toKey(valueAt_(table.rows[i], idxCourse)) !== Utils.toKey(courseId)) continue;
+      match = table.rows[i];
+      break;
+    }
+    if (!match) return [];
+    var idxStartTime = Utils.resolveIndex(table.headers, ['StartTime']);
+    var idxEndTime = Utils.resolveIndex(table.headers, ['EndTime']);
+    var idxStatus = Utils.resolveIndex(table.headers, ['OperationalStatus', 'Status']);
+    var created = [];
+    for (var meetingNumber = 1; meetingNumber <= 30; meetingNumber += 1) {
+      var idxDate = Utils.resolveIndex(table.headers, ['Date' + meetingNumber]);
+      if (idxDate === -1) continue;
+      var dateValue = asDate_(valueAt_(match, idxDate));
+      if (!dateValue) continue;
+      created.push(createMeetingRow_(courseId, meetingNumber, dateValue, valueAt_(match, idxStartTime), valueAt_(match, idxEndTime), valueAt_(match, idxStatus)));
+    }
+    if (!created.length) return [];
+    Utils.ensureCourseMeetingsSheet();
+    var meetingSheet = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+    created.forEach(function (entry) {
+      var values = meetingSheet.headers.map(function (header) { return entry[header] || ''; });
+      Utils.appendRow(CONFIG.SHEETS.COURSE_MEETINGS, values);
+    });
+    var refreshed = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+    var idx = resolveMeetingIndexes_(refreshed.headers);
+    var out = [];
+    for (var k = 0; k < refreshed.rows.length; k += 1) {
+      var row = refreshed.rows[k];
+      if (Utils.toKey(valueAt_(row, idx.courseId)) !== Utils.toKey(courseId)) continue;
+      out.push(Utils.rowToObject(refreshed.headers, row, refreshed.rowNumbers[k]));
+    }
+    return out;
+  }
+
+  function createMeetingRow_(courseId, meetingNumber, dateValue, startTime, endTime, status) {
+    var cleanDate = stripTime_(dateValue);
+    var meetingId = 'MTG-' + courseId + '-' + meetingNumber;
+    return {
+      MeetingID: meetingId,
+      RowID: meetingId,
+      CourseID: courseId,
+      MeetingNumber: meetingNumber,
+      MeetingDate: cleanDate,
+      OriginalMeetingDate: cleanDate,
+      StartTime: startTime || '',
+      EndTime: endTime || '',
+      MeetingStatus: status || '',
+      ChangedBy: '',
+      ChangedAt: '',
+      ChangeSource: '',
+      ShiftGroupID: '',
+      ChangeNote: ''
+    };
+  }
+
+  function syncCourseMeetingsToDataMaster_(courseId) {
+    var dmTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    var idxCourse = Utils.resolveIndex(dmTable.headers, ['CourseID']);
+    if (idxCourse === -1) return { monthEndChanged: false };
+    var rowIndex = -1;
+    for (var i = 0; i < dmTable.rows.length; i += 1) {
+      if (Utils.toKey(valueAt_(dmTable.rows[i], idxCourse)) !== Utils.toKey(courseId)) continue;
+      rowIndex = i;
+      break;
+    }
+    if (rowIndex === -1) return { monthEndChanged: false };
+
+    var meetingsTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+    var meetingIdx = resolveMeetingIndexes_(meetingsTable.headers);
+    var meetings = [];
+    for (var j = 0; j < meetingsTable.rows.length; j += 1) {
+      var mRow = meetingsTable.rows[j];
+      if (Utils.toKey(valueAt_(mRow, meetingIdx.courseId)) !== Utils.toKey(courseId)) continue;
+      meetings.push(mRow);
+    }
+    meetings.sort(function (a, b) {
+      return Number(valueAt_(a, meetingIdx.meetingNumber) || 0) - Number(valueAt_(b, meetingIdx.meetingNumber) || 0);
+    });
+
+    var updated = dmTable.rows[rowIndex].slice();
+    var oldMonthEnd = Utils.normalize(valueAt_(updated, Utils.resolveIndex(dmTable.headers, ['MonthEnd'])));
+    var lastMeetingDate = null;
+    for (var n = 1; n <= 30; n += 1) {
+      var idxDate = Utils.resolveIndex(dmTable.headers, ['Date' + n]);
+      if (idxDate === -1) continue;
+      var entry = meetings.find(function (meetingRow) {
+        return Number(valueAt_(meetingRow, meetingIdx.meetingNumber) || 0) === n;
+      });
+      var value = entry ? asDate_(valueAt_(entry, meetingIdx.meetingDate)) : '';
+      updated[idxDate] = value || '';
+      if (value) lastMeetingDate = value;
+    }
+    var idxEnd = Utils.resolveIndex(dmTable.headers, ['End']);
+    if (idxEnd > -1 && lastMeetingDate) updated[idxEnd] = lastMeetingDate;
+    var idxMonthEnd = Utils.resolveIndex(dmTable.headers, ['MonthEnd']);
+    if (idxMonthEnd > -1 && lastMeetingDate) {
+      updated[idxMonthEnd] = deriveMonthEndFromEnd_(lastMeetingDate);
+    }
+    Utils.updateRow(CONFIG.SHEETS.DATA_MASTER, dmTable.rowNumbers[rowIndex], updated);
+    var newMonthEnd = Utils.normalize(valueAt_(updated, idxMonthEnd));
+    return { monthEndChanged: oldMonthEnd !== newMonthEnd };
+  }
+
   function requireWritePermission_(user, actionType, context) {
     if (!user || Utils.isEmpty(user.userId)) throw new Error('auth_required');
     var role = Utils.toKey(user.SystemRole);
@@ -1441,7 +1711,7 @@ var Logic = (function () {
     var approvalScope = Utils.toKey(user.ApprovalScope);
     var allowed = false;
 
-    if (actionType === WRITE_ACTIONS.UPDATE_COURSE) {
+    if (actionType === WRITE_ACTIONS.UPDATE_COURSE || actionType === WRITE_ACTIONS.UPDATE_MEETINGS) {
       allowed = role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager' || editScope === 'all' || editScope === 'full';
     } else if (actionType === WRITE_ACTIONS.CREATE_MASTER_RECORD) {
       allowed = role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager' || editScope === 'all' || editScope === 'full';
@@ -1460,7 +1730,8 @@ var Logic = (function () {
     }
 
     if (!allowed) throw new Error('unauthorized_write_' + actionType);
-    if (actionType === WRITE_ACTIONS.UPDATE_COURSE && !canEditCourseByRole_(user, context && context.courseId, context && context.team)) {
+    if ((actionType === WRITE_ACTIONS.UPDATE_COURSE || actionType === WRITE_ACTIONS.UPDATE_MEETINGS)
+      && !canEditCourseByRole_(user, context && context.courseId, context && context.team)) {
       throw new Error('unauthorized_scope_' + actionType);
     }
     return true;
@@ -2171,6 +2442,8 @@ var Logic = (function () {
     getSheetRows: getSheetRows,
     getFinanceData: getFinanceData,
     getFinanceArchiveData: getFinanceArchiveData,
+    getCourseMeetings: getCourseMeetings,
+    updateCourseMeeting: updateCourseMeeting,
     updateFinanceStatus: updateFinanceStatus,
     syncFinance: syncFinance,
     updateCourse: updateCourse,
