@@ -22,6 +22,8 @@ var CONFIG = (function () {
   var EDIT_REQUESTS_HEADER_ROW = [
     'RequestID',
     'CourseID',
+    'Origin',
+    'ChangeType',
     'RequestedBy',
     'RequestedAt',
     'ChangeSummary',
@@ -51,6 +53,8 @@ var CONFIG = (function () {
   var EDIT_REQUESTS_DISPLAY_ROW = [
     'מזהה בקשה',
     'מזהה קורס',
+    'מקור שינוי',
+    'סוג שינוי',
     'מבקש',
     'תאריך בקשה',
     'תקציר שינוי',
