@@ -86,6 +86,8 @@ function routeAction_(action, payload) {
   if (action === 'rejectRequestAction') return rejectRequestAction(payload);
   if (action === 'getSheetRows') return getSheetRowsAction(payload);
   if (action === 'updateCourse') return updateCourseAction(payload);
+  if (action === 'getCourseMeetingsAction') return getCourseMeetingsAction(payload);
+  if (action === 'updateCourseMeetingAction') return updateCourseMeetingAction(payload);
   if (action === 'createEditRequest') return createEditRequestAction(payload);
   if (action === 'getFinanceDataAction') return getFinanceDataAction(payload);
   if (action === 'getFinanceArchiveDataAction') return getFinanceArchiveDataAction(payload);
@@ -108,6 +110,8 @@ function approveRequestAction(payload) { return Logic.approveRequest(payload || 
 function rejectRequestAction(payload) { return Logic.rejectRequest(payload || {}); }
 function getSheetRowsAction(payload) { return Logic.getSheetRows(payload || {}); }
 function updateCourseAction(payload) { return Logic.updateCourse(payload || {}); }
+function getCourseMeetingsAction(payload) { return Logic.getCourseMeetings(payload || {}); }
+function updateCourseMeetingAction(payload) { return Logic.updateCourseMeeting(payload || {}); }
 function createEditRequestAction(payload) { return Logic.createEditRequest(payload || {}); }
 function getFinanceDataAction(payload) { return Logic.getFinanceData(payload || {}); }
 function getFinanceArchiveDataAction(payload) { return Logic.getFinanceArchiveData(payload || {}); }

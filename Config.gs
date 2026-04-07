@@ -1,6 +1,7 @@
 var CONFIG = (function () {
   var SHEETS = {
     DATA_MASTER: 'DATA_MASTER',
+    COURSE_MEETINGS: 'COURSE_MEETINGS',
     COURSES: 'COURSES',
     PERMISSIONS: 'PERMISSIONS',
     REVIEW_REQUIRED: 'REVIEW_REQUIRED',
@@ -81,6 +82,16 @@ var CONFIG = (function () {
     'הערות פעילות'
   ];
 
+  var COURSE_MEETINGS_HEADER_ROW = [
+    'MeetingID', 'RowID', 'CourseID', 'MeetingNumber', 'MeetingDate', 'OriginalMeetingDate',
+    'StartTime', 'EndTime', 'MeetingStatus', 'ChangedBy', 'ChangedAt', 'ChangeSource', 'ShiftGroupID', 'ChangeNote'
+  ];
+
+  var COURSE_MEETINGS_DISPLAY_ROW = [
+    'מזהה מפגש', 'מזהה שורה', 'מזהה קורס', 'מספר מפגש', 'תאריך מפגש', 'תאריך מקורי',
+    'שעת התחלה', 'שעת סיום', 'סטטוס מפגש', 'שונה על ידי', 'תאריך שינוי', 'מקור שינוי', 'קבוצת הזזה', 'הערת שינוי'
+  ];
+
   var FIELDS = {
     USER_ID: ['UserID', 'EmployeeID', 'LoginID', 'מזהה משתמש', 'מספר עובד'],
     EMPLOYEE_ID: ['EmployeeID', 'UserID', 'InstructorID', 'מספר עובד', 'מזהה עובד'],
@@ -146,6 +157,8 @@ var CONFIG = (function () {
     STATUSES: STATUSES,
     EDIT_REQUESTS_HEADER_ROW: EDIT_REQUESTS_HEADER_ROW,
     EDIT_REQUESTS_DISPLAY_ROW: EDIT_REQUESTS_DISPLAY_ROW,
+    COURSE_MEETINGS_HEADER_ROW: COURSE_MEETINGS_HEADER_ROW,
+    COURSE_MEETINGS_DISPLAY_ROW: COURSE_MEETINGS_DISPLAY_ROW,
     REQUESTS_SOURCE_SHEET: 'EDIT_REQUESTS',
     SESSION_KEY: 'P2026_SESSION'
   };

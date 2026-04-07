@@ -304,6 +304,31 @@ var Utils = (function () {
     };
   }
 
+  function ensureCourseMeetingsSheet() {
+    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.COURSE_MEETINGS);
+    if (!sheet) {
+      sheet = spreadsheet.insertSheet(CONFIG.SHEETS.COURSE_MEETINGS);
+    }
+
+    var width = CONFIG.COURSE_MEETINGS_HEADER_ROW.length;
+    if (sheet.getMaxColumns() < width) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
+    }
+
+    sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, width).setValues([CONFIG.COURSE_MEETINGS_HEADER_ROW]);
+    sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, width).setValues([CONFIG.COURSE_MEETINGS_DISPLAY_ROW]);
+    if (sheet.getLastColumn() > width) {
+      sheet.deleteColumns(width + 1, sheet.getLastColumn() - width);
+    }
+
+    return {
+      sheetName: CONFIG.SHEETS.COURSE_MEETINGS,
+      headerRow: CONFIG.COURSE_MEETINGS_HEADER_ROW.slice(),
+      displayRow: CONFIG.COURSE_MEETINGS_DISPLAY_ROW.slice()
+    };
+  }
+
   function validateRequired(value, message) {
     if (isEmpty(value)) throw new Error(message || 'missing_required');
   }
@@ -362,6 +387,7 @@ var Utils = (function () {
     withScriptCache: withScriptCache,
     removeScriptCache: removeScriptCache,
     ensureEditRequestsSheet: ensureEditRequestsSheet,
+    ensureCourseMeetingsSheet: ensureCourseMeetingsSheet,
     validateRequired: validateRequired
   };
 })();
