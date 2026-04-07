@@ -39,6 +39,16 @@ var Logic = (function () {
     CLOSED: 'closed'
   };
 
+  var EDEN_CHANGE_ORIGINS = {
+    REQUEST: 'REQUEST',
+    EDEN_INITIATED: 'EDEN_INITIATED'
+  };
+
+  var EDEN_CHANGE_TYPES = {
+    UPDATE_EXISTING: 'UPDATE_EXISTING',
+    NEW_RECORD: 'NEW_RECORD'
+  };
+
   function login(userIdInput, codeInput) {
     try {
       var userId = normalizeCredential_(userIdInput);
@@ -490,7 +500,9 @@ var Logic = (function () {
       }
 
       requireWritePermission_(session.user, WRITE_ACTIONS.CREATE_EDIT_REQUEST, { courseId: Utils.normalize(body.CourseID), team: body.Team });
-      if (!canEditCourseByRole_(session.user, Utils.normalize(body.CourseID), body.Team)) {
+      var requestCourseId = Utils.normalize(body.CourseID);
+      var requestChangeType = normalizeChangeType_(body.ChangeType, requestCourseId);
+      if (requestChangeType === EDEN_CHANGE_TYPES.UPDATE_EXISTING && !canEditCourseByRole_(session.user, requestCourseId, body.Team)) {
         return Utils.safeMessage('ניתן לערוך רק פעילות צוותית מורשית.');
       }
 
@@ -582,6 +594,8 @@ var Logic = (function () {
       });
       var idxRequestId = Utils.resolveIndex(table.headers, ['RequestID']);
       var idxCourseId = Utils.resolveIndex(table.headers, ['CourseID']);
+      var idxOrigin = Utils.resolveIndex(table.headers, ['Origin']);
+      var idxChangeType = Utils.resolveIndex(table.headers, ['ChangeType']);
       var idxWorkflow = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
       var idxNotes = Utils.resolveIndex(table.headers, ['EdenNotes']);
       var idxHasDiff = Utils.resolveIndex(table.headers, ['HasDiffBetweenSourceAndEden']);
@@ -600,6 +614,8 @@ var Logic = (function () {
         return {
           RequestID: valueAt_(row, idxRequestId),
           CourseID: valueAt_(row, idxCourseId),
+          Origin: valueAt_(row, idxOrigin),
+          ChangeType: valueAt_(row, idxChangeType),
           ApprovalStatus: valueAt_(row, idxWorkflow),
           RequestedData: Utils.safeJson(requested),
           SourceData: Utils.safeJson(source),
@@ -616,7 +632,9 @@ var Logic = (function () {
         pending_eden: 0,
         eden_saved: 0,
         pending_final: 0,
-        master_changed_warning: 0
+        master_changed_warning: 0,
+        request_origin: 0,
+        eden_initiated_origin: 0
       };
       items.forEach(function (item) {
         var wfKey = Utils.toKey(item.ApprovalStatus);
@@ -624,6 +642,8 @@ var Logic = (function () {
         if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.EDEN_SAVED)) counters.eden_saved += 1;
         if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_FINAL)) counters.pending_final += 1;
         if (Utils.toKey(item.HasMasterChangedAfterEdenEdit) === 'true') counters.master_changed_warning += 1;
+        if (Utils.toKey(item.Origin) === Utils.toKey(EDEN_CHANGE_ORIGINS.EDEN_INITIATED)) counters.eden_initiated_origin += 1;
+        else counters.request_origin += 1;
       });
       return { success: true, data: { items: items, counters: counters } };
     } catch (err) {
@@ -693,12 +713,33 @@ var Logic = (function () {
 
   function applyApprovedRequestToMainData_(requestRow, idx) {
     var courseId = valueAt_(requestRow, idx.courseId);
-    if (Utils.isEmpty(courseId)) return;
+    var changeType = normalizeChangeType_(valueAt_(requestRow, idx.changeType), courseId);
     var requested = Utils.parseJson(valueAt_(requestRow, idx.requestedData));
-    applyRequestedDataToCourseRow_(CONFIG.SHEETS.DATA_MASTER, courseId, requested);
+    if (changeType === EDEN_CHANGE_TYPES.NEW_RECORD) {
+      createDataMasterRecordFromRequest_(requested, courseId);
+    } else {
+      if (Utils.isEmpty(courseId)) return;
+      applyRequestedDataToCourseRow_(CONFIG.SHEETS.DATA_MASTER, courseId, requested);
+    }
     try {
       rebuildFinanceSheet();
     } catch (err) {}
+  }
+
+  function createDataMasterRecordFromRequest_(requestedData, requestedCourseId) {
+    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    if (!table.sheet || !table.headers.length) return;
+    var row = table.headers.map(function () { return ''; });
+    Object.keys(requestedData || {}).forEach(function (fieldName) {
+      var aliases = [fieldName, toPascalCase_(fieldName)];
+      var fieldIndex = Utils.resolveIndex(table.headers, aliases);
+      if (fieldIndex > -1) row[fieldIndex] = requestedData[fieldName];
+    });
+    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    if (idxCourse > -1) row[idxCourse] = Utils.normalize(requestedData.CourseID || requestedCourseId) || generateCourseId_();
+    var idxCreatedAt = Utils.resolveIndex(table.headers, ['CreatedAt']);
+    if (idxCreatedAt > -1 && !row[idxCreatedAt]) row[idxCreatedAt] = Utils.nowIso();
+    Utils.appendRow(CONFIG.SHEETS.DATA_MASTER, row);
   }
 
   function applyRequestedDataToCourseRow_(sheetName, courseId, requestedData) {
@@ -734,6 +775,8 @@ var Logic = (function () {
 
     setField_(record, headers, idx.requestId, requestId);
     setField_(record, headers, idx.courseId, Utils.normalize(body.CourseID));
+    setField_(record, headers, idx.origin, normalizeOrigin_(body.Origin));
+    setField_(record, headers, idx.changeType, normalizeChangeType_(body.ChangeType, body.CourseID));
     setField_(record, headers, idx.requestedBy, existingRow ? valueAt_(existingRow, idx.requestedBy) : user.userId);
     setField_(record, headers, idx.requestedAt, existingRow ? valueAt_(existingRow, idx.requestedAt) : Utils.nowIso());
     setField_(record, headers, idx.requestStatus, status);
@@ -778,6 +821,7 @@ var Logic = (function () {
   function toIndexKey_(fieldName) {
     var map = {
       RequestID: 'requestId', CourseID: 'courseId', RequestedBy: 'requestedBy', RequestedAt: 'requestedAt',
+      Origin: 'origin', ChangeType: 'changeType',
       RequestStatus: 'requestStatus', EdenViewStatus: 'edenViewStatus', FinalApprovalStatus: 'finalApprovalStatus',
       ApprovalStatus: 'approvalStatus', ApprovalNotes: 'approvalNotes', ChangeSummary: 'changeSummary',
       OriginalData: 'originalData', RequestedData: 'requestedData', EditableBy: 'editableBy', AssignedEditor: 'assignedEditor',
@@ -997,27 +1041,46 @@ var Logic = (function () {
     Object.keys(body).forEach(function (key) { out[key] = body[key]; });
 
     var courseId = Utils.normalize(body.CourseID || body.courseId);
+    var origin = normalizeOrigin_(body.Origin || body.origin);
+    var changeType = normalizeChangeType_(body.ChangeType || body.changeType, courseId);
     var changes = Utils.asObject(body.changes, {});
     var requestedData = Utils.asObject(body.requestedData || body.RequestedData, {});
     if (!Object.keys(requestedData).length && Object.keys(changes).length) requestedData = changes;
-    if (!courseId) return out;
 
     var originalData = Utils.asObject(body.originalData || body.OriginalData, {});
-    if (!Object.keys(originalData).length) {
+    if (courseId && !Object.keys(originalData).length) {
       var snapshot = getCourseSnapshotById_(courseId);
       if (snapshot) originalData = snapshot;
     }
 
     if (!Utils.normalize(out.RequestedBy)) out.RequestedBy = user.userId;
     if (!Utils.normalize(out.ApprovalStatus)) out.ApprovalStatus = CONFIG.STATUSES.PENDING_EDEN;
-    if (!Utils.normalize(out.Team)) out.Team = resolveTeamScopeByCourseId_(courseId);
+    if (!Utils.normalize(out.Team) && courseId) out.Team = resolveTeamScopeByCourseId_(courseId);
+    if (!courseId && changeType === EDEN_CHANGE_TYPES.NEW_RECORD) {
+      courseId = Utils.normalize(requestedData.CourseID || requestedData.courseId);
+    }
 
     out.CourseID = courseId;
+    out.Origin = origin;
+    out.ChangeType = changeType;
     out.requestedData = requestedData;
     out.RequestedData = requestedData;
     out.originalData = originalData;
     out.OriginalData = originalData;
     return out;
+  }
+
+  function normalizeOrigin_(originInput) {
+    var key = Utils.toKey(originInput);
+    if (key === Utils.toKey(EDEN_CHANGE_ORIGINS.EDEN_INITIATED)) return EDEN_CHANGE_ORIGINS.EDEN_INITIATED;
+    return EDEN_CHANGE_ORIGINS.REQUEST;
+  }
+
+  function normalizeChangeType_(changeTypeInput, courseId) {
+    var key = Utils.toKey(changeTypeInput);
+    if (key === Utils.toKey(EDEN_CHANGE_TYPES.NEW_RECORD)) return EDEN_CHANGE_TYPES.NEW_RECORD;
+    if (key === Utils.toKey(EDEN_CHANGE_TYPES.UPDATE_EXISTING)) return EDEN_CHANGE_TYPES.UPDATE_EXISTING;
+    return Utils.normalize(courseId) ? EDEN_CHANGE_TYPES.UPDATE_EXISTING : EDEN_CHANGE_TYPES.NEW_RECORD;
   }
 
   function markExceptionResolved_(payload) {
@@ -1107,18 +1170,22 @@ var Logic = (function () {
   }
 
   function buildEdenRowFromRequest_(requestRecord) {
-    var source = getCourseSnapshotById_(requestRecord.CourseID) || {};
+    var origin = normalizeOrigin_(requestRecord.Origin);
+    var changeType = normalizeChangeType_(requestRecord.ChangeType, requestRecord.CourseID);
+    var source = changeType === EDEN_CHANGE_TYPES.NEW_RECORD ? {} : (getCourseSnapshotById_(requestRecord.CourseID) || {});
     var requested = Utils.parseJson(requestRecord.RequestedData) || {};
     var rowObj = {};
     var nowIso = Utils.nowIso();
     var dataHeaders = getEdenDataHeaders_();
     dataHeaders.forEach(function (field) {
-      rowObj['Source_' + field] = source[field] || '';
-      rowObj['Eden_' + field] = requested[field] !== undefined ? requested[field] : source[field] || '';
+      rowObj['Source_' + field] = changeType === EDEN_CHANGE_TYPES.NEW_RECORD ? '' : (source[field] || '');
+      rowObj['Eden_' + field] = requested[field] !== undefined ? requested[field] : (source[field] || '');
     });
     rowObj.RowID = source.RowID || '';
-    rowObj.CourseID = requestRecord.CourseID || source.CourseID || '';
+    rowObj.CourseID = requestRecord.CourseID || requested.CourseID || source.CourseID || '';
     rowObj.RequestID = requestRecord.RequestID;
+    rowObj.Origin = origin;
+    rowObj.ChangeType = changeType;
     rowObj.WorkflowStatus = EDEN_WORKFLOW_STATUSES.PENDING_EDEN;
     rowObj.EdenNotes = requestRecord.ApprovalNotes || '';
     rowObj.MasterLastUpdatedAt = source.UpdatedAt || source.LastUpdatedAt || '';
@@ -1138,7 +1205,7 @@ var Logic = (function () {
     var sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.EDEN_DATA_MASTER);
     var dmTable = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
     var dmHeaders = getEdenDataHeaders_();
-    var headers = ['RowID', 'CourseID', 'RequestID'];
+    var headers = ['RowID', 'CourseID', 'RequestID', 'Origin', 'ChangeType'];
     dmHeaders.forEach(function (field) { headers.push('Source_' + field); });
     dmHeaders.forEach(function (field) { headers.push('Eden_' + field); });
     [
@@ -1220,6 +1287,7 @@ var Logic = (function () {
     });
     var idxRowId = Utils.resolveIndex(edenTable.headers, ['RowID']);
     var idxCourseId = Utils.resolveIndex(edenTable.headers, ['CourseID']);
+    var idxChangeType = Utils.resolveIndex(edenTable.headers, ['ChangeType']);
     var idxMasterChanged = Utils.resolveIndex(edenTable.headers, ['HasMasterChangedAfterEdenEdit']);
     var idxLastSyncedAt = Utils.resolveIndex(edenTable.headers, ['LastSyncedAt']);
     var idxMasterLastUpdated = Utils.resolveIndex(edenTable.headers, ['MasterLastUpdatedAt']);
@@ -1229,6 +1297,8 @@ var Logic = (function () {
     edenTable.rows.forEach(function (row, i) {
       var rowId = idxRowId > -1 ? Utils.normalize(row[idxRowId]) : '';
       var courseId = idxCourseId > -1 ? Utils.normalize(row[idxCourseId]) : '';
+      var changeType = idxChangeType > -1 ? normalizeChangeType_(valueAt_(row, idxChangeType), courseId) : EDEN_CHANGE_TYPES.UPDATE_EXISTING;
+      if (changeType === EDEN_CHANGE_TYPES.NEW_RECORD) return;
       var masterObj = lookup['rowid:' + Utils.toKey(rowId)] || lookup['courseid:' + Utils.toKey(courseId)];
       if (!masterObj) return;
       var updated = row.slice();
