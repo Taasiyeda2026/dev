@@ -80,9 +80,18 @@ a { color: var(--accent); text-decoration: none; }
    ============================================================ */
 .layout {
   display: flex;
+  --sidebar-current-w: var(--sidebar-w);
   min-height: 100vh;
   width: 100%;
   min-width: 0;
+}
+
+.layout.sidebar-collapsed {
+  --sidebar-current-w: 0px;
+}
+
+.layout.sidebar-collapsed .sidebar {
+  border-left: none;
 }
 
 .dashboard-viewport {
@@ -105,7 +114,7 @@ a { color: var(--accent); text-decoration: none; }
 
 /* --- Sidebar --- */
 .sidebar {
-  width: var(--sidebar-w);
+  width: var(--sidebar-current-w);
   background: var(--shell-mid);
   border-left: 1px solid var(--shell-border);
   display: flex;
@@ -115,6 +124,7 @@ a { color: var(--accent); text-decoration: none; }
   z-index: 200;
   overflow-y: auto;
   overflow-x: hidden;
+  transition: width 0.22s ease;
 }
 
 .brand {
@@ -191,13 +201,14 @@ a { color: var(--accent); text-decoration: none; }
 
 /* --- Main content --- */
 .main-shell {
-  margin-right: var(--sidebar-w);
+  margin-right: var(--sidebar-current-w);
   flex: 1;
   min-width: 0;
-  width: calc(100% - var(--sidebar-w));
-  max-width: calc(100% - var(--sidebar-w));
+  width: calc(100% - var(--sidebar-current-w));
+  max-width: calc(100% - var(--sidebar-current-w));
   display: flex;
   flex-direction: column;
+  transition: margin-right 0.22s ease, width 0.22s ease, max-width 0.22s ease;
 }
 
 .app-top-header {
@@ -211,11 +222,36 @@ a { color: var(--accent); text-decoration: none; }
   gap: 16px;
 }
 
+.app-top-header-brand-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .app-top-header-brand {
   font-size: 20px;
   font-weight: 700;
   color: #1d4ed8;
 }
+
+.app-sidebar-toggle {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.app-sidebar-toggle:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
 
 .app-top-header-user {
   display: flex;
@@ -1977,8 +2013,14 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 @media (max-width: 768px) {
+  .layout,
+  .layout.sidebar-collapsed {
+    --sidebar-current-w: 0px;
+  }
+
   .mobile-nav-toggle { display: flex; }
   .sidebar {
+    width: var(--sidebar-w);
     transform: translateX(100%);
     transition: transform 0.25s;
   }

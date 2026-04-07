@@ -34,6 +34,7 @@ const app = document.getElementById('app');
 const APP_NAME = 'Dashboard Taasiyeda';
 let currentRoute = 'login';
 let mobileNavOpen = false;
+let sidebarOpen = true;
 let topSubbarOpen = true;
 const recentlyResolvedExceptions = new Set();
 
@@ -218,6 +219,10 @@ function closeMobileNav() {
   loadRouteData();
 }
 
+function isMobileViewport() {
+  return window.matchMedia('(max-width: 768px)').matches;
+}
+
 function toggleMobileNav(force) {
   mobileNavOpen = typeof force === 'boolean' ? force : !mobileNavOpen;
   document.body.classList.toggle('nav-open', mobileNavOpen);
@@ -228,6 +233,24 @@ function toggleMobileNav(force) {
 function toggleTopSubbar() {
   topSubbarOpen = !topSubbarOpen;
   render();
+}
+
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  if (!sidebarOpen) {
+    mobileNavOpen = false;
+    document.body.classList.remove('nav-open');
+  }
+  render();
+  loadRouteData();
+}
+
+function toggleHeaderSidebarControl() {
+  if (isMobileViewport()) {
+    toggleMobileNav();
+    return;
+  }
+  toggleSidebar();
 }
 
 function resetCoursesNavFromMenu() {
@@ -280,9 +303,9 @@ function render() {
 
   app.innerHTML = `<div class="dashboard-viewport">
     <div class="dashboard-canvas">
-      <div class="layout">
+      <div class="layout ${sidebarOpen ? '' : 'sidebar-collapsed'}">
         <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
-        <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar"><div class="brand">${APP_NAME}</div>
+        <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar" aria-hidden="${(!sidebarOpen && !isMobileViewport()) ? 'true' : 'false'}"><div class="brand">${APP_NAME}</div>
         <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
         <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
         ${nav('dashboard', 'דשבורד פעילות ארצי')}
@@ -302,7 +325,12 @@ function render() {
         <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
         <section class="main-shell">
           <header class="app-top-header">
-            <div class="app-top-header-brand">${APP_NAME}</div>
+            <div class="app-top-header-brand-wrap">
+              <button class="app-sidebar-toggle" id="headerSidebarToggle" type="button" aria-expanded="${isMobileViewport() ? (mobileNavOpen ? 'true' : 'false') : (sidebarOpen ? 'true' : 'false')}" aria-label="${isMobileViewport() ? (mobileNavOpen ? 'סגור סרגל צד' : 'פתח סרגל צד') : (sidebarOpen ? 'סגור סרגל צד' : 'פתח סרגל צד')}">
+                <span aria-hidden="true">${isMobileViewport() ? (mobileNavOpen ? '✕' : '☰') : (sidebarOpen ? '⇥' : '⇤')}</span>
+              </button>
+              <div class="app-top-header-brand">${APP_NAME}</div>
+            </div>
             <div class="app-top-header-user">
               <div class="app-top-header-user-text">
                 <strong>עידן נחום</strong>
@@ -342,6 +370,7 @@ function render() {
   document.getElementById('mobileNavToggle')?.addEventListener('click', () => toggleMobileNav());
   document.getElementById('mobileNavBackdrop')?.addEventListener('click', () => toggleMobileNav(false));
   document.getElementById('topSubbarToggle')?.addEventListener('click', toggleTopSubbar);
+  document.getElementById('headerSidebarToggle')?.addEventListener('click', toggleHeaderSidebarControl);
 
   renderScreen();
 }
