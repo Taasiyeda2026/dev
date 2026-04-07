@@ -57,7 +57,7 @@ const viewState = {
   week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null, instructorPanel: null },
   month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '', program: '' }, selectedDate: '' },
   instructors: { loading: false, error: '', filters: { authority: '', courseManager: '', program: '' }, selectedInstructor: '' },
-  endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', endFrom: '', endTo: '' } },
+  endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', month: '' } },
   exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
   ,
   finance: {
@@ -485,7 +485,8 @@ function renderScreen() {
     const exceptionRows = buildExceptionsRows(getStoreSnapshot().reviewItems || [], getRoleScopedCourses({}), viewState.exceptions.filters);
     main.innerHTML = head('חריגות', 'ללא מדריך / ללא שעות / חסר Date1 (מפגש ראשון) / או סיום ביוני 2026') +
       renderExceptionsFilters() +
-      panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows));
+      panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows)) +
+      renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     bindExceptionsActions();
     return;
   }
@@ -837,7 +838,13 @@ function financeRowInDisplayMonth(item, displayMonth) {
 
 function renderFinanceCards(rows, options = {}) {
   const displayMonth = String(options.displayMonth || '').trim();
-  const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : []).filter((item) => financeRowInDisplayMonth(item, displayMonth));
+  const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
+    .filter((item) => financeRowInDisplayMonth(item, displayMonth))
+    .filter((item) => {
+      const courseName = String(item?.Course || item?.Program || item?.Activity || item?.CourseID || '').trim();
+      const hasDates = String(item?.AllDates || item?.Date || item?.StartDate || item?.EndDate || item?.End || '').trim();
+      return Boolean(courseName && hasDates);
+    });
   if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים לחודש שנבחר.</section>';
   const showArchive = Boolean(options.showArchive);
   const canEdit = Boolean(options.canEdit);
@@ -847,9 +854,10 @@ function renderFinanceCards(rows, options = {}) {
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const statusBucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const programLine = String(item?.Course || item?.CourseID || item?.ProgramsList || item?.BillingGroupType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const programLine = String(item?.Course || item?.Program || item?.Activity || item?.CourseID || item?.ProgramsList || item?.BillingGroupType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
     const authLine = String(item?.Authority || '').trim()
       || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const datesLine = String(item?.AllDates || '').trim() || [item?.Date, item?.StartDate, item?.EndDate || item?.End].map((v) => formatDate(parseDateLike(v)) || '').filter(Boolean).join(', ');
     return `<article class="management-card finance-card finance-${escAttr(statusBucket.key)}">
       <header class="card-head">
         <div>
@@ -859,10 +867,17 @@ function renderFinanceCards(rows, options = {}) {
         <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
       </header>
       <div class="card-meta">
+        <span><strong>שם קורס / פעילות:</strong> ${esc(programLine)}</span>
         <span><strong>רשות:</strong> ${esc(authLine)}</span>
+        <span><strong>בית ספר:</strong> ${esc(schoolLine)}</span>
+        <span><strong>מדריך:</strong> ${esc(String(item?.Instructor || '-'))}</span>
+        <span><strong>כל התאריכים:</strong> ${esc(datesLine || '-')}</span>
         <span><strong>גורם מימון:</strong> ${esc(String(item?.Funding || '-'))}</span>
         <span><strong>גורם משלם:</strong> ${esc(String(item?.Payer || item?.BillingGroupKey || '-'))}</span>
         <span><strong>מפגשים:</strong> ${esc(String(item?.ActualMeetings || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
+        <span><strong>עלות / תשלום:</strong> ${esc(String(item?.Cost || item?.PaymentTotal || '-'))}</span>
+        <span><strong>סטטוס:</strong> ${esc(status || '-')}</span>
+        <span><strong>הערות:</strong> ${esc(String(item?.Notes || '-'))}</span>
       </div>
       <footer class="card-actions">
         <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">תאריכי ביצוע</button>
@@ -1102,6 +1117,25 @@ function onKpiClick(filterName, contextText = '') {
     if (!key || !rest.length) return;
     context[key.trim()] = rest.join(':').trim();
   });
+  if (filterName === 'ending_this_month') {
+    viewState.endDates.filters = {
+      authority: '',
+      employee: '',
+      courseManager: context.manager || '',
+      month: formatMonthInputLocal(new Date())
+    };
+    setRoute('end-dates');
+    return;
+  }
+  if ((context.subtitle || '').includes('מדריכים')) {
+    viewState.instructors.filters = {
+      authority: '',
+      courseManager: context.manager || '',
+      program: ''
+    };
+    setRoute('instructors');
+    return;
+  }
   viewState.courses.quickFilter = filterName;
   viewState.courses.filters = {
     authority: '',
@@ -1223,6 +1257,14 @@ function isCourseShownOnCoursesScreen(row) {
 }
 
 function getScheduleDates(row) {
+  const courseId = String(getCourseField(row, COURSE_FIELDS.COURSE_ID) || row?.CourseID || '').trim();
+  const cachedMeetings = courseId ? viewState.courses.meetingsByCourseId?.[courseId] : null;
+  if (Array.isArray(cachedMeetings) && cachedMeetings.length) {
+    return cachedMeetings
+      .map((meeting) => parseDateLike(meeting?.MeetingDate || meeting?.Date))
+      .filter(Boolean)
+      .sort((a, b) => a - b);
+  }
   const dates = [];
   COURSE_DATE_FIELDS.forEach((fieldName) => {
     const parsed = parseDateLike(getCourseField(row, fieldName));
@@ -1687,6 +1729,7 @@ function bindMeetingEditButtons() {
       showToast(response?.message || 'עדכון מפגש נכשל.', 'error');
       return;
     }
+    await loadCourses({ silent: true, forceRefreshCourseId: courseId });
     await loadCourseMeetings(courseId);
     showToast('המפגש עודכן בהצלחה.', 'success');
     renderScreen();
@@ -1869,7 +1912,7 @@ function safeParseJson(raw) {
 
 function bindEdenActions() {
   document.getElementById('edenStartExisting')?.addEventListener('click', async () => {
-    const courseId = window.prompt('הזן CourseID לפתיחת שינוי קיים:', '')?.trim();
+    const courseId = await openEdenCoursePicker();
     if (!courseId) return;
     const courses = getStoreSnapshot().courses || [];
     const course = courses.find((item) => String(item?.CourseID || '').trim() === courseId);
@@ -1893,7 +1936,7 @@ function bindEdenActions() {
   });
 
   document.getElementById('edenStartNew')?.addEventListener('click', async () => {
-    const draftCourseId = window.prompt('הזן CourseID לרשומה חדשה (אופציונלי):', '')?.trim() || '';
+    const draftCourseId = await openEdenCoursePicker();
     const requestedData = draftCourseId ? { CourseID: draftCourseId } : {};
     const res = await api.createEditRequest({
       CourseID: draftCourseId,
@@ -1959,6 +2002,51 @@ function bindEdenActions() {
     await loadEdenView();
     showToast('מקור DATA_MASTER רוענן בהצלחה.', 'success');
   }));
+}
+
+function openEdenCoursePicker() {
+  return new Promise((resolve) => {
+    const courses = (getStoreSnapshot().courses || []).slice();
+    const options = courses
+      .map((course) => {
+        const courseId = String(course?.CourseID || '').trim();
+        if (!courseId) return '';
+        const school = String(getCourseField(course, COURSE_FIELDS.SCHOOL) || '').trim() || 'ללא בית ספר';
+        const activity = String(getBusinessCourseName(course) || '').trim() || courseId;
+        return `<option value="${escAttr(courseId)}">${esc(`${school} | ${activity}`)}</option>`;
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b, 'he'));
+    const root = document.createElement('div');
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card">
+        <h3>בחירת קורס</h3>
+        <label>בית ספר | קורס / פעילות
+          <select id="edenCourseSelect"><option value="">בחר/י קורס</option>${options.join('')}</select>
+        </label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="edenCourseSelectSubmit">המשך</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const close = (result = '') => {
+      root.remove();
+      resolve(result);
+    };
+    root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close('')));
+    root.querySelector('#edenCourseSelectSubmit')?.addEventListener('click', () => {
+      const selected = root.querySelector('#edenCourseSelect')?.value.trim() || '';
+      if (!selected) {
+        showToast('יש לבחור קורס מהרשימה.', 'warning');
+        return;
+      }
+      close(selected);
+    });
+  });
 }
 
 function openEdenFullRowForm(requestRow, courseRow) {
@@ -2062,6 +2150,9 @@ async function loadInstructorsView() {
 }
 
 async function loadEndDatesView() {
+  if (!viewState.endDates.filters.month) {
+    viewState.endDates.filters.month = formatMonthInputLocal(new Date());
+  }
   const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
   if (needFetch) {
     viewState.endDates.loading = true;
@@ -2140,7 +2231,7 @@ function renderWeekDetails(selected) {
   if (!selected) return '';
   return `<aside class="week-side-panel" id="weekSidePanel"><div class="week-side-panel-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button type="button" class="btn btn-secondary" id="weekCloseDetails">סגור</button></div><div class="week-side-panel-body">${selected.items.map((item) => {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
-    const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '')}</strong><span>מדריך: ${esc(resolveInstructorName(item) || '-')}</span>`;
+    const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '-')} | ${esc(item[COURSE_FIELDS.SCHOOL] || '-')} | מדריך/ה: ${esc(resolveInstructorName(item) || '-')}</strong>`;
     const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item[COURSE_FIELDS.DATE])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
     return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
   }).join('')}</div></aside>`;
@@ -2512,18 +2603,21 @@ function bindInstructorsActions() {
 
 function renderEndDatesFilters() {
   const options = getUiFilterOptions();
-  return `<section class="filters-wrap"><label>רשות<select id="endAuthority">${renderSelectOptions(options.authority, viewState.endDates.filters.authority)}</select></label><label>מדריך<select id="endEmployee">${renderSelectOptions(options.employee, viewState.endDates.filters.employee)}</select></label><label>מנהל קורס<select id="endManager">${renderSelectOptions(options.courseManager, viewState.endDates.filters.courseManager)}</select></label><label>מתאריך סיום<input id="endFrom" type="date" value="${escAttr(viewState.endDates.filters.endFrom)}" /></label><label>עד תאריך סיום<input id="endTo" type="date" value="${escAttr(viewState.endDates.filters.endTo)}" /></label><div class="filter-actions"><button class="btn btn-secondary" id="endApply">סינון</button><button class="btn btn-secondary" id="endReset">נקה סינון</button></div></section>`;
+  const monthValue = viewState.endDates.filters.month || formatMonthInputLocal(new Date());
+  const monthDate = parseMonthValue(monthValue) || new Date();
+  const monthLabel = monthDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
+  return `<section class="filters-wrap"><div class="month-nav-centered"><button type="button" class="btn btn-secondary" id="endMonthPrev" aria-label="חודש קודם">◀</button><span class="month-nav-label">${esc(monthLabel)}</span><button type="button" class="btn btn-secondary" id="endMonthNext" aria-label="חודש הבא">▶</button></div><input id="endMonth" type="hidden" value="${escAttr(monthValue)}" /><label>רשות<select id="endAuthority">${renderSelectOptions(options.authority, viewState.endDates.filters.authority)}</select></label><label>מדריך<select id="endEmployee">${renderSelectOptions(options.employee, viewState.endDates.filters.employee)}</select></label><label>מנהל קורס<select id="endManager">${renderSelectOptions(options.courseManager, viewState.endDates.filters.courseManager)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="endApply">סינון</button><button class="btn btn-secondary" id="endReset">נקה סינון</button></div></section>`;
 }
 
 function buildEndDateItems(courses) {
-  const from = parseDateLike(viewState.endDates.filters.endFrom);
-  const to = parseDateLike(viewState.endDates.filters.endTo);
+  const monthValue = String(viewState.endDates.filters.month || '').trim();
+  const monthStart = parseMonthBoundary(monthValue, 'start');
+  const monthEnd = parseMonthBoundary(monthValue, 'end');
   const reviewItems = getStoreSnapshot().reviewItems || [];
   return (courses || []).filter((course) => {
     const endDate = parseDateLike(getCourseField(course, COURSE_FIELDS.END));
     if (!endDate) return false;
-    if (from && endDate < startOfDay(from)) return false;
-    if (to && endDate > endOfDay(to)) return false;
+    if (monthStart && monthEnd && !isDateInRange(endDate, monthStart, monthEnd)) return false;
     return true;
   }).map((course) => {
     const postpone = parseDelayInfo(getCourseField(course, COURSE_FIELDS.NOTES));
@@ -2552,13 +2646,20 @@ function bindEndDatesActions() {
       authority: document.getElementById('endAuthority')?.value.trim() || '',
       employee: document.getElementById('endEmployee')?.value.trim() || '',
       courseManager: document.getElementById('endManager')?.value.trim() || '',
-      endFrom: document.getElementById('endFrom')?.value.trim() || '',
-      endTo: document.getElementById('endTo')?.value.trim() || ''
+      month: document.getElementById('endMonth')?.value.trim() || formatMonthInputLocal(new Date())
     };
     renderScreen();
   });
   document.getElementById('endReset')?.addEventListener('click', () => {
-    viewState.endDates.filters = { authority: '', employee: '', courseManager: '', endFrom: '', endTo: '' };
+    viewState.endDates.filters = { authority: '', employee: '', courseManager: '', month: formatMonthInputLocal(new Date()) };
+    renderScreen();
+  });
+  document.getElementById('endMonthPrev')?.addEventListener('click', () => {
+    viewState.endDates.filters.month = addMonthsToMonthString(viewState.endDates.filters.month || formatMonthInputLocal(new Date()), -1);
+    renderScreen();
+  });
+  document.getElementById('endMonthNext')?.addEventListener('click', () => {
+    viewState.endDates.filters.month = addMonthsToMonthString(viewState.endDates.filters.month || formatMonthInputLocal(new Date()), 1);
     renderScreen();
   });
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
@@ -2624,15 +2725,7 @@ function bindExceptionsActions() {
     viewState.exceptions.filters = { authority: '', employee: '', courseManager: '', treatmentStatus: '' };
     renderScreen();
   });
-  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
-    if (!button.dataset.openCourse) return;
-    const row = findCourseById(button.dataset.openCourse);
-    if (!row) return;
-    viewState.courses.selectedCourseId = String(row.CourseID || '');
-    viewState.courses.selectedCourseDetails = row;
-    setRoute('courses');
-  }));
-  bindEditButtons();
+  bindCourseActions();
 }
 
 function exportFinanceToExcel(rows, filename) {
