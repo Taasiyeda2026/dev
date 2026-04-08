@@ -993,6 +993,14 @@ a { color: var(--accent); text-decoration: none; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(12px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.page-enter {
+  animation: pageEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* ============================================================
    STATUS CHIPS
    ============================================================ */
@@ -2051,6 +2059,7 @@ a { color: var(--accent); text-decoration: none; }
   display: flex;
   flex-direction: column;
   gap: 14px;
+  animation: pageEnter 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .login-logo-slot { text-align: center; margin-bottom: 4px; }
 .login-logo { max-height: 52px; max-width: 160px; object-fit: contain; }

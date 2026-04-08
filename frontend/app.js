@@ -265,6 +265,7 @@ function setRoute(route) {
   mobileNavOpen = false;
   document.body.classList.remove('nav-open');
   render();
+  triggerPageEnter();
   loadRouteData();
 }
 
@@ -373,6 +374,14 @@ function getBusinessCourseName(row = {}) {
 function updateDocumentTitle() {
   const pageLabel = routeLabels[currentRoute] || routeLabels.dashboard;
   document.title = `${APP_NAME} | ${pageLabel}`;
+}
+
+function triggerPageEnter() {
+  const main = document.getElementById('main');
+  if (!main) return;
+  main.classList.remove('page-enter');
+  void main.offsetWidth;
+  main.classList.add('page-enter');
 }
 
 function renderScreen() {
