@@ -545,7 +545,9 @@ function renderScreen() {
     const canActive = canAccessFinanceActive();
     const canArchive = canAccessFinanceArchive();
     const showActive = viewState.finance.tab !== 'archive';
-    const rows = showActive ? viewState.finance.activeItems : viewState.finance.archiveItems;
+    const rows = showActive
+      ? (viewState.finance.activeItems || []).filter((item) => String(item?.FinanceStatus || '') !== 'בוצע-גביה')
+      : viewState.finance.archiveItems;
     const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
     const dm = viewState.finance.displayMonth || '';
     const filteredFinance = (rows || []).filter((item) => financeRowInDisplayMonth(item, dm));
@@ -627,7 +629,9 @@ function renderScreen() {
       const sheetName = event.target.dataset.financeSheet || 'FINANCE';
       const result = await updateFinanceStatus(financeRowId, status, { sheetName });
       if (!result?.success) {
-        viewState.finance.error = result?.message || 'עדכון סטטוס נכשל.';
+        showToast(result?.message || 'עדכון סטטוס נכשל.', 'error');
+      } else if (status === 'בוצע-גביה') {
+        showToast('הרשומה סומנה כבוצע-גביה והועברה לארכיון.', 'success');
       }
       await loadFinanceView({ silent: true, force: true });
     }));
