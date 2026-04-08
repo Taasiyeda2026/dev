@@ -132,6 +132,8 @@ async function fetchSheet(sheetName) {
 async function loadCourses() {
   if (!apiRef) return [];
   const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
+  dataStore.dataMaster = rows;
+  dataStore.loadedAt.dataMaster = now();
   dataStore.courses = rows.map(mapCourseRow);
   dataStore.loadedAt.courses = now();
   return dataStore.courses;
