@@ -1202,17 +1202,18 @@ a { color: var(--accent); text-decoration: none; }
   box-sizing: border-box;
 }
 .week-day-head {
-  display: grid;
-  grid-template-rows: auto auto auto;
-  justify-items: center;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   gap: 4px;
   width: 100%;
 }
-.week-day-head .btn { margin-top: 2px; }
-.week-day-head small { font-size: 11px; color: var(--text-muted); }
-.week-day-head h3 { width: 100%; text-align: center; }
-.week-day-date { width: 100%; text-align: center; }
+.week-day-head .btn { margin-top: 2px; align-self: center; }
+.week-day-head small { font-size: 11px; color: var(--text-muted); display: block; text-align: center; }
+.week-day-head h3 { width: 100%; text-align: center; margin: 0; }
+.week-day-date { width: 100%; text-align: center; display: block; }
 .week-day-column {
   display: flex;
   flex-direction: column;
