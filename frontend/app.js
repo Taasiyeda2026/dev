@@ -412,7 +412,7 @@ function renderScreen() {
 
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') {
     const subtitle = viewState.uiContext.coursesSubtitle || (isInstructor() ? 'רק קורסים שמשויכים אליך' : '');
-    const filteredCourses = applyCourseQuickFilter(viewState.courses.data);
+    const filteredCourses = applyCourseQuickFilter(viewState.courses.data).filter((row) => !isCourseCompleted(row));
     const selectedInstructor = viewState.courses.selectedInstructor;
     const instructorOverview = buildInstructorOverview(filteredCourses);
     const visibleCourses = currentRoute === 'instructor-view' && selectedInstructor
