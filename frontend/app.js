@@ -323,10 +323,6 @@ function render() {
               <div class="app-top-header-page-title">${esc(routeLabels[currentRoute] || routeLabels.dashboard)}</div>
             </div>
             <div class="app-top-header-user">
-              <div class="app-top-header-user-text">
-                <strong>עידן נחום</strong>
-                <span>מנהל מערכת ראשי</span>
-              </div>
               <button class="app-top-header-toggle" id="topSubbarToggle" type="button" aria-expanded="${isMobileViewport() ? (mobileNavOpen ? 'true' : 'false') : (sidebarOpen ? 'true' : 'false')}" aria-label="${isMobileViewport() ? (mobileNavOpen ? 'סגור סרגל צד' : 'פתח סרגל צד') : (sidebarOpen ? 'סגור סרגל צד' : 'פתח סרגל צד')}">
                 <span class="app-top-header-arrow" aria-hidden="true">${isMobileViewport() ? (mobileNavOpen ? '✕' : '☰') : (sidebarOpen ? '⇥' : '⇤')}</span>
               </button>
