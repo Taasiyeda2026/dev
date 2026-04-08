@@ -511,7 +511,8 @@ function renderScreen() {
     const endDateItems = buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters));
     main.innerHTML = head('תאריכי סיום', 'בקרת קורסים לקראת סיום') +
       renderEndDatesFilters() +
-      panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems));
+      panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems)) +
+      renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     bindEndDatesActions();
     return;
   }
@@ -2767,13 +2768,19 @@ function bindEndDatesActions() {
     viewState.endDates.filters.month = addMonthsToMonthString(viewState.endDates.filters.month || formatMonthInputLocal(new Date()), 1);
     renderScreen();
   });
-  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', () => {
+  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
     const row = findCourseById(button.dataset.openCourse);
     if (!row) return;
     viewState.courses.selectedCourseId = String(row.CourseID || '');
     viewState.courses.selectedCourseDetails = row;
-    setRoute('courses');
+    await loadCourseMeetings(row.CourseID);
+    renderScreen();
   }));
+  document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
+    viewState.courses.selectedCourseId = '';
+    viewState.courses.selectedCourseDetails = null;
+    renderScreen();
+  });
 }
 
 function renderExceptionsFilters() {
