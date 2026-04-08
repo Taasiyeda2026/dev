@@ -1439,7 +1439,7 @@ function parseDateLike(value) {
       Number(isoUtc[5]),
       Number(isoUtc[6] || '0')
     ));
-    return Number.isNaN(date.getTime()) ? null : new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds());
+    return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds());
   }
   if (typeof value === 'number' && value > 20000 && value < 60000) {
     const excelEpoch = new Date(1899, 11, 30);
