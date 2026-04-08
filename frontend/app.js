@@ -925,10 +925,11 @@ function renderFinanceTable(rows, options = {}) {
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const bucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || item?.PayerType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
     const authLine = String(item?.Authority || '').trim() || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const meetings = `${item?.DatesListedCount || '-'}/${item?.PlannedMeetings || '-'}`;
     const notes = String(item?.FinanceNotes || '').trim();
+    const payerLabel = [hebrifyValue(item?.Payer), hebrifyValue(item?.Funding)].filter(Boolean).join(' · ') || '-';
     return `<tr class="finance-tr-${escAttr(bucket.key)}">
       <td><span class="cell-ellipsis" title="${escAttr(programLine)}">${esc(programLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(schoolLine)}">${esc(schoolLine)}</span></td>
@@ -936,7 +937,7 @@ function renderFinanceTable(rows, options = {}) {
       <td><span class="cell-ellipsis">${esc(String(item?.Instructor || '-'))}</span></td>
       <td><span class="cell-ellipsis">${esc(String(item?.CourseManager || '-'))}</span></td>
       <td style="text-align:center;white-space:nowrap">${esc(meetings)}</td>
-      <td style="white-space:nowrap">${esc(String(item?.Payment || '-'))}</td>
+      <td style="white-space:nowrap" title="${escAttr(payerLabel)}">${esc(payerLabel)}</td>
       <td>
         ${canEdit
           ? `<select class="finance-inline-select" data-finance-status="1" data-finance-row-id="${escAttr(financeRowId)}" data-finance-sheet="${sourceSheet}">
@@ -963,7 +964,7 @@ function renderFinanceTable(rows, options = {}) {
         <table>
           <thead><tr>
             <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מדריך</th><th>מנהל קורס</th>
-            <th>מפגשים</th><th>תשלום</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
+            <th>מפגשים</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
           </tr></thead>
           <tbody>${items.map(renderRow).join('')}</tbody>
         </table>
@@ -997,10 +998,12 @@ function renderFinanceCards(rows, options = {}) {
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const statusBucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || item?.PayerType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
     const authLine = String(item?.Authority || '').trim() || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const datesLine = Array.from({ length: 30 }, (_, i) => item?.[`Date${i + 1}`]).map((v) => formatDate(parseDateLike(v)) || '').filter(Boolean).join(', ');
     const notes = String(item?.FinanceNotes || '').trim();
+    const fundingHeb = hebrifyValue(item?.Funding);
+    const payerHeb = hebrifyValue(item?.Payer);
     return `<article class="management-card finance-card finance-${escAttr(statusBucket.key)}">
       <header class="card-head">
         <div style="min-width:0;flex:1">
@@ -1015,10 +1018,10 @@ function renderFinanceCards(rows, options = {}) {
         <div class="card-meta">
           <span><strong>מדריך</strong>${esc(String(item?.Instructor || '-'))}</span>
           <span><strong>מנהל קורס</strong>${esc(String(item?.CourseManager || '-'))}</span>
-          <span><strong>גורם מימון</strong>${esc(String(item?.Funding || '-'))}</span>
-          <span><strong>גורם משלם</strong>${esc(String(item?.Payer || '-'))}</span>
+          ${fundingHeb ? `<span><strong>גורם מימון</strong>${esc(fundingHeb)}</span>` : ''}
+          ${payerHeb ? `<span><strong>גורם משלם</strong>${esc(payerHeb)}</span>` : ''}
           <span><strong>מפגשים</strong>${esc(String(item?.DatesListedCount || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
-          <span><strong>עלות / תשלום</strong>${esc(String(item?.Payment || '-'))}</span>
+          ${item?.Payment ? `<span><strong>עלות / תשלום</strong>${esc(String(item.Payment))}</span>` : ''}
           ${datesLine ? `<span style="grid-column:1/-1"><strong>תאריכים</strong>${esc(datesLine)}</span>` : ''}
         </div>
         <footer class="card-actions">
@@ -2968,8 +2971,8 @@ function exportFinanceToExcel(rows, filename) {
     String(row?.PlannedMeetings || ''),
     String(row?.DatesListedCount || ''),
     String(row?.Payment || row?.Payment || ''),
-    String(row?.Funding || ''),
-    String(row?.Payer || row?.Payer || ''),
+    hebrifyValue(row?.Funding) || '',
+    hebrifyValue(row?.Payer) || '',
     String(row?.FinanceStatus || ''),
     String(row?.Notes || '')
   ]);
@@ -3147,6 +3150,36 @@ async function loadFinanceView(options = {}) {
   }
   viewState.finance.loading = false;
   renderScreen();
+}
+
+const FINANCE_VALUE_HEB = {
+  'authority': 'רשות',
+  'municipality': 'עירייה',
+  'municipal': 'עירייה',
+  'school': 'בית ספר',
+  'ministry': 'משרד החינוך',
+  'ministry of education': 'משרד החינוך',
+  'government': 'ממשלה',
+  'fund': 'קרן',
+  'foundation': 'קרן',
+  'self': 'עצמי',
+  'parents': 'הורים',
+  'parent': 'הורים',
+  'budget': 'תקציב',
+  'joint': 'שותפות',
+  'taasiyeda': 'תעשיידע',
+  'other': 'אחר',
+  'none': '-',
+  'yes': 'כן',
+  'no': 'לא',
+  'true': 'כן',
+  'false': 'לא',
+};
+function hebrifyValue(val) {
+  if (!val) return val;
+  const str = String(val).trim();
+  const lower = str.toLowerCase();
+  return FINANCE_VALUE_HEB[lower] || str;
 }
 
 function getFinanceStatusBucket(statusValue) {
