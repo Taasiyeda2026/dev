@@ -50,7 +50,8 @@ const viewState = {
     selectedCourseId: '',
     selectedCourseDetails: null,
     selectedInstructorDayCourseId: '',
-    meetingsByCourseId: {}
+    meetingsByCourseId: {},
+    view: 'table'
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
@@ -68,7 +69,8 @@ const viewState = {
     activeItems: [],
     archiveItems: [],
     selectedFinanceRowId: '',
-    displayMonth: ''
+    displayMonth: '',
+    view: 'table'
   },
   uiContext: {
     coursesSubtitle: '',
@@ -427,12 +429,18 @@ function renderScreen() {
         <button class="btn btn-secondary" id="filterCourses">סינון</button>
         <button class="btn btn-secondary" id="resetCourseFilters">נקה סינון</button>
         ${canEditMasterCourses() ? '<button class="btn btn-primary" id="addCourseRecordBtn">＋ רשומה חדשה</button>' : ''}
+        <div class="view-toggle-group">
+          <button class="btn btn-icon${viewState.courses.view === 'table' ? ' active' : ''}" id="coursesViewTable" title="תצוגת טבלה">☰</button>
+          <button class="btn btn-icon${viewState.courses.view === 'cards' ? ' active' : ''}" id="coursesViewCards" title="תצוגת כרטיסים">⊞</button>
+        </div>
       </div>
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
     ${selectedInstructor ? `<section class="instructor-details-head"><span>מדריך</span><strong>${esc(selectedInstructor)}</strong><button class="btn btn-secondary" id="clearInstructorDetails">חזרה לכל המדריכים</button></section>` : ''}
     ${currentRoute === 'courses'
-      ? renderCourseTable(visibleCourses, { canEdit: canEditMasterCourses() })
+      ? (viewState.courses.view === 'cards'
+          ? renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses() })
+          : renderCourseTable(visibleCourses, { canEdit: canEditMasterCourses() }))
       : renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses(), showInstructorManager: true })}`) +
     renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     document.getElementById('filterCourses')?.addEventListener('click', () => {
@@ -465,6 +473,8 @@ function renderScreen() {
       await loadCourses();
       showToast('הרשומה נוספה בהצלחה ל-DATA_MASTER.', 'success');
     });
+    document.getElementById('coursesViewTable')?.addEventListener('click', () => { viewState.courses.view = 'table'; renderScreen(); });
+    document.getElementById('coursesViewCards')?.addEventListener('click', () => { viewState.courses.view = 'cards'; renderScreen(); });
     bindInstructorCards();
     bindCourseActions();
     return;
@@ -555,6 +565,10 @@ function renderScreen() {
         <div class="finance-toolbar-actions">
           ${showActive ? '<button class="btn btn-secondary" id="financeExportBtn">ייצוא לאקסל</button>' : ''}
           ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן FINANCE</button>' : ''}
+          <div class="view-toggle-group">
+            <button class="btn btn-icon${viewState.finance.view === 'table' ? ' active' : ''}" id="financeViewTable" title="טבלה">☰</button>
+            <button class="btn btn-icon${viewState.finance.view === 'cards' ? ' active' : ''}" id="financeViewCards" title="כרטיסים">⊞</button>
+          </div>
         </div>
       </section>
       <section class="finance-month-toolbar">
@@ -568,7 +582,10 @@ function renderScreen() {
         <article class="kpi-card"><span class="kpi-title">הושלם</span><span class="kpi-value">${financeSummary.completed}</span></article>
         <article class="kpi-card"><span class="kpi-title">דורש פעולה</span><span class="kpi-value">${financeSummary.needsAction}</span></article>
       </section>` +
-      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage, renderFinanceCards(rows, { showArchive: !showActive, canEdit, displayMonth: dm })) +
+      panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage,
+        viewState.finance.view === 'table'
+          ? renderFinanceTable(rows, { showArchive: !showActive, canEdit, displayMonth: dm })
+          : renderFinanceCards(rows, { showArchive: !showActive, canEdit, displayMonth: dm })) +
       renderFinanceDetailsPanel(rows.find((item) => String(item?.FinanceRowID || '') === viewState.finance.selectedFinanceRowId) || null);
 
     document.getElementById('financeMonthPrev')?.addEventListener('click', () => {
@@ -640,6 +657,8 @@ function renderScreen() {
       showToast('הערה נשמרה בהצלחה.', 'success');
       await loadFinanceView({ silent: true, force: true });
     }));
+    document.getElementById('financeViewTable')?.addEventListener('click', () => { viewState.finance.view = 'table'; renderScreen(); });
+    document.getElementById('financeViewCards')?.addEventListener('click', () => { viewState.finance.view = 'cards'; renderScreen(); });
     return;
   }
 
@@ -873,6 +892,87 @@ function financeRowInDisplayMonth(item, displayMonth) {
   return candidates.some((d) => formatMonthInputLocal(d) === displayMonth);
 }
 
+function renderFinanceTable(rows, options = {}) {
+  const displayMonth = String(options.displayMonth || '').trim();
+  const prevMonth = displayMonth ? addMonthsToMonthString(displayMonth, -1) : '';
+  const showArchive = Boolean(options.showArchive);
+  const canEdit = Boolean(options.canEdit);
+  const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
+    .filter((item) => {
+      const courseName = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || '').trim();
+      const hasDates = String(item?.Date1 || item?.MonthEnd || item?.End || '').trim();
+      return Boolean(courseName && hasDates);
+    });
+  const prevItems = prevMonth ? allRows.filter((item) => financeRowInDisplayMonth(item, prevMonth)) : [];
+  const currItems = displayMonth ? allRows.filter((item) => financeRowInDisplayMonth(item, displayMonth)) : allRows;
+  if (!prevItems.length && !currItems.length) return '<section class="panel-empty">לא נמצאו רשומות כספים לחודש שנבחר.</section>';
+  function statusMini(items) {
+    const counts = {};
+    items.forEach((item) => {
+      const b = getFinanceStatusBucket(String(item?.FinanceStatus || 'ממתין')).key;
+      counts[b] = (counts[b] || 0) + 1;
+    });
+    const labels = { open: 'פתוח', 'in-progress': 'בטיפול', completed: 'הושלם', 'needs-action': 'דורש פעולה' };
+    return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
+  }
+  function renderRow(item) {
+    const financeRowId = String(item?.FinanceRowID || '');
+    const status = String(item?.FinanceStatus || 'ממתין');
+    const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
+    const bucket = getFinanceStatusBucket(status);
+    const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || item?.PayerType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const authLine = String(item?.Authority || '').trim() || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const meetings = `${item?.DatesListedCount || '-'}/${item?.PlannedMeetings || '-'}`;
+    const notes = String(item?.FinanceNotes || '').trim();
+    return `<tr class="finance-tr-${escAttr(bucket.key)}">
+      <td><span class="cell-ellipsis" title="${escAttr(programLine)}">${esc(programLine)}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(schoolLine)}">${esc(schoolLine)}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(authLine)}">${esc(authLine)}</span></td>
+      <td><span class="cell-ellipsis">${esc(String(item?.Instructor || '-'))}</span></td>
+      <td><span class="cell-ellipsis">${esc(String(item?.CourseManager || '-'))}</span></td>
+      <td style="text-align:center;white-space:nowrap">${esc(meetings)}</td>
+      <td style="white-space:nowrap">${esc(String(item?.Payment || '-'))}</td>
+      <td>
+        ${canEdit
+          ? `<select class="finance-inline-select" data-finance-status="1" data-finance-row-id="${escAttr(financeRowId)}" data-finance-sheet="${sourceSheet}">
+              ${renderStatusOption('ממתין', status)}
+              ${renderStatusOption('במעקב', status)}
+              ${renderStatusOption('בוצע-גביה', status)}
+            </select>`
+          : `<span class="status-chip ${statusClass(status)}">${esc(status)}</span>`}
+      </td>
+      <td class="finance-notes-cell">${notes ? `<span class="cell-ellipsis" title="${escAttr(notes)}">${esc(notes)}</span>` : ''}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-xs" data-finance-open="${escAttr(financeRowId)}">תאריכים</button>
+      </td>
+    </tr>`;
+  }
+  function renderSection(items, label) {
+    if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:8px 0">אין רשומות לחודש זה</p></div>`;
+    return `<div class="finance-month-section">
+      <div class="finance-month-section-head">
+        <h4 class="finance-month-section-label">${esc(label)}</h4>
+        <div class="finance-status-mini-row">${statusMini(items)}</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מדריך</th><th>מנהל קורס</th>
+            <th>מפגשים</th><th>תשלום</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
+          </tr></thead>
+          <tbody>${items.map(renderRow).join('')}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }
+  function monthLabel(monthStr) {
+    const d = parseMonthValue(monthStr);
+    return d ? d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : monthStr;
+  }
+  return renderSection(prevItems, monthLabel(prevMonth)) + renderSection(currItems, monthLabel(displayMonth));
+}
+
 function renderFinanceCards(rows, options = {}) {
   const displayMonth = String(options.displayMonth || '').trim();
   const prevMonth = displayMonth ? addMonthsToMonthString(displayMonth, -1) : '';
@@ -938,9 +1038,15 @@ function renderFinanceCards(rows, options = {}) {
     const d = parseMonthValue(monthStr);
     return d ? d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : monthStr;
   }
+  function statusMini(items) {
+    const counts = {};
+    items.forEach((item) => { const b = getFinanceStatusBucket(String(item?.FinanceStatus || 'ממתין')).key; counts[b] = (counts[b] || 0) + 1; });
+    const labels = { open: 'פתוח', 'in-progress': 'בטיפול', completed: 'הושלם', 'needs-action': 'דורש פעולה' };
+    return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
+  }
   function renderSection(items, label) {
-    if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:12px 0">אין רשומות לחודש זה</p></div>`;
-    return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><section class="cards-grid finance-grid">${items.map(renderCard).join('')}</section></div>`;
+    if (!items.length) return `<div class="finance-month-section"><div class="finance-month-section-head"><h4 class="finance-month-section-label">${esc(label)}</h4></div><p class="panel-empty" style="padding:12px 0">אין רשומות לחודש זה</p></div>`;
+    return `<div class="finance-month-section"><div class="finance-month-section-head"><h4 class="finance-month-section-label">${esc(label)}</h4><div class="finance-status-mini-row">${statusMini(items)}</div></div><section class="cards-grid finance-grid">${items.map(renderCard).join('')}</section></div>`;
   }
   return renderSection(prevItems, monthLabel(prevMonth)) + renderSection(currItems, monthLabel(displayMonth));
 }

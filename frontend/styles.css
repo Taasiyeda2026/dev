@@ -1717,14 +1717,40 @@ a { color: var(--accent); text-decoration: none; }
   padding: 0 8px;
   background: var(--surface);
 }
+.view-toggle-group { display: flex; gap: 2px; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.btn-icon { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; border: none; background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: background 0.15s, color 0.15s; }
+.btn-icon:hover { background: var(--surface-2); color: var(--text-primary); }
+.btn-icon.active { background: var(--accent); color: #fff; }
+
 .finance-month-section { margin-bottom: 28px; }
+.finance-month-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--accent); }
+.finance-status-mini-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.finance-status-mini { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+.finance-status-mini.finance-open          { background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border); }
+.finance-status-mini.finance-in-progress   { background: var(--amber-soft); color: var(--amber); border: 1px solid var(--amber-border); }
+.finance-status-mini.finance-needs-action  { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-border); }
+.finance-status-mini.finance-completed     { background: var(--green-soft); color: var(--green); border: 1px solid var(--green-border); }
+
+.finance-tr-open          td:first-child { border-right: 3px solid var(--text-muted); }
+.finance-tr-in-progress   td:first-child { border-right: 3px solid var(--amber); }
+.finance-tr-needs-action  td:first-child { border-right: 3px solid var(--red); }
+.finance-tr-completed     td:first-child { border-right: 3px solid var(--green); }
+.finance-tr-completed     { opacity: 0.75; }
+
+.finance-inline-select {
+  height: 26px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); font-size: 11px; color: var(--text-primary); outline: none; cursor: pointer;
+}
+.finance-inline-select:focus { border-color: var(--accent); }
+.finance-notes-cell { max-width: 160px; }
+
 .finance-month-section-label {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
-  padding: 6px 0 10px;
-  border-bottom: 2px solid var(--accent);
-  margin-bottom: 14px;
+  padding: 0;
+  margin: 0;
+  border-bottom: none;
 }
 .finance-notes-preview {
   font-size: 12px;
