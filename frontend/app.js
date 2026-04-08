@@ -580,6 +580,7 @@ function renderScreen() {
         <div class="finance-toolbar-actions">
           ${showActive ? '<button class="btn btn-secondary" id="financeExportBtn">ייצוא לאקסל</button>' : ''}
           ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן FINANCE</button>' : ''}
+          <button class="btn btn-icon" id="financeRefreshBtn" title="רענן נתונים">↺</button>
           <div class="view-toggle-group">
             <button class="btn btn-icon${viewState.finance.view === 'table' ? ' active' : ''}" id="financeViewTable" title="טבלה">☰</button>
             <button class="btn btn-icon${viewState.finance.view === 'cards' ? ' active' : ''}" id="financeViewCards" title="כרטיסים">⊞</button>
@@ -677,6 +678,12 @@ function renderScreen() {
     }));
     document.getElementById('financeViewTable')?.addEventListener('click', () => { viewState.finance.view = 'table'; renderScreen(); });
     document.getElementById('financeViewCards')?.addEventListener('click', () => { viewState.finance.view = 'cards'; renderScreen(); });
+    document.getElementById('financeRefreshBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('financeRefreshBtn');
+      if (btn) { btn.style.opacity = '0.4'; btn.disabled = true; }
+      await loadFinanceView({ force: true, silent: false });
+      if (btn) { btn.style.opacity = ''; btn.disabled = false; }
+    });
     document.querySelectorAll('[data-finance-meetings]').forEach((button) => button.addEventListener('click', () => {
       const id = button.dataset.financeMeetings || '';
       viewState.finance.selectedMeetingsRowId = viewState.finance.selectedMeetingsRowId === id ? '' : id;
@@ -3083,7 +3090,7 @@ async function loadRouteData() {
   if (currentRoute === 'instructors') return loadInstructorsView();
   if (currentRoute === 'end-dates') return loadEndDatesView();
   if (currentRoute === 'exceptions') return loadExceptionsView();
-  if (currentRoute === 'finance') return loadFinanceView({ force: true });
+  if (currentRoute === 'finance') return loadFinanceView();
   if (currentRoute === 'my-requests') return loadMyRequests();
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') return loadApprovals();
   if (currentRoute === 'eden-view') return loadEdenView();
