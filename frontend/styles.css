@@ -1670,15 +1670,36 @@ a { color: var(--accent); text-decoration: none; }
   padding: 0 8px;
   background: var(--surface);
 }
-.finance-inline-details {
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
+.finance-month-section { margin-bottom: 28px; }
+.finance-month-section-label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding: 6px 0 10px;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: 14px;
 }
-.finance-inline-details summary {
+.finance-notes-preview {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  margin: 4px 0 6px;
+  border-right: 3px solid var(--amber);
+}
+.finance-card-details { border-top: 1px solid var(--border); margin-top: 8px; padding-top: 4px; }
+.finance-card-details .card-meta { padding-top: 8px; }
+.finance-card-details .card-meta strong { display: block; font-size: 11px; font-weight: 600; color: var(--text-muted); margin-bottom: 1px; }
+.finance-card-summary {
   font-size: 12px;
   color: var(--accent);
   cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+  list-style: none;
 }
+.finance-card-summary::-webkit-details-marker { display: none; }
 .finance-save-note-btn {
   min-width: 2.5em;
 }

@@ -875,72 +875,74 @@ function financeRowInDisplayMonth(item, displayMonth) {
 
 function renderFinanceCards(rows, options = {}) {
   const displayMonth = String(options.displayMonth || '').trim();
-  const list = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
-    .filter((item) => financeRowInDisplayMonth(item, displayMonth))
+  const prevMonth = displayMonth ? addMonthsToMonthString(displayMonth, -1) : '';
+  const showArchive = Boolean(options.showArchive);
+  const canEdit = Boolean(options.canEdit);
+  const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
     .filter((item) => {
       const courseName = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || '').trim();
       const hasDates = String(item?.Date1 || item?.MonthEnd || item?.End || '').trim();
       return Boolean(courseName && hasDates);
     });
-  if (!list.length) return '<section class="panel-empty">לא נמצאו רשומות כספים לחודש שנבחר.</section>';
-  const showArchive = Boolean(options.showArchive);
-  const canEdit = Boolean(options.canEdit);
-  return `<section class="cards-grid finance-grid">${list.map((item) => {
+  const prevItems = prevMonth ? allRows.filter((item) => financeRowInDisplayMonth(item, prevMonth)) : [];
+  const currItems = displayMonth ? allRows.filter((item) => financeRowInDisplayMonth(item, displayMonth)) : allRows;
+  if (!prevItems.length && !currItems.length) return '<section class="panel-empty">לא נמצאו רשומות כספים לחודש שנבחר.</section>';
+  function renderCard(item) {
     const financeRowId = String(item?.FinanceRowID || '');
-    const rowId = String(item?.RowID || '-');
-    const courseId = String(item?.CourseID || '-');
     const status = String(item?.FinanceStatus || 'ממתין');
     const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
     const statusBucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || item?.PayerType || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
-    const authLine = String(item?.Authority || '').trim()
-      || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const datesLine = Array.from({ length: 30 }, (_, i) => item?.[`Date${i + 1}`])
-      .map((v) => formatDate(parseDateLike(v)) || '')
-      .filter(Boolean)
-      .join(', ');
+    const authLine = String(item?.Authority || '').trim() || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const datesLine = Array.from({ length: 30 }, (_, i) => item?.[`Date${i + 1}`]).map((v) => formatDate(parseDateLike(v)) || '').filter(Boolean).join(', ');
+    const notes = String(item?.FinanceNotes || '').trim();
     return `<article class="management-card finance-card finance-${escAttr(statusBucket.key)}">
       <header class="card-head">
-        <div>
-          <h3>${esc(schoolLine)} · ${esc(programLine)}</h3>
-          <p class="card-subtitle">${esc(authLine)}</p>
+        <div style="min-width:0;flex:1">
+          <h3>${esc(programLine)}</h3>
+          <p class="card-subtitle">${esc(schoolLine)} · ${esc(authLine)}</p>
         </div>
         <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
       </header>
-      <div class="card-meta">
-        <span><strong>שם קורס / פעילות:</strong> ${esc(programLine)}</span>
-        <span><strong>רשות:</strong> ${esc(authLine)}</span>
-        <span><strong>בית ספר:</strong> ${esc(schoolLine)}</span>
-        <span><strong>מדריך:</strong> ${esc(String(item?.Instructor || '-'))}</span>
-        <span><strong>מנהל קורס:</strong> ${esc(String(item?.CourseManager || '-'))}</span>
-        <span><strong>FinanceRowID:</strong> ${esc(financeRowId || '-')}</span>
-        <span><strong>RowID:</strong> ${esc(rowId)}</span>
-        <span><strong>CourseID:</strong> ${esc(courseId)}</span>
-        <span><strong>כל התאריכים:</strong> ${esc(datesLine || '-')}</span>
-        <span><strong>גורם מימון:</strong> ${esc(String(item?.Funding || '-'))}</span>
-        <span><strong>גורם משלם:</strong> ${esc(String(item?.Payer || '-'))}</span>
-        <span><strong>מפגשים:</strong> ${esc(String(item?.DatesListedCount || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
-        <span><strong>עלות / תשלום:</strong> ${esc(String(item?.Payment || '-'))}</span>
-        <span><strong>סטטוס:</strong> ${esc(status || '-')}</span>
-        <span><strong>הערות:</strong> ${esc(String(item?.FinanceNotes || '-'))}</span>
-      </div>
-      <footer class="card-actions">
-        <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">תאריכי ביצוע</button>
-        ${canEdit ? `<label class=\"finance-status-edit\">סטטוס
-          <select data-finance-status=\"1\" data-finance-row-id=\"${escAttr(financeRowId)}\" data-finance-sheet=\"${sourceSheet}\">
-            ${renderStatusOption('ממתין', status)}
-            ${renderStatusOption('במעקב', status)}
-            ${renderStatusOption('בוצע-גביה', status)}
-          </select>
-        </label>` : ''}
-      </footer>
-      ${canEdit ? `<details class="finance-inline-details"><summary>הערות ועדכון</summary><div class="finance-note-editor">
-        <input data-finance-note-input="${escAttr(financeRowId)}" placeholder="הערות" value="${escAttr(item?.FinanceNotes || '')}" />
-        <button class="btn btn-secondary finance-save-note-btn" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}" title="שמור הערה">💾</button>
-      </div></details>` : ''}
+      ${notes ? `<div class="finance-notes-preview">${esc(notes)}</div>` : ''}
+      <details class="finance-card-details">
+        <summary class="finance-card-summary">פרטים ועדכון ▾</summary>
+        <div class="card-meta">
+          <span><strong>מדריך</strong>${esc(String(item?.Instructor || '-'))}</span>
+          <span><strong>מנהל קורס</strong>${esc(String(item?.CourseManager || '-'))}</span>
+          <span><strong>גורם מימון</strong>${esc(String(item?.Funding || '-'))}</span>
+          <span><strong>גורם משלם</strong>${esc(String(item?.Payer || '-'))}</span>
+          <span><strong>מפגשים</strong>${esc(String(item?.DatesListedCount || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
+          <span><strong>עלות / תשלום</strong>${esc(String(item?.Payment || '-'))}</span>
+          ${datesLine ? `<span style="grid-column:1/-1"><strong>תאריכים</strong>${esc(datesLine)}</span>` : ''}
+        </div>
+        <footer class="card-actions">
+          <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">תאריכי ביצוע</button>
+          ${canEdit ? `<label class="finance-status-edit">סטטוס
+            <select data-finance-status="1" data-finance-row-id="${escAttr(financeRowId)}" data-finance-sheet="${sourceSheet}">
+              ${renderStatusOption('ממתין', status)}
+              ${renderStatusOption('במעקב', status)}
+              ${renderStatusOption('בוצע-גביה', status)}
+            </select>
+          </label>` : ''}
+        </footer>
+        ${canEdit ? `<div class="finance-note-editor">
+          <input data-finance-note-input="${escAttr(financeRowId)}" placeholder="הערות" value="${escAttr(item?.FinanceNotes || '')}" />
+          <button class="btn btn-secondary finance-save-note-btn" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}" title="שמור הערה">💾</button>
+        </div>` : ''}
+      </details>
     </article>`;
-  }).join('')}</section>`;
+  }
+  function monthLabel(monthStr) {
+    const d = parseMonthValue(monthStr);
+    return d ? d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : monthStr;
+  }
+  function renderSection(items, label) {
+    if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:12px 0">אין רשומות לחודש זה</p></div>`;
+    return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><section class="cards-grid finance-grid">${items.map(renderCard).join('')}</section></div>`;
+  }
+  return renderSection(prevItems, monthLabel(prevMonth)) + renderSection(currItems, monthLabel(displayMonth));
 }
 
 function sortFinanceRowsByStatus(rows = []) {
