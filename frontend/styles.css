@@ -968,6 +968,8 @@ a { color: var(--accent); text-decoration: none; }
 .status-draft          { background: #f3f4f6;            color: #6b7280;       border: 1px solid #e5e7eb; }
 
 .status-chip.compact-badge { height: 18px; padding: 0 6px; font-size: 10px; }
+.status-alert { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.card-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 
 /* ============================================================
    TABLES

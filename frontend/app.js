@@ -2817,7 +2817,8 @@ function buildExceptionsRows(reviewRows, courses, filters) {
 
 function renderExceptionsCards(rows) {
   return `<section class="cards-grid">${rows.map((row) => {
-    const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
+    const issueChips = (row.MissingTypes || []).map((t) => `<span class="status-chip status-alert">${esc(t)}</span>`).join('');
+    const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3>${issueChips ? `<div class="card-chips">${issueChips}</div>` : ''}</div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
     const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button></div>`;
     return renderExpandableCard({ summary, details });
   }).join('')}</section>`;
