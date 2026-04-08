@@ -429,7 +429,9 @@ function renderScreen() {
     const visibleCourses = currentRoute === 'instructor-view' && selectedInstructor
       ? filteredCourses.filter((row) => String(row?.Instructor || '').trim() === selectedInstructor)
       : filteredCourses;
+    const courseMonthRaw = viewState.courses.filters.courseMonth || '';
     main.innerHTML = head(currentRoute === 'courses' ? 'קורסים' : 'תצוגת מדריכים', subtitle) +
+    (currentRoute === 'courses' ? renderMonthStatBadge({ count: visibleCourses.length, monthRaw: courseMonthRaw, noun: 'קורסים פעילים' }) : '') +
     `<section class="filters-wrap courses-filters">
       <label>רשות<select id="authorityFilter">${renderSelectOptions(viewState.courses.filterOptions.authority, viewState.courses.filters.authority)}</select></label>
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
@@ -530,7 +532,9 @@ function renderScreen() {
 
   if (currentRoute === 'end-dates') {
     const endDateItems = buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters));
+    const endMonthRaw = viewState.endDates.filters.month || formatMonthInputLocal(new Date());
     main.innerHTML = head('תאריכי סיום', 'בקרת קורסים לקראת סיום') +
+      renderMonthStatBadge({ count: endDateItems.length, monthRaw: endMonthRaw, noun: 'קורסים מסתיימים' }) +
       renderEndDatesFilters() +
       panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems)) +
       renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
@@ -2904,6 +2908,14 @@ function bindInstructorsActions() {
     renderScreen();
   });
   bindCourseActions();
+}
+
+function renderMonthStatBadge({ count, label, monthRaw, noun }) {
+  const monthLabel = monthRaw
+    ? (() => { const [y, m] = monthRaw.split('-'); const d = new Date(Number(y), Number(m) - 1, 1); return d.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }); })()
+    : '';
+  const monthStr = monthLabel ? ` — ${monthLabel}` : '';
+  return `<div class="month-stat-badge"><span class="month-stat-count">${count}</span><span class="month-stat-label">${esc(noun)}${esc(monthStr)}</span></div>`;
 }
 
 function renderEndDatesFilters() {
