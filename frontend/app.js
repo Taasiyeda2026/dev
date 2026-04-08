@@ -2544,7 +2544,7 @@ function renderMonthSidePanel(items, dateLabel) {
   if (!dateLabel) return '';
   const inner = items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>`;
+    const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>${hierarchy.school ? `<span class="meta-small">${esc(hierarchy.school)}</span>` : ''}`;
     const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(`${hierarchy.meetingsCompleted}/${hierarchy.meetingsTotal || 0} בוצעו`)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
     return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
   }).join('') || '<div class="panel-empty">אין מפגשים</div>';
