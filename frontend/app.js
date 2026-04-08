@@ -431,7 +431,9 @@ function renderScreen() {
     </section>` +
     panel(viewState.courses, 'אין רשומות.', `${currentRoute === 'instructor-view' ? renderInstructorCards(instructorOverview, selectedInstructor) : ''}
     ${selectedInstructor ? `<section class="instructor-details-head"><span>מדריך</span><strong>${esc(selectedInstructor)}</strong><button class="btn btn-secondary" id="clearInstructorDetails">חזרה לכל המדריכים</button></section>` : ''}
-    ${renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses(), compact: currentRoute === 'courses', showInstructorManager: currentRoute === 'instructor-view' })}`) +
+    ${currentRoute === 'courses'
+      ? renderCourseTable(visibleCourses, { canEdit: canEditMasterCourses() })
+      : renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses(), showInstructorManager: true })}`) +
     renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     document.getElementById('filterCourses')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
@@ -1085,6 +1087,59 @@ function renderCourseCards(rows, options = {}) {
       </footer>`;
     return renderExpandableCard({ summary, details, classes: `management-card expandable-card ${options.compact ? 'course-card-external' : ''}`.trim() });
   }).join('')}</section>`;
+}
+
+function renderCourseTable(rows, options = {}) {
+  if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
+  const canEdit = Boolean(options.canEdit);
+  const body = rows.map((row) => {
+    const h = buildCourseHierarchyDetails(row);
+    const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
+    const progress = h.meetingsTotal ? `${h.meetingsCompleted} / ${h.meetingsTotal}` : '-';
+    const remaining = (!h.isCompleted && h.meetingsRemaining > 0) ? String(h.meetingsRemaining) : (h.isCompleted ? 'הסתיים' : '-');
+    return `<tr>
+      <td><span class="cell-ellipsis" title="${escAttr(h.programActivity || '')}">${esc(h.programActivity || 'לא זמין')}</span></td>
+      <td>${esc(String(row[COURSE_FIELDS.PROGRAM_CODE] || '-'))}</td>
+      <td><span class="cell-ellipsis" title="${escAttr(h.authority || '')}">${esc(h.authority || '-')}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(h.school || '')}">${esc(h.school || '-')}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(h.instructor || '')}">${esc(h.instructor || 'לא משויך')}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(row[COURSE_FIELDS.COURSE_MANAGER] || '')}">${esc(row[COURSE_FIELDS.COURSE_MANAGER] || '-')}</span></td>
+      <td>${esc(h.dayName || '-')}</td>
+      <td style="white-space:nowrap">${esc(h.timeLabel || '-')}</td>
+      <td style="text-align:center">${esc(String(row[COURSE_FIELDS.PLANNED_MEETINGS] || '-'))}</td>
+      <td style="text-align:center">${esc(progress)}</td>
+      <td style="text-align:center">${esc(remaining)}</td>
+      <td style="white-space:nowrap">${esc(h.nextMeetingDate || '-')}</td>
+      <td style="white-space:nowrap">${esc(h.endDate || '-')}</td>
+      <td>${renderIssueBadge(row)}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-xs" data-open-course="${escAttr(courseId)}">פרטים</button>
+        <button class="btn btn-primary btn-xs" data-edit-row="${escAttr(courseId)}">${canEdit ? 'עריכה' : 'בקשת שינוי'}</button>
+      </td>
+    </tr>`;
+  }).join('');
+  return `<div class="table-wrap courses-table-wrap">
+    <table>
+      <thead><tr>
+        <th>קורס / פעילות</th>
+        <th>קוד</th>
+        <th>רשות</th>
+        <th>בית ספר</th>
+        <th>מדריך</th>
+        <th>מנהל קורס</th>
+        <th>יום</th>
+        <th>שעות</th>
+        <th>מ"מ</th>
+        <th>בוצעו</th>
+        <th>נותרו</th>
+        <th>מפגש קרוב</th>
+        <th>סיום</th>
+        <th>מצב</th>
+        <th>פעולות</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
+  </div>`;
 }
 
 function renderInstructorCards(rows, selectedInstructor) {
