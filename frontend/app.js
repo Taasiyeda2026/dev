@@ -3083,7 +3083,7 @@ async function loadRouteData() {
   if (currentRoute === 'instructors') return loadInstructorsView();
   if (currentRoute === 'end-dates') return loadEndDatesView();
   if (currentRoute === 'exceptions') return loadExceptionsView();
-  if (currentRoute === 'finance') return loadFinanceView();
+  if (currentRoute === 'finance') return loadFinanceView({ force: true });
   if (currentRoute === 'my-requests') return loadMyRequests();
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') return loadApprovals();
   if (currentRoute === 'eden-view') return loadEdenView();
