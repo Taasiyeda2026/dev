@@ -1859,6 +1859,26 @@ a { color: var(--accent); text-decoration: none; }
 }
 .finance-inline-select:focus { border-color: var(--accent); }
 .finance-notes-cell { max-width: 160px; }
+.finance-notes-edit-cell { min-width: 180px; max-width: 240px; padding: 6px 8px !important; }
+.finance-note-row { display: flex; align-items: center; gap: 4px; }
+.finance-note-input {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-family: inherit;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+  direction: rtl;
+}
+.finance-note-input:focus { border-color: var(--accent); }
+.finance-note-input::placeholder { color: var(--text-muted); font-style: italic; }
+.finance-note-save-btn { flex-shrink: 0; padding: 0 6px; height: 28px; font-size: 14px; }
 
 .finance-month-section-label {
   font-size: 15px;

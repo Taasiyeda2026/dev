@@ -674,9 +674,9 @@ function renderScreen() {
       const noteInput = document.querySelector(`[data-finance-note-input="${cssEscape(financeRowId)}"]`);
       const statusSelect = document.querySelector(`[data-finance-status="1"][data-finance-row-id="${cssEscape(financeRowId)}"]`);
       const status = statusSelect?.value || 'ממתין';
-      const statusNote = noteInput?.value.trim() || '';
-      if (!financeRowId || !statusNote) {
-        showToast('יש להזין הערה לפני שמירה.', 'warning');
+      const statusNote = noteInput?.value.trim() ?? '';
+      if (!financeRowId) {
+        showToast('לא נמצא מזהה רשומה.', 'warning');
         return;
       }
       const result = await updateFinanceStatus(financeRowId, status, {
@@ -1005,7 +1005,12 @@ function renderFinanceTable(rows, options = {}) {
             </select>`
           : `<span class="status-chip ${statusClass(status)}">${esc(status)}</span>`}
       </td>
-      <td class="finance-notes-cell">${notes ? `<span class="cell-ellipsis" title="${escAttr(notes)}">${esc(notes)}</span>` : ''}</td>
+      <td class="finance-notes-cell finance-notes-edit-cell">
+        <div class="finance-note-row">
+          <input class="finance-note-input" data-finance-note-input="${escAttr(financeRowId)}" type="text" placeholder="הוסף הערה…" value="${escAttr(notes)}" />
+          <button class="btn btn-xs btn-secondary finance-note-save-btn" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}" title="שמור הערה">💾</button>
+        </div>
+      </td>
       <td style="white-space:nowrap;display:flex;gap:4px">
         <button class="btn btn-xs${isOpen ? ' btn-primary' : ' btn-secondary'}" data-finance-meetings="${escAttr(financeRowId)}">תאריכים ▾</button>
       </td>
