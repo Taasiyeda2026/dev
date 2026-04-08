@@ -2473,12 +2473,12 @@ function buildWeeklyBuckets(courses, weekStartValue) {
     });
     const sessionProgress = getSessionProgress(course);
     const hasDelay = hasCourseDelays(course, reviewItems);
-    getScheduleDates(course).forEach((dateObj) => {
+    getScheduleDates(course).forEach((dateObj, dateIndex) => {
       const isoDate = formatIsoDateLocal(startOfDay(dateObj));
       const bucket = days.find((day) => day.isoDate === isoDate);
       if (bucket) {
         const sameInstructorCount = (bucket.items.filter((item) => resolveInstructorName(item) === resolveInstructorName(course)).length || 0) + 1;
-        bucket.items.push({ ...course, hasReviewItem, hasDelay, meetingNumber: sessionProgress.meetingNumber, plannedMeetings: sessionProgress.plannedMeetings, sameInstructorCount });
+        bucket.items.push({ ...course, hasReviewItem, hasDelay, meetingNumber: dateIndex + 1, plannedMeetings: sessionProgress.plannedMeetings, sameInstructorCount });
       }
     });
   });
