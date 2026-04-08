@@ -972,6 +972,7 @@ function renderFinanceTable(rows, options = {}) {
     const labels = { open: 'פתוח', 'in-progress': 'בטיפול', completed: 'הושלם', 'needs-action': 'דורש פעולה' };
     return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
   }
+  const COL_COUNT = 10;
   function renderRow(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'ממתין');
@@ -983,13 +984,17 @@ function renderFinanceTable(rows, options = {}) {
     const meetings = `${item?.DatesListedCount || '-'}/${item?.PlannedMeetings || '-'}`;
     const notes = String(item?.FinanceNotes || '').trim();
     const payerLabel = [hebrifyValue(item?.Payer), hebrifyValue(item?.Funding)].filter(Boolean).join(' · ') || '-';
-    return `<tr class="finance-tr-${escAttr(bucket.key)}">
+    const managerLine = String(item?.CourseManager || '-').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const paymentRaw = item?.Payment;
+    const paymentLabel = paymentRaw != null && paymentRaw !== '' ? `₪${Number(paymentRaw).toLocaleString('he-IL')}` : '-';
+    const isOpen = selectedMeetingsRowId === financeRowId;
+    return `<tr class="finance-tr finance-tr-${escAttr(bucket.key)}${isOpen ? ' finance-tr--open' : ''}">
       <td><span class="cell-ellipsis" title="${escAttr(programLine)}">${esc(programLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(schoolLine)}">${esc(schoolLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(authLine)}">${esc(authLine)}</span></td>
-      <td><span class="cell-ellipsis">${esc(String(item?.Instructor || '-'))}</span></td>
-      <td><span class="cell-ellipsis">${esc(String(item?.CourseManager || '-'))}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(managerLine)}">${esc(managerLine)}</span></td>
       <td style="text-align:center;white-space:nowrap">${esc(meetings)}</td>
+      <td class="finance-payment-cell">${paymentLabel !== '-' ? `<strong>${esc(paymentLabel)}</strong>` : '<span style="color:var(--text-muted)">-</span>'}</td>
       <td style="white-space:nowrap" title="${escAttr(payerLabel)}">${esc(payerLabel)}</td>
       <td>
         ${canEdit
@@ -1002,11 +1007,10 @@ function renderFinanceTable(rows, options = {}) {
       </td>
       <td class="finance-notes-cell">${notes ? `<span class="cell-ellipsis" title="${escAttr(notes)}">${esc(notes)}</span>` : ''}</td>
       <td style="white-space:nowrap;display:flex;gap:4px">
-        <button class="btn btn-secondary btn-xs" data-finance-open="${escAttr(financeRowId)}">תאריכים</button>
-        <button class="btn btn-xs${selectedMeetingsRowId === financeRowId ? ' btn-primary' : ' btn-secondary'}" data-finance-meetings="${escAttr(financeRowId)}">ביצוע</button>
+        <button class="btn btn-xs${isOpen ? ' btn-primary' : ' btn-secondary'}" data-finance-meetings="${escAttr(financeRowId)}">תאריכים ▾</button>
       </td>
     </tr>
-    ${selectedMeetingsRowId === financeRowId ? renderFinanceMeetingsRow(item, 10) : ''}`;
+    ${isOpen ? renderFinanceMeetingsRow(item, COL_COUNT) : ''}`;
   }
   function renderSection(items, label) {
     if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:8px 0">אין רשומות לחודש זה</p></div>`;
@@ -1015,11 +1019,11 @@ function renderFinanceTable(rows, options = {}) {
         <h4 class="finance-month-section-label">${esc(label)}</h4>
         <div class="finance-status-mini-row">${statusMini(items)}</div>
       </div>
-      <div class="table-wrap">
-        <table>
+      <div class="table-wrap finance-table-wrap">
+        <table class="finance-table-styled">
           <thead><tr>
-            <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מדריך</th><th>מנהל קורס</th>
-            <th>מפגשים</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
+            <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מנהל קורס</th>
+            <th>מפגשים</th><th>גביה</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
           </tr></thead>
           <tbody>${items.map(renderRow).join('')}</tbody>
         </table>
