@@ -762,6 +762,30 @@ function renderScreen() {
     bindEdenActions();
   }
   enforceDatePickerInputs();
+  updateFilterActiveIndicators();
+}
+
+function updateFilterActiveIndicators() {
+  document.querySelectorAll('.filters-wrap').forEach((wrap) => {
+    const selects = Array.from(wrap.querySelectorAll('select'));
+    const inputs  = Array.from(wrap.querySelectorAll('input:not([type="hidden"])'));
+    const activeCount =
+      selects.filter((s) => s.value && s.value !== '').length +
+      inputs.filter((i)  => i.value  && i.value  !== '').length;
+    wrap.querySelector('.active-filter-indicator')?.remove();
+    if (activeCount > 0) {
+      wrap.classList.add('filters-wrap--active');
+      const badge = document.createElement('span');
+      badge.className = 'active-filter-indicator';
+      badge.title = `${activeCount} שדות סינון פעילים`;
+      badge.textContent = `${activeCount} פעיל`;
+      const actions = wrap.querySelector('.filter-actions');
+      if (actions) actions.prepend(badge);
+      else wrap.appendChild(badge);
+    } else {
+      wrap.classList.remove('filters-wrap--active');
+    }
+  });
 }
 
 function enforceDatePickerInputs() {
@@ -2089,17 +2113,32 @@ function openMeetingChangeModal({ meetingNumber, initialDate }) {
 
 function openCourseActionForm(course, mode) {
   return new Promise((resolve) => {
+    const planned = Math.max(1, Math.min(30, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
+    const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
+      const n = i + 1;
+      const rawVal = course[`Date${n}`];
+      const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? d.toISOString().slice(0, 10) : ''; })() : '';
+      return `<div class="caf-date-row">
+        <span class="caf-date-label">מפגש ${n}</span>
+        <input class="caf-date-input" id="courseFormDate${n}" type="date" value="${escAttr(isoVal)}" data-meeting-num="${n}" />
+      </div>`;
+    }).join('');
+
     const root = document.createElement('div');
     root.className = 'course-form-modal';
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
-      <div class="course-form-card">
-        <h3>בקשת שינוי</h3>
-        <p>${esc(getBusinessCourseName(course))}</p>
-        <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
-        <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
-        <label>מפגשים בפועל<input id="courseFormActualMeetings" type="number" min="1" max="30" value="${escAttr(String(course.DatesListedCount || ''))}" placeholder="מספר מפגשים שבוצעו" /></label>
-        <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
+      <div class="course-form-card course-form-card--wide">
+        <h3>בקשת שינוי — ${esc(getBusinessCourseName(course))}</h3>
+        <div class="caf-meta-row">
+          <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
+          <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
+          <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
+        </div>
+        <div class="caf-dates-section">
+          <h4 class="caf-dates-title">תאריכי מפגשים <span class="caf-dates-count">${planned} מפגשים</span></h4>
+          <div class="caf-dates-grid">${dateInputsHtml}</div>
+        </div>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
           <button class="btn btn-primary" id="courseFormSubmit">שליחה לעדן</button>
@@ -2108,25 +2147,20 @@ function openCourseActionForm(course, mode) {
     `;
     document.body.appendChild(root);
 
-    const close = (result = null) => {
-      root.remove();
-      resolve(result);
-    };
-
+    const close = (result = null) => { root.remove(); resolve(result); };
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
-      const actualMeetingsRaw = root.querySelector('#courseFormActualMeetings')?.value.trim() || '';
-      const actualMeetingsNum = Number(actualMeetingsRaw);
-      if (actualMeetingsRaw !== '' && (!Number.isFinite(actualMeetingsNum) || actualMeetingsNum < 1 || actualMeetingsNum > 30)) {
-        showToast('מספר מפגשים חייב להיות בין 1 ל-30.', 'warning');
-        return;
-      }
       const changes = {
         StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
         EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
         Notes: root.querySelector('#courseFormNotes')?.value.trim() || ''
       };
-      if (actualMeetingsRaw !== '') changes.DatesListedCount = actualMeetingsRaw;
+      Array.from({ length: planned }, (_, i) => i + 1).forEach((n) => {
+        const val = root.querySelector(`#courseFormDate${n}`)?.value.trim() || '';
+        const origRaw = course[`Date${n}`];
+        const origIso = origRaw ? (() => { const d = parseDateLike(origRaw); return d ? d.toISOString().slice(0, 10) : ''; })() : '';
+        if (val !== origIso) changes[`Date${n}`] = val;
+      });
       close({ changes });
     });
   });
