@@ -49,6 +49,7 @@ const viewState = {
     selectedInstructor: '',
     selectedCourseId: '',
     selectedCourseDetails: null,
+    openDetailsId: '',
     selectedInstructorDayCourseId: '',
     meetingsByCourseId: {},
     view: 'table'
@@ -450,7 +451,7 @@ function renderScreen() {
     ${currentRoute === 'courses'
       ? (viewState.courses.view === 'cards'
           ? renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses() })
-          : renderCourseTable(visibleCourses, { canEdit: canEditMasterCourses() }))
+          : renderCourseTable(visibleCourses, { canEdit: canEditMasterCourses(), openDetailsId: viewState.courses.openDetailsId }))
       : renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses(), showInstructorManager: true })}`) +
     renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     document.getElementById('filterCourses')?.addEventListener('click', () => {
@@ -1255,50 +1256,78 @@ function renderCourseCards(rows, options = {}) {
   }).join('')}</section>`;
 }
 
+function renderCourseInlineDetails(row) {
+  const planned = Math.max(0, Number(row[COURSE_FIELDS.PLANNED_MEETINGS] || 0));
+  const dateDates = Array.from({ length: 30 }, (_, i) => {
+    const v = row[`Date${i + 1}`];
+    return v ? parseDateLike(v) : null;
+  });
+  const now = startOfDay(new Date());
+  const timeLabel = `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}–${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`;
+  const notes = String(getCourseField(row, COURSE_FIELDS.NOTES) || '').trim();
+  const completedCount = dateDates.filter((d) => d && endOfDay(d) < now).length;
+  const totalSlots = Math.max(planned, dateDates.filter(Boolean).length);
+  const chips = Array.from({ length: totalSlots }, (_, i) => {
+    const d = dateDates[i];
+    const dateStr = d ? formatDate(d) : 'טרם נקבע';
+    const isPast = d ? endOfDay(d) < now : false;
+    const cls = !d ? 'ci-chip--pending' : isPast ? 'ci-chip--done' : 'ci-chip--future';
+    return `<span class="ci-chip ${cls}"><span class="ci-chip-num">${i + 1}</span><span class="ci-chip-date">${esc(dateStr)}</span></span>`;
+  }).join('');
+  return `<tr class="course-inline-details-row"><td colspan="11" class="course-inline-details-cell">
+    <div class="course-inline-details">
+      <div class="ci-meta">
+        ${timeLabel && timeLabel !== '–' ? `<span><strong>שעות</strong>${esc(timeLabel)}</span>` : ''}
+        <span><strong>בוצעו</strong>${completedCount} מתוך ${totalSlots || '-'}</span>
+        ${notes ? `<span style="grid-column:1/-1"><strong>הערות</strong>${esc(notes)}</span>` : ''}
+      </div>
+      <div class="ci-meetings">${chips || '<em>אין תאריכים</em>'}</div>
+    </div>
+  </td></tr>`;
+}
+
 function renderCourseTable(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const canEdit = Boolean(options.canEdit);
-  const body = rows.map((row) => {
+  const openId = String(options.openDetailsId || '');
+  const COL_COUNT = 10;
+  const body = rows.map((row, idx) => {
     const h = buildCourseHierarchyDetails(row);
     const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
-    const progress = h.meetingsTotal ? `${h.meetingsCompleted} / ${h.meetingsTotal}` : '-';
-    const remaining = (!h.isCompleted && h.meetingsRemaining > 0) ? String(h.meetingsRemaining) : (h.isCompleted ? 'הסתיים' : '-');
-    return `<tr>
+    const isOpen = openId === courseId;
+    const statusBadge = renderIssueBadge(row);
+    const statusCell = h.isCompleted
+      ? '<span class="status-chip status-closed">הסתיים</span>'
+      : (statusBadge || '<span class="status-chip status-active">פעיל</span>');
+    const rowHtml = `<tr class="course-tr${isOpen ? ' course-tr--open' : ''}">
+      <td class="ct-num">${idx + 1}</td>
       <td><span class="cell-ellipsis" title="${escAttr(h.programActivity || '')}">${esc(h.programActivity || 'לא זמין')}</span></td>
-      <td>${esc(String(row[COURSE_FIELDS.PROGRAM_CODE] || '-'))}</td>
-      <td><span class="cell-ellipsis" title="${escAttr(h.authority || '')}">${esc(h.authority || '-')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(h.school || '')}">${esc(h.school || '-')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(h.instructor || '')}">${esc(h.instructor || 'לא משויך')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(row[COURSE_FIELDS.COURSE_MANAGER] || '')}">${esc(row[COURSE_FIELDS.COURSE_MANAGER] || '-')}</span></td>
-      <td>${esc(h.dayName || '-')}</td>
+      <td style="white-space:nowrap">${esc(h.dayName || '-')}</td>
       <td style="white-space:nowrap">${esc(h.timeLabel || '-')}</td>
       <td style="text-align:center">${esc(String(row[COURSE_FIELDS.PLANNED_MEETINGS] || '-'))}</td>
-      <td style="text-align:center">${esc(progress)}</td>
-      <td style="text-align:center">${esc(remaining)}</td>
-      <td style="white-space:nowrap">${esc(h.nextMeetingDate || '-')}</td>
       <td style="white-space:nowrap">${esc(h.endDate || '-')}</td>
-      <td>${renderIssueBadge(row)}</td>
-      <td style="white-space:nowrap">
-        <button class="btn btn-secondary btn-xs" data-open-course="${escAttr(courseId)}">פרטים</button>
-        <button class="btn btn-primary btn-xs" data-edit-row="${escAttr(courseId)}">${canEdit ? 'עריכה' : 'בקשת שינוי'}</button>
+      <td>${statusCell}</td>
+      <td style="white-space:nowrap;display:flex;gap:4px">
+        <button class="btn btn-xs${isOpen ? ' btn-primary' : ' btn-secondary'}" data-course-inline="${escAttr(courseId)}">פרטים${isOpen ? ' ▲' : ' ▼'}</button>
+        <button class="btn btn-primary btn-xs" data-edit-row="${escAttr(courseId)}">${canEdit ? 'עריכה' : 'שינוי'}</button>
       </td>
     </tr>`;
+    return rowHtml + (isOpen ? renderCourseInlineDetails(row) : '');
   }).join('');
   return `<div class="table-wrap courses-table-wrap">
-    <table>
+    <table class="courses-table-styled">
       <thead><tr>
-        <th>קורס / פעילות</th>
-        <th>קוד</th>
-        <th>רשות</th>
+        <th class="ct-num">#</th>
+        <th>שם קורס</th>
         <th>בית ספר</th>
         <th>מדריך</th>
         <th>מנהל קורס</th>
         <th>יום</th>
         <th>שעות</th>
         <th>מ"מ</th>
-        <th>בוצעו</th>
-        <th>נותרו</th>
-        <th>מפגש קרוב</th>
         <th>סיום</th>
         <th>מצב</th>
         <th>פעולות</th>
@@ -1899,6 +1928,11 @@ function getCourseDisplayNameById(courseId) {
 function bindCourseActions() {
   bindEditButtons();
   bindMeetingEditButtons();
+  document.querySelectorAll('[data-course-inline]').forEach((button) => button.addEventListener('click', () => {
+    const id = button.dataset.courseInline || '';
+    viewState.courses.openDetailsId = viewState.courses.openDetailsId === id ? '' : id;
+    renderScreen();
+  }));
   document.querySelectorAll('[data-instructor-day-toggle]').forEach((button) => button.addEventListener('click', () => {
     const courseId = button.dataset.instructorDayToggle || '';
     viewState.courses.selectedInstructorDayCourseId = viewState.courses.selectedInstructorDayCourseId === courseId ? '' : courseId;
