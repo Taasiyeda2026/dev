@@ -2735,7 +2735,7 @@ function buildEndDateItems(courses) {
 function renderEndDateCards(items) {
   return `<section class="cards-grid">${items.map((item) => {
     const hierarchy = buildCourseHierarchyDetails(item);
-    const summary = `<div class="card-head"><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3>${(item.postpone.isPostponed || item.hasReviewDelay) ? '<span class="status-chip status-pending-final">נדחה</span>' : ''}</div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
+    const summary = `<div class="card-head"><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3>${(item.postpone.isPostponed || item.hasReviewDelay) ? '<span class="status-chip status-pending-final">נדחה</span>' : ''}</div><div class="card-summary-minimal">${[hierarchy.authority, hierarchy.school].filter(Boolean).map(s => esc(s)).join(' · ')}</div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
     const details = `${renderCourseHierarchyStrip(item)}<div class="card-meta">
       <span><strong>סטטוס:</strong> ${item.meetingStats?.isCompleted ? 'הסתיים' : 'פעיל'}</span>
       <span><strong>מפגשים שבוצעו:</strong> ${esc(String(item.meetingStats?.completedCount || 0))} / ${esc(String(item.meetingStats?.total || 0))}</span>
