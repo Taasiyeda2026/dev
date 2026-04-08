@@ -2656,12 +2656,13 @@ function renderInstructorCoursesDetails(instructorName, coursesByInstructor) {
   const rows = coursesByInstructor[instructorName] || [];
   return `<section class="course-form-modal" id="instructorDetailsModal"><div class="course-form-backdrop" id="instructorCloseDetails"></div><section class="course-form-card instructor-modal-card"><div class="panel-block-head"><h3>פרטי מדריך: ${esc(instructorName)}</h3><button class="btn btn-secondary" id="instructorCloseDetailsButton">סגור</button></div><section class="cards-grid instructor-course-grid">${rows.map((row) => {
     const hierarchy = buildCourseHierarchyDetails(row);
-    return `<article class="management-card">
-      <div class="card-meta">
-        <span><strong>שם קורס:</strong> ${esc(hierarchy.programActivity || '-')}</span>
-        <span><strong>בית ספר:</strong> ${esc(hierarchy.school || '-')}</span>
-        <span><strong>רשות:</strong> ${esc(hierarchy.authority || '-')}</span>
-        <span><strong>מנהל:</strong> ${esc(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '-')}</span>
+    return `<article class="instructor-course-item">
+      <div class="instructor-course-item-head">${esc(hierarchy.programActivity || '-')}</div>
+      <div class="instructor-course-item-body">
+        <span><strong>בית ספר</strong>${esc(hierarchy.school || '-')}</span>
+        <span><strong>רשות</strong>${esc(hierarchy.authority || '-')}</span>
+        <span><strong>מנהל קורס</strong>${esc(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '-')}</span>
+        <span><strong>בוצעו</strong>${esc(String(hierarchy.meetingsCompleted || 0))} / ${esc(String(hierarchy.meetingsTotal || 0))}</span>
       </div>
     </article>`;
   }).join('') || '<div class="panel-empty">אין קורסים להצגה.</div>'}</section></section></section>`;
