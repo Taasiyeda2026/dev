@@ -320,7 +320,6 @@ function render() {
         <section class="main-shell">
           <header class="app-top-header">
             <div class="app-top-header-brand-wrap">
-              <div class="app-top-header-brand">${APP_NAME}</div>
               <div class="app-top-header-page-title">${esc(routeLabels[currentRoute] || routeLabels.dashboard)}</div>
             </div>
             <div class="app-top-header-user">
