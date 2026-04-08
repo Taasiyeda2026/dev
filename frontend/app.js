@@ -69,6 +69,7 @@ const viewState = {
     activeItems: [],
     archiveItems: [],
     selectedFinanceRowId: '',
+    selectedMeetingsRowId: '',
     displayMonth: '',
     view: 'table'
   },
@@ -552,6 +553,18 @@ function renderScreen() {
     const dm = viewState.finance.displayMonth || '';
     const filteredFinance = (rows || []).filter((item) => financeRowInDisplayMonth(item, dm));
     const financeSummary = summarizeFinanceBuckets(filteredFinance);
+    const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const pendingTotal = showActive ? (viewState.finance.activeItems || [])
+      .filter((item) => String(item?.FinanceStatus || '') !== 'בוצע-גביה')
+      .filter((item) => {
+        const d = ['MonthEnd', 'MonthStart', 'End', 'Period'].map((k) => parseDateLike(item?.[k])).filter(Boolean)[0];
+        return d ? d >= currentMonthStart : true;
+      })
+      .reduce((sum, item) => {
+        const raw = String(item?.Payment || '').replace(/[^\d.]/g, '');
+        return sum + (parseFloat(raw) || 0);
+      }, 0) : 0;
+    const pendingTotalLabel = pendingTotal > 0 ? pendingTotal.toLocaleString('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }) : '-';
     const dmParsed = parseMonthValue(dm) || new Date();
     const financeMonthLabel = dmParsed.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
     const emptyFinanceMessage = showActive
@@ -583,10 +596,11 @@ function renderScreen() {
         <article class="kpi-card"><span class="kpi-title">בטיפול</span><span class="kpi-value">${financeSummary.inProgress}</span></article>
         <article class="kpi-card"><span class="kpi-title">הושלם</span><span class="kpi-value">${financeSummary.completed}</span></article>
         <article class="kpi-card"><span class="kpi-title">דורש פעולה</span><span class="kpi-value">${financeSummary.needsAction}</span></article>
+        ${showActive ? `<article class="kpi-card kpi-card--highlight"><span class="kpi-title">סה"כ לגבייה</span><span class="kpi-value kpi-value--money">${esc(pendingTotalLabel)}</span><span class="kpi-sub">חודש נוכחי + קדימה</span></article>` : ''}
       </section>` +
       panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage,
         viewState.finance.view === 'table'
-          ? renderFinanceTable(rows, { showArchive: !showActive, canEdit, displayMonth: dm })
+          ? renderFinanceTable(rows, { showArchive: !showActive, canEdit, displayMonth: dm, selectedMeetingsRowId: viewState.finance.selectedMeetingsRowId })
           : renderFinanceCards(rows, { showArchive: !showActive, canEdit, displayMonth: dm })) +
       renderFinanceDetailsPanel(rows.find((item) => String(item?.FinanceRowID || '') === viewState.finance.selectedFinanceRowId) || null);
 
@@ -663,6 +677,11 @@ function renderScreen() {
     }));
     document.getElementById('financeViewTable')?.addEventListener('click', () => { viewState.finance.view = 'table'; renderScreen(); });
     document.getElementById('financeViewCards')?.addEventListener('click', () => { viewState.finance.view = 'cards'; renderScreen(); });
+    document.querySelectorAll('[data-finance-meetings]').forEach((button) => button.addEventListener('click', () => {
+      const id = button.dataset.financeMeetings || '';
+      viewState.finance.selectedMeetingsRowId = viewState.finance.selectedMeetingsRowId === id ? '' : id;
+      renderScreen();
+    }));
     return;
   }
 
@@ -896,11 +915,24 @@ function financeRowInDisplayMonth(item, displayMonth) {
   return candidates.some((d) => formatMonthInputLocal(d) === displayMonth);
 }
 
+function renderFinanceMeetingsRow(item, colSpan) {
+  const dates = Array.from({ length: 30 }, (_, i) => {
+    const val = item?.[`Date${i + 1}`];
+    return val ? { num: i + 1, date: formatDate(parseDateLike(val)) || String(val) } : null;
+  }).filter(Boolean);
+  if (!dates.length) return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><em>אין תאריכי ביצוע ברשומה זו.</em></td></tr>`;
+  const chips = dates.map(({ num, date }) =>
+    `<span class="finance-meeting-chip"><span class="finance-meeting-num">${num}</span><span class="finance-meeting-date">${esc(date)}</span></span>`
+  ).join('');
+  return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><div class="finance-meetings-grid">${chips}</div></td></tr>`;
+}
+
 function renderFinanceTable(rows, options = {}) {
   const displayMonth = String(options.displayMonth || '').trim();
   const prevMonth = displayMonth ? addMonthsToMonthString(displayMonth, -1) : '';
   const showArchive = Boolean(options.showArchive);
   const canEdit = Boolean(options.canEdit);
+  const selectedMeetingsRowId = String(options.selectedMeetingsRowId || '');
   const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
     .filter((item) => {
       const courseName = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || '').trim();
@@ -948,10 +980,12 @@ function renderFinanceTable(rows, options = {}) {
           : `<span class="status-chip ${statusClass(status)}">${esc(status)}</span>`}
       </td>
       <td class="finance-notes-cell">${notes ? `<span class="cell-ellipsis" title="${escAttr(notes)}">${esc(notes)}</span>` : ''}</td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap;display:flex;gap:4px">
         <button class="btn btn-secondary btn-xs" data-finance-open="${escAttr(financeRowId)}">תאריכים</button>
+        <button class="btn btn-xs${selectedMeetingsRowId === financeRowId ? ' btn-primary' : ' btn-secondary'}" data-finance-meetings="${escAttr(financeRowId)}">ביצוע</button>
       </td>
-    </tr>`;
+    </tr>
+    ${selectedMeetingsRowId === financeRowId ? renderFinanceMeetingsRow(item, 10) : ''}`;
   }
   function renderSection(items, label) {
     if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:8px 0">אין רשומות לחודש זה</p></div>`;

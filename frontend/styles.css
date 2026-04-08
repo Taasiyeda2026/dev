@@ -1777,6 +1777,54 @@ a { color: var(--accent); text-decoration: none; }
   min-width: 2.5em;
 }
 
+/* meetings inline row */
+.finance-meetings-inline {
+  background: var(--surface-2);
+  padding: 10px 16px;
+  border-top: none;
+  border-bottom: 2px solid var(--accent-soft, #e0e7ff);
+}
+.finance-meetings-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.finance-meeting-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px 10px 3px 6px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.finance-meeting-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+}
+.finance-meeting-date { color: var(--text-secondary); }
+
+/* KPI highlight card */
+.kpi-card--highlight {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+.kpi-card--highlight .kpi-title { color: rgba(255,255,255,0.8); }
+.kpi-value--money { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+.kpi-sub { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: -4px; }
+
 /* ============================================================
    DETAILS PANEL
    ============================================================ */
