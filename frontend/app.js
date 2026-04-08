@@ -3536,7 +3536,20 @@ function resolveInstructorName(row) {
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
+    navigator.serviceWorker
+      .register('./sw.js', { scope: './' })
+      .then((registration) => {
+        registration.addEventListener('updatefound', () => {
+          const nextWorker = registration.installing;
+          if (!nextWorker) return;
+          nextWorker.addEventListener('statechange', () => {
+            if (nextWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              window.location.reload();
+            }
+          });
+        });
+      })
+      .catch(() => {});
   });
 }
 

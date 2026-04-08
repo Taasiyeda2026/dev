@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "Dashboard Taasiyeda - מערכת ניהול פעילות",
   "short_name": "Dashboard Taasiyeda",
   "description": "מערכת ניהול פעילות, קורסים, מדריכים, בקשות ואישורים",
@@ -7,8 +8,10 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
   "theme_color": "#003A99",
   "background_color": "#F5F7FB",
+  "prefer_related_applications": false,
   "icons": [
     { "src": "./assets/pwa/icon-72.png", "sizes": "72x72", "type": "image/png" },
     { "src": "./assets/pwa/icon-96.png", "sizes": "96x96", "type": "image/png" },
