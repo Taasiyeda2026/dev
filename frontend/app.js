@@ -122,6 +122,19 @@ const routeIcons = {
   logout: '↩'
 };
 
+const ROUTE_UI_SCALES = {
+  dashboard: 1,
+  courses: 0.8,
+  week: 0.8,
+  month: 0.8,
+  instructors: 0.8,
+  'end-dates': 0.8,
+  exceptions: 0.8,
+  finance: 0.8,
+  'my-requests': 0.8,
+  'eden-view': 0.8
+};
+
 const COURSES_SCREEN_CONFIG = {
   progress: { successRatio: 0.9, warningRatio: 0.6 },
   meetingFields: { start: 1, end: 30, fallbackEndField: COURSE_FIELDS.END }
@@ -301,7 +314,7 @@ function render() {
   }
 
   app.innerHTML = `<div class="dashboard-viewport">
-    <div class="dashboard-canvas">
+    <div class="dashboard-canvas" style="--ui-scale:${getUiScaleForRoute(currentRoute)};">
       <div class="layout ${sidebarOpen ? '' : 'sidebar-collapsed'}">
         <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
         <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar" aria-hidden="${(!sidebarOpen && !isMobileViewport()) ? 'true' : 'false'}"><div class="brand">${APP_NAME}</div>
@@ -365,6 +378,9 @@ function render() {
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
 function head(_title, sub) { return sub ? `<header class="screen-head"><p>${sub}</p></header>` : ''; }
+function getUiScaleForRoute(route) {
+  return ROUTE_UI_SCALES[route] || 1;
+}
 
 function getBusinessCourseName(row = {}) {
   return getCourseField(row, COURSE_FIELDS.PROGRAM)
