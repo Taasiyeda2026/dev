@@ -101,15 +101,26 @@ a { color: var(--accent); text-decoration: none; }
   overflow-y: auto;
   scrollbar-gutter: stable;
   background: #f5f5f5;
+  display: flex;
+  justify-content: center;
 }
 
 .dashboard-canvas {
+  --ui-scale: 1;
   width: min(100%, var(--canvas-max));
   min-height: 100vh;
   margin: 0 auto;
   background: #fff;
-  transform: none;
-  transform-origin: top center;
+  zoom: var(--ui-scale);
+}
+
+@supports not (zoom: 1) {
+  .dashboard-canvas {
+    width: min(calc(100% / var(--ui-scale)), calc(var(--canvas-max) / var(--ui-scale)));
+    min-height: calc(100vh / var(--ui-scale));
+    transform: scale(var(--ui-scale));
+    transform-origin: top center;
+  }
 }
 
 /* --- Sidebar --- */
