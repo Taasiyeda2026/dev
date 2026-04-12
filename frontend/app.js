@@ -36,6 +36,7 @@ let currentRoute = 'login';
 let mobileNavOpen = false;
 let sidebarOpen = true;
 const recentlyResolvedExceptions = new Set();
+let initEnginePromise = null;
 
 const viewState = {
   dashboard: { loading: false, error: '', data: null, timeframe: 'day' },
@@ -3189,7 +3190,7 @@ async function onLogin(event) {
     return;
   }
   setUserState(res);
-  await initDataEngine(api, { userState });
+  initEnginePromise = initDataEngine(api, { userState });
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
   setRoute('dashboard');
@@ -3212,9 +3213,14 @@ async function loadRouteData() {
 
 async function loadDashboard() {
   await withLoad('dashboard', async () => {
-    const dashboardRes = await api.getDashboard();
+    const [dashboardRes] = await Promise.all([
+      api.getDashboard(),
+      initEnginePromise || reloadCourses(false)
+    ]);
     if (!dashboardRes?.success) return dashboardRes;
-    const courses = getStoreSnapshot().courses || [];
+    const courses = getCoursesForUser(userState, {})
+      .filter(isCourseShownOnCoursesScreen)
+      .filter((row) => !isCourseCompleted(row));
     return { success: true, data: withOperationalMetrics(dashboardRes.data || {}, courses) };
   }, null, 'לא ניתן לטעון דשבורד.');
 }
@@ -3668,7 +3674,7 @@ async function boot() {
     const profile = await api.getSessionProfile();
     if (profile?.authenticated) {
       setUserState(profile);
-      await initDataEngine(api, { userState });
+      initEnginePromise = initDataEngine(api, { userState });
       setRoute('dashboard');
       return;
     }
