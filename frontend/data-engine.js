@@ -120,21 +120,23 @@ function parseRowsToObjects(sheetName, rows = []) {
 function mapPermissionRow(raw = {}) {
   const scopes = normalizePermissionScope(raw);
   const capabilities = extractCapabilities(raw);
-  const displayRole = String(raw[PERMISSION_FIELDS.DISPLAY_ROLE] || raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim();
+  const displayName = pickFirst(raw, ['name', 'EmployeeName', PERMISSION_FIELDS.EMPLOYEE_NAME]);
+  const displayRole = pickFirst(raw, [PERMISSION_FIELDS.DISPLAY_ROLE, 'role', 'SystemRole', PERMISSION_FIELDS.SYSTEM_ROLE]);
+  const empIdRaw = pickFirst(raw, ['emp_id', 'EmployeeID', PERMISSION_FIELDS.EMPLOYEE_ID]);
   return {
-    employeeName: String(raw[PERMISSION_FIELDS.EMPLOYEE_NAME] || '').trim(),
-    employeeId: toNumber(raw[PERMISSION_FIELDS.EMPLOYEE_ID]),
-    entryCode: String(raw[PERMISSION_FIELDS.ENTRY_CODE] || '').trim(),
-    systemRole: String(raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim(),
-    displayRole,
+    employeeName: String(displayName || '').trim(),
+    employeeId: String(empIdRaw || '').trim(),
+    entryCode: String(pickFirst(raw, ['code', 'EntryCode', PERMISSION_FIELDS.ENTRY_CODE]) || '').trim(),
+    systemRole: String(pickFirst(raw, ['role', 'SystemRole', PERMISSION_FIELDS.SYSTEM_ROLE]) || '').trim(),
+    displayRole: String(displayRole || '').trim(),
     viewScope: listEnabledCapabilities(capabilities, 'view_').join(',' ) || scopes.viewScope,
     editScope: listEnabledCapabilities(capabilities, 'edit_').join(',' ) || scopes.editScope,
     approvalScope: scopes.approvalScope,
-    uiProfile: String(raw[PERMISSION_FIELDS.DEFAULT_VIEW] || raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
-    defaultView: String(raw[PERMISSION_FIELDS.DEFAULT_VIEW] || raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
-    teamScope: String(raw[PERMISSION_FIELDS.TEAM_SCOPE] || '').trim(),
-    instructorManager: String(raw[PERMISSION_FIELDS.INSTRUCTOR_MANAGER] || '').trim(),
-    activeFlag: toBool(raw[PERMISSION_FIELDS.ACTIVE_FLAG]),
+    uiProfile: String(pickFirst(raw, ['default_view', 'UiProfile', PERMISSION_FIELDS.DEFAULT_VIEW, PERMISSION_FIELDS.UI_PROFILE]) || '').trim(),
+    defaultView: String(pickFirst(raw, ['default_view', 'UiProfile', PERMISSION_FIELDS.DEFAULT_VIEW, PERMISSION_FIELDS.UI_PROFILE]) || '').trim(),
+    teamScope: String(pickFirst(raw, ['TeamScope', PERMISSION_FIELDS.TEAM_SCOPE]) || '').trim(),
+    instructorManager: String(pickFirst(raw, ['manager', 'InstructorManager', PERMISSION_FIELDS.INSTRUCTOR_MANAGER]) || '').trim(),
+    activeFlag: toBool(pickFirst(raw, ['active', 'ActiveFlag', PERMISSION_FIELDS.ACTIVE_FLAG])),
     canAccessFinance: Boolean(capabilities.view_finance || toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE])),
     canEditFinance: Boolean(capabilities.edit_finance || toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE])),
     canAccessFinanceArchive: false,
@@ -273,16 +275,16 @@ export async function loadPermissions(userState = {}) {
     mapped = rows.map(mapPermissionRow);
   } else {
     mapped = [{
-      employeeName: String(userState.displayName || '').trim(),
-      employeeId: toNumber(userState.EmployeeID || userState.userId),
+      employeeName: String(userState.displayName || userState.name || userState.EmployeeName || '').trim(),
+      employeeId: String(userState.EmployeeID || userState.userId || userState.emp_id || '').trim(),
       entryCode: '',
-      systemRole: String(userState.SystemRole || '').trim(),
-      displayRole: String(userState.DisplayRole || '').trim(),
+      systemRole: String(userState.role || userState.SystemRole || '').trim(),
+      displayRole: String(userState.DisplayRole || userState.role || userState.SystemRole || '').trim(),
       viewScope: String(userState.ViewScope || '').trim(),
       editScope: String(userState.EditScope || '').trim(),
       approvalScope: String(userState.ApprovalScope || '').trim(),
-      uiProfile: String(userState.DefaultView || userState.UiProfile || '').trim(),
-      defaultView: String(userState.DefaultView || userState.UiProfile || '').trim(),
+      uiProfile: String(userState.default_view || userState.DefaultView || userState.UiProfile || '').trim(),
+      defaultView: String(userState.default_view || userState.DefaultView || userState.UiProfile || '').trim(),
       teamScope: String(userState.TeamScope || '').trim(),
       instructorManager: String(userState.InstructorManager || '').trim(),
       canAccessFinance: Boolean(userState?.Capabilities?.view_finance),
@@ -374,10 +376,17 @@ export function getStoreSnapshot() {
 }
 
 export function getPermissionForUser(userState = {}) {
-  const userId = toNumber(userState.EmployeeID || userState.userId);
-  const name = String(userState.displayName || '').trim();
-  return dataStore.permissions.find((row) => (userId && row.employeeId === userId)
-    || (name && row.employeeName === name)) || null;
+  const userKey = String(userState.EmployeeID || userState.userId || userState.emp_id || '').trim();
+  const name = String(
+    userState.displayName || userState.name || userState.EmployeeName || ''
+  ).trim();
+  return dataStore.permissions.find((row) => {
+    const rowId = String(row.employeeId || '').trim();
+    if (userKey && rowId && rowId === userKey) return true;
+    if (userKey && rowId && String(toNumber(rowId)) === String(toNumber(userKey))) return true;
+    const rowName = String(row.employeeName || '').trim();
+    return Boolean(name && rowName && rowName === name);
+  }) || null;
 }
 
 function matchContains(value, filterValue) {

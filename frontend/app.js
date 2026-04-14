@@ -65,6 +65,9 @@ const viewState = {
   exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
   ,
   contacts: { loading: false, error: '', data: [] },
+  adminSettings: { loading: false, error: '', data: [] },
+  adminLists: { loading: false, error: '', data: [] },
+  adminPermissions: { loading: false, error: '', data: [] },
   finance: {
     loading: false,
     error: '',
@@ -95,6 +98,9 @@ const routeLabels = {
   login: 'התחברות',
   'admin-home': 'מרכז ניהול',
   'operations-home': 'מסך תפעול ראשי',
+  'admin-settings': 'הגדרות מערכת',
+  'admin-lists': 'רשימות מערכת',
+  'admin-permissions': 'הרשאות משתמשים',
   dashboard: 'דשבורד פעילות ארצי',
   courses: 'פעילויות',
   'my-requests': 'הבקשות שלי',
@@ -114,6 +120,9 @@ const routeLabels = {
 const routeIcons = {
   'admin-home': '🛠️',
   'operations-home': '🧭',
+  'admin-settings': '⚙️',
+  'admin-lists': '📚',
+  'admin-permissions': '🔐',
   dashboard: '▦',
   courses: '📘',
   'my-requests': '📝',
@@ -134,6 +143,9 @@ const routeIcons = {
 const ROUTE_UI_SCALES = {
   'admin-home': 1,
   'operations-home': 1,
+  'admin-settings': 1,
+  'admin-lists': 1,
+  'admin-permissions': 1,
   dashboard: 1,
   courses: 0.8,
   week: 0.8,
@@ -150,6 +162,9 @@ const ROUTE_UI_SCALES = {
 
 const ROUTE_CAPABILITY_MAP = {
   'admin-home': 'view_admin',
+  'admin-settings': 'view_settings',
+  'admin-lists': 'view_lists',
+  'admin-permissions': 'view_permissions',
   dashboard: 'view_dashboard',
   courses: 'view_activities',
   week: 'view_week',
@@ -167,9 +182,20 @@ const ROUTE_CAPABILITY_MAP = {
 };
 
 const MENU_ROUTE_ORDER = [
-  'admin-home', 'operations-home', 'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
+  'admin-home', 'operations-home', 'admin-settings', 'admin-lists', 'admin-permissions', 'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
   'contacts', 'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
 ];
+
+const ADMIN_LANDING_LINKS = [
+  { key: 'settings', label: 'הגדרות', route: 'admin-settings' },
+  { key: 'lists', label: 'רשימות', route: 'admin-lists' },
+  { key: 'permissions', label: 'הרשאות', route: 'admin-permissions' },
+  { key: 'dashboard', label: 'דשבורד', route: 'dashboard' },
+  { key: 'contacts', label: 'אנשי קשר', route: 'contacts' },
+  { key: 'views', label: 'תצוגות', route: '' }
+];
+
+const OPERATIONAL_VIEW_FALLBACK_ROUTES = ['week', 'month', 'instructors', 'end-dates', 'exceptions', 'courses', 'dashboard'];
 
 const COURSES_SCREEN_CONFIG = {
   progress: { successRatio: 0.9, warningRatio: 0.6 },
@@ -215,7 +241,7 @@ function getExceptionField(row, fieldName) {
   return row?.[fieldName];
 }
 
-function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
+function role() { return String(userState.role || userState.SystemRole || '').trim().toLowerCase(); }
 function actionMode() {
   if (hasCapability('edit_activities') || hasCapability('edit_admin') || hasCapability('edit_operations_data')) return 'edit';
   if (hasCapability('edit_edit_requests')) return 'request_edit';
@@ -263,6 +289,15 @@ function normalizeDefaultRoute(rawRoute) {
   if (!route) return '';
   const normalized = route.replace(/^view_/, '').replace(/_/g, '-').toLowerCase();
   const aliasMap = {
+    admin: 'admin-home',
+    'admin-home': 'admin-home',
+    operations: 'operations-home',
+    'operations-home': 'operations-home',
+    'main-ops': 'operations-home',
+    main: 'operations-home',
+    settings: 'admin-settings',
+    lists: 'admin-lists',
+    permissions: 'admin-permissions',
     activities: 'courses',
     'operations-data': 'approvals',
     'edit-requests': 'my-requests',
@@ -270,14 +305,40 @@ function normalizeDefaultRoute(rawRoute) {
   };
   return aliasMap[normalized] || normalized;
 }
-function getStartupRoute() {
-  if (isAdminUser()) return 'admin-home';
-  if (isOperationsUser()) return 'operations-home';
+
+function getDefaultViewSource() {
   const permission = currentPermission();
-  const requested = normalizeDefaultRoute(permission?.defaultView || userState.DefaultView || userState.UiProfile);
+  return String(
+    permission?.defaultView
+    || userState.default_view
+    || userState.DefaultView
+    || userState.UiProfile
+    || ''
+  ).trim();
+}
+
+function getFirstOperationalViewRoute() {
+  const allowed = getAllowedRoutes();
+  const hit = OPERATIONAL_VIEW_FALLBACK_ROUTES.find((r) => allowed.includes(r));
+  return hit || '';
+}
+
+function resolveAdminLandingTargets() {
+  return ADMIN_LANDING_LINKS.map((item) => {
+    if (item.key === 'views') {
+      const route = getFirstOperationalViewRoute();
+      return { ...item, route };
+    }
+    return { ...item };
+  }).filter((item) => item.route && canAccessRoute(item.route));
+}
+
+function getStartupRoute() {
   const allowedRoutes = getAllowedRoutes();
+  if (!allowedRoutes.length) return 'login';
+  const requested = normalizeDefaultRoute(getDefaultViewSource());
   if (requested && allowedRoutes.includes(requested)) return requested;
-  return getFirstAllowedRoute();
+  return allowedRoutes[0];
 }
 function displayRole() {
   const permission = currentPermission();
@@ -529,6 +590,13 @@ function getHeaderKpis(route = currentRoute, context = {}) {
       { label: 'תפקיד', value: route === 'admin-home' ? 'אדמין' : 'תפעול' }
     ];
   }
+  if (route === 'admin-settings' || route === 'admin-lists' || route === 'admin-permissions') {
+    return [
+      { label: 'רשומות', value: context.itemsCount || 0 },
+      { label: 'מסך', value: routeLabels[route] || route },
+      { label: 'משתמש', value: String(userState.displayName || userState.userId || '').slice(0, 24) }
+    ];
+  }
   if (route === 'dashboard') {
     const d = context.dashboard || viewState.dashboard.data || {};
     return [
@@ -659,21 +727,69 @@ function renderScreen() {
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') {
     const isAdminHome = currentRoute === 'admin-home';
     const targets = isAdminHome
-      ? [
-        { key: 'settings', label: 'settings', route: 'approvals' },
-        { key: 'lists', label: 'lists', route: 'courses' },
-        { key: 'permissions', label: 'permissions', route: 'final-approvals' },
-        { key: 'dashboard', label: 'dashboard', route: 'dashboard' },
-        { key: 'contacts', label: 'contacts', route: 'contacts' },
-        { key: 'views', label: 'views', route: 'week' }
-      ]
+      ? resolveAdminLandingTargets()
       : getAllowedBusinessRoutes().map((route) => ({ key: route, label: routeLabels[route] || route, route }));
-    main.innerHTML = renderUnifiedScreenHeader(currentRoute, isAdminHome ? 'לוח בקרה ניהולי ראשי' : 'לוח בקרה תפעולי ראשי', { destinationsCount: targets.length }) + `
+    const landingTargets = targets.length
+      ? targets
+      : (isAdminHome && canAccessRoute('dashboard')
+        ? [{ key: 'dashboard', label: 'דשבורד', route: 'dashboard' }]
+        : targets);
+    main.innerHTML = renderUnifiedScreenHeader(currentRoute, isAdminHome ? 'לוח בקרה ניהולי ראשי' : 'לוח בקרה תפעולי ראשי', { destinationsCount: landingTargets.length }) + `
       <section class="control-board-grid">
-        ${targets.map((item) => `<button class="control-board-card" type="button" data-primary-nav="${escAttr(item.route)}"><strong>${esc(item.label)}</strong><span>${esc(routeLabels[item.route] || item.route)}</span></button>`).join('')}
+        ${landingTargets.map((item) => `<button class="control-board-card" type="button" data-primary-nav="${escAttr(item.route)}"><strong>${esc(item.label)}</strong><span>${esc(routeLabels[item.route] || item.route)}</span></button>`).join('')}
       </section>`;
     document.querySelectorAll('[data-primary-nav]').forEach((button) => button.addEventListener('click', () => setRoute(button.dataset.primaryNav || 'dashboard')));
     bindUnifiedScreenHeader(currentRoute);
+    return;
+  }
+
+  if (currentRoute === 'admin-settings') {
+    const rows = filterBySearch(
+      (viewState.adminSettings.data || []).slice().sort((a, b) => String(a.key || '').localeCompare(String(b.key || ''), 'he')),
+      ['key', 'value', 'type', 'notes'],
+      'admin-settings'
+    );
+    main.innerHTML = renderUnifiedScreenHeader('admin-settings', 'הגדרות פעילות מהשרת', { itemsCount: rows.length })
+      + panel(viewState.adminSettings, 'אין הגדרות להצגה.',
+        `<section class="table-shell"><table><thead><tr><th>מפתח</th><th>ערך</th><th>סוג</th><th>הערות</th></tr></thead><tbody>
+          ${rows.map((row) => `<tr><td>${esc(row.key)}</td><td>${esc(String(row.value))}</td><td>${esc(row.type || '')}</td><td>${esc(row.notes || '')}</td></tr>`).join('')}
+        </tbody></table></section>`);
+    bindUnifiedScreenHeader('admin-settings');
+    return;
+  }
+
+  if (currentRoute === 'admin-lists') {
+    const rows = filterBySearch(viewState.adminLists.data || [], ['list_name', 'value', 'label', 'activity_type', 'activity_name'], 'admin-lists');
+    main.innerHTML = renderUnifiedScreenHeader('admin-lists', 'פריטי רשימות מהשרת', { itemsCount: rows.length })
+      + panel(viewState.adminLists, 'אין רשימות להצגה.',
+        `<section class="table-shell"><table><thead><tr><th>רשימה</th><th>ערך</th><th>תווית</th><th>סוג פעילות</th><th>מס׳</th><th>שם פעילות</th></tr></thead><tbody>
+          ${rows.map((row) => `<tr><td>${esc(row.list_name)}</td><td>${esc(row.value)}</td><td>${esc(row.label)}</td><td>${esc(row.activity_type)}</td><td>${esc(row.activity_no)}</td><td>${esc(row.activity_name)}</td></tr>`).join('')}
+        </tbody></table></section>`);
+    bindUnifiedScreenHeader('admin-lists');
+    return;
+  }
+
+  if (currentRoute === 'admin-permissions') {
+    const perms = filterBySearch(
+      viewState.adminPermissions.data || [],
+      [
+        'employeeId',
+        'employeeName',
+        'displayRole',
+        'defaultView',
+        (row) => (Array.isArray(row.allowedViews) ? row.allowedViews.join(' ') : String(row.viewScope || ''))
+      ],
+      'admin-permissions'
+    );
+    main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות (ללא קודי כניסה)', { itemsCount: perms.length })
+      + panel(viewState.adminPermissions, 'אין נתוני הרשאות.',
+        `<section class="table-shell"><table><thead><tr><th>מזהה</th><th>שם</th><th>תפקיד תצוגה</th><th>ברירת מחדל</th><th>תצוגות מורשות</th><th>פעיל</th></tr></thead><tbody>
+          ${perms.map((row) => {
+      const views = Array.isArray(row.allowedViews) ? row.allowedViews.join(', ') : String(row.viewScope || '');
+      return `<tr><td>${esc(String(row.employeeId))}</td><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole)}</td><td>${esc(row.defaultView)}</td><td>${esc(views)}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td></tr>`;
+    }).join('')}
+        </tbody></table></section>`);
+    bindUnifiedScreenHeader('admin-permissions');
     return;
   }
 
@@ -3638,6 +3754,37 @@ function getDisplayRoleForInstructor(instructorName, employeeId = '') {
   return permission?.displayRole || '';
 }
 
+async function loadAdminSettingsView() {
+  await withLoad('adminSettings', () => api.getAllSettings(), [], 'לא ניתן לטעון הגדרות.');
+}
+
+async function loadAdminListsView() {
+  await withLoad('adminLists', () => api.getAllLists(), [], 'לא ניתן לטעון רשימות.');
+}
+
+async function loadAdminPermissionsView() {
+  await withLoad('adminPermissions', async () => {
+    if (initEnginePromise) {
+      try {
+        await initEnginePromise;
+      } catch (e) {
+        logUi('admin_permissions_engine_wait_failed', { message: e?.message || String(e || '') });
+      }
+    }
+    const snap = getStoreSnapshot();
+    const items = (snap.permissions || []).map((row) => ({
+      employeeId: row.employeeId,
+      employeeName: row.employeeName,
+      displayRole: row.displayRole,
+      defaultView: row.defaultView,
+      viewScope: row.viewScope,
+      allowedViews: row.allowedViews,
+      activeFlag: row.activeFlag
+    }));
+    return { success: true, data: { items } };
+  }, [], 'לא ניתן לטעון הרשאות.');
+}
+
 async function onLogin(event) {
   event?.preventDefault();
 
@@ -3680,6 +3827,9 @@ async function loadRouteData() {
     return;
   }
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
+  if (currentRoute === 'admin-settings') return loadAdminSettingsView();
+  if (currentRoute === 'admin-lists') return loadAdminListsView();
+  if (currentRoute === 'admin-permissions') return loadAdminPermissionsView();
   if (currentRoute === 'dashboard') return loadDashboard();
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') return loadCourses();
   if (currentRoute === 'week') return loadWeekView();

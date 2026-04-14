@@ -63,10 +63,11 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       WORKFLOW_STAGE: 'admin_status'
     },
     permission: {
-      EMPLOYEE_NAME: 'EmployeeName',
+      /** Sheet column resolution: canonical headers first, legacy aliases via data-engine pickFirst. */
+      EMPLOYEE_NAME: 'name',
       EMPLOYEE_ID: 'emp_id',
-      ENTRY_CODE: 'EntryCode',
-      SYSTEM_ROLE: 'SystemRole',
+      ENTRY_CODE: 'code',
+      SYSTEM_ROLE: 'role',
       DISPLAY_ROLE: 'DisplayRole',
       VIEW_SCOPE: 'ViewScope',
       EDIT_SCOPE: 'EditScope',
@@ -75,7 +76,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       DEFAULT_VIEW: 'default_view',
       TEAM_SCOPE: 'TeamScope',
       INSTRUCTOR_MANAGER: 'manager',
-      ACTIVE_FLAG: 'ActiveFlag',
+      ACTIVE_FLAG: 'active',
       CAN_ACCESS_FINANCE: 'CanAccessFinance',
       CAN_EDIT_FINANCE: 'CanEditFinance',
       CAN_ACCESS_FINANCE_ARCHIVE: 'CanAccessFinanceArchive',
