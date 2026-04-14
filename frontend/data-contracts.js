@@ -34,9 +34,9 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       REVIEW_NOTES: 'operations_notes',
       REVIEW_HANDLED_BY: 'ReviewHandledBy',
       REVIEW_HANDLED_AT: 'ReviewHandledAt',
+      /** Performed meeting dates on data sheet: first meeting start_date, then date2..date35 (no date1). */
       DATE_FIELDS: [
         'start_date',
-        'date1',
         ...Array.from({ length: 34 }, (_, index) => `date${index + 2}`)
       ]
     },
@@ -103,11 +103,19 @@ function numberFrom(...values) {
   return 0;
 }
 
+export function courseMeetingDateRaw(course, field) {
+  const direct = course?.[field];
+  if (String(direct ?? '').trim()) return direct;
+  if (field === 'start_date') return course?.Date1;
+  const m = String(field).match(/^date(\d+)$/i);
+  return m ? course?.[`Date${m[1]}`] : '';
+}
+
 export function getSessionProgress(course = {}) {
   const plannedMeetings = Math.max(0, numberFrom(course?.[COURSE_FIELDS.PLANNED_MEETINGS]));
-  const datesListed = (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => {
-    return String(course?.[field] || '').trim() ? count + 1 : count;
-  }, 0);
+  const datesListed = (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => (
+    String(courseMeetingDateRaw(course, field) || '').trim() ? count + 1 : count
+  ), 0);
   const actualMeetings = datesListed;
   return {
     plannedMeetings,

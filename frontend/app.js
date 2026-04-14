@@ -25,6 +25,7 @@ import {
   EXCEPTION_FIELDS,
   TAASIYEDA_DATA_CONTRACTS,
   getSessionProgress,
+  courseMeetingDateRaw,
   hasCourseDelays,
   getExceptionTreatmentStatus,
   parseDelayInfo
@@ -205,6 +206,7 @@ const COURSES_SCREEN_CONFIG = {
 const TAASIYEDA_CONFIG = TAASIYEDA_DATA_CONTRACTS;
 const COURSE_DATE_FIELDS = COURSE_FIELDS.DATE_FIELDS || [];
 const COURSE_DATE_RANGE_FIELDS = COURSE_DATE_FIELDS;
+const EXCEPTION_MISSING_START_DATE = 'חסר תאריך מפגש ראשון';
 const COURSE_END_RANGE_FIELDS = [COURSE_FIELDS.END];
 const INSTRUCTOR_FALLBACK_FIELD = 'Employee';
 const ACTIVITY_COLORS_BY_CODE = Object.freeze({
@@ -643,7 +645,7 @@ function getHeaderKpis(route = currentRoute, context = {}) {
     return [
       { label: 'חריגות', value: context.itemsCount || 0 },
       { label: 'ללא מדריך', value: context.noInstructorCount || 0 },
-      { label: 'חסר Date1', value: context.missingDateCount || 0 }
+      { label: 'חסר start_date', value: context.missingDateCount || 0 }
     ];
   }
   if (route === 'finance') {
@@ -1039,10 +1041,10 @@ function renderScreen() {
       ['Program', 'Authority', 'School', 'Instructor', 'CourseManager', 'issuesLabel'],
       'exceptions'
     );
-    main.innerHTML = renderUnifiedScreenHeader('exceptions', 'ללא מדריך / ללא שעות / חסר Date1 (מפגש ראשון) / או סיום ביוני 2026', {
+    main.innerHTML = renderUnifiedScreenHeader('exceptions', 'ללא מדריך / ללא שעות / חסר start_date (מפגש ראשון) / או סיום ביוני 2026', {
       itemsCount: exceptionRows.length,
       noInstructorCount: exceptionRows.filter((row) => String(row.Instructor || '').trim() === '').length,
-      missingDateCount: exceptionRows.filter((row) => String(row.issuesLabel || '').includes('חסר Date1')).length
+      missingDateCount: exceptionRows.filter((row) => String(row.issuesLabel || '').includes(EXCEPTION_MISSING_START_DATE)).length
     }) +
       renderExceptionsFilters() +
       panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows)) +
@@ -1500,7 +1502,7 @@ function renderFinanceTable(rows, options = {}) {
   const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
     .filter((item) => {
       const courseName = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || '').trim();
-      const hasDates = String(item?.Date1 || item?.MonthEnd || item?.End || '').trim();
+      const hasDates = String(item?.start_date || item?.Date1 || item?.MonthEnd || item?.End || item?.end_date || '').trim();
       return Boolean(courseName && hasDates);
     });
   const prevItems = prevMonth ? allRows.filter((item) => financeRowInDisplayMonth(item, prevMonth)) : [];
@@ -1592,7 +1594,7 @@ function renderFinanceCards(rows, options = {}) {
   const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
     .filter((item) => {
       const courseName = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || '').trim();
-      const hasDates = String(item?.Date1 || item?.MonthEnd || item?.End || '').trim();
+      const hasDates = String(item?.start_date || item?.Date1 || item?.MonthEnd || item?.End || item?.end_date || '').trim();
       return Boolean(courseName && hasDates);
     });
   const prevItems = prevMonth ? allRows.filter((item) => financeRowInDisplayMonth(item, prevMonth)) : [];
@@ -2084,10 +2086,10 @@ function isPostponedCourse(row) {
   return parseDelayInfo(getCourseField(row, COURSE_FIELDS.NOTES)).isPostponed;
 }
 
-/** תאריך התחלה לעמוד חריגות: רק עמודת המפגש הראשון בגיליון — Date1 (כפי שמוגדר ב־DATE_FIELDS) */
+/** תאריך התחלה לעמוד חריגות: start_date (מפגש ראשון; ראה DATE_FIELDS). */
 function hasCourseStartDateForExceptions(row) {
-  const date1Field = COURSE_DATE_FIELDS[0];
-  return Boolean(date1Field && parseDateLike(getCourseField(row, date1Field)));
+  const startField = COURSE_DATE_FIELDS[0];
+  return Boolean(startField && parseDateLike(courseMeetingDateRaw(row, startField)));
 }
 
 function isCourseEndInJune2026(row) {
@@ -2101,7 +2103,7 @@ function getExceptionsPageIssues(row) {
   const issues = [];
   if (!hasInstructor(row)) issues.push('ללא מדריך');
   if (!hasHours(row)) issues.push('ללא שעות');
-  if (!isPostponedCourse(row) && !hasCourseStartDateForExceptions(row)) issues.push('חסר Date1');
+  if (!isPostponedCourse(row) && !hasCourseStartDateForExceptions(row)) issues.push(EXCEPTION_MISSING_START_DATE);
   if (isCourseEndInJune2026(row)) issues.push('סיום ביוני 2026');
   return issues;
 }
@@ -2133,7 +2135,7 @@ function getScheduleDates(row) {
   }
   const dates = [];
   COURSE_DATE_FIELDS.forEach((fieldName) => {
-    const parsed = parseDateLike(getCourseField(row, fieldName));
+    const parsed = parseDateLike(courseMeetingDateRaw(row, fieldName));
     if (parsed) dates.push(parsed);
   });
   const fallback = firstDate(row, COURSE_DATE_RANGE_FIELDS);
@@ -2268,7 +2270,7 @@ function isActiveCourse(row, now) {
 function countPastDueMeetings(row) {
   const today = startOfDay(new Date());
   return COURSE_DATE_FIELDS.reduce((count, fieldName) => {
-    const d = parseDateLike(getCourseField(row, fieldName));
+    const d = parseDateLike(courseMeetingDateRaw(row, fieldName));
     return (d && d < today) ? count + 1 : count;
   }, 0);
 }
@@ -2364,7 +2366,7 @@ function collectCourseDates(row) {
     ? COURSE_DATE_FIELDS
     : Array.from({ length: COURSES_SCREEN_CONFIG.meetingFields.end }, (_, i) => `Date${i + 1}`);
   fieldNames.forEach((fieldName, index) => {
-    const date = parseDateLike(getCourseField(row, fieldName) || row?.[fieldName]);
+    const date = parseDateLike(courseMeetingDateRaw(row, fieldName));
     if (date) dates.push({ label: fieldName, value: date, index: index + 1 });
   });
   dates.sort((a, b) => a.value - b.value);
@@ -3179,7 +3181,7 @@ function renderWeekDetails(selected) {
   return `<aside class="week-side-panel" id="weekSidePanel"><div class="week-side-panel-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button type="button" class="btn btn-secondary" id="weekCloseDetails">סגור</button></div><div class="week-side-panel-body">${selected.items.map((item) => {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
     const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '-')} | ${esc(item[COURSE_FIELDS.SCHOOL] || '-')} | מדריך/ה: ${esc(resolveInstructorName(item) || '-')}</strong>`;
-    const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item['Date1'])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
+    const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.start_date || item.Date1)) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
     return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card', activityRow: item });
   }).join('')}</div></aside>`;
 }
@@ -3652,7 +3654,7 @@ function buildExceptionsRows(reviewRows, courses, filters) {
       ExceptionType: missingTypes.join(' / '),
       TreatmentStatus: 'open',
       Issues: missingTypes.join(' / '),
-      Date: getCourseField(course, 'Date1') || getCourseField(course, COURSE_FIELDS.END) || '',
+      Date: getCourseField(course, COURSE_DATE_FIELDS[0]) || getCourseField(course, 'Date1') || getCourseField(course, COURSE_FIELDS.END) || '',
       MissingTypes: missingTypes
     };
   }).filter((row) => {
@@ -3691,16 +3693,30 @@ function bindExceptionsActions() {
   bindCourseActions();
 }
 
+function financeRowDateRaw(row, field) {
+  const keys = [field];
+  if (field === 'start_date') keys.push('Date1');
+  else if (/^date\d+$/i.test(field)) {
+    const m = field.match(/\d+/);
+    if (m) keys.push('Date' + m[0]);
+  }
+  for (let i = 0; i < keys.length; i += 1) {
+    const v = row?.[keys[i]];
+    if (String(v ?? '').trim()) return v;
+  }
+  return '';
+}
+
 function exportFinanceToExcel(rows, filename) {
   if (!rows.length) return;
   const headers = ['קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'כל התאריכים', 'תאריך', 'תאריך התחלה', 'תאריך סיום', 'מפגשים מתוכננים', 'מפגשים בפועל', 'עלות', 'גורם מימון', 'גורם משלם', 'סטטוס', 'הערות'];
   const collectPerformedDates = (row) => {
     const values = [];
-    for (let i = 1; i <= 35; i += 1) {
-      const raw = row?.[`Date${i}`] || row?.[`date${i}`] || '';
+    COURSE_DATE_FIELDS.forEach((field) => {
+      const raw = financeRowDateRaw(row, field);
       const parsed = parseDateLike(raw);
       if (parsed) values.push(formatDate(parsed));
-    }
+    });
     return values.join(', ');
   };
   const dataRows = rows.map((row) => [
@@ -4103,7 +4119,7 @@ function normalizeCourseRecord(raw = {}) {
   out[COURSE_FIELDS.START_TIME] = formatTimeValue(raw[COURSE_FIELDS.START_TIME]);
   out[COURSE_FIELDS.END_TIME] = formatTimeValue(raw[COURSE_FIELDS.END_TIME]);
   COURSE_DATE_FIELDS.forEach((fieldName) => {
-    out[fieldName] = parseDateLike(raw[fieldName]);
+    out[fieldName] = parseDateLike(courseMeetingDateRaw(raw, fieldName));
   });
   out[COURSE_FIELDS.END] = parseDateLike(raw[COURSE_FIELDS.END]);
   return out;
@@ -4239,7 +4255,7 @@ function withOperationalMetrics(baseData, courses, options = {}) {
     instructorsByManager,
     requiresTreatmentByManager,
     missingHoursCount: missing.filter((types) => types.includes('ללא שעות')).length,
-    missingDateCount: missing.filter((types) => types.includes('חסר Date1')).length,
+    missingDateCount: missing.filter((types) => types.includes(EXCEPTION_MISSING_START_DATE)).length,
     missingInstructorCount: missing.filter((types) => types.includes('ללא מדריך')).length,
     totalExceptionsCount: missing.filter((types) => (types || []).length > 0).length,
     instructorsCount: new Set(courses.map((row) => resolveInstructorName(row)).filter(Boolean)).size,

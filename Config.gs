@@ -66,7 +66,7 @@ var CONFIG = (function () {
     FUNDING:            ['funding', 'Funding'],
     START_TIME:         ['start_time', 'StartTime'],
     END_TIME:           ['end_time', 'EndTime'],
-    START_DATE:         ['start_date', 'Date1'],
+    START_DATE:         ['start_date', 'Date', 'Date1'],
     END_DATE:           ['end_date', 'End'],
     STATUS:             ['status', 'WorkflowStatus'],
     NOTES:              ['notes', 'Notes'],
@@ -132,17 +132,24 @@ var CONFIG = (function () {
   FIELDS.PLANNED_MEETINGS   = FIELDS.SESSIONS;
 
   // ── Frontend field list for API responses ─────────────────────────────────────────────
+  var DATA_MASTER_MEETING_DATE_FIELDS = (function () {
+    var out = [];
+    for (var i = 2; i <= 35; i += 1) out.push('date' + i);
+    return out;
+  })();
   var FRONTEND_FIELDS = {
     COURSES: [
       'RowID', 'activity_no', 'activity_name', 'activity_type',
       'emp_id', 'name', 'activity_manager', 'manager',
       'authority', 'school', 'sessions',
       'funding', 'price', 'start_time', 'end_time',
-      'start_date', 'end_date', 'status', 'notes',
+      'start_date'
+    ].concat(DATA_MASTER_MEETING_DATE_FIELDS, [
+      'end_date', 'status', 'notes',
       'finance_status', 'finance_notes',
       'requested_by', 'requested_at', 'operations_notes', 'sent_to_admin_at',
       'admin_status', 'admin_decision_at', 'source_row_id'
-    ]
+    ])
   };
 
   var STATUSES = {

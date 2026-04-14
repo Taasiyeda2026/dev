@@ -232,6 +232,29 @@ var Logic = (function () {
     }
   }
 
+  function meetingDateHeaderOrder_(header) {
+    var h = Utils.normalize(header);
+    if (h === 'start_date' || h === 'Date1') return 1;
+    var m = /^date([2-9]|[12][0-9]|3[0-5])$/i.exec(h) || /^Date([2-9]|[12][0-9]|3[0-5])$/.exec(h);
+    return m ? Number(m[1]) : 999;
+  }
+
+  function meetingDateHeadersFromTable_(headers) {
+    return (headers || []).filter(function (header) {
+      var h = Utils.normalize(header);
+      if (h === 'start_date') return true;
+      if (/^date([2-9]|[12][0-9]|3[0-5])$/i.test(h)) return true;
+      if (/^Date([2-9]|[12][0-9]|3[0-5])$/.test(h)) return true;
+      if (h === 'Date1') return true;
+      return false;
+    }).sort(function (a, b) {
+      var oa = meetingDateHeaderOrder_(a);
+      var ob = meetingDateHeaderOrder_(b);
+      if (oa !== ob) return oa - ob;
+      return String(a).localeCompare(String(b));
+    });
+  }
+
   function getMyCoursesData(filters) {
     var session = requireSession_();
     if (!session.success) return session;
@@ -263,11 +286,7 @@ var Logic = (function () {
         rows = rows.filter(function (row) { return row.some(function (cell) { return Utils.toKey(cell).indexOf(query) > -1; }); });
       }
 
-      var dynamicDateFields = table.headers.filter(function (header) {
-        return /^Date([1-9]|[12][0-9]|3[0-5])$/.test(Utils.normalize(header));
-      }).sort(function (a, b) {
-        return Number(String(a).replace('Date', '')) - Number(String(b).replace('Date', ''));
-      });
+      var dynamicDateFields = meetingDateHeadersFromTable_(table.headers);
       var frontendFields = CONFIG.FRONTEND_FIELDS.COURSES.concat(dynamicDateFields, ['InstructorDisplayRole']);
       var transformStage = perf.startStage('transform.courses');
       var permissionsLookup = buildInstructorLookup_();
@@ -487,15 +506,6 @@ var Logic = (function () {
       if (!rowMatch) return Utils.safeMessage('הפעילות לא נמצאה.');
       if (!courseId) return Utils.safeMessage('CourseID הוא שדה חובה.');
       Utils.ensureCourseMeetingsSheet();
-      var meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
-      var idxCourse = Utils.resolveIndex(meetingTable.headers, ['CourseID']);
-      var meetings = [];
-      for (var i = 0; i < meetingTable.rows.length; i += 1) {
-        var row = meetingTable.rows[i];
-        if (Utils.toKey(valueAt_(row, idxCourse)) !== Utils.toKey(courseId)) continue;
-        meetings.push(Utils.rowToObject(meetingTable.headers, row, meetingTable.rowNumbers[i]));
-      }
-
       var meetings = [];
       var idxStartTime = Utils.resolveIndex(table.headers, CONFIG.FIELDS.START_TIME);
       var idxEndTime = Utils.resolveIndex(table.headers, CONFIG.FIELDS.END_TIME);
@@ -1160,7 +1170,7 @@ var Logic = (function () {
     var dateIndexes = [];
     headers.forEach(function (header, index) {
       var normalized = Utils.normalize(header);
-      if (normalized === 'start_date' || /^date([2-9]|[12][0-9]|3[0-5])$/i.test(normalized) || /^Date([1-9]|[12][0-9]|3[0-5])$/.test(normalized)) dateIndexes.push(index);
+      if (normalized === 'start_date' || /^date([2-9]|[12][0-9]|3[0-5])$/i.test(normalized) || /^Date([2-9]|[12][0-9]|3[0-5])$/.test(normalized)) dateIndexes.push(index);
     });
     var today = new Date();
     var dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -2169,7 +2179,11 @@ var Logic = (function () {
     var values = new Array(CONFIG.DATE_FIELDS_COUNT).fill('');
     (headers || []).forEach(function (header, index) {
       var normalized = Utils.normalize(header);
-      if (normalized === 'start_date' || normalized === 'Date1') { values[0] = valueAt_(row, index); return; }
+      if (normalized === 'start_date') { values[0] = valueAt_(row, index); return; }
+      if (normalized === 'Date1') {
+        if (!Utils.normalize(values[0])) values[0] = valueAt_(row, index);
+        return;
+      }
       var match = /^(?:date|Date)([2-9]|[12][0-9]|3[0-5])$/.exec(normalized);
       if (!match) return;
       var position = Number(match[1]) - 1;

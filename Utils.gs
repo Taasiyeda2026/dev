@@ -11,8 +11,8 @@ var Utils = (function () {
     var canonical = normalize(header);
     if (!canonical) return canonical;
 
-    // Real spreadsheet headers are the source of truth.
-    // Keep names as-is (including data.start_date/date2..date35, operations_data fields).
+    // Real spreadsheet headers are the source of truth (data: start_date, date2..date35, end_date).
+    // Lowercase dateN headers normalize consistently; legacy DateN still passes through elsewhere via resolveIndex.
     var dateMatch = /^date([1-9]|[12][0-9]|3[0-5])$/i.exec(canonical);
     if (dateMatch) return 'date' + dateMatch[1];
     return canonical;

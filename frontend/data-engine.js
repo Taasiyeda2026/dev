@@ -489,6 +489,14 @@ export async function createDataMasterRecord(record = {}, actor = {}) {
   return res;
 }
 
+function financeMeetingDateRaw(row, field) {
+  const direct = row?.[field];
+  if (String(direct ?? '').trim()) return direct;
+  if (field === 'start_date') return row?.Date1;
+  const m = String(field).match(/^date(\d+)$/i);
+  return m ? row?.[`Date${m[1]}`] : '';
+}
+
 export async function loadFinanceItems(force = false) {
   if (!force && dataStore.finance.length) return dataStore.finance;
   const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
@@ -513,7 +521,9 @@ export async function loadFinanceItems(force = false) {
     End: row?.end_date || row?.End || '',
     Payment: row?.price || row?.Payment || '',
     Payer: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן' ? (row?.school || row?.School || '') : (row?.funding || row?.Funding || ''),
-    DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => String(row?.[field] || '').trim() ? count + 1 : count, 0)
+    DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => (
+      String(financeMeetingDateRaw(row, field) || '').trim() ? count + 1 : count
+    ), 0)
   }));
   dataStore.loadedAt.finance = now();
   return dataStore.finance;
