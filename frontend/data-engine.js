@@ -505,12 +505,15 @@ export async function createDataMasterRecord(record = {}, actor = {}) {
 function parseDateLike(value) {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
   if (typeof value === 'number' && value > 20000 && value < 60000) {
     const excelEpoch = new Date(1899, 11, 30);
     const d = new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
     return Number.isNaN(d.getTime()) ? null : d;
   }
+
   const raw = String(value).trim();
+
   if (/^\d{5}(?:\.\d+)?$/.test(raw)) {
     const serial = Number(raw);
     if (Number.isFinite(serial) && serial > 20000 && serial < 60000) {
@@ -524,7 +527,8 @@ function parseDateLike(value) {
     const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
     return Number.isNaN(d.getTime()) ? null : d;
   }
-  const isoDateTime = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+
+  const isoDateTime = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z)?$/);
   if (isoDateTime) {
     const d = new Date(
       Number(isoDateTime[1]),
@@ -536,6 +540,7 @@ function parseDateLike(value) {
     );
     return Number.isNaN(d.getTime()) ? null : d;
   }
+
   const dmy = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
   if (dmy) {
     const y = Number(dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]);
