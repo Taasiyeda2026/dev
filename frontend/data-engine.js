@@ -69,11 +69,9 @@ function listEnabledCapabilities(capabilities = {}, prefix = 'view_') {
 }
 
 function normalizePermissionScope(raw = {}) {
-  const viewFlags = Object.keys(raw).filter((k) => k.startsWith('view_') && toBool(raw[k]));
-  const editFlags = Object.keys(raw).filter((k) => k.startsWith('edit_') && toBool(raw[k]));
   return {
-    viewScope: viewFlags.length ? viewFlags.join(',') : String(raw.ViewScope || '').trim(),
-    editScope: editFlags.length ? editFlags.join(',') : String(raw.EditScope || '').trim(),
+    viewScope: String(raw.ViewScope || '').trim(),
+    editScope: String(raw.EditScope || '').trim(),
     approvalScope: String(raw.ApprovalScope || raw.SystemRole || '').trim()
   };
 }

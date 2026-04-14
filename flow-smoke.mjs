@@ -10,15 +10,19 @@ import {
 } from './frontend/data-engine.js';
 
 const mem = {
-  DATA_MASTER: [
+  data: [
     { CourseID: 'C-1', Program: 'P1', EventType: 'A1', ReviewStatus: 'open', Authority: 'Auth1', School: 'School1' }
   ],
-  EDIT_REQUESTS: []
+  operations_data: []
 };
 
 const api = {
   async getSheetRows({ sheetName }) {
-    const rows = mem[sheetName] || [];
+    const aliases = {
+      DATA_MASTER: 'data',
+      EDIT_REQUESTS: 'operations_data'
+    };
+    const rows = mem[sheetName] || mem[aliases[sheetName]] || [];
     const headers = rows.length ? Object.keys(rows[0]) : [];
     return {
       success: true,
@@ -30,11 +34,11 @@ const api = {
     };
   },
   async createEditRequest(payload) {
-    mem.EDIT_REQUESTS.push({ RequestID: `R-${mem.EDIT_REQUESTS.length + 1}`, ...payload });
-    return { success: true, data: { RequestID: `R-${mem.EDIT_REQUESTS.length}` } };
+    mem.operations_data.push({ RequestID: `R-${mem.operations_data.length + 1}`, ...payload });
+    return { success: true, data: { RequestID: `R-${mem.operations_data.length}` } };
   },
   async createDataMasterRecord({ record }) {
-    mem.DATA_MASTER.push({ ...record, CourseID: record.CourseID || `C-${mem.DATA_MASTER.length + 1}` });
+    mem.data.push({ ...record, CourseID: record.CourseID || `C-${mem.data.length + 1}` });
     return { success: true, data: record };
   },
   clearCache() {}

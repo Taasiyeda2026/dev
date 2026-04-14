@@ -180,6 +180,8 @@ function getExceptionField(row, fieldName) {
 
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
 function actionMode() {
+  if (hasCapability('edit_activities') || hasCapability('edit_admin') || hasCapability('edit_operations_data')) return 'edit';
+  if (hasCapability('edit_edit_requests')) return 'request_edit';
   const permission = currentPermission();
   return String(permission?.editScope || userState.EditScope || '').trim().toLowerCase();
 }
@@ -3786,11 +3788,12 @@ function isTaughtByCurrentUser(row) {
 }
 
 function isManagedByCurrentUser(row) {
-  const teamScope = String(userState.TeamScope || '').trim();
-  const viewScope = String(userState.ViewScope || '').trim();
-  if (teamScope && String(getCourseField(row, COURSE_FIELDS.AUTHORITY) || '').includes(teamScope)) return true;
-  if (viewScope && String(getCourseField(row, COURSE_FIELDS.AUTHORITY) || '').includes(viewScope)) return true;
-  return false;
+  if (hasCapability('view_admin') || hasCapability('edit_admin')) return true;
+  const managerName = String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim();
+  const instructorManager = String(getCourseField(row, COURSE_FIELDS.INSTRUCTOR_MANAGER) || '').trim();
+  const currentName = String(userState.displayName || '').trim();
+  if (!currentName) return false;
+  return managerName === currentName || instructorManager === currentName;
 }
 
 function toHuman(raw) {

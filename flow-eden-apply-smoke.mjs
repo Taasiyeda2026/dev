@@ -108,7 +108,7 @@ function refreshSourceFromMaster({ requestId }) {
   });
   row.MasterLastUpdatedAt = source.UpdatedAt;
   row.LastSyncedAt = now();
-  if (row.EdenLastSavedAt && source.UpdatedAt > row.EdenLastSavedAt) {
+  if (row.EdenLastSavedAt && source.UpdatedAt && String(source.UpdatedAt) !== String(row.EdenLastSavedAt)) {
     row.HasMasterChangedAfterEdenEdit = 'true';
   }
   row.HasDiffBetweenSourceAndEden = hasDiff(row) ? 'true' : 'false';
