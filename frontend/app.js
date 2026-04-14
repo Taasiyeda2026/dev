@@ -992,6 +992,14 @@ function renderScreen() {
       instructorsCount: new Set(visibleCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size
     }) +
     (currentRoute === 'courses' ? renderMonthStatBadge({ count: visibleCourses.length, monthRaw: courseMonthRaw, noun: 'קורסים פעילים' }) : '') +
+    (currentRoute === 'courses' ? `<div class="courses-quick-nav">${[
+      { route: 'end-dates', label: 'תאריכי סיום', icon: '⏳' },
+      { route: 'week',      label: 'שבוע',         icon: '🗓️' },
+      { route: 'month',     label: 'חודש',         icon: '📅' },
+      { route: 'exceptions',label: 'חריגות',       icon: '⚠️' }
+    ].filter((item) => canAccessRoute(item.route))
+      .map((item) => `<button class="btn courses-nav-pill" type="button" data-courses-nav="${escAttr(item.route)}">${item.icon} ${esc(item.label)}</button>`)
+      .join('')}</div>` : '') +
     `<section class="filters-wrap courses-filters">
       <label>רשות<select id="authorityFilter">${renderSelectOptions(viewState.courses.filterOptions.authority, viewState.courses.filters.authority)}</select></label>
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
@@ -1048,6 +1056,7 @@ function renderScreen() {
     });
     document.getElementById('coursesViewTable')?.addEventListener('click', () => { viewState.courses.view = 'table'; renderScreen(); });
     document.getElementById('coursesViewCards')?.addEventListener('click', () => { viewState.courses.view = 'cards'; renderScreen(); });
+    document.querySelectorAll('[data-courses-nav]').forEach((btn) => btn.addEventListener('click', () => setRoute(btn.dataset.coursesNav)));
     bindInstructorCards();
     bindCourseActions();
     bindUnifiedScreenHeader(currentRoute);
