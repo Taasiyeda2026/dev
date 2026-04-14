@@ -763,8 +763,29 @@ function applyInPlaceSearchFilter(route = currentRoute, rawTerm = '') {
   const term = String(rawTerm || '').trim().toLowerCase();
   const main = document.getElementById('main');
   if (!main) return;
-  const targets = main.querySelectorAll('tbody tr, .management-card, .mini-card, .control-board-card');
-  targets.forEach((el) => {
+
+  const tableBodies = main.querySelectorAll('tbody');
+  tableBodies.forEach((tbody) => {
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.forEach((row) => {
+      const isDetails = row.classList.contains('contact-details-row');
+      if (isDetails) return;
+      const next = row.nextElementSibling;
+      const linkedDetails = next && next.classList.contains('contact-details-row') ? next : null;
+      if (!term) {
+        row.style.display = '';
+        if (linkedDetails) linkedDetails.style.display = '';
+        return;
+      }
+      const text = String(row.textContent || '').toLowerCase();
+      const visible = text.includes(term);
+      row.style.display = visible ? '' : 'none';
+      if (linkedDetails) linkedDetails.style.display = visible ? '' : 'none';
+    });
+  });
+
+  const cards = main.querySelectorAll('.management-card, .mini-card, .control-board-card');
+  cards.forEach((el) => {
     if (!term) {
       el.style.display = '';
       return;
@@ -881,7 +902,10 @@ function renderScreen() {
       { title: 'חריגים', value: d.totalExceptionsCount || 0, filter: 'exceptions' }
     ];
     const topKpis = runtimeRules.showOnlyNonZeroKpis
-      ? allTopKpis.filter((item) => Number(item.value || 0) !== 0)
+      ? allTopKpis.filter((item) => {
+        if (item.filter === 'ending_this_month') return true;
+        return Number(item.value || 0) !== 0;
+      })
       : allTopKpis;
     main.innerHTML = renderUnifiedScreenHeader('dashboard', '', { dashboard: d }) + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
       `<section class="kpi-section dashboard-kpi-top-section">
@@ -1047,9 +1071,7 @@ function renderScreen() {
       renderScreen();
     }));
     document.querySelectorAll('[data-copy-email]').forEach((btn) => btn.addEventListener('click', async () => {
-      const email = btn.dataset.copyEmail || '';
-      if (!email || !navigator?.clipboard?.writeText) return;
-      await navigator.clipboard.writeText(email);
+      await copyEmailToClipboard(btn.dataset.copyEmail || '');
     }));
     document.querySelectorAll('[data-edit-contact]').forEach((btn) => btn.addEventListener('click', async () => {
       const idx = Number(btn.dataset.editContact || -1);
@@ -1547,7 +1569,7 @@ function table(rows, cols, canEdit, canApprove, isApplyMode = false) {
     const tdClass = WRAP_TABLE_FIELDS.has(fieldKey) ? 'cell-wrap' : '';
     if (fieldKey === 'ApprovalStatus') return `<td class="${tdClass}" title="${escAttr(textValue || '-')}"><span class="status-chip ${statusClass(rawValue)}">${statusLabel(rawValue)}</span></td>`;
     return `<td class="${tdClass}" title="${escAttr(textValue || '-')}">${renderCellContent(fieldKey, rawValue)}</td>`;
-  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">${canEditMasterCourses() ? 'עריכה' : 'בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">${isApplyMode ? 'Apply to Master' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
+  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">${isApplyMode ? 'Apply to Master' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
@@ -1645,7 +1667,7 @@ function renderFinanceTable(rows, options = {}) {
               ${renderStatusOption('open', status)}
               ${renderStatusOption('closed', status)}
             </select>`
-          : `<span class="status-chip ${statusClass(status)}">${esc(status)}</span>`}
+          : `<span class="status-chip ${statusClass(status)}">${esc(getFinanceStatusLabel(status))}</span>`}
       </td>
       <td class="finance-notes-cell finance-notes-edit-cell">
         <div class="finance-note-row">
@@ -1725,7 +1747,7 @@ function renderFinanceCards(rows, options = {}) {
           <h3>${esc(programLine)}</h3>
           <p class="card-subtitle">${esc(schoolLine)} · ${esc(authLine)}</p>
         </div>
-        <span class="status-chip ${statusClass(status)}">${esc(status)}</span>
+        <span class="status-chip ${statusClass(status)}">${esc(getFinanceStatusLabel(status))}</span>
       </header>
       ${notes ? `<div class="finance-notes-preview">${esc(notes)}</div>` : ''}
       <details class="finance-card-details">
@@ -2354,6 +2376,21 @@ function parseMonthBoundary(value, boundary = 'start') {
   return parseDateLike(value);
 }
 
+async function copyEmailToClipboard(email) {
+  const value = String(email || '').trim();
+  if (!value) return;
+  if (!navigator?.clipboard?.writeText) {
+    showToast('לא ניתן היה להעתיק דוא״ל', 'error', 2200);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    showToast('הדוא״ל הועתק', 'success', 1600);
+  } catch (_) {
+    showToast('לא ניתן היה להעתיק דוא״ל', 'error', 2200);
+  }
+}
+
 function isDateInRange(date, from, to) {
   if (!date || !from || !to) return false;
   return date >= startOfDay(from) && date <= endOfDay(to);
@@ -2636,12 +2673,7 @@ function bindCourseActions() {
     renderScreen();
   }));
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
-    const row = findCourseById(button.dataset.openCourse);
-    if (!row) return;
-    viewState.courses.selectedCourseId = String(row.CourseID || '');
-    viewState.courses.selectedCourseDetails = row;
-    await loadCourseMeetings(row.CourseID);
-    renderScreen();
+    await openCourseFromPlanner(button.dataset.openCourse);
   }));
   document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
     viewState.courses.selectedCourseId = '';
@@ -3739,12 +3771,7 @@ function bindEndDatesActions() {
     renderScreen();
   });
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
-    const row = findCourseById(button.dataset.openCourse);
-    if (!row) return;
-    viewState.courses.selectedCourseId = String(row.CourseID || '');
-    viewState.courses.selectedCourseDetails = row;
-    await loadCourseMeetings(row.CourseID);
-    renderScreen();
+    await openCourseFromPlanner(button.dataset.openCourse);
   }));
   document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
     viewState.courses.selectedCourseId = '';
@@ -3852,7 +3879,7 @@ function exportFinanceToExcel(rows, filename) {
     String(row?.Payment || row?.Payment || ''),
     hebrifyValue(row?.Funding) || '',
     hebrifyValue(row?.Payer) || '',
-    String(row?.FinanceStatus || ''),
+    getFinanceStatusLabel(row?.FinanceStatus || row?.finance_status || ''),
     String(row?.FinanceNotes || row?.notes || '')
   ]);
   const html = `<table><thead><tr>${headers.map((header) => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
@@ -4340,6 +4367,10 @@ function statusLabel(status) {
   return 'ללא סטטוס';
 }
 function statusClass(status) { return `status-${String(status || '').toLowerCase().replace('_', '-') || 'none'}`; }
+function getFinanceStatusLabel(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized === 'closed' ? 'סגור' : 'פתוח';
+}
 function esc(v) { return String(v || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function escAttr(v) { return esc(v).replace(/"/g, '&quot;'); }
 
@@ -4358,7 +4389,7 @@ function withOperationalMetrics(baseData, courses, options = {}) {
   managers.forEach((managerName) => {
     const managerCourses = endingCourses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
     const managerEndingCourses = endingCourses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
-    const managerActiveCourses = managerCourses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
+    const managerActiveCourses = managerCourses.filter((row) => isActiveInMonthByStatusAndDates(row, currentMonthStart, currentMonthEnd));
     instructorsByManager[managerName] = new Set(managerCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size;
     endingByManager[managerName] = managerEndingCourses.filter((row) => {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
