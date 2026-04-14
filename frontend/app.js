@@ -137,6 +137,28 @@ const ROUTE_UI_SCALES = {
   'eden-view': 0.8
 };
 
+
+const ROUTE_CAPABILITY_MAP = {
+  dashboard: 'view_dashboard',
+  courses: 'view_activities',
+  week: 'view_week',
+  month: 'view_month',
+  instructors: 'view_instructors',
+  'end-dates': 'view_exceptions',
+  exceptions: 'view_exceptions',
+  finance: 'view_finance',
+  'my-requests': 'view_edit_requests',
+  approvals: 'view_operations_data',
+  'eden-view': 'view_operations_data',
+  'final-approvals': 'view_operations_data',
+  'instructor-view': 'view_my_data'
+};
+
+const MENU_ROUTE_ORDER = [
+  'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
+  'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
+];
+
 const COURSES_SCREEN_CONFIG = {
   progress: { successRatio: 0.9, warningRatio: 0.6 },
   meetingFields: { start: 1, end: 35, fallbackEndField: COURSE_FIELDS.END }
@@ -161,6 +183,47 @@ function actionMode() {
   const permission = currentPermission();
   return String(permission?.editScope || userState.EditScope || '').trim().toLowerCase();
 }
+function currentPermission() { return getPermissionForUser(userState); }
+function getCapabilities() {
+  const permission = currentPermission();
+  if (permission?.capabilities && typeof permission.capabilities === 'object') return permission.capabilities;
+  if (userState.Capabilities && typeof userState.Capabilities === 'object') return userState.Capabilities;
+  return {};
+}
+function hasCapability(capabilityKey) {
+  if (!capabilityKey) return false;
+  return Boolean(getCapabilities()[capabilityKey]);
+}
+function getAllowedRoutes() {
+  return MENU_ROUTE_ORDER.filter((route) => hasCapability(ROUTE_CAPABILITY_MAP[route]));
+}
+function getFirstAllowedRoute() {
+  const routes = getAllowedRoutes();
+  return routes[0] || 'login';
+}
+function normalizeRouteAlias(route) {
+  if (route === 'assignments') return 'dashboard';
+  return route;
+}
+function normalizeDefaultRoute(rawRoute) {
+  const route = String(rawRoute || '').trim();
+  if (!route) return '';
+  const normalized = route.replace(/^view_/, '').replace(/_/g, '-').toLowerCase();
+  const aliasMap = {
+    activities: 'courses',
+    operations-data: 'approvals',
+    edit-requests: 'my-requests',
+    my-data: 'instructor-view'
+  };
+  return aliasMap[normalized] || normalized;
+}
+function getStartupRoute() {
+  const permission = currentPermission();
+  const requested = normalizeDefaultRoute(permission?.defaultView || userState.DefaultView || userState.UiProfile);
+  const allowedRoutes = getAllowedRoutes();
+  if (requested && allowedRoutes.includes(requested)) return requested;
+  return getFirstAllowedRoute();
+}
 function displayRole() {
   const permission = currentPermission();
   if (permission?.displayRole) return permission.displayRole;
@@ -169,41 +232,29 @@ function displayRole() {
   return roleMap[role()] || 'ללא תפקיד מוגדר';
 }
 function isAuth() { return Boolean(userState.authenticated && userState.userId); }
-function isIdan() {
-  return role() === 'idan_main_admin'
-    || (role() === 'admin' && String(userState.EditScope || '').trim().toUpperCase() === 'MAIN_DATA_DIRECT_EDIT');
-}
-function isEden() { return role() === 'admin-ops'; }
-function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].includes(role()); }
 function isInstructor() { return role() === 'instructor'; }
-function currentPermission() { return getPermissionForUser(userState); }
+function isIdan() { return hasCapability('view_admin') || hasCapability('edit_admin'); }
+function isEden() { return hasCapability('view_operations_data') || hasCapability('edit_operations_data'); }
+function isManager() { return hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month'); }
 function canEditMasterCourses() {
-  return actionMode() === 'edit';
+  return actionMode() === 'edit' || hasCapability('edit_activities');
 }
 function canRequestEditCourses() {
-  return actionMode() === 'request_edit';
+  return actionMode() === 'request_edit' || hasCapability('edit_edit_requests');
 }
 function canAccessEdenView() {
-  const permission = currentPermission();
-  if (permission) {
-    const systemRole = String(permission.systemRole || '').trim().toLowerCase();
-    const editScope = String(permission.editScope || '').trim().toUpperCase();
-    return systemRole === 'admin-ops'
-      || systemRole === 'idan_main_admin'
-      || (systemRole === 'admin' && editScope === 'MAIN_DATA_DIRECT_EDIT');
-  }
-  return isEden() || isIdan();
+  return hasCapability('view_operations_data');
 }
 function canAccessFinanceActive() {
   const permission = currentPermission();
-  if (permission) return Boolean(permission.canAccessFinance);
-  return Boolean(userState.CanAccessFinance);
+  if (permission) return Boolean(permission.canAccessFinance || hasCapability('view_finance'));
+  return Boolean(userState.CanAccessFinance || hasCapability('view_finance'));
 }
 
 function canEditFinanceActive() {
   const permission = currentPermission();
-  if (permission) return Boolean(permission.canEditFinance);
-  return Boolean(userState.CanEditFinance);
+  if (permission) return Boolean(permission.canEditFinance || hasCapability('edit_finance'));
+  return Boolean(userState.CanEditFinance || hasCapability('edit_finance'));
 }
 
 function canAccessFinanceArchive() {
@@ -282,9 +333,15 @@ function resetCoursesNavFromMenu() {
 }
 
 function setRoute(route) {
-  if (!isAuth() && route !== 'login') currentRoute = 'login';
-  else if (route === 'assignments') currentRoute = 'dashboard';
-  else currentRoute = route;
+  const nextRoute = normalizeRouteAlias(route);
+  if (!isAuth() && nextRoute !== 'login') {
+    currentRoute = 'login';
+  } else if (nextRoute === 'login') {
+    currentRoute = 'login';
+  } else {
+    const allowedRoutes = getAllowedRoutes();
+    currentRoute = allowedRoutes.includes(nextRoute) ? nextRoute : getFirstAllowedRoute();
+  }
   mobileNavOpen = false;
   document.body.classList.remove('nav-open');
   render();
@@ -329,19 +386,7 @@ function render() {
         <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar" aria-hidden="${(!sidebarOpen && !isMobileViewport()) ? 'true' : 'false'}"><div class="brand">${APP_NAME}</div>
         <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
         <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
-        ${nav('dashboard', 'דשבורד פעילות ארצי')}
-        ${nav('courses', 'קורסים')}
-        ${nav('week', 'שבוע')}
-        ${nav('month', 'חודש')}
-        ${nav('instructors', 'מדריכים')}
-        ${nav('end-dates', 'תאריכי סיום')}
-        ${nav('exceptions', 'חריגות')}
-        ${(canAccessFinanceActive() || canAccessFinanceArchive()) ? nav('finance', 'כספים') : ''}
-        ${nav('my-requests', 'הבקשות שלי')}
-        ${isEden() ? nav('approvals', 'אישורי בקרה ותפעול') : ''}
-        ${canAccessEdenView() ? nav('eden-view', 'מסך עדן') : ''}
-        ${isIdan() ? nav('final-approvals', 'אישור סופי הנהלה') : ''}
-        ${isInstructor() ? nav('instructor-view', 'תצוגת מדריכים') : ''}
+        ${buildMenuNavigation()}
         </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
         <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
         <section class="main-shell">
@@ -383,6 +428,10 @@ function render() {
   document.getElementById('topSubbarToggle')?.addEventListener('click', toggleHeaderSidebarControl);
 
   renderScreen();
+}
+
+function buildMenuNavigation() {
+  return getAllowedRoutes().map((route) => nav(route, routeLabels[route] || route)).join('');
 }
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
@@ -3402,11 +3451,15 @@ async function onLogin(event) {
   initEnginePromise = initDataEngine(api, { userState });
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
-  setRoute('dashboard');
+  setRoute(getStartupRoute());
 }
 
 async function loadRouteData() {
   if (!isAuth()) return;
+  if (currentRoute !== 'login' && !getAllowedRoutes().includes(currentRoute)) {
+    setRoute(getFirstAllowedRoute());
+    return;
+  }
   if (currentRoute === 'dashboard') return loadDashboard();
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') return loadCourses();
   if (currentRoute === 'week') return loadWeekView();
@@ -3880,7 +3933,7 @@ async function boot() {
     if (profile?.authenticated) {
       setUserState(profile);
       initEnginePromise = initDataEngine(api, { userState });
-      setRoute('dashboard');
+      setRoute(getStartupRoute());
       return;
     }
     clearUserState();

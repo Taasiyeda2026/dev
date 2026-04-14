@@ -83,7 +83,7 @@ var Logic = (function () {
       Logger.log('loginAction: active matched rows=%s', matchedRows.length);
       if (!matchedRows.length) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
-      var profile = buildSessionProfileFromPermissions_(matchedRows, idx);
+      var profile = buildSessionProfileFromPermissions_(matchedRows, idx, table.headers);
       profile.authenticated = true;
       profile.userId = Utils.normalizeID(userId);
       profile.EmployeeID = Utils.normalizeID(userId);
@@ -109,30 +109,57 @@ var Logic = (function () {
     }
   }
 
-  function buildSessionProfileFromPermissions_(rows, idx) {
+  function buildSessionProfileFromPermissions_(rows, idx, headers) {
     var scopeJoin = function (index) { return joinUniqueValues_(rows, index, ', '); };
     var primary = choosePrimaryPermissionRow_(rows, idx.systemRole);
     var primaryRole = Utils.normalize(valueAt_(primary, idx.systemRole));
+    var capabilities = collectCapabilitiesFromRows_(rows, headers);
+    var defaultView = Utils.normalize(valueAt_(primary, idx.defaultView));
+    var allowedViews = getAllowedViewsFromCapabilities_(capabilities);
     return {
         authenticated: true,
         displayName: Utils.normalize(valueAt_(primary, idx.employeeName)),
         EmployeeName: Utils.normalize(valueAt_(primary, idx.employeeName)),
         SystemRole: primaryRole,
         DisplayRole: Utils.normalize(valueAt_(primary, idx.displayRole)) || Utils.normalize(valueAt_(primary, idx.systemRole)),
-        ViewScope: scopeJoin(idx.viewScope),
-        EditScope: scopeJoin(idx.editScope),
+        ViewScope: allowedViews.join(', '),
+        EditScope: getAllowedEditsFromCapabilities_(capabilities).join(', '),
         actionMode: Utils.normalize(valueAt_(primary, idx.editScope)),
         ApprovalScope: scopeJoin(idx.approvalScope) || primaryRole,
-        UiProfile: Utils.normalize(valueAt_(primary, idx.uiProfile)),
+        UiProfile: defaultView,
+        DefaultView: defaultView,
         TeamScope: scopeJoin(idx.teamScope),
         InstructorManager: scopeJoin(idx.instructorManager),
         ActiveFlag: Utils.normalize(valueAt_(primary, idx.activeFlag)),
-        CanAccessFinance: anyTrueInRows_(rows, idx.canAccessFinance),
-        CanEditFinance: anyTrueInRows_(rows, idx.canEditFinance),
+        CanAccessFinance: Boolean(capabilities.view_finance),
+        CanEditFinance: Boolean(capabilities.edit_finance),
         CanAccessFinanceArchive: false,
         CanEditFinanceArchive: false,
+        Capabilities: capabilities,
+        AllowedViews: allowedViews,
         PermissionRows: rows.length
       };
+  }
+
+  function collectCapabilitiesFromRows_(rows, headers) {
+    var out = {};
+    (CONFIG.PERM_COLS || []).forEach(function (permCol) {
+      var colIdx = Utils.resolveIndex(headers, [permCol]);
+      out[permCol] = anyTrueInRows_(rows, colIdx);
+    });
+    return out;
+  }
+
+  function getAllowedViewsFromCapabilities_(capabilities) {
+    return Object.keys(capabilities || {}).filter(function (key) {
+      return key.indexOf('view_') === 0 && capabilities[key];
+    });
+  }
+
+  function getAllowedEditsFromCapabilities_(capabilities) {
+    return Object.keys(capabilities || {}).filter(function (key) {
+      return key.indexOf('edit_') === 0 && capabilities[key];
+    });
   }
 
   function logout() {
@@ -1914,6 +1941,7 @@ var Logic = (function () {
       editScope: Utils.resolveIndex(headers, ['EditScope', 'action_language']),
       approvalScope: Utils.resolveIndex(headers, ['ApprovalScope', 'SystemRole', 'role']),
       uiProfile: Utils.resolveIndex(headers, ['UiProfile', 'default_view']),
+      defaultView: Utils.resolveIndex(headers, ['default_view', 'UiProfile']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
       instructorManager: Utils.resolveIndex(headers, ['InstructorManager', 'manager']),
       activeFlag: Utils.resolveIndex(headers, ['ActiveFlag', 'active']),
