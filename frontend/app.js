@@ -237,11 +237,15 @@ const ADMIN_LANDING_LINKS = [
   { key: 'lists', label: 'רשימות', route: 'admin-lists' },
   { key: 'permissions', label: 'הרשאות', route: 'admin-permissions' },
   { key: 'dashboard', label: 'דשבורד', route: 'dashboard' },
+  { key: 'activities', label: 'פעילויות', route: 'courses' },
+  { key: 'finance', label: 'כספים', route: 'finance' },
+  { key: 'exceptions', label: 'חריגות', route: 'exceptions' },
+  { key: 'endDates', label: 'תאריכי סיום', route: 'end-dates' },
   { key: 'contacts', label: 'אנשי קשר', route: 'contacts' },
-  { key: 'views', label: 'תצוגות', route: '' }
+  { key: 'week', label: 'שבוע', route: 'week' },
+  { key: 'month', label: 'חודש', route: 'month' },
+  { key: 'instructors', label: 'מדריכים', route: 'instructors' }
 ];
-
-const OPERATIONAL_VIEW_FALLBACK_ROUTES = ['week', 'month', 'instructors', 'end-dates', 'exceptions', 'courses', 'dashboard'];
 
 const COURSES_SCREEN_CONFIG = {
   progress: { successRatio: 0.9, warningRatio: 0.6 },
@@ -364,20 +368,10 @@ function getDefaultViewSource() {
   ).trim();
 }
 
-function getFirstOperationalViewRoute() {
-  const allowed = getAllowedRoutes();
-  const hit = OPERATIONAL_VIEW_FALLBACK_ROUTES.find((r) => allowed.includes(r));
-  return hit || '';
-}
-
 function resolveAdminLandingTargets() {
-  return ADMIN_LANDING_LINKS.map((item) => {
-    if (item.key === 'views') {
-      const route = getFirstOperationalViewRoute();
-      return { ...item, route };
-    }
-    return { ...item };
-  }).filter((item) => item.route && canAccessRoute(item.route));
+  return ADMIN_LANDING_LINKS
+    .map((item) => ({ ...item }))
+    .filter((item) => item.route && canAccessRoute(item.route));
 }
 
 function getStartupRoute() {
@@ -602,11 +596,24 @@ function render() {
 }
 
 function buildMenuNavigation() {
-  const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions']) : null;
+  const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions', 'finance', 'exceptions', 'end-dates', 'contacts']) : null;
   return getAllowedRoutes()
     .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
     .map((route) => nav(route, routeLabels[route] || route))
     .join('');
+}
+
+function mapCapabilityLabels(codes = [], kind = 'view') {
+  const source = Array.isArray(codes) ? codes : String(codes || '').split(',').map((code) => code.trim()).filter(Boolean);
+  const prefix = `${kind}_`;
+  const labels = source
+    .map((code) => String(code || '').trim())
+    .filter((code) => code.startsWith(prefix))
+    .map((code) => {
+      const route = code.slice(prefix.length).replace(/_/g, '-');
+      return routeLabels[route] || code;
+    });
+  return labels;
 }
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
@@ -878,14 +885,39 @@ function renderScreen() {
       ],
       'admin-permissions'
     );
-    main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות (ללא קודי כניסה)', { itemsCount: perms.length })
+    main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות משתמשים', { itemsCount: perms.length })
       + panel(viewState.adminPermissions, 'אין נתוני הרשאות.',
-        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד תצוגה</th><th>ברירת מחדל</th><th>תצוגות מורשות</th><th>פעיל</th></tr></thead><tbody>
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד</th><th>ברירת מחדל</th><th>פעיל</th><th>פירוט</th></tr></thead><tbody>
           ${perms.map((row) => {
-      const views = Array.isArray(row.allowedViews) ? row.allowedViews.join(', ') : String(row.viewScope || '');
-      return `<tr><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole)}</td><td>${esc(row.defaultView)}</td><td>${esc(views)}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td></tr>`;
+      const summaryId = `perm-summary-${cssEscape(row.employeeId || row.employeeName || '')}`;
+      const detailsId = `perm-details-${cssEscape(row.employeeId || row.employeeName || '')}`;
+      const viewPermissions = mapCapabilityLabels(row.allowedViews || row.viewScope, 'view');
+      const editPermissions = mapCapabilityLabels(row.allowedEdits || row.editScope, 'edit');
+      const viewPermsText = viewPermissions.length ? viewPermissions.join(', ') : 'ללא הרשאות צפייה פעילות';
+      const editPermsText = editPermissions.length ? editPermissions.join(', ') : 'ללא הרשאות עריכה פעילות';
+      return `<tr class="permissions-summary-row" id="${summaryId}"><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole || row.systemRole || '-')}</td><td>${esc(row.defaultView || '-')}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td><td><button class="btn btn-secondary btn-xs permissions-toggle-btn" type="button" data-perm-toggle="${escAttr(detailsId)}" aria-expanded="false" aria-controls="${detailsId}">הצג פירוט</button></td></tr>
+      <tr class="permissions-details-row" id="${detailsId}" hidden><td colspan="5"><div class="permission-details-grid">
+      <article><span>מספר עובד</span><strong>${esc(row.employeeId || '-')}</strong></article>
+      <article><span>קוד כניסה</span><strong>${esc(row.entryCode || '-')}</strong></article>
+      <article><span>תפקיד</span><strong>${esc(row.displayRole || row.systemRole || '-')}</strong></article>
+      <article><span>פעיל</span><strong>${row.activeFlag ? 'כן' : 'לא'}</strong></article>
+      <article><span>מסך ברירת מחדל</span><strong>${esc(row.defaultView || '-')}</strong></article>
+      <article class="permission-details-full"><span>הרשאות צפייה פעילות</span><strong>${esc(viewPermsText)}</strong></article>
+      <article class="permission-details-full"><span>הרשאות עריכה פעילות</span><strong>${esc(editPermsText)}</strong></article>
+      </div></td></tr>`;
     }).join('')}
         </tbody></table></div></section>`);
+    document.querySelectorAll('[data-perm-toggle]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const detailsId = button.getAttribute('data-perm-toggle');
+        const detailsRow = detailsId ? document.getElementById(detailsId) : null;
+        if (!detailsRow) return;
+        const isExpanded = !detailsRow.hasAttribute('hidden');
+        detailsRow.toggleAttribute('hidden', isExpanded);
+        button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+        button.textContent = isExpanded ? 'הצג פירוט' : 'הסתר פירוט';
+      });
+    });
     bindUnifiedScreenHeader('admin-permissions');
     return;
   }
@@ -3937,10 +3969,14 @@ async function loadAdminPermissionsView() {
     const items = (snap.permissions || []).map((row) => ({
       employeeId: row.employeeId,
       employeeName: row.employeeName,
+      entryCode: row.entryCode,
+      systemRole: row.systemRole,
       displayRole: row.displayRole,
       defaultView: row.defaultView,
       viewScope: row.viewScope,
+      editScope: row.editScope,
       allowedViews: row.allowedViews,
+      allowedEdits: listEnabledCapabilities(row.capabilities || {}, 'edit_'),
       activeFlag: row.activeFlag
     }));
     return { success: true, data: { items } };
