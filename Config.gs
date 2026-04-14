@@ -1,17 +1,35 @@
 var CONFIG = (function () {
+  var DATE_FIELDS_COUNT = 35;
+
   var SHEETS = {
-    DATA_MASTER: 'DATA_MASTER',
-    COURSE_MEETINGS: 'COURSE_MEETINGS',
-    COURSES: 'COURSES',
+    DATA_MASTER: 'data',
+    COURSE_MEETINGS: 'operations_data',
+    COURSES: 'data',
     PERMISSIONS: 'permissions',
-    REVIEW_REQUIRED: 'REVIEW_REQUIRED',
-    DASHBOARD_EXPORT: 'DASHBOARD_EXPORT',
-    SUMMARY: 'SUMMARY',
+    REVIEW_REQUIRED: 'operations_data',
+    DASHBOARD_EXPORT: 'operations_data',
+    SUMMARY: 'operations_data',
     LISTS: 'lists',
-    PROGRAM_CODES: 'PROGRAM_CODES',
+    PROGRAM_CODES: 'lists',
     README: 'settings',
-    EDIT_REQUESTS: 'EDIT_REQUESTS',
-    EDEN_DATA_MASTER: 'EDEN_DATA_MASTER'
+    SETTINGS: 'settings',
+    EDIT_REQUESTS: 'operations_data',
+    EDEN_DATA_MASTER: 'operations_data',
+    CONTACTS: 'contacts',
+    OPERATIONS_DATA: 'operations_data'
+  };
+
+  var SHEET_ALIASES = {
+    DATA_MASTER: 'data',
+    EDIT_REQUESTS: 'operations_data',
+    EDEN_DATA_MASTER: 'operations_data',
+    COURSE_MEETINGS: 'operations_data',
+    PROGRAM_CODES: 'lists',
+    REVIEW_REQUIRED: 'operations_data',
+    SUMMARY: 'operations_data',
+    DASHBOARD_EXPORT: 'operations_data',
+    FINANCE: 'data',
+    FINANCE_ARCHIVE: 'data'
   };
 
   var STRUCTURE = {
@@ -21,73 +39,41 @@ var CONFIG = (function () {
   };
 
   var EDIT_REQUESTS_HEADER_ROW = [
-    'RequestID',
-    'CourseID',
-    'Origin',
-    'ChangeType',
-    'RequestedBy',
-    'RequestedAt',
-    'RequestStatus',
-    'EdenViewStatus',
-    'FinalApprovalStatus',
-    'ApprovalStatus',
-    'ApprovalNotes',
-    'ChangeSummary',
-    'OriginalData',
-    'RequestedData',
-    'EditableBy',
-    'AssignedEditor',
-    'EdenApprovedAt',
-    'FinalizedAt',
-    'RejectedAt',
-    'Date',
-    'Day',
-    'StartTime',
-    'EndTime',
-    'ClassGroup',
-    'ActualMeetings',
-    'CourseManager',
-    'Instructor',
-    'Notes'
+    'RequestID', 'SourceRowID', 'CourseID', 'ChangeType', 'RequestedBy', 'RequestedAt',
+    'WorkflowStatus', 'ApprovalStatus', 'FinalApprovalStatus', 'ApprovalNotes', 'CourseManager',
+    'InstructorManager', 'Authority', 'School', 'EventType', 'ProgramCode', 'Program',
+    'PlannedMeetings', 'Payment', 'Funding', 'StartTime', 'EndTime', 'EmployeeID', 'Employee',
+    'Instructor', 'Date1', 'End', 'Notes', 'SentToAdminAt', 'FinalizedAt', 'is_new_record'
   ];
-
   var EDIT_REQUESTS_DISPLAY_ROW = EDIT_REQUESTS_HEADER_ROW.slice();
 
-
-  var COURSE_MEETINGS_HEADER_ROW = [
-    'MeetingID', 'RowID', 'CourseID', 'MeetingNumber', 'MeetingDate', 'OriginalMeetingDate',
-    'StartTime', 'EndTime', 'MeetingStatus', 'ChangedBy', 'ChangedAt', 'ChangeSource', 'ShiftGroupID', 'ChangeNote'
-  ];
-
-  var COURSE_MEETINGS_DISPLAY_ROW = [
-    'מזהה מפגש', 'מזהה שורה', 'מזהה קורס', 'מספר מפגש', 'תאריך מפגש', 'תאריך מקורי',
-    'שעת התחלה', 'שעת סיום', 'סטטוס מפגש', 'שונה על ידי', 'תאריך שינוי', 'מקור שינוי', 'קבוצת הזזה', 'הערת שינוי'
-  ];
+  var COURSE_MEETINGS_HEADER_ROW = EDIT_REQUESTS_HEADER_ROW.slice();
+  var COURSE_MEETINGS_DISPLAY_ROW = COURSE_MEETINGS_HEADER_ROW.slice();
 
   var FIELDS = {
-    USER_ID: ['UserID', 'EmployeeID', 'LoginID', 'מזהה משתמש', 'מספר עובד'],
-    EMPLOYEE_ID: ['EmployeeID', 'UserID', 'InstructorID', 'מספר עובד', 'מזהה עובד'],
-    ENTRY_CODE: ['EntryCode', 'LoginCode', 'Password', 'קוד כניסה'],
-    DISPLAY_NAME: ['DisplayName', 'EmployeeName', 'שם מלא', 'שם עובד'],
-    LOGIN_CODE: ['LoginCode', 'EntryCode', 'Password', 'קוד כניסה'],
-    SYSTEM_ROLE: ['SystemRole'],
+    USER_ID: ['UserID', 'EmployeeID', 'emp_id', 'LoginID', 'מזהה משתמש', 'מספר עובד'],
+    EMPLOYEE_ID: ['EmployeeID', 'emp_id', 'UserID', 'InstructorID', 'מספר עובד', 'מזהה עובד'],
+    ENTRY_CODE: ['EntryCode', 'code', 'LoginCode', 'Password', 'קוד כניסה'],
+    DISPLAY_NAME: ['DisplayName', 'EmployeeName', 'name', 'שם מלא', 'שם עובד'],
+    LOGIN_CODE: ['LoginCode', 'EntryCode', 'code', 'Password', 'קוד כניסה'],
+    SYSTEM_ROLE: ['SystemRole', 'role'],
     ACCESS_SCOPE: ['AccessScope'],
-    PROGRAM: ['Program'],
-    INSTRUCTOR: ['Instructor', 'Employee'],
-    EVENT_TYPE: ['EventType'],
-    AUTHORITY: ['Authority'],
-    SCHOOL: ['School'],
-    COURSE_MANAGER: ['CourseManager'],
-    TEAM: ['InstructorManager', 'TeamScope'],
-    INSTRUCTOR_MANAGER: ['InstructorManager', 'מנהל מדריכים', 'TeamLead'],
-    START_DATE: ['MonthStart', 'Date1'],
-    END_DATE: ['End'],
-    PLANNED_MEETINGS: ['PlannedMeetings'],
+    PROGRAM: ['Program', 'activity_name'],
+    INSTRUCTOR: ['Instructor', 'Employee', 'name'],
+    EVENT_TYPE: ['EventType', 'activity_type'],
+    AUTHORITY: ['Authority', 'authority'],
+    SCHOOL: ['School', 'school'],
+    COURSE_MANAGER: ['CourseManager', 'activity_manager'],
+    TEAM: ['InstructorManager', 'manager', 'TeamScope'],
+    INSTRUCTOR_MANAGER: ['InstructorManager', 'manager', 'מנהל מדריכים', 'TeamLead'],
+    START_DATE: ['MonthStart', 'Date1', 'start_date'],
+    END_DATE: ['End', 'end_date'],
+    PLANNED_MEETINGS: ['PlannedMeetings', 'sessions'],
     ACTUAL_MEETINGS: ['DatesListedCount'],
     REVIEW_STATUS: ['ReviewStatus'],
     ISSUE_STATUS: ['ReviewStatus', 'ReviewNotes'],
     CHANGE_REQUEST: ['ChangeRequest', 'בקשת שינוי'],
-    STATUS: ['WorkflowStatus']
+    STATUS: ['WorkflowStatus', 'status']
   };
 
   EDIT_REQUESTS_HEADER_ROW.forEach(function (field) {
@@ -96,13 +82,14 @@ var CONFIG = (function () {
 
   var FRONTEND_FIELDS = {
     COURSES: [
-      'CourseID', 'ProgramCode', 'Program', 'EventType',
+      'RowID', 'CourseID', 'ProgramCode', 'Program', 'EventType',
       'Employee', 'EmployeeID', 'Instructor', 'CourseManager', 'InstructorManager',
       'Authority', 'School', 'ClassGroup',
       'DayName', 'StartTime', 'EndTime', 'End', 'MonthStart', 'MonthEnd', 'Period',
-      'PlannedMeetings',
+      'PlannedMeetings', 'DatesListedCount',
       'Funding', 'Payment', 'ReviewStatus', 'ReviewNotes',
-      'Notes', 'WorkflowStatus'
+      'Notes', 'WorkflowStatus', 'FinanceStatus', 'FinanceNotes',
+      'RequestedBy', 'RequestedAt', 'SourceRowID', 'FinalApprovalStatus', 'FinalizedAt'
     ],
     REQUESTS: EDIT_REQUESTS_HEADER_ROW.slice(),
     APPROVALS: EDIT_REQUESTS_HEADER_ROW.slice()
@@ -118,7 +105,9 @@ var CONFIG = (function () {
   };
 
   return {
+    DATE_FIELDS_COUNT: DATE_FIELDS_COUNT,
     SHEETS: SHEETS,
+    SHEET_ALIASES: SHEET_ALIASES,
     STRUCTURE: STRUCTURE,
     FIELDS: FIELDS,
     FRONTEND_FIELDS: FRONTEND_FIELDS,
@@ -127,7 +116,7 @@ var CONFIG = (function () {
     EDIT_REQUESTS_DISPLAY_ROW: EDIT_REQUESTS_DISPLAY_ROW,
     COURSE_MEETINGS_HEADER_ROW: COURSE_MEETINGS_HEADER_ROW,
     COURSE_MEETINGS_DISPLAY_ROW: COURSE_MEETINGS_DISPLAY_ROW,
-    REQUESTS_SOURCE_SHEET: 'EDIT_REQUESTS',
+    REQUESTS_SOURCE_SHEET: 'operations_data',
     SESSION_KEY: 'P2026_SESSION'
   };
 })();

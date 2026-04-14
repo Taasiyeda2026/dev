@@ -8,8 +8,7 @@ import {
 const SHEETS_WITH_DISPLAY_ROW = new Set([
   SHEET_NAMES.DATA_MASTER,
   SHEET_NAMES.PERMISSIONS,
-  SHEET_NAMES.EDIT_REQUESTS,
-  'SUMMARY'
+  SHEET_NAMES.EDIT_REQUESTS
 ]);
 
 const BOOL_TRUE = new Set(['yes', 'true', '1', 'y', 'כן']);
@@ -56,6 +55,16 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function normalizePermissionScope(raw = {}) {
+  const viewFlags = Object.keys(raw).filter((k) => k.startsWith('view_') && toBool(raw[k]));
+  const editFlags = Object.keys(raw).filter((k) => k.startsWith('edit_') && toBool(raw[k]));
+  return {
+    viewScope: viewFlags.length ? viewFlags.join(',') : String(raw.ViewScope || '').trim(),
+    editScope: editFlags.length ? editFlags.join(',') : String(raw.EditScope || '').trim(),
+    approvalScope: String(raw.ApprovalScope || raw.SystemRole || '').trim()
+  };
+}
+
 function parseRowsToObjects(sheetName, rows = []) {
   if (!Array.isArray(rows) || !rows.length) return [];
   const headerRow = rows[0] || [];
@@ -74,29 +83,31 @@ function parseRowsToObjects(sheetName, rows = []) {
 }
 
 function mapPermissionRow(raw = {}) {
+  const scopes = normalizePermissionScope(raw);
+  const displayRole = String(raw[PERMISSION_FIELDS.DISPLAY_ROLE] || raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim();
   return {
     employeeName: String(raw[PERMISSION_FIELDS.EMPLOYEE_NAME] || '').trim(),
     employeeId: toNumber(raw[PERMISSION_FIELDS.EMPLOYEE_ID]),
     entryCode: String(raw[PERMISSION_FIELDS.ENTRY_CODE] || '').trim(),
     systemRole: String(raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim(),
-    displayRole: String(raw[PERMISSION_FIELDS.DISPLAY_ROLE] || '').trim(),
-    viewScope: String(raw[PERMISSION_FIELDS.VIEW_SCOPE] || '').trim(),
-    editScope: String(raw[PERMISSION_FIELDS.EDIT_SCOPE] || '').trim(),
-    approvalScope: String(raw[PERMISSION_FIELDS.APPROVAL_SCOPE] || '').trim(),
+    displayRole,
+    viewScope: scopes.viewScope,
+    editScope: scopes.editScope,
+    approvalScope: scopes.approvalScope,
     uiProfile: String(raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
     teamScope: String(raw[PERMISSION_FIELDS.TEAM_SCOPE] || '').trim(),
     instructorManager: String(raw[PERMISSION_FIELDS.INSTRUCTOR_MANAGER] || '').trim(),
     activeFlag: toBool(raw[PERMISSION_FIELDS.ACTIVE_FLAG]),
     canAccessFinance: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE]),
     canEditFinance: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE]),
-    canAccessFinanceArchive: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE_ARCHIVE]),
-    canEditFinanceArchive: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE_ARCHIVE]),
+    canAccessFinanceArchive: false,
+    canEditFinanceArchive: false,
     raw
   };
 }
 
 function mapCourseRow(raw = {}) {
-  const rowId = String(raw.CourseID || '').trim();
+  const rowId = String(raw.CourseID || raw.RowID || raw.SourceRowID || '').trim();
   return {
     ...raw,
     CourseID: rowId,
@@ -232,7 +243,7 @@ export async function loadLists() {
 }
 
 export async function loadProgramCodes() {
-  dataStore.programCodes = await fetchSheet(SHEET_NAMES.PROGRAM_CODES);
+  dataStore.programCodes = await fetchSheet(SHEET_NAMES.LISTS);
   dataStore.loadedAt.programCodes = now();
   return dataStore.programCodes;
 }
@@ -344,7 +355,7 @@ export async function updateCourse(courseId, changes, actor = {}) {
   const res = await apiRef.updateCourse({ [COURSE_FIELDS.COURSE_ID]: courseId, changes, actor });
   if (res?.success) {
     apiRef?.clearCache?.(['getMyCoursesDataAction', 'getDashboardDataAction']);
-    const updated = res?.data?.DATA_MASTER || null;
+    const updated = res?.data?.DATA_MASTER || res?.data?.data || null;
     if (updated && updated[COURSE_FIELDS.COURSE_ID]) {
       const mapped = mapCourseRow(updated);
       const existingIndex = dataStore.courses.findIndex((item) => String(item[COURSE_FIELDS.COURSE_ID]) === String(mapped[COURSE_FIELDS.COURSE_ID]));
