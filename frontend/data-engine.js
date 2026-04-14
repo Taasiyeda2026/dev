@@ -58,6 +58,15 @@ function toNumber(value) {
 }
 
 
+function pickFirst(raw = {}, keys = []) {
+  for (const key of keys) {
+    const value = raw?.[key];
+    if (String(value ?? '').trim() !== '') return value;
+  }
+  return '';
+}
+
+
 function extractCapabilities(raw = {}) {
   return Object.keys(raw).reduce((acc, key) => {
     if (!/^view_|^edit_/.test(String(key))) return acc;
@@ -124,17 +133,19 @@ function mapPermissionRow(raw = {}) {
 }
 
 function mapCourseRow(raw = {}) {
-  const rowId = String(raw.CourseID || raw.RowID || raw.SourceRowID || '').trim();
-  return {
+  const rowId = String(pickFirst(raw, ['RowID', 'CourseID', 'source_row_id', 'SourceRowID'])).trim();
+  const mapped = {
     ...raw,
+    RowID: rowId,
     CourseID: rowId,
     [COURSE_FIELDS.COURSE_ID]: rowId,
-    [COURSE_FIELDS.PROGRAM_CODE]: toNumber(raw[COURSE_FIELDS.PROGRAM_CODE]),
-    [COURSE_FIELDS.EMPLOYEE_ID]: toNumber(raw[COURSE_FIELDS.EMPLOYEE_ID]),
-    [COURSE_FIELDS.PLANNED_MEETINGS]: toNumber(raw[COURSE_FIELDS.PLANNED_MEETINGS]),
-    [COURSE_FIELDS.START_TIME]: raw[COURSE_FIELDS.START_TIME],
-    [COURSE_FIELDS.END_TIME]: raw[COURSE_FIELDS.END_TIME]
+    [COURSE_FIELDS.PROGRAM_CODE]: toNumber(pickFirst(raw, [COURSE_FIELDS.PROGRAM_CODE, 'ProgramCode'])),
+    [COURSE_FIELDS.EMPLOYEE_ID]: toNumber(pickFirst(raw, [COURSE_FIELDS.EMPLOYEE_ID, 'EmployeeID'])),
+    [COURSE_FIELDS.PLANNED_MEETINGS]: toNumber(pickFirst(raw, [COURSE_FIELDS.PLANNED_MEETINGS, 'PlannedMeetings'])),
+    [COURSE_FIELDS.START_TIME]: pickFirst(raw, [COURSE_FIELDS.START_TIME, 'StartTime']),
+    [COURSE_FIELDS.END_TIME]: pickFirst(raw, [COURSE_FIELDS.END_TIME, 'EndTime'])
   };
+  return mapped;
 }
 
 async function fetchSheet(sheetName) {
@@ -282,7 +293,7 @@ export async function loadContacts() {
 
 export async function loadEditRequests(force = false) {
   if (!force && dataStore.editRequests.length) return dataStore.editRequests;
-  dataStore.editRequests = await fetchSheet(SHEET_NAMES.EDIT_REQUESTS);
+  dataStore.editRequests = await fetchSheet(SHEET_NAMES.OPERATIONS_DATA);
   dataStore.loadedAt.editRequests = now();
   return dataStore.editRequests;
 }
@@ -291,7 +302,7 @@ export async function loadReviewItems(force = false) {
   if (!force && isReviewCacheFresh()) return dataStore.reviewItems;
   const dataMasterRows = await loadDataMaster(force);
   dataStore.reviewItems = (dataMasterRows || []).filter((row) => {
-    const reviewStatus = String(row?.ReviewStatus || '').trim().toLowerCase();
+    const reviewStatus = String(row?.[COURSE_FIELDS.REVIEW_STATUS] || row?.ReviewStatus || row?.status || '').trim().toLowerCase();
     return !!reviewStatus && !['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'].includes(reviewStatus);
   });
   dataStore.loadedAt.reviewItems = now();
@@ -429,26 +440,26 @@ export async function loadFinanceItems(force = false) {
   if (!force && dataStore.finance.length) return dataStore.finance;
   const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
   dataStore.finance = (rows || []).filter((row) => {
-    const status = String(row?.WorkflowStatus || '').trim().toLowerCase();
-    const end = String(row?.End || '').trim();
+    const status = String(row?.status || row?.WorkflowStatus || '').trim().toLowerCase();
+    const end = String(row?.end_date || row?.End || '').trim();
     return status === 'ended' && !!end;
   }).map((row) => ({
     ...row,
     FinanceRowID: String(row?.RowID || row?.CourseID || row?._rowNumber || ''),
-    FinanceStatus: String(row?.FinanceStatus || 'open').trim().toLowerCase(),
-    FinanceNotes: row?.FinanceNotes || '',
-    CourseID: row?.CourseID || '',
-    Course: row?.Program || '',
-    Program: row?.Program || '',
-    EventType: row?.EventType || '',
-    Authority: row?.Authority || '',
-    School: row?.School || '',
-    Employee: row?.Employee || '',
-    CourseManager: row?.CourseManager || '',
-    Funding: row?.Funding || '',
-    End: row?.End || '',
-    Payment: row?.Payment || '',
-    Payer: String(row?.Funding || '').trim() === 'גפ"ן' ? (row?.School || '') : (row?.Funding || ''),
+    FinanceStatus: String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase(),
+    FinanceNotes: row?.finance_notes || row?.FinanceNotes || '',
+    CourseID: row?.RowID || row?.CourseID || '',
+    Course: row?.activity_name || row?.Program || '',
+    Program: row?.activity_name || row?.Program || '',
+    EventType: row?.activity_type || row?.EventType || '',
+    Authority: row?.authority || row?.Authority || '',
+    School: row?.school || row?.School || '',
+    Employee: row?.name || row?.Employee || '',
+    CourseManager: row?.activity_manager || row?.CourseManager || '',
+    Funding: row?.funding || row?.Funding || '',
+    End: row?.end_date || row?.End || '',
+    Payment: row?.price || row?.Payment || '',
+    Payer: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן' ? (row?.school || row?.School || '') : (row?.funding || row?.Funding || ''),
     DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => String(row?.[field] || '').trim() ? count + 1 : count, 0)
   }));
   dataStore.loadedAt.finance = now();
