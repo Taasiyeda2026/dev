@@ -93,6 +93,8 @@ const roleMap = {
 
 const routeLabels = {
   login: 'התחברות',
+  'admin-home': 'מרכז ניהול',
+  'operations-home': 'מסך תפעול ראשי',
   dashboard: 'דשבורד פעילות ארצי',
   courses: 'קורסים',
   'my-requests': 'הבקשות שלי',
@@ -110,6 +112,8 @@ const routeLabels = {
 };
 
 const routeIcons = {
+  'admin-home': '🛠️',
+  'operations-home': '🧭',
   dashboard: '▦',
   courses: '📘',
   'my-requests': '📝',
@@ -128,6 +132,8 @@ const routeIcons = {
 };
 
 const ROUTE_UI_SCALES = {
+  'admin-home': 1,
+  'operations-home': 1,
   dashboard: 1,
   courses: 0.8,
   week: 0.8,
@@ -143,6 +149,7 @@ const ROUTE_UI_SCALES = {
 
 
 const ROUTE_CAPABILITY_MAP = {
+  'admin-home': 'view_admin',
   dashboard: 'view_dashboard',
   courses: 'view_activities',
   week: 'view_week',
@@ -160,7 +167,7 @@ const ROUTE_CAPABILITY_MAP = {
 };
 
 const MENU_ROUTE_ORDER = [
-  'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions', 'contacts',
+  'admin-home', 'operations-home', 'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
   'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
 ];
 
@@ -207,8 +214,22 @@ function hasCapability(capabilityKey) {
   if (!capabilityKey) return false;
   return Boolean(getCapabilities()[capabilityKey]);
 }
+function isAdminUser() {
+  return hasCapability('view_admin') || hasCapability('edit_admin');
+}
+function isOperationsUser() {
+  return !isAdminUser() && getAllowedBusinessRoutes().length > 0;
+}
+function canAccessRoute(route) {
+  if (route === 'admin-home') return isAdminUser();
+  if (route === 'operations-home') return !isAdminUser() && getAllowedBusinessRoutes().length > 0;
+  return hasCapability(ROUTE_CAPABILITY_MAP[route]);
+}
 function getAllowedRoutes() {
-  return MENU_ROUTE_ORDER.filter((route) => hasCapability(ROUTE_CAPABILITY_MAP[route]));
+  return MENU_ROUTE_ORDER.filter((route) => canAccessRoute(route));
+}
+function getAllowedBusinessRoutes() {
+  return MENU_ROUTE_ORDER.filter((route) => !['admin-home', 'operations-home'].includes(route) && hasCapability(ROUTE_CAPABILITY_MAP[route]));
 }
 function getFirstAllowedRoute() {
   const routes = getAllowedRoutes();
@@ -231,6 +252,8 @@ function normalizeDefaultRoute(rawRoute) {
   return aliasMap[normalized] || normalized;
 }
 function getStartupRoute() {
+  if (isAdminUser()) return 'admin-home';
+  if (isOperationsUser()) return 'operations-home';
   const permission = currentPermission();
   const requested = normalizeDefaultRoute(permission?.defaultView || userState.DefaultView || userState.UiProfile);
   const allowedRoutes = getAllowedRoutes();
@@ -246,7 +269,7 @@ function displayRole() {
 }
 function isAuth() { return Boolean(userState.authenticated && userState.userId); }
 function isInstructor() { return role() === 'instructor'; }
-function isIdan() { return hasCapability('view_admin') || hasCapability('edit_admin'); }
+function isIdan() { return isAdminUser(); }
 function isEden() { return hasCapability('view_operations_data') || hasCapability('edit_operations_data'); }
 function isManager() { return hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month'); }
 function canEditMasterCourses() {
@@ -480,12 +503,19 @@ function filterBySearch(rows, fields = [], route = currentRoute) {
 }
 
 function getHeaderKpis(route = currentRoute, context = {}) {
+  if (route === 'admin-home' || route === 'operations-home') {
+    return [
+      { label: 'יעדים זמינים', value: context.destinationsCount || 0 },
+      { label: 'הרשאות פעילות', value: getAllowedBusinessRoutes().length },
+      { label: 'תפקיד', value: route === 'admin-home' ? 'אדמין' : 'תפעול' }
+    ];
+  }
   if (route === 'dashboard') {
     const d = context.dashboard || viewState.dashboard.data || {};
     return [
-      { label: 'סך קורסים', value: d.totalCoursesCount || 0 },
-      { label: 'פעילים החודש', value: d.activeThisMonthCount || 0 },
-      { label: 'מסתיימים החודש', value: d.endingCurrentMonthCount || 0 }
+      { label: 'כמות קורסים פעילים', value: d.activeThisMonthCount || 0 },
+      { label: 'ריכוז חריגות (סה״כ)', value: d.totalExceptionsCount || 0 },
+      { label: 'כמות מדריכים', value: d.instructorsCount || 0 }
     ];
   }
   if (route === 'courses' || route === 'instructor-view') {
@@ -606,6 +636,27 @@ function triggerPageEnter() {
 function renderScreen() {
   const main = document.getElementById('main');
   if (!main) return;
+
+  if (currentRoute === 'admin-home' || currentRoute === 'operations-home') {
+    const isAdminHome = currentRoute === 'admin-home';
+    const targets = isAdminHome
+      ? [
+        { key: 'settings', label: 'settings', route: 'approvals' },
+        { key: 'lists', label: 'lists', route: 'courses' },
+        { key: 'permissions', label: 'permissions', route: 'final-approvals' },
+        { key: 'dashboard', label: 'dashboard', route: 'dashboard' },
+        { key: 'contacts', label: 'contacts', route: 'contacts' },
+        { key: 'views', label: 'views', route: 'week' }
+      ]
+      : getAllowedBusinessRoutes().map((route) => ({ key: route, label: routeLabels[route] || route, route }));
+    main.innerHTML = renderUnifiedScreenHeader(currentRoute, isAdminHome ? 'לוח בקרה ניהולי ראשי' : 'לוח בקרה תפעולי ראשי', { destinationsCount: targets.length }) + `
+      <section class="control-board-grid">
+        ${targets.map((item) => `<button class="control-board-card" type="button" data-primary-nav="${escAttr(item.route)}"><strong>${esc(item.label)}</strong><span>${esc(routeLabels[item.route] || item.route)}</span></button>`).join('')}
+      </section>`;
+    document.querySelectorAll('[data-primary-nav]').forEach((button) => button.addEventListener('click', () => setRoute(button.dataset.primaryNav || 'dashboard')));
+    bindUnifiedScreenHeader(currentRoute);
+    return;
+  }
 
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
@@ -751,7 +802,7 @@ function renderScreen() {
     const contactsRows = filterBySearch(viewState.contacts.data || [], ['emp_id', 'name', 'role', 'mobile', 'email'], 'contacts');
     main.innerHTML = renderUnifiedScreenHeader('contacts', 'נתונים מגיליון contacts', { itemsCount: contactsRows.length }) +
       panel(viewState.contacts, 'אין אנשי קשר להצגה.',
-        `<section class="table-shell"><table><thead><tr>
+        `<section class="table-shell contacts-table-shell"><table><thead><tr>
           <th>emp_id</th><th>role</th><th>name</th><th>id_number</th><th>address</th><th>mobile</th><th>email</th><th>employment</th>${canEditContacts() ? '<th>פעולות</th>' : ''}
         </tr></thead><tbody>
           ${contactsRows.map((row, index) => `<tr>
@@ -817,8 +868,10 @@ function renderScreen() {
       coursesCount: scopedCourses.length
     }) +
       renderInstructorsFilters() +
+      `<section class="compact-actions-row"><button type="button" class="btn btn-secondary btn-compact" id="goContactsFromInstructors">אנשי קשר</button></section>` +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
       renderInstructorCoursesDetails(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor) + `</div>`;
+    document.getElementById('goContactsFromInstructors')?.addEventListener('click', () => setRoute('contacts'));
     bindInstructorsActions();
     bindUnifiedScreenHeader('instructors');
     return;
@@ -1851,10 +1904,17 @@ function applyCourseQuickFilter(rows) {
 }
 
 function getRoleScopedCourses(filters = {}) {
+  const sourceCourses = (isManager() && !isInstructor()) ? (getStoreSnapshot().courses || []) : getCoursesForUser(userState, filters);
+  const onlyCourses = sourceCourses.filter(isCourseActivity);
   if (isManager() && !isInstructor()) {
-    return applyCoursesFiltersByUiScope(getStoreSnapshot().courses || [], filters);
+    return applyCoursesFiltersByUiScope(onlyCourses, filters);
   }
-  return applyCoursesFiltersByUiScope(getCoursesForUser(userState, filters), filters);
+  return applyCoursesFiltersByUiScope(onlyCourses, filters);
+}
+function isCourseActivity(row = {}) {
+  const text = String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim();
+  if (!text) return true;
+  return !text.includes('סדנה');
 }
 
 function fieldHasValue(row, names) {
@@ -2145,11 +2205,13 @@ function courseProgress(row) {
 
 function collectCourseDates(row) {
   const dates = [];
-  for (let index = COURSES_SCREEN_CONFIG.meetingFields.start; index <= COURSES_SCREEN_CONFIG.meetingFields.end; index += 1) {
-    const fieldName = `Date${index}`;
-    const date = parseDateLike(row?.[fieldName]);
-    if (date) dates.push({ label: fieldName, value: date, index });
-  }
+  const fieldNames = COURSE_DATE_FIELDS.length
+    ? COURSE_DATE_FIELDS
+    : Array.from({ length: COURSES_SCREEN_CONFIG.meetingFields.end }, (_, i) => `Date${i + 1}`);
+  fieldNames.forEach((fieldName, index) => {
+    const date = parseDateLike(getCourseField(row, fieldName) || row?.[fieldName]);
+    if (date) dates.push({ label: fieldName, value: date, index: index + 1 });
+  });
   dates.sort((a, b) => a.value - b.value);
   const endDate = parseDateLike(row?.[COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField]);
   if (endDate) dates.push({ label: COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField, value: endDate, index: dates.length + 1, isEndDate: true });
@@ -3477,12 +3539,21 @@ function bindExceptionsActions() {
 function exportFinanceToExcel(rows, filename) {
   if (!rows.length) return;
   const headers = ['קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'כל התאריכים', 'תאריך', 'תאריך התחלה', 'תאריך סיום', 'מפגשים מתוכננים', 'מפגשים בפועל', 'עלות', 'גורם מימון', 'גורם משלם', 'סטטוס', 'הערות'];
+  const collectPerformedDates = (row) => {
+    const values = [];
+    for (let i = 1; i <= 35; i += 1) {
+      const raw = row?.[`Date${i}`] || row?.[`date${i}`] || '';
+      const parsed = parseDateLike(raw);
+      if (parsed) values.push(formatDate(parsed));
+    }
+    return values.join(', ');
+  };
   const dataRows = rows.map((row) => [
     String(row?.Course || row?.Program || row?.EventType || row?.CourseID || row?.ProgramsList || row?.PayerType || ''),
     String(row?.Authority || ''),
     String(row?.School || row?.SchoolsList || ''),
     String(row?.Instructor || ''),
-    String(row?.Date1 || ''),
+    collectPerformedDates(row),
     String(formatDate(parseDateLike(row?.Date)) || row?.Date || ''),
     String(formatDate(parseDateLike(row?.MonthStart)) || row?.MonthStart || ''),
     String(formatDate(parseDateLike(row?.End || row?.End)) || row?.End || row?.End || ''),
@@ -3569,6 +3640,7 @@ async function loadRouteData() {
     setRoute(getFirstAllowedRoute());
     return;
   }
+  if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'dashboard') return loadDashboard();
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') return loadCourses();
   if (currentRoute === 'week') return loadWeekView();
@@ -3591,6 +3663,7 @@ async function loadDashboard() {
     ]);
     if (!dashboardRes?.success) return dashboardRes;
     const courses = getCoursesForUser(userState, {})
+      .filter(isCourseActivity)
       .filter(isCourseShownOnCoursesScreen)
       .filter((row) => !isCourseCompleted(row));
     return { success: true, data: withOperationalMetrics(dashboardRes.data || {}, courses) };
@@ -3606,11 +3679,11 @@ async function loadCourses(options = {}) {
   if (forceRefreshCourseId) {
     await refreshCourse(forceRefreshCourseId);
   }
-  const filtered = getCoursesForUser(userState, viewState.courses.filters);
+  const filtered = getCoursesForUser(userState, viewState.courses.filters).filter(isCourseActivity);
   viewState.courses.loading = false;
   viewState.courses.error = '';
   viewState.courses.data = applyCoursesFiltersByUiScope(filtered, viewState.courses.filters).filter(isCourseShownOnCoursesScreen);
-  viewState.courses.filterOptions = buildFilterOptions(getCoursesForUser(userState, {}));
+  viewState.courses.filterOptions = buildFilterOptions(getCoursesForUser(userState, {}).filter(isCourseActivity));
   if (viewState.courses.selectedCourseId) {
     viewState.courses.selectedCourseDetails = viewState.courses.data.find((item) => String(item.CourseID) === viewState.courses.selectedCourseId) || null;
   }
@@ -3974,6 +4047,8 @@ function withOperationalMetrics(baseData, courses) {
     missingHoursCount: missing.filter((types) => types.includes('ללא שעות')).length,
     missingDateCount: missing.filter((types) => types.includes('חסר Date1')).length,
     missingInstructorCount: missing.filter((types) => types.includes('ללא מדריך')).length,
+    totalExceptionsCount: missing.filter((types) => (types || []).length > 0).length,
+    instructorsCount: new Set(courses.map((row) => resolveInstructorName(row)).filter(Boolean)).size,
     juneEndingCount: courses.filter((row) => isCourseEndInJune2026(row)).length
   };
 }
