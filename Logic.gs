@@ -461,6 +461,16 @@ var Logic = (function () {
       if (idxCourse === -1) return Utils.safeMessage('עמודת RowID חסרה.');
       var rowMatch = findRowByCourseId_(table, idxCourse, courseId);
       if (!rowMatch) return Utils.safeMessage('הפעילות לא נמצאה.');
+      if (!courseId) return Utils.safeMessage('CourseID הוא שדה חובה.');
+      Utils.ensureCourseMeetingsSheet();
+      var meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+      var idxCourse = Utils.resolveIndex(meetingTable.headers, ['CourseID']);
+      var meetings = [];
+      for (var i = 0; i < meetingTable.rows.length; i += 1) {
+        var row = meetingTable.rows[i];
+        if (Utils.toKey(valueAt_(row, idxCourse)) !== Utils.toKey(courseId)) continue;
+        meetings.push(Utils.rowToObject(meetingTable.headers, row, meetingTable.rowNumbers[i]));
+      }
 
       var meetings = [];
       var idxStartTime = Utils.resolveIndex(table.headers, CONFIG.FIELDS.START_TIME);
@@ -482,8 +492,11 @@ var Logic = (function () {
           MeetingStatus: valueAt_(rowMatch.row, idxStatus)
         });
       }
-      meetings.sort(function (a, b) { return Number(a.MeetingNumber || 0) - Number(b.MeetingNumber || 0); });
-      return { success: true, data: { RowID: courseId, CourseID: courseId, items: meetings } };
+      meetings.sort(function (a, b) {
+        return Number(a.MeetingNumber || 0) - Number(b.MeetingNumber || 0);
+      });
+      return { success: true, data: { RowID: courseId,
+          CourseID: courseId, items: meetings } };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון מפגשים לקורס.');
     }
@@ -527,7 +540,18 @@ var Logic = (function () {
       Utils.updateRow(CONFIG.SHEETS.DATA_MASTER, rowMatch.rowNumber, updated);
       var refreshed = getCourseMeetings({ RowID: courseId });
       if (!refreshed.success) return refreshed;
-      return { success: true, data: { RowID: courseId, CourseID: courseId, items: refreshed.data.items } };
+      return {
+        success: true,
+        data: {
+          RowID: courseId,
+          CourseID: courseId,
+          mode: mode,
+          shiftGroupId: shiftGroupId,
+          monthEndChanged: syncResult.monthEndChanged,
+          financeRefreshed: financeRefreshed,
+          items: refreshed.data.items
+        }
+      };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לעדכן מפגש.');
     }
@@ -684,15 +708,40 @@ var Logic = (function () {
       var query = Utils.asObject(payload, {});
       var limit = Math.max(1, Math.min(Number(query.limit || 250), 500));
       var offset = Math.max(0, Number(query.offset || 0));
-      var items = table.rows.map(function (row) { return projectRequestForFrontend_(row, idx); })
-        .filter(function (item) {
-          var st = Utils.toKey(item.admin_status || item.ApprovalStatus);
-          return st === Utils.toKey(CONFIG.STATUSES.PENDING_EDEN)
-            || st === Utils.toKey(CONFIG.STATUSES.PENDING_FINAL)
-            || st === Utils.toKey(EDEN_WORKFLOW_STATUSES.EDEN_SAVED);
-        })
-        .slice(offset, offset + limit);
-      var counters = { pending_eden: 0, eden_saved: 0, pending_final: 0 };
+      var items = table.rows.filter(function (row) {
+        return Boolean(valueAt_(row, idxWorkflow));
+      }).map(function (row) {
+        var rowObj = Utils.rowToObject(table.headers, row, 0);
+        var requested = extractEdenDraftFromRow_(rowObj);
+        var source = extractEdenSourceFromRow_(rowObj);
+        var courseId = valueAt_(row, idxCourseId);
+        var linkedRequest = reqMap[Utils.toKey(courseId)] || null;
+        return {
+          RequestID: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestId) : '',
+          RowID: courseId,
+          CourseID: courseId,
+          Origin: linkedRequest ? valueAt_(linkedRequest, reqIdx.origin) : '',
+          ChangeType: linkedRequest ? valueAt_(linkedRequest, reqIdx.changeType) : '',
+          ApprovalStatus: valueAt_(row, idxWorkflow),
+          RequestedData: Utils.safeJson(requested),
+          SourceData: Utils.safeJson(source),
+          EdenNotes: valueAt_(row, idxNotes),
+          HasDiffBetweenSourceAndEden: valueAt_(row, idxHasDiff),
+          HasMasterChangedAfterEdenEdit: valueAt_(row, idxHasMasterChanged),
+          SentToAdminAt: valueAt_(row, idxSentToAdminAt),
+          EdenLastSavedAt: valueAt_(row, idxEdenLastSavedAt),
+          RequestedBy: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestedBy) : '',
+          OriginalData: linkedRequest ? valueAt_(linkedRequest, reqIdx.originalData) : ''
+        };
+      }).slice(offset, offset + limit);
+      var counters = {
+        pending_eden: 0,
+        eden_saved: 0,
+        pending_final: 0,
+        master_changed_warning: 0,
+        request_origin: 0,
+        eden_initiated_origin: 0
+      };
       items.forEach(function (item) {
         var wfKey = Utils.toKey(item.admin_status || item.ApprovalStatus);
         if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_EDEN)) counters.pending_eden += 1;
@@ -1415,13 +1464,105 @@ var Logic = (function () {
     return;
   }
   function saveEdenDataMasterDraft_(payload) {
-    return handleEdenOperationInOperationsData_(Object.assign({}, Utils.asObject(payload, {}), { operation: 'EDEN_SAVE' }));
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
+    try {
+      var body = Utils.asObject(payload, {});
+      var requestId = Utils.normalize(body.RequestID);
+      if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var courseId = resolveCourseIdByRequestId_(requestId);
+      if (!courseId) return Utils.safeMessage('לא נמצא CourseID לבקשה.');
+      var requestedData = Utils.asObject(body.RequestedData, {});
+      var edenNotes = Utils.normalize(body.EdenNotes || body.ApprovalNotes);
+
+      var edenTable = ensureEdenDataMasterSheet_();
+      var existing = findEdenRowByCourseId_(edenTable, courseId);
+      if (!existing) return Utils.safeMessage('לא נמצאה רשומה במסך עדן.');
+      var updated = existing.row.slice();
+      var headers = edenTable.headers;
+      Object.keys(requestedData).forEach(function (field) {
+        var idx = Utils.resolveIndex(headers, ['Eden_' + field]);
+        if (idx > -1) updated[idx] = requestedData[field];
+      });
+      var idxNotes = Utils.resolveIndex(headers, ['EdenNotes']);
+      if (idxNotes > -1) updated[idxNotes] = edenNotes;
+      var idxWorkflow = Utils.resolveIndex(headers, ['WorkflowStatus']);
+      if (idxWorkflow > -1) updated[idxWorkflow] = EDEN_WORKFLOW_STATUSES.EDEN_SAVED;
+      var idxSavedAt = Utils.resolveIndex(headers, ['EdenLastSavedAt']);
+      if (idxSavedAt > -1) updated[idxSavedAt] = Utils.nowIso();
+      var idxHasDiff = Utils.resolveIndex(headers, ['HasDiffBetweenSourceAndEden']);
+      if (idxHasDiff > -1) {
+        var rowObj = Utils.rowToObject(headers, updated, existing.rowNumber);
+        updated[idxHasDiff] = hasDiffBetweenSourceAndEden_(rowObj) ? 'true' : 'false';
+      }
+      Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, updated);
+      return { success: true, data: { RequestID: requestId, RowID: courseId,
+          CourseID: courseId, WorkflowStatus: EDEN_WORKFLOW_STATUSES.EDEN_SAVED } };
+    } catch (err) {
+      return Utils.safeMessage('שמירת טיוטת עדן נכשלה.');
+    }
   }
   function submitEdenToAdmin_(payload) {
-    return handleEdenOperationInOperationsData_(Object.assign({}, Utils.asObject(payload, {}), { operation: 'EDEN_SUBMIT_ADMIN' }));
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
+    try {
+      var body = Utils.asObject(payload, {});
+      var requestId = Utils.normalize(body.RequestID);
+      if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var courseId = resolveCourseIdByRequestId_(requestId);
+      if (!courseId) return Utils.safeMessage('לא נמצא CourseID לבקשה.');
+      var edenTable = ensureEdenDataMasterSheet_();
+      var existing = findEdenRowByCourseId_(edenTable, courseId);
+      if (!existing) return Utils.safeMessage('לא נמצאה רשומת עדן.');
+
+      var rowObj = Utils.rowToObject(edenTable.headers, existing.row, existing.rowNumber);
+      var requestedData = extractEdenDraftFromRow_(rowObj);
+
+      var reqTable = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
+      var reqIdx = resolveRequestIndexes_(reqTable.headers);
+      var requestMatch = findRequestById_(reqTable, reqIdx.requestId, requestId);
+      if (!requestMatch) return Utils.safeMessage('לא נמצאה בקשת שינוי.');
+      var reqRow = requestMatch.row.slice();
+      if (reqIdx.requestedData > -1) reqRow[reqIdx.requestedData] = Utils.safeJson(requestedData);
+      if (reqIdx.approvalStatus > -1) reqRow[reqIdx.approvalStatus] = CONFIG.STATUSES.PENDING_FINAL;
+      if (reqIdx.requestStatus > -1) reqRow[reqIdx.requestStatus] = CONFIG.STATUSES.PENDING_FINAL;
+      if (reqIdx.edenViewStatus > -1) reqRow[reqIdx.edenViewStatus] = CONFIG.STATUSES.EDEN_APPROVED;
+      if (reqIdx.approvalNotes > -1) reqRow[reqIdx.approvalNotes] = Utils.normalize(rowObj.EdenNotes);
+      Utils.updateRow(CONFIG.SHEETS.EDIT_REQUESTS, requestMatch.rowNumber, reqRow);
+
+      var edenUpdated = existing.row.slice();
+      var idxWorkflow = Utils.resolveIndex(edenTable.headers, ['WorkflowStatus']);
+      if (idxWorkflow > -1) edenUpdated[idxWorkflow] = EDEN_WORKFLOW_STATUSES.PENDING_FINAL;
+      var idxSent = Utils.resolveIndex(edenTable.headers, ['SentToAdminAt']);
+      if (idxSent > -1) edenUpdated[idxSent] = Utils.nowIso();
+      Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, edenUpdated);
+      return { success: true, data: { RequestID: requestId, RowID: courseId,
+          CourseID: courseId, ApprovalStatus: EDEN_WORKFLOW_STATUSES.PENDING_FINAL } };
+    } catch (err) {
+      return Utils.safeMessage('העברה לאדמין נכשלה.');
+    }
   }
   function refreshEdenSource_(payload) {
-    return { success: true, data: { refreshedAt: Utils.nowIso() } };
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
+    try {
+      var body = Utils.asObject(payload, {});
+      var requestId = Utils.normalize(body.RequestID);
+      if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
+      var courseId = resolveCourseIdByRequestId_(requestId);
+      if (!courseId) return Utils.safeMessage('לא נמצא CourseID לבקשה.');
+      syncEdenRowsWithMaster_();
+      var edenTable = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, true);
+      var existing = findEdenRowByCourseId_(edenTable, courseId);
+      if (!existing) return Utils.safeMessage('לא נמצאה רשומה.');
+      return { success: true, data: { RequestID: requestId, RowID: courseId,
+          CourseID: courseId, refreshedAt: Utils.nowIso() } };
+    } catch (err) {
+      return Utils.safeMessage('רענון מקור נכשל.');
+    }
   }
   function updateEdenWorkflowByRequestId_(requestId, workflowStatus, extraFields) {
     return false;
@@ -1460,12 +1601,50 @@ var Logic = (function () {
   }
 
   function bootstrapMeetingsForCourse_(courseId) {
-    return [];
+    var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
+    var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
+    if (idxCourse === -1) return [];
+    var match = null;
+    for (var i = 0; i < table.rows.length; i += 1) {
+      if (Utils.toKey(valueAt_(table.rows[i], idxCourse)) !== Utils.toKey(courseId)) continue;
+      match = table.rows[i];
+      break;
+    }
+    if (!match) return [];
+    var idxStartTime = Utils.resolveIndex(table.headers, ['StartTime']);
+    var idxEndTime = Utils.resolveIndex(table.headers, ['EndTime']);
+    var idxStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.STATUS);
+    var created = [];
+    for (var meetingNumber = 1; meetingNumber <= 35; meetingNumber += 1) {
+      var idxDate = Utils.resolveIndex(table.headers, ['Date' + meetingNumber]);
+      if (idxDate === -1) continue;
+      var dateValue = asDate_(valueAt_(match, idxDate));
+      if (!dateValue) continue;
+      created.push(createMeetingRow_(courseId, meetingNumber, dateValue, valueAt_(match, idxStartTime), valueAt_(match, idxEndTime), valueAt_(match, idxStatus)));
+    }
+    if (!created.length) return [];
+    Utils.ensureCourseMeetingsSheet();
+    var meetingSheet = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+    created.forEach(function (entry) {
+      var values = meetingSheet.headers.map(function (header) { return entry[header] || ''; });
+      Utils.appendRow(CONFIG.SHEETS.COURSE_MEETINGS, values);
+    });
+    var refreshed = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
+    var idx = resolveMeetingIndexes_(refreshed.headers);
+    var out = [];
+    for (var k = 0; k < refreshed.rows.length; k += 1) {
+      var row = refreshed.rows[k];
+      if (Utils.toKey(valueAt_(row, idx.courseId)) !== Utils.toKey(courseId)) continue;
+      out.push(Utils.rowToObject(refreshed.headers, row, refreshed.rowNumbers[k]));
+    }
+    return out;
   }
   function createMeetingRow_(courseId, meetingNumber, dateValue, startTime, endTime, status) {
     return {
+      MeetingID: meetingId,
+      RowID: meetingId,
       RowID: courseId,
-      CourseID: courseId,
+          CourseID: courseId,
       MeetingNumber: meetingNumber,
       MeetingDate: stripTime_(dateValue),
       StartTime: startTime || '',

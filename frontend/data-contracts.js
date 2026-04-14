@@ -52,8 +52,8 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       COURSE_MANAGER: 'CourseManager'
     },
     request: {
-      REQUEST_ID: 'request_id',
-      COURSE_ID: 'source_row_id',
+      REQUEST_ID: 'RequestID',
+      COURSE_ID: 'RowID',
       REQUESTED_BY: 'requested_by',
       APPROVAL_STATUS: 'admin_status',
       WORKFLOW_STAGE: 'admin_status'
