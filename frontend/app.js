@@ -77,9 +77,14 @@ async function ensureRuntimeRulesLoaded(force = false) {
     }
     return fallback;
   };
-  runtimeRules.allowAdminDirectDataEdit = await resolveRule('allow_admin_direct_data_edit', false);
-  runtimeRules.showOnlyNonZeroKpis = await resolveRule('show_only_nonzero_kpis', false);
-  runtimeRules.useStatusWithDates = await resolveRule('use_status_with_dates', false);
+  const [r1, r2, r3] = await Promise.all([
+    resolveRule('allow_admin_direct_data_edit', false),
+    resolveRule('show_only_nonzero_kpis', false),
+    resolveRule('use_status_with_dates', false)
+  ]);
+  runtimeRules.allowAdminDirectDataEdit = r1;
+  runtimeRules.showOnlyNonZeroKpis = r2;
+  runtimeRules.useStatusWithDates = r3;
   runtimeRulesLoaded = true;
   return runtimeRules;
 }
@@ -4087,12 +4092,16 @@ async function loadRouteData() {
     setRoute(getFirstAllowedRoute());
     return;
   }
-  if (ROUTES_NEEDING_RUNTIME_RULES.has(currentRoute)) {
-    await ensureRuntimeRulesLoaded();
+  const needsRules = ROUTES_NEEDING_RUNTIME_RULES.has(currentRoute);
+  const needsCourses = ROUTES_NEEDING_COURSES.has(currentRoute);
+  if (needsRules || needsCourses) {
+    const parallelLoads = [];
+    if (needsRules) parallelLoads.push(ensureRuntimeRulesLoaded());
+    if (needsCourses) parallelLoads.push(ensureCoursesLoaded());
+    await Promise.all(parallelLoads);
   } else if (!runtimeRulesLoaded) {
     void ensureRuntimeRulesLoaded().catch(() => {});
   }
-  if (ROUTES_NEEDING_COURSES.has(currentRoute)) await ensureCoursesLoaded();
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'admin-settings') return loadAdminSettingsView();
   if (currentRoute === 'admin-lists') return loadAdminListsView();

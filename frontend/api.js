@@ -16,7 +16,10 @@ const ACTION_TTL_MS = {
   getFinanceArchiveDataAction: 180 * 1000,
   getContactsDataAction: 120 * 1000,
   getAllSettingsAction: 120 * 1000,
-  getAllListsAction: 120 * 1000
+  getAllListsAction: 120 * 1000,
+  getMyRequestsDataAction: 60 * 1000,
+  getApprovalsDataAction: 60 * 1000,
+  getEdenViewDataAction: 60 * 1000
 };
 
 const inflightActions = new Map();
