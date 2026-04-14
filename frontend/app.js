@@ -66,7 +66,7 @@ const viewState = {
   endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', month: '' } },
   exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
   ,
-  contacts: { loading: false, error: '', data: [] },
+  contacts: { loading: false, error: '', data: [], expandedRowKey: '' },
   adminSettings: { loading: false, error: '', data: [] },
   adminLists: { loading: false, error: '', data: [] },
   adminPermissions: { loading: false, error: '', data: [] },
@@ -937,24 +937,37 @@ function renderScreen() {
   }
 
   if (currentRoute === 'contacts') {
-    const contactsRows = filterBySearch(viewState.contacts.data || [], ['emp_id', 'name', 'role', 'mobile', 'email'], 'contacts');
-    main.innerHTML = renderUnifiedScreenHeader('contacts', 'נתונים מגיליון contacts', { itemsCount: contactsRows.length }) +
+    const contactsRows = filterBySearch(viewState.contacts.data || [], ['emp_id', 'name', 'role', 'mobile', 'email', 'address', 'employment'], 'contacts');
+    const expandedRowKey = viewState.contacts.expandedRowKey || '';
+    main.innerHTML = renderUnifiedScreenHeader('contacts', '', { itemsCount: contactsRows.length }) +
       panel(viewState.contacts, 'אין אנשי קשר להצגה.',
         `<section class="table-shell contacts-table-shell"><table><thead><tr>
-          <th>emp_id</th><th>role</th><th>name</th><th>id_number</th><th>address</th><th>mobile</th><th>email</th><th>employment</th>${canEditContacts() ? '<th>פעולות</th>' : ''}
+          <th>name</th><th>mobile</th><th>email</th>
         </tr></thead><tbody>
-          ${contactsRows.map((row, index) => `<tr>
-            <td>${esc(row.emp_id || '-')}</td>
-            <td>${esc(row.role || '-')}</td>
-            <td>${esc(row.name || '-')}</td>
-            <td>${esc(row.id_number || '-')}</td>
-            <td>${esc(row.address || '-')}</td>
-            <td>${esc(row.mobile || '-')}</td>
-            <td>${esc(row.email || '-')}</td>
-            <td>${esc(row.employment || '-')}</td>
-            ${canEditContacts() ? `<td><button class="btn btn-secondary" data-edit-contact="${index}">עריכה</button></td>` : ''}
-          </tr>`).join('')}
+          ${contactsRows.map((row, index) => {
+            const rowKey = String(row._rowNumber || index);
+            const isExpanded = expandedRowKey === rowKey;
+            return `<tr>
+              <td><button type="button" class="contact-name-toggle" data-contact-expand="${escAttr(rowKey)}">${esc(row.name || '-')}</button></td>
+              <td>${esc(row.mobile || '-')}</td>
+              <td><span class="contact-email-cell">${esc(row.email || '-')}<button type="button" class="btn btn-icon contact-copy-btn" data-copy-email="${escAttr(row.email || '')}" aria-label="העתקת אימייל" title="העתקת אימייל">⧉</button></span></td>
+            </tr>${isExpanded ? `<tr class="contact-details-row"><td colspan="3"><div class="contact-details">
+              <p><strong>address:</strong> ${esc(row.address || '-')}</p>
+              <p><strong>employment:</strong> ${esc(row.employment || '-')}</p>
+              ${canEditContacts() ? `<div class="contact-details-actions"><button class="btn btn-secondary" data-edit-contact="${index}">עריכה</button></div>` : ''}
+            </div></td></tr>` : ''}`;
+          }).join('')}
         </tbody></table></section>`);
+    document.querySelectorAll('[data-contact-expand]').forEach((btn) => btn.addEventListener('click', () => {
+      const rowKey = btn.dataset.contactExpand || '';
+      viewState.contacts.expandedRowKey = viewState.contacts.expandedRowKey === rowKey ? '' : rowKey;
+      renderScreen();
+    }));
+    document.querySelectorAll('[data-copy-email]').forEach((btn) => btn.addEventListener('click', async () => {
+      const email = btn.dataset.copyEmail || '';
+      if (!email || !navigator?.clipboard?.writeText) return;
+      await navigator.clipboard.writeText(email);
+    }));
     document.querySelectorAll('[data-edit-contact]').forEach((btn) => btn.addEventListener('click', async () => {
       const idx = Number(btn.dataset.editContact || -1);
       const current = contactsRows[idx];

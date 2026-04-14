@@ -1314,6 +1314,21 @@ a { color: var(--accent); text-decoration: none; }
 .compact-actions-row { display: flex; justify-content: flex-start; margin: 6px 0 12px; }
 .btn-compact { padding: 4px 10px; font-size: 12px; border-radius: 999px; }
 .contacts-table-shell table { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; }
+.contact-name-toggle {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+.contact-email-cell { display: inline-flex; align-items: center; gap: 6px; }
+.contact-copy-btn { width: 24px; height: 24px; font-size: 12px; }
+.contact-details-row td { background: var(--surface-2); }
+.contact-details { padding: 8px 2px; display: grid; gap: 6px; }
+.contact-details p { margin: 0; }
+.contact-details-actions { margin-top: 4px; }
 .dashboard-managers-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
