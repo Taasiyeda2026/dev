@@ -1,4 +1,4 @@
-const SW_VERSION = 'dashboard2026-v3';
+const SW_VERSION = 'dashboard2026-v4';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`;
 const IMAGE_CACHE = `${SW_VERSION}-images`;

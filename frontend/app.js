@@ -77,7 +77,8 @@ const viewState = {
   },
   uiContext: {
     coursesSubtitle: '',
-    monthSubtitle: ''
+    monthSubtitle: '',
+    searchTermByRoute: {}
   }
 };
 
@@ -386,6 +387,124 @@ function render() {
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
 function head(_title, sub) { return sub ? `<header class="screen-head"><p>${sub}</p></header>` : ''; }
+function getRouteSearchTerm(route = currentRoute) {
+  return String(viewState.uiContext.searchTermByRoute?.[route] || '').trim();
+}
+
+function setRouteSearchTerm(route = currentRoute, value = '') {
+  if (!viewState.uiContext.searchTermByRoute) viewState.uiContext.searchTermByRoute = {};
+  viewState.uiContext.searchTermByRoute[route] = String(value || '').trim();
+}
+
+function filterBySearch(rows, fields = [], route = currentRoute) {
+  const list = Array.isArray(rows) ? rows : [];
+  const term = getRouteSearchTerm(route).toLowerCase();
+  if (!term) return list;
+  if (!fields.length) return list;
+  return list.filter((row) => {
+    const haystack = fields
+      .map((field) => String(typeof field === 'function' ? field(row) : row?.[field] || ''))
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(term);
+  });
+}
+
+function getHeaderKpis(route = currentRoute, context = {}) {
+  if (route === 'dashboard') {
+    const d = context.dashboard || viewState.dashboard.data || {};
+    return [
+      { label: 'סך קורסים', value: d.totalCoursesCount || 0 },
+      { label: 'פעילים החודש', value: d.activeThisMonthCount || 0 },
+      { label: 'מסתיימים החודש', value: d.endingCurrentMonthCount || 0 }
+    ];
+  }
+  if (route === 'courses' || route === 'instructor-view') {
+    return [
+      { label: 'רשומות מוצגות', value: context.visibleCount || 0 },
+      { label: 'מדריכים מוצגים', value: context.instructorsCount || 0 },
+      { label: 'סך רשומות לאחר סינון', value: context.totalCount || 0 }
+    ];
+  }
+  if (route === 'week') {
+    return [
+      { label: 'קורסים בתצוגה', value: context.coursesCount || 0 },
+      { label: 'ימים עם פעילות', value: context.activeDays || 0 },
+      { label: 'מפגשים', value: context.sessionsCount || 0 }
+    ];
+  }
+  if (route === 'month') {
+    return [
+      { label: 'קורסים בתצוגה', value: context.coursesCount || 0 },
+      { label: 'ימים פעילים', value: context.activeDays || 0 },
+      { label: 'אירועים', value: context.sessionsCount || 0 }
+    ];
+  }
+  if (route === 'instructors') {
+    return [
+      { label: 'מדריכים', value: context.instructorsCount || 0 },
+      { label: 'קורסים מוצגים', value: context.coursesCount || 0 }
+    ];
+  }
+  if (route === 'end-dates') {
+    return [
+      { label: 'קורסים מסתיימים', value: context.itemsCount || 0 },
+      { label: 'נדחו', value: context.postponedCount || 0 },
+      { label: 'דורשים בקרה', value: context.reviewCount || 0 }
+    ];
+  }
+  if (route === 'exceptions') {
+    return [
+      { label: 'חריגות', value: context.itemsCount || 0 },
+      { label: 'ללא מדריך', value: context.noInstructorCount || 0 },
+      { label: 'חסר Date1', value: context.missingDateCount || 0 }
+    ];
+  }
+  if (route === 'finance') {
+    return [
+      { label: 'רשומות מוצגות', value: context.itemsCount || 0 },
+      { label: 'פתוח', value: context.openCount || 0 },
+      { label: 'סגור', value: context.closedCount || 0 }
+    ];
+  }
+  if (route === 'my-requests' || route === 'approvals' || route === 'final-approvals' || route === 'eden-view') {
+    return [
+      { label: 'רשומות מוצגות', value: context.itemsCount || 0 },
+      { label: 'סה"כ רשומות', value: context.totalCount || context.itemsCount || 0 }
+    ];
+  }
+  return [];
+}
+
+function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context = {}) {
+  const searchTerm = getRouteSearchTerm(route);
+  const kpis = getHeaderKpis(route, context).slice(0, 3);
+  return `<section class="screen-top-unified">
+    <div class="screen-top-main">
+      <h1>${esc(routeLabels[route] || routeLabels.dashboard)}</h1>
+      ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}
+    </div>
+    <div class="screen-top-tools">
+      <label class="screen-search-wrap" for="screenSearchInput">
+        <span>חיפוש</span>
+        <input id="screenSearchInput" type="search" placeholder="חיפוש מהיר במסך הנוכחי" value="${escAttr(searchTerm)}" />
+      </label>
+      <div class="screen-mini-kpis">
+        ${kpis.map((item) => `<article class="screen-mini-kpi"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></article>`).join('')}
+      </div>
+    </div>
+  </section>`;
+}
+
+function bindUnifiedScreenHeader(route = currentRoute) {
+  const input = document.getElementById('screenSearchInput');
+  if (!input) return;
+  input.addEventListener('input', () => {
+    setRouteSearchTerm(route, input.value || '');
+    renderScreen();
+  });
+}
+
 function getUiScaleForRoute(route) {
   return ROUTE_UI_SCALES[route] || 1;
 }
@@ -416,7 +535,7 @@ function renderScreen() {
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
-    main.innerHTML = head('דשבורד ראשי', '') + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
+    main.innerHTML = renderUnifiedScreenHeader('dashboard', '', { dashboard: d }) + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
       `<section class="kpi-section dashboard-kpi-top-section">
         <div class="dashboard-kpi-row-centered">
           <div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
@@ -442,19 +561,31 @@ function renderScreen() {
       </section>
       `) + `</div>`;
     document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter, button.dataset.kpiContext || '')));
+    bindUnifiedScreenHeader('dashboard');
     return;
   }
 
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') {
     const subtitle = viewState.uiContext.coursesSubtitle || (isInstructor() ? 'רק קורסים שמשויכים אליך' : '');
-    const filteredCourses = applyCourseQuickFilter(viewState.courses.data).filter((row) => !isCourseCompleted(row));
+    const searchableFields = isInstructor()
+      ? [COURSE_FIELDS.PROGRAM, COURSE_FIELDS.ACTIVITY, COURSE_FIELDS.AUTHORITY, COURSE_FIELDS.SCHOOL, COURSE_FIELDS.COURSE_ID]
+      : [COURSE_FIELDS.PROGRAM, COURSE_FIELDS.ACTIVITY, COURSE_FIELDS.AUTHORITY, COURSE_FIELDS.SCHOOL, COURSE_FIELDS.COURSE_MANAGER, COURSE_FIELDS.EMPLOYEE, COURSE_FIELDS.COURSE_ID];
+    const filteredCourses = filterBySearch(
+      applyCourseQuickFilter(viewState.courses.data).filter((row) => !isCourseCompleted(row)),
+      searchableFields,
+      currentRoute
+    );
     const selectedInstructor = viewState.courses.selectedInstructor;
     const instructorOverview = buildInstructorOverview(filteredCourses);
     const visibleCourses = currentRoute === 'instructor-view' && selectedInstructor
       ? filteredCourses.filter((row) => String(row?.Instructor || '').trim() === selectedInstructor)
       : filteredCourses;
     const courseMonthRaw = viewState.courses.filters.courseMonth || '';
-    main.innerHTML = head(currentRoute === 'courses' ? 'קורסים' : 'תצוגת מדריכים', subtitle) +
+    main.innerHTML = renderUnifiedScreenHeader(currentRoute, subtitle, {
+      visibleCount: visibleCourses.length,
+      totalCount: filteredCourses.length,
+      instructorsCount: new Set(visibleCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size
+    }) +
     (currentRoute === 'courses' ? renderMonthStatBadge({ count: visibleCourses.length, monthRaw: courseMonthRaw, noun: 'קורסים פעילים' }) : '') +
     `<section class="filters-wrap courses-filters">
       <label>רשות<select id="authorityFilter">${renderSelectOptions(viewState.courses.filterOptions.authority, viewState.courses.filters.authority)}</select></label>
@@ -514,77 +645,130 @@ function renderScreen() {
     document.getElementById('coursesViewCards')?.addEventListener('click', () => { viewState.courses.view = 'cards'; renderScreen(); });
     bindInstructorCards();
     bindCourseActions();
+    bindUnifiedScreenHeader(currentRoute);
     return;
   }
 
   if (currentRoute === 'week') {
-    const weekCourses = getRoleScopedCourses(viewState.week.filters);
+    const weekCourses = filterBySearch(
+      getRoleScopedCourses(viewState.week.filters),
+      [COURSE_FIELDS.PROGRAM, COURSE_FIELDS.ACTIVITY, COURSE_FIELDS.AUTHORITY, COURSE_FIELDS.SCHOOL, COURSE_FIELDS.EMPLOYEE, COURSE_FIELDS.COURSE_MANAGER],
+      'week'
+    );
     const weekData = buildWeeklyBuckets(weekCourses, viewState.week.rangeStart);
     const weekSideOpen = Boolean(viewState.week.selected || viewState.week.instructorPanel);
-    main.innerHTML = head('שבוע', 'תמונת מצב שבועית תפעולית') +
+    const weekSessionsCount = weekData.days.reduce((sum, day) => sum + (day.items?.length || 0), 0);
+    main.innerHTML = renderUnifiedScreenHeader('week', 'תמונת מצב שבועית תפעולית', {
+      coursesCount: weekCourses.length,
+      activeDays: weekData.days.filter((day) => (day.items?.length || 0) > 0).length,
+      sessionsCount: weekSessionsCount
+    }) +
       `<div class="week-page-shell${weekSideOpen ? ' week-page-shell--open' : ''}"><div class="week-page-main">` +
       renderWeekFilters() +
       panel({ loading: viewState.week.loading, error: viewState.week.error, data: weekData.days }, 'אין מפגשים לשבוע זה.', renderWeekGrid(weekData.days)) +
       `</div>${viewState.week.selected ? renderWeekDetails(viewState.week.selected) : ''}${viewState.week.instructorPanel ? renderWeekInstructorSidePanel(viewState.week.instructorPanel) : ''}${weekSideOpen ? '<button type="button" class="week-side-backdrop" id="weekBackdrop" aria-label="סגור"></button>' : ''}</div>`;
     bindWeekActions(weekData);
+    bindUnifiedScreenHeader('week');
     return;
   }
 
   if (currentRoute === 'month') {
-    const monthCourses = getRoleScopedCourses(viewState.month.filters);
+    const monthCourses = filterBySearch(
+      getRoleScopedCourses(viewState.month.filters),
+      [COURSE_FIELDS.PROGRAM, COURSE_FIELDS.ACTIVITY, COURSE_FIELDS.AUTHORITY, COURSE_FIELDS.SCHOOL, COURSE_FIELDS.EMPLOYEE, COURSE_FIELDS.COURSE_MANAGER],
+      'month'
+    );
     const monthData = buildMonthlyCalendar(monthCourses, viewState.month.monthDate);
     const monthTitleNav = monthData.monthStart ? monthData.monthStart.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' }) : '';
     const sideOpen = Boolean(viewState.month.selectedDate);
-    main.innerHTML = `<div class="month-page">` + head('חודש', '') +
+    const monthSessionsCount = monthData.days.reduce((sum, day) => sum + (day.items?.length || 0), 0);
+    main.innerHTML = `<div class="month-page">` + renderUnifiedScreenHeader('month', '', {
+      coursesCount: monthCourses.length,
+      activeDays: monthData.days.filter((day) => (day.items?.length || 0) > 0).length,
+      sessionsCount: monthSessionsCount
+    }) +
       `<div class="month-page-shell${sideOpen ? ' month-page-shell--open' : ''}"><div class="month-page-main">` +
       renderMonthFilters(monthTitleNav) +
       panel({ loading: viewState.month.loading, error: viewState.month.error, data: monthData.days }, 'אין נתונים לחודש שנבחר.', renderMonthGrid(monthData.days)) +
       `</div>${sideOpen ? renderMonthSidePanel(monthData.selectedItems, viewState.month.selectedDate) : ''}${sideOpen ? '<button type="button" class="month-side-backdrop" id="monthBackdrop" aria-label="סגור"></button>' : ''}</div></div>`;
     bindMonthActions(monthData);
+    bindUnifiedScreenHeader('month');
     return;
   }
 
   if (currentRoute === 'instructors') {
-    const instructorsData = buildInstructorsViewData(getRoleScopedCourses(viewState.instructors.filters));
-    main.innerHTML = `<div class="instructors-page">` + head('מדריכים', '') +
+    const scopedCourses = filterBySearch(
+      getRoleScopedCourses(viewState.instructors.filters),
+      [COURSE_FIELDS.EMPLOYEE, COURSE_FIELDS.PROGRAM, COURSE_FIELDS.ACTIVITY, COURSE_FIELDS.AUTHORITY, COURSE_FIELDS.SCHOOL],
+      'instructors'
+    );
+    const instructorsData = buildInstructorsViewData(scopedCourses);
+    main.innerHTML = `<div class="instructors-page">` + renderUnifiedScreenHeader('instructors', '', {
+      instructorsCount: instructorsData.items.length,
+      coursesCount: scopedCourses.length
+    }) +
       renderInstructorsFilters() +
       panel({ loading: viewState.instructors.loading, error: viewState.instructors.error, data: instructorsData.items }, 'אין מדריכים להצגה.', renderInstructorsCards(instructorsData.items)) +
       renderInstructorCoursesDetails(viewState.instructors.selectedInstructor, instructorsData.coursesByInstructor) + `</div>`;
     bindInstructorsActions();
+    bindUnifiedScreenHeader('instructors');
     return;
   }
 
   if (currentRoute === 'end-dates') {
-    const endDateItems = buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters));
+    const endDateItems = filterBySearch(
+      buildEndDateItems(getCoursesForUser(userState, viewState.endDates.filters)),
+      ['Program', 'Authority', 'School', 'Instructor', 'CourseManager', 'issuesLabel'],
+      'end-dates'
+    );
     const endMonthRaw = viewState.endDates.filters.month || formatMonthInputLocal(new Date());
-    main.innerHTML = head('תאריכי סיום', 'בקרת קורסים לקראת סיום') +
+    main.innerHTML = renderUnifiedScreenHeader('end-dates', 'בקרת קורסים לקראת סיום', {
+      itemsCount: endDateItems.length,
+      postponedCount: endDateItems.filter((item) => item.postpone?.isPostponed).length,
+      reviewCount: endDateItems.filter((item) => item.hasReviewDelay).length
+    }) +
       renderMonthStatBadge({ count: endDateItems.length, monthRaw: endMonthRaw, noun: 'קורסים מסתיימים' }) +
       renderEndDatesFilters() +
       panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems)) +
       renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     bindEndDatesActions();
+    bindUnifiedScreenHeader('end-dates');
     return;
   }
 
   if (currentRoute === 'exceptions') {
-    const exceptionRows = buildExceptionsRows(getStoreSnapshot().reviewItems || [], getRoleScopedCourses({}), viewState.exceptions.filters);
-    main.innerHTML = head('חריגות', 'ללא מדריך / ללא שעות / חסר Date1 (מפגש ראשון) / או סיום ביוני 2026') +
+    const exceptionRows = filterBySearch(
+      buildExceptionsRows(getStoreSnapshot().reviewItems || [], getRoleScopedCourses({}), viewState.exceptions.filters),
+      ['Program', 'Authority', 'School', 'Instructor', 'CourseManager', 'issuesLabel'],
+      'exceptions'
+    );
+    main.innerHTML = renderUnifiedScreenHeader('exceptions', 'ללא מדריך / ללא שעות / חסר Date1 (מפגש ראשון) / או סיום ביוני 2026', {
+      itemsCount: exceptionRows.length,
+      noInstructorCount: exceptionRows.filter((row) => String(row.Instructor || '').trim() === '').length,
+      missingDateCount: exceptionRows.filter((row) => String(row.issuesLabel || '').includes('חסר Date1')).length
+    }) +
       renderExceptionsFilters() +
       panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows)) +
       renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
     bindExceptionsActions();
+    bindUnifiedScreenHeader('exceptions');
     return;
   }
 
   if (currentRoute === 'finance') {
     if (!canAccessFinanceActive() && !canAccessFinanceArchive()) {
-      main.innerHTML = head('כספים', 'גישה מותנית הרשאות') + '<section class="panel-state error"><span class="panel-state-icon">⛔</span><span>אין הרשאה למסך כספים.</span></section>';
+      main.innerHTML = renderUnifiedScreenHeader('finance', 'גישה מותנית הרשאות', { itemsCount: 0, openCount: 0, closedCount: 0 }) + '<section class="panel-state error"><span class="panel-state-icon">⛔</span><span>אין הרשאה למסך כספים.</span></section>';
+      bindUnifiedScreenHeader('finance');
       return;
     }
     const canActive = canAccessFinanceActive();
     const canArchive = canAccessFinanceArchive();
     const showActive = viewState.finance.tab !== 'archive';
-    const rows = showActive ? (viewState.finance.activeItems || []) : viewState.finance.archiveItems;
+    const rows = filterBySearch(
+      showActive ? (viewState.finance.activeItems || []) : viewState.finance.archiveItems,
+      ['Program', 'Authority', 'School', 'Instructor', 'CourseManager', 'FinanceStatus', 'Payment', 'Notes'],
+      'finance'
+    );
     const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
     const dm = viewState.finance.displayMonth || '';
     const filteredFinance = (rows || []).filter((item) => financeRowInDisplayMonth(item, dm));
@@ -606,7 +790,11 @@ function renderScreen() {
       ? 'אין נתוני כספים להצגה.'
       : 'אין נתוני ארכיון להצגה כרגע.';
 
-    main.innerHTML = head('כספים', 'ניהול סל גבייה פעיל וארכיון') +
+    main.innerHTML = renderUnifiedScreenHeader('finance', 'ניהול סל גבייה פעיל וארכיון', {
+      itemsCount: filteredFinance.length,
+      openCount: financeSummary.open,
+      closedCount: financeSummary.completed
+    }) +
       `<section class="finance-toolbar">
         <div class="finance-tabs">
           ${canActive ? `<button class="btn ${showActive ? 'btn-primary' : 'btn-secondary'}" data-finance-tab="active">גבייה פעילה</button>` : ''}
@@ -722,28 +910,42 @@ function renderScreen() {
       viewState.finance.selectedMeetingsRowId = viewState.finance.selectedMeetingsRowId === id ? '' : id;
       renderScreen();
     }));
+    bindUnifiedScreenHeader('finance');
     return;
   }
 
   if (currentRoute === 'my-requests') {
-    main.innerHTML = head('הבקשות שלי', 'טיוטות, סטטוסים והערות') + panel(viewState.requests, 'אין בקשות.',
-      table(viewState.requests.data, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], canEditMasterCourses()));
+    const rows = filterBySearch(viewState.requests.data, ['CourseLabel', 'ApprovalStatus', 'ApprovalNotes', 'RequestedDataView'], 'my-requests');
+    main.innerHTML = renderUnifiedScreenHeader('my-requests', 'טיוטות, סטטוסים והערות', {
+      itemsCount: rows.length,
+      totalCount: (viewState.requests.data || []).length
+    }) + panel({ ...viewState.requests, data: rows }, 'אין בקשות.',
+      table(rows, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], canEditMasterCourses()));
+    bindUnifiedScreenHeader('my-requests');
     return;
   }
 
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') {
-    const title = currentRoute === 'approvals' ? 'אישורי בקרה ותפעול' : 'אישור סופי';
-    main.innerHTML = head(title, 'השוואה בין מקור לשינוי לפני החלטה') + panel(viewState.approvals, 'אין בקשות.',
-      table(viewState.approvals.data, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי']], false, true, currentRoute === 'final-approvals'));
+    const rows = filterBySearch(viewState.approvals.data, ['CourseLabel', 'ApprovalStatus', 'OriginalDataView', 'RequestedDataView'], currentRoute);
+    main.innerHTML = renderUnifiedScreenHeader(currentRoute, 'השוואה בין מקור לשינוי לפני החלטה', {
+      itemsCount: rows.length,
+      totalCount: (viewState.approvals.data || []).length
+    }) + panel({ ...viewState.approvals, data: rows }, 'אין בקשות.',
+      table(rows, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי']], false, true, currentRoute === 'final-approvals'));
     bindApprovalButtons();
+    bindUnifiedScreenHeader(currentRoute);
     return;
   }
 
   if (currentRoute === 'eden-view') {
     const queue = viewState.eden.data.queue || [];
     const counters = viewState.eden.data.counters || {};
-    const filteredQueue = applyEdenQueueFilters(queue);
-    main.innerHTML = head('מסך עדן', 'Source / Eden Draft עם שליטה מלאה ב-workflow') +
+    const searchFilteredQueue = filterBySearch(queue, ['CourseID', 'Origin', 'Authority', 'School', 'Instructor', 'ApprovalStatus', 'ChangeType'], 'eden-view');
+    const filteredQueue = applyEdenQueueFilters(searchFilteredQueue);
+    main.innerHTML = renderUnifiedScreenHeader('eden-view', 'Source / Eden Draft עם שליטה מלאה ב-workflow', {
+      itemsCount: filteredQueue.length,
+      totalCount: queue.length
+    }) +
     `<section class="kpi-grid">
       <article class="kpi-card"><span class="kpi-title">ממתין עדן</span><span class="kpi-value">${counters.pending_eden || 0}</span></article>
       <article class="kpi-card"><span class="kpi-title">נשמר אצל עדן</span><span class="kpi-value">${counters.eden_saved || 0}</span></article>
@@ -779,6 +981,7 @@ function renderScreen() {
       renderScreen();
     });
     bindEdenActions();
+    bindUnifiedScreenHeader('eden-view');
   }
   enforceDatePickerInputs();
   updateFilterActiveIndicators();
