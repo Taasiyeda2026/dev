@@ -96,7 +96,7 @@ const routeLabels = {
   'admin-home': 'מרכז ניהול',
   'operations-home': 'מסך תפעול ראשי',
   dashboard: 'דשבורד פעילות ארצי',
-  courses: 'קורסים',
+  courses: 'פעילויות',
   'my-requests': 'הבקשות שלי',
   approvals: 'אישורי בקרה ותפעול',
   'eden-view': 'מסך עדן',
@@ -168,7 +168,7 @@ const ROUTE_CAPABILITY_MAP = {
 
 const MENU_ROUTE_ORDER = [
   'admin-home', 'operations-home', 'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
-  'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
+  'contacts', 'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
 ];
 
 const COURSES_SCREEN_CONFIG = {
@@ -3662,11 +3662,14 @@ async function loadDashboard() {
       initEnginePromise || reloadCourses(false)
     ]);
     if (!dashboardRes?.success) return dashboardRes;
-    const courses = getCoursesForUser(userState, {})
+    const allActivityCourses = getCoursesForUser(userState, {})
       .filter(isCourseActivity)
-      .filter(isCourseShownOnCoursesScreen)
-      .filter((row) => !isCourseCompleted(row));
-    return { success: true, data: withOperationalMetrics(dashboardRes.data || {}, courses) };
+      .filter(isCourseShownOnCoursesScreen);
+    const courses = allActivityCourses.filter((row) => !isCourseCompleted(row));
+    return {
+      success: true,
+      data: withOperationalMetrics(dashboardRes.data || {}, courses, { endingCourses: allActivityCourses })
+    };
   }, null, 'לא ניתן לטעון דשבורד.');
 }
 async function loadCourses(options = {}) {
@@ -4009,7 +4012,8 @@ function statusClass(status) { return `status-${String(status || '').toLowerCase
 function esc(v) { return String(v || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function escAttr(v) { return esc(v).replace(/"/g, '&quot;'); }
 
-function withOperationalMetrics(baseData, courses) {
+function withOperationalMetrics(baseData, courses, options = {}) {
+  const endingCourses = Array.isArray(options.endingCourses) ? options.endingCourses : courses;
   const now = new Date();
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -4021,9 +4025,10 @@ function withOperationalMetrics(baseData, courses) {
   const requiresTreatmentByManager = {};
   managers.forEach((managerName) => {
     const managerCourses = courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
+    const managerEndingCourses = endingCourses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
     const managerActiveCourses = managerCourses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
     instructorsByManager[managerName] = new Set(managerCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size;
-    endingByManager[managerName] = managerCourses.filter((row) => {
+    endingByManager[managerName] = managerEndingCourses.filter((row) => {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
       return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
     }).length;
@@ -4035,7 +4040,7 @@ function withOperationalMetrics(baseData, courses) {
     ...baseData,
     totalCoursesCount: courses.length,
     workshopsCount: courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה')).length,
-    endingCurrentMonthCount: courses.filter((row) => {
+    endingCurrentMonthCount: endingCourses.filter((row) => {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
       return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
     }).length,
