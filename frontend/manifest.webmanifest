@@ -11,7 +11,20 @@
   "display_override": ["standalone", "minimal-ui", "browser"],
   "theme_color": "#003A99",
   "background_color": "#F5F7FB",
+  "categories": ["productivity", "business"],
   "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "דשבורד",
+      "short_name": "דשבורד",
+      "url": "./#dashboard"
+    },
+    {
+      "name": "קורסים",
+      "short_name": "קורסים",
+      "url": "./#courses"
+    }
+  ],
   "icons": [
     { "src": "./assets/pwa/icon-72.png", "sizes": "72x72", "type": "image/png" },
     { "src": "./assets/pwa/icon-96.png", "sizes": "96x96", "type": "image/png" },
