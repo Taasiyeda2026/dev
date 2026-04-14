@@ -1,13 +1,16 @@
 export const TAASIYEDA_DATA_CONTRACTS = {
   sheets: {
-    DATA_MASTER: 'DATA_MASTER',
-    COURSE_MEETINGS: 'COURSE_MEETINGS',
-    EDIT_REQUESTS: 'EDIT_REQUESTS',
+    DATA_MASTER: 'data',
+    COURSE_MEETINGS: 'operations_data',
+    EDIT_REQUESTS: 'operations_data',
+    OPERATIONS_DATA: 'operations_data',
     PERMISSIONS: 'permissions',
-    FINANCE: 'DATA_MASTER',
-    FINANCE_ARCHIVE: 'DATA_MASTER',
+    FINANCE: 'data',
+    FINANCE_ARCHIVE: 'data',
     LISTS: 'lists',
-    PROGRAM_CODES: 'PROGRAM_CODES'
+    PROGRAM_CODES: 'lists',
+    SETTINGS: 'settings',
+    CONTACTS: 'contacts'
   },
   fields: {
     course: {
@@ -33,7 +36,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       REVIEW_NOTES: 'ReviewNotes',
       REVIEW_HANDLED_BY: 'ReviewHandledBy',
       REVIEW_HANDLED_AT: 'ReviewHandledAt',
-      DATE_FIELDS: Array.from({ length: 30 }, (_, index) => `Date${index + 1}`)
+      DATE_FIELDS: Array.from({ length: 35 }, (_, index) => `Date${index + 1}`)
     },
     exception: {
       REVIEW_ID: 'ReviewID',
@@ -76,11 +79,8 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       CAN_EDIT_FINANCE_ARCHIVE: 'CanEditFinanceArchive'
     }
   },
-  // הנחה: חריגה נחשבת כ"טופלה" אם שדה Status/TreatmentStatus/Notes כולל אחד מהסימנים הבאים.
   resolvedMarkers: ['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'],
-  // הנחה: דחייה מזוהה דרך Notes או REVIEW_REQUIRED עם אחת מהמילים הבאות.
   delayKeywords: ['נדחה', 'דחוי', 'delay', 'postpone', 'postponed'],
-  // הנחה: תאריך מקורי/חדש מזוהים מהתבנית "מ-dd/MM/yyyy ל-dd/MM/yyyy" בתוך Notes.
   delayRangePattern: /מ[-\\s]*(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4})\\s*ל[-\\s]*(\\d{1,2}[\\/.-]\\d{1,2}[\\/.-]\\d{2,4})/i,
   weekdays: [0, 1, 2, 3, 4, 5, 6]
 };

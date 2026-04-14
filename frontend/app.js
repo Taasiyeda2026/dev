@@ -139,7 +139,7 @@ const ROUTE_UI_SCALES = {
 
 const COURSES_SCREEN_CONFIG = {
   progress: { successRatio: 0.9, warningRatio: 0.6 },
-  meetingFields: { start: 1, end: 30, fallbackEndField: COURSE_FIELDS.END }
+  meetingFields: { start: 1, end: 35, fallbackEndField: COURSE_FIELDS.END }
 };
 
 const TAASIYEDA_CONFIG = TAASIYEDA_DATA_CONTRACTS;
@@ -862,7 +862,7 @@ function renderScreen() {
     document.querySelectorAll('[data-finance-status]').forEach((select) => select.addEventListener('change', async (event) => {
       const financeRowId = event.target.dataset.financeRowId || '';
       const status = event.target.value || '';
-      const sheetName = event.target.dataset.financeSheet || 'DATA_MASTER';
+      const sheetName = event.target.dataset.financeSheet || TAASIYEDA_CONFIG.sheets.DATA_MASTER;
       const result = await updateFinanceStatus(financeRowId, status, { sheetName });
       if (!result?.success) {
         showToast(result?.message || 'עדכון סטטוס נכשל.', 'error');
@@ -887,7 +887,7 @@ function renderScreen() {
         return;
       }
       const result = await updateFinanceStatus(financeRowId, status, {
-        sheetName: 'DATA_MASTER',
+        sheetName: TAASIYEDA_CONFIG.sheets.DATA_MASTER,
         statusNote
       });
       if (!result?.success) {
@@ -1183,7 +1183,7 @@ function financeRowInDisplayMonth(item, displayMonth) {
 }
 
 function renderFinanceMeetingsRow(item, colSpan) {
-  const dates = Array.from({ length: 30 }, (_, i) => {
+  const dates = Array.from({ length: 35 }, (_, i) => {
     const val = item?.[`Date${i + 1}`];
     return val ? { num: i + 1, date: formatDate(parseDateLike(val)) || String(val) } : null;
   }).filter(Boolean);
@@ -1222,7 +1222,7 @@ function renderFinanceTable(rows, options = {}) {
   function renderRow(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'open');
-    const sourceSheet = 'DATA_MASTER';
+    const sourceSheet = TAASIYEDA_CONFIG.sheets.DATA_MASTER;
     const bucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
@@ -1304,12 +1304,12 @@ function renderFinanceCards(rows, options = {}) {
   function renderCard(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'open');
-    const sourceSheet = 'DATA_MASTER';
+    const sourceSheet = TAASIYEDA_CONFIG.sheets.DATA_MASTER;
     const statusBucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
     const authLine = String(item?.Authority || '').trim() || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const datesLine = Array.from({ length: 30 }, (_, i) => item?.[`Date${i + 1}`]).map((v) => formatDate(parseDateLike(v)) || '').filter(Boolean).join(', ');
+    const datesLine = Array.from({ length: 35 }, (_, i) => item?.[`Date${i + 1}`]).map((v) => formatDate(parseDateLike(v)) || '').filter(Boolean).join(', ');
     const notes = String(item?.FinanceNotes || '').trim();
     const fundingHeb = hebrifyValue(item?.Funding);
     const payerHeb = hebrifyValue(item?.Payer);
@@ -1515,7 +1515,7 @@ function renderCourseCards(rows, options = {}) {
 
 function renderCourseInlineDetails(row) {
   const planned = Math.max(0, Number(row[COURSE_FIELDS.PLANNED_MEETINGS] || 0));
-  const dateDates = Array.from({ length: 30 }, (_, i) => {
+  const dateDates = Array.from({ length: 35 }, (_, i) => {
     const v = row[`Date${i + 1}`];
     return v ? parseDateLike(v) : null;
   });
@@ -2339,7 +2339,7 @@ function openMeetingChangeModal({ meetingNumber, initialDate }) {
 
 function openCourseActionForm(course, mode) {
   return new Promise((resolve) => {
-    const planned = Math.max(1, Math.min(30, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
+    const planned = Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
     const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
       const n = i + 1;
       const rawVal = course[`Date${n}`];

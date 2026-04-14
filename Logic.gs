@@ -118,19 +118,19 @@ var Logic = (function () {
         displayName: Utils.normalize(valueAt_(primary, idx.employeeName)),
         EmployeeName: Utils.normalize(valueAt_(primary, idx.employeeName)),
         SystemRole: primaryRole,
-        DisplayRole: Utils.normalize(valueAt_(primary, idx.displayRole)),
+        DisplayRole: Utils.normalize(valueAt_(primary, idx.displayRole)) || Utils.normalize(valueAt_(primary, idx.systemRole)),
         ViewScope: scopeJoin(idx.viewScope),
         EditScope: scopeJoin(idx.editScope),
         actionMode: Utils.normalize(valueAt_(primary, idx.editScope)),
-        ApprovalScope: scopeJoin(idx.approvalScope),
+        ApprovalScope: scopeJoin(idx.approvalScope) || primaryRole,
         UiProfile: Utils.normalize(valueAt_(primary, idx.uiProfile)),
         TeamScope: scopeJoin(idx.teamScope),
         InstructorManager: scopeJoin(idx.instructorManager),
         ActiveFlag: Utils.normalize(valueAt_(primary, idx.activeFlag)),
         CanAccessFinance: anyTrueInRows_(rows, idx.canAccessFinance),
         CanEditFinance: anyTrueInRows_(rows, idx.canEditFinance),
-        CanAccessFinanceArchive: anyTrueInRows_(rows, idx.canAccessFinanceArchive),
-        CanEditFinanceArchive: anyTrueInRows_(rows, idx.canEditFinanceArchive),
+        CanAccessFinanceArchive: false,
+        CanEditFinanceArchive: false,
         PermissionRows: rows.length
       };
   }
@@ -225,7 +225,7 @@ var Logic = (function () {
       }
 
       var dynamicDateFields = table.headers.filter(function (header) {
-        return /^Date([1-9]|[12][0-9]|30)$/.test(Utils.normalize(header));
+        return /^Date([1-9]|[12][0-9]|3[0-5])$/.test(Utils.normalize(header));
       }).sort(function (a, b) {
         return Number(String(a).replace('Date', '')) - Number(String(b).replace('Date', ''));
       });
@@ -1093,7 +1093,7 @@ var Logic = (function () {
     var idxEndDate = Utils.resolveIndex(headers, ['End']);
     var dateIndexes = [];
     headers.forEach(function (header, index) {
-      if (/^Date([1-9]|[12][0-9]|30)$/.test(Utils.normalize(header))) dateIndexes.push(index);
+      if (/^Date([1-9]|[12][0-9]|3[0-5])$/.test(Utils.normalize(header))) dateIndexes.push(index);
     });
     var today = new Date();
     var dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -1644,7 +1644,7 @@ var Logic = (function () {
     var idxEndTime = Utils.resolveIndex(table.headers, ['EndTime']);
     var idxStatus = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
     var created = [];
-    for (var meetingNumber = 1; meetingNumber <= 30; meetingNumber += 1) {
+    for (var meetingNumber = 1; meetingNumber <= 35; meetingNumber += 1) {
       var idxDate = Utils.resolveIndex(table.headers, ['Date' + meetingNumber]);
       if (idxDate === -1) continue;
       var dateValue = asDate_(valueAt_(match, idxDate));
@@ -1717,7 +1717,7 @@ var Logic = (function () {
     var updated = dmTable.rows[rowIndex].slice();
     var oldMonthEnd = Utils.normalize(valueAt_(updated, Utils.resolveIndex(dmTable.headers, ['MonthEnd'])));
     var lastMeetingDate = null;
-    for (var n = 1; n <= 30; n += 1) {
+    for (var n = 1; n <= 35; n += 1) {
       var idxDate = Utils.resolveIndex(dmTable.headers, ['Date' + n]);
       if (idxDate === -1) continue;
       var entry = meetings.find(function (meetingRow) {
@@ -1905,20 +1905,20 @@ var Logic = (function () {
 
   function resolvePermissionIndexes_(headers) {
     return {
-      employeeId: Utils.resolveIndex(headers, CONFIG.FIELDS.EMPLOYEE_ID),
-      entryCode: Utils.resolveIndex(headers, CONFIG.FIELDS.ENTRY_CODE),
-      employeeName: Utils.resolveIndex(headers, ['EmployeeName']),
-      systemRole: Utils.resolveIndex(headers, ['SystemRole']),
-      displayRole: Utils.resolveIndex(headers, ['DisplayRole']),
+      employeeId: Utils.resolveIndex(headers, ['EmployeeID', 'emp_id']),
+      entryCode: Utils.resolveIndex(headers, ['EntryCode', 'code']),
+      employeeName: Utils.resolveIndex(headers, ['EmployeeName', 'name']),
+      systemRole: Utils.resolveIndex(headers, ['SystemRole', 'role']),
+      displayRole: Utils.resolveIndex(headers, ['DisplayRole', 'SystemRole', 'role']),
       viewScope: Utils.resolveIndex(headers, ['ViewScope']),
-      editScope: Utils.resolveIndex(headers, ['EditScope']),
-      approvalScope: Utils.resolveIndex(headers, ['ApprovalScope']),
-      uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
+      editScope: Utils.resolveIndex(headers, ['EditScope', 'action_language']),
+      approvalScope: Utils.resolveIndex(headers, ['ApprovalScope', 'SystemRole', 'role']),
+      uiProfile: Utils.resolveIndex(headers, ['UiProfile', 'default_view']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
-      instructorManager: Utils.resolveIndex(headers, ['InstructorManager']),
-      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag']),
-      canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance']),
-      canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance']),
+      instructorManager: Utils.resolveIndex(headers, ['InstructorManager', 'manager']),
+      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag', 'active']),
+      canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance', 'view_finance']),
+      canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance', 'edit_finance']),
       canAccessFinanceArchive: Utils.resolveIndex(headers, ['CanAccessFinanceArchive']),
       canEditFinanceArchive: Utils.resolveIndex(headers, ['CanEditFinanceArchive'])
     };
@@ -2177,12 +2177,12 @@ var Logic = (function () {
   }
 
   function collectDateFieldValues_(headers, row) {
-    var values = new Array(30).fill('');
+    var values = new Array(35).fill('');
     (headers || []).forEach(function (header, index) {
-      var match = /^Date([1-9]|[12][0-9]|30)$/.exec(Utils.normalize(header));
+      var match = /^Date([1-9]|[12][0-9]|3[0-5])$/.exec(Utils.normalize(header));
       if (!match) return;
       var position = Number(match[1]) - 1;
-      if (position < 0 || position >= 30) return;
+      if (position < 0 || position >= 35) return;
       values[position] = valueAt_(row, index);
     });
     return values;
@@ -2273,7 +2273,7 @@ var Logic = (function () {
       FinanceStatus: financeStatus,
       FinanceNotes: group.notes
     };
-    for (var i = 1; i <= 30; i += 1) record['Date' + i] = group.dateValues[i - 1] || '';
+    for (var i = 1; i <= 35; i += 1) record['Date' + i] = group.dateValues[i - 1] || '';
 
     return headers.map(function (header) {
       return record.hasOwnProperty(header) ? record[header] : '';
