@@ -509,6 +509,18 @@ function financeMeetingDateRaw(row, field) {
   return m ? row?.[`Date${m[1]}`] : '';
 }
 
+function isEndedUntilToday(row = {}) {
+  const now = new Date();
+  const todayTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+  const endRaw = row?.end_date || row?.End || '';
+  const endDate = endRaw ? new Date(endRaw) : null;
+  const status = String(row?.status || row?.WorkflowStatus || '').trim().toLowerCase();
+  const statusEnded = ['ended', 'completed', 'closed', 'הסתיים', 'הושלם', 'סגור'].some((marker) => status.includes(marker));
+  if (endDate && Number.isFinite(endDate.getTime())) return endDate.getTime() <= todayTs;
+  if (statusEnded) return true;
+  return false;
+}
+
 export async function loadFinanceItems(force = false) {
   if (!force && dataStore.finance.length) return dataStore.finance;
   let rows;
@@ -517,11 +529,7 @@ export async function loadFinanceItems(force = false) {
   } else {
     rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
   }
-  dataStore.finance = (rows || []).filter((row) => {
-    const status = String(row?.status || row?.WorkflowStatus || '').trim().toLowerCase();
-    const end = String(row?.end_date || row?.End || '').trim();
-    return status === 'ended' && !!end;
-  }).map((row) => ({
+  dataStore.finance = (rows || []).filter((row) => isEndedUntilToday(row)).map((row) => ({
     ...row,
     FinanceRowID: String(row?.RowID || row?.CourseID || row?._rowNumber || ''),
     FinanceStatus: String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase(),
@@ -538,6 +546,10 @@ export async function loadFinanceItems(force = false) {
     End: row?.end_date || row?.End || '',
     Payment: row?.price || row?.Payment || '',
     Payer: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן' ? (row?.school || row?.School || '') : (row?.funding || row?.Funding || ''),
+    FinanceGroupKey: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן'
+      ? String(row?.school || row?.School || '').trim()
+      : String(row?.funding || row?.Funding || '').trim(),
+    FinanceGroupType: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן' ? 'school' : 'funding',
     DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => (
       String(financeMeetingDateRaw(row, field) || '').trim() ? count + 1 : count
     ), 0)
