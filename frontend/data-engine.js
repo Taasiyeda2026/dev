@@ -55,6 +55,19 @@ function toNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+
+function extractCapabilities(raw = {}) {
+  return Object.keys(raw).reduce((acc, key) => {
+    if (!/^view_|^edit_/.test(String(key))) return acc;
+    acc[String(key)] = toBool(raw[key]);
+    return acc;
+  }, {});
+}
+
+function listEnabledCapabilities(capabilities = {}, prefix = 'view_') {
+  return Object.keys(capabilities).filter((key) => key.startsWith(prefix) && capabilities[key]);
+}
+
 function normalizePermissionScope(raw = {}) {
   const viewFlags = Object.keys(raw).filter((k) => k.startsWith('view_') && toBool(raw[k]));
   const editFlags = Object.keys(raw).filter((k) => k.startsWith('edit_') && toBool(raw[k]));
@@ -84,6 +97,7 @@ function parseRowsToObjects(sheetName, rows = []) {
 
 function mapPermissionRow(raw = {}) {
   const scopes = normalizePermissionScope(raw);
+  const capabilities = extractCapabilities(raw);
   const displayRole = String(raw[PERMISSION_FIELDS.DISPLAY_ROLE] || raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim();
   return {
     employeeName: String(raw[PERMISSION_FIELDS.EMPLOYEE_NAME] || '').trim(),
@@ -91,17 +105,20 @@ function mapPermissionRow(raw = {}) {
     entryCode: String(raw[PERMISSION_FIELDS.ENTRY_CODE] || '').trim(),
     systemRole: String(raw[PERMISSION_FIELDS.SYSTEM_ROLE] || '').trim(),
     displayRole,
-    viewScope: scopes.viewScope,
-    editScope: scopes.editScope,
+    viewScope: listEnabledCapabilities(capabilities, 'view_').join(',' ) || scopes.viewScope,
+    editScope: listEnabledCapabilities(capabilities, 'edit_').join(',' ) || scopes.editScope,
     approvalScope: scopes.approvalScope,
-    uiProfile: String(raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
+    uiProfile: String(raw[PERMISSION_FIELDS.DEFAULT_VIEW] || raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
+    defaultView: String(raw[PERMISSION_FIELDS.DEFAULT_VIEW] || raw[PERMISSION_FIELDS.UI_PROFILE] || '').trim(),
     teamScope: String(raw[PERMISSION_FIELDS.TEAM_SCOPE] || '').trim(),
     instructorManager: String(raw[PERMISSION_FIELDS.INSTRUCTOR_MANAGER] || '').trim(),
     activeFlag: toBool(raw[PERMISSION_FIELDS.ACTIVE_FLAG]),
-    canAccessFinance: toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE]),
-    canEditFinance: toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE]),
+    canAccessFinance: Boolean(capabilities.view_finance || toBool(raw[PERMISSION_FIELDS.CAN_ACCESS_FINANCE])),
+    canEditFinance: Boolean(capabilities.edit_finance || toBool(raw[PERMISSION_FIELDS.CAN_EDIT_FINANCE])),
     canAccessFinanceArchive: false,
     canEditFinanceArchive: false,
+    capabilities,
+    allowedViews: listEnabledCapabilities(capabilities, 'view_'),
     raw
   };
 }
@@ -221,13 +238,16 @@ export async function loadPermissions(userState = {}) {
       viewScope: String(userState.ViewScope || '').trim(),
       editScope: String(userState.EditScope || '').trim(),
       approvalScope: String(userState.ApprovalScope || '').trim(),
-      uiProfile: String(userState.UiProfile || '').trim(),
+      uiProfile: String(userState.DefaultView || userState.UiProfile || '').trim(),
+      defaultView: String(userState.DefaultView || userState.UiProfile || '').trim(),
       teamScope: String(userState.TeamScope || '').trim(),
       instructorManager: String(userState.InstructorManager || '').trim(),
-      canAccessFinance: false,
-      canEditFinance: false,
+      canAccessFinance: Boolean(userState?.Capabilities?.view_finance),
+      canEditFinance: Boolean(userState?.Capabilities?.edit_finance),
       canAccessFinanceArchive: false,
       canEditFinanceArchive: false,
+      capabilities: (userState?.Capabilities && typeof userState.Capabilities === 'object') ? { ...userState.Capabilities } : {},
+      allowedViews: Array.isArray(userState?.AllowedViews) ? [...userState.AllowedViews] : [],
       raw: userState
     }];
   }

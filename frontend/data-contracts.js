@@ -70,6 +70,7 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       EDIT_SCOPE: 'EditScope',
       APPROVAL_SCOPE: 'ApprovalScope',
       UI_PROFILE: 'UiProfile',
+      DEFAULT_VIEW: 'default_view',
       TEAM_SCOPE: 'TeamScope',
       INSTRUCTOR_MANAGER: 'InstructorManager',
       ACTIVE_FLAG: 'ActiveFlag',
