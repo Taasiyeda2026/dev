@@ -2965,7 +2965,7 @@ function openContactEditForm(contact = {}) {
     root.className = 'course-form-modal';
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
-      <div class="course-form-card">
+      <div class="course-form-card contact-form-card">
         <h3>עריכת איש קשר</h3>
         <label>תפקיד<input id="contactRole" value="${escAttr(contact.role || '')}" /></label>
         <label>שם<input id="contactName" value="${escAttr(contact.name || '')}" /></label>
