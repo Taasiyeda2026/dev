@@ -12,12 +12,12 @@ function doPost(e) {
   var action = '';
   var payload = {};
 
-  // נסה URLSearchParams קודם (זה מה שה-frontend שולח)
+  // Try URLSearchParams first (what the frontend sends)
   var params = e && e.parameter ? e.parameter : {};
   action = Utils.normalize(params.action || '');
   payload = buildPayloadFromParams_(params);
 
-  // אם לא נמצא action ב-params — נסה JSON body (גיבוי לשימוש עתידי)
+  // If no action found in params — try JSON body (future use)
   if (!action) {
     try {
       var body = e && e.postData && e.postData.contents ? JSON.parse(e.postData.contents) : {};
@@ -26,7 +26,7 @@ function doPost(e) {
         payload = Utils.asObject(body.payload, {});
       }
     } catch (err) {
-      // לא JSON תקני — ממשיכים עם מה שיש
+      // Not valid JSON — continue with what we have
     }
   }
 
@@ -73,51 +73,105 @@ function setByPath_(target, segments, value) {
 }
 
 function routeAction_(action, payload) {
-  if (action === 'loginAction') return loginAction(payload.userId, payload.code);
-  if (action === 'logoutAction') return logoutAction();
-  if (action === 'getSessionProfileAction') return getSessionProfileAction();
-  if (action === 'getDashboardDataAction') return getDashboardDataAction();
-  if (action === 'getMyCoursesDataAction') return getMyCoursesDataAction(payload);
-  if (action === 'submitEditRequestAction') return submitEditRequestAction(payload);
-  if (action === 'getMyRequestsDataAction') return getMyRequestsDataAction(payload);
-  if (action === 'getApprovalsDataAction') return getApprovalsDataAction(payload);
-  if (action === 'getEdenViewDataAction') return getEdenViewDataAction(payload);
-  if (action === 'approveRequestAction') return approveRequestAction(payload);
-  if (action === 'rejectRequestAction') return rejectRequestAction(payload);
-  if (action === 'getSheetRows') return getSheetRowsAction(payload);
-  if (action === 'updateCourse') return updateCourseAction(payload);
-  if (action === 'getCourseMeetingsAction') return getCourseMeetingsAction(payload);
+  // ── Auth ────────────────────────────────────────────────────────────────────────────
+  if (action === 'loginAction')              return loginAction(payload.userId, payload.code);
+  if (action === 'logoutAction')             return logoutAction();
+  if (action === 'getSessionProfileAction')  return getSessionProfileAction();
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────────────────
+  if (action === 'getDashboardDataAction')   return getDashboardDataAction();
+
+  // ── Activities (data sheet) ───────────────────────────────────────────────────────────
+  if (action === 'getMyCoursesDataAction')   return getMyCoursesDataAction(payload);
+  if (action === 'getSheetRows')             return getSheetRowsAction(payload);
+  if (action === 'updateCourse')             return updateCourseAction(payload);
+  if (action === 'createDataMasterRecordAction') return createDataMasterRecordAction(payload);
+
+  // ── Operations / requests ──────────────────────────────────────────────────────────────
+  if (action === 'submitEditRequestAction')  return submitEditRequestAction(payload);
+  if (action === 'getMyRequestsDataAction')  return getMyRequestsDataAction(payload);
+  if (action === 'getApprovalsDataAction')   return getApprovalsDataAction(payload);
+  if (action === 'getEdenViewDataAction')    return getEdenViewDataAction(payload);
+  if (action === 'approveRequestAction')     return approveRequestAction(payload);
+  if (action === 'rejectRequestAction')      return rejectRequestAction(payload);
+  if (action === 'createEditRequest')        return createEditRequestAction(payload);
+
+  // ── Meetings ────────────────────────────────────────────────────────────────────────────
+  if (action === 'getCourseMeetingsAction')  return getCourseMeetingsAction(payload);
   if (action === 'updateCourseMeetingAction') return updateCourseMeetingAction(payload);
-  if (action === 'createEditRequest') return createEditRequestAction(payload);
-  if (action === 'getFinanceDataAction') return getFinanceDataAction(payload);
+
+  // ── Finance ───────────────────────────────────────────────────────────────────────────
+  if (action === 'getFinanceDataAction')     return getFinanceDataAction(payload);
   if (action === 'getFinanceArchiveDataAction') return getFinanceArchiveDataAction(payload);
   if (action === 'updateFinanceStatusAction') return updateFinanceStatusAction(payload);
-  if (action === 'syncFinanceAction') return syncFinanceAction(payload);
-  if (action === 'createDataMasterRecordAction') return createDataMasterRecordAction(payload);
+  if (action === 'syncFinanceAction')        return syncFinanceAction(payload);
+
+  // ── Contacts ────────────────────────────────────────────────────────────────────────
+  if (action === 'getContactsDataAction')    return getContactsDataAction(payload);
+
+  // ── Lists ────────────────────────────────────────────────────────────────────────────
+  if (action === 'getAllListsAction')         return getAllListsAction(payload);
+  if (action === 'getListByNameAction')       return getListByNameAction(payload);
+
+  // ── Settings ──────────────────────────────────────────────────────────────────────────
+  if (action === 'getAllSettingsAction')      return getAllSettingsAction(payload);
+  if (action === 'getSettingAction')          return getSettingAction(payload);
+
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 
-function loginAction(userId, code) { return Logic.login(userId, code); }
-function logoutAction() { return Logic.logout(); }
-function getSessionProfileAction() { return Logic.getSessionProfile(); }
-function getDashboardDataAction() { return Logic.getDashboardData(); }
-function getMyCoursesDataAction(filters) { return Logic.getMyCoursesData(filters || {}); }
-function submitEditRequestAction(payload) { return Logic.submitEditRequest(payload || {}); }
-function getMyRequestsDataAction(payload) { return Logic.getMyRequestsData(payload || {}); }
-function getApprovalsDataAction(payload) { return Logic.getApprovalsData(payload || {}); }
-function getEdenViewDataAction(payload) { return Logic.getEdenViewData(payload || {}); }
-function approveRequestAction(payload) { return Logic.approveRequest(payload || {}); }
-function rejectRequestAction(payload) { return Logic.rejectRequest(payload || {}); }
-function getSheetRowsAction(payload) { return Logic.getSheetRows(payload || {}); }
-function updateCourseAction(payload) { return Logic.updateCourse(payload || {}); }
-function getCourseMeetingsAction(payload) { return Logic.getCourseMeetings(payload || {}); }
-function updateCourseMeetingAction(payload) { return Logic.updateCourseMeeting(payload || {}); }
-function createEditRequestAction(payload) { return Logic.createEditRequest(payload || {}); }
-function getFinanceDataAction(payload) { return Logic.getFinanceData(payload || {}); }
-function getFinanceArchiveDataAction(payload) { return Logic.getFinanceArchiveData(payload || {}); }
-function updateFinanceStatusAction(payload) { return Logic.updateFinanceStatus(payload || {}); }
-function syncFinanceAction(payload) { return Logic.syncFinance(payload || {}); }
-function createDataMasterRecordAction(payload) { return Logic.createDataMasterRecord(payload || {}); }
+// ── Auth ──────────────────────────────────────────────────────────────────────────────────
+// Auth
+function loginAction(userId, code)     { return Logic.login(userId, code); }
+function logoutAction()                { return Logic.logout(); }
+function getSessionProfileAction()     { return Logic.getSessionProfile(); }
+
+// ── Dashboard ───────────────────────────────────────────────────────────────────────────────
+// Dashboard
+function getDashboardDataAction()      { return Logic.getDashboardData(); }
+
+// ── Activities ────────────────────────────────────────────────────────────────────────────────
+// Activities
+function getMyCoursesDataAction(f)     { return Logic.getMyCoursesData(f || {}); }
+function getSheetRowsAction(p)         { return Logic.getSheetRows(p || {}); }
+function updateCourseAction(p)         { return Logic.updateCourse(p || {}); }
+function createDataMasterRecordAction(p){ return Logic.createDataMasterRecord(p || {}); }
+
+// ── Operations / requests ───────────────────────────────────────────────────────────────────
+// Operations / requests
+function submitEditRequestAction(p)    { return Logic.submitEditRequest(p || {}); }
+function getMyRequestsDataAction(p)    { return Logic.getMyRequestsData(p || {}); }
+function getApprovalsDataAction(p)     { return Logic.getApprovalsData(p || {}); }
+function getEdenViewDataAction(p)      { return Logic.getEdenViewData(p || {}); }
+function approveRequestAction(p)       { return Logic.approveRequest(p || {}); }
+function rejectRequestAction(p)        { return Logic.rejectRequest(p || {}); }
+function createEditRequestAction(p)    { return Logic.createEditRequest(p || {}); }
+
+// ── Meetings ───────────────────────────────────────────────────────────────────────────────
+// Meetings
+function getCourseMeetingsAction(p)    { return Logic.getCourseMeetings(p || {}); }
+function updateCourseMeetingAction(p)  { return Logic.updateCourseMeeting(p || {}); }
+
+// ── Finance ───────────────────────────────────────────────────────────────────────────────
+// Finance
+function getFinanceDataAction(p)       { return Logic.getFinanceData(p || {}); }
+function getFinanceArchiveDataAction(p){ return Logic.getFinanceArchiveData(p || {}); }
+function updateFinanceStatusAction(p)  { return Logic.updateFinanceStatus(p || {}); }
+function syncFinanceAction(p)          { return Logic.syncFinance(p || {}); }
+
+// ── Contacts ─────────────────────────────────────────────────────────────────────────────
+// Contacts
+function getContactsDataAction(p)      { return Logic.getContactsData(p || {}); }
+
+// ── Lists ────────────────────────────────────────────────────────────────────────────────
+// Lists
+function getAllListsAction(p)           { return Logic.getAllLists(p || {}); }
+function getListByNameAction(p)        { return Logic.getListByName((p || {}).listName || ''); }
+
+// ── Settings ──────────────────────────────────────────────────────────────────────────────
+// Settings
+function getAllSettingsAction(p)        { return Logic.getAllSettings(p || {}); }
+function getSettingAction(p)           { return { success: true, value: Logic.getSetting((p || {}).key, (p || {}).fallback) }; }
 
 
 function onOpen() {
@@ -125,4 +179,8 @@ function onOpen() {
     .createMenu('תחזוקה')
     .addItem('רענון FINANCE', 'rebuildFinanceSheet')
     .addToUi();
+}
+
+function rebuildFinanceSheet() {
+  return Logic.rebuildFinanceSheet();
 }
