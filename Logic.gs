@@ -1199,6 +1199,10 @@ var Logic = (function () {
 
   function canCreateRequest_(user) {
     var mode = Utils.toKey(user.actionMode || user.EditScope);
+    var hasCapability = hasCapability_(user, 'edit_edit_requests')
+      || hasCapability_(user, 'edit_activities')
+      || hasCapability_(user, 'edit_admin');
+    if (hasCapability) return true;
     if (mode === 'no_edit') return false;
     return mode === 'request_edit' || mode === 'edit' || !isInstructor_(user);
   }
@@ -1770,18 +1774,28 @@ var Logic = (function () {
     var role = Utils.toKey(user.SystemRole);
     var editScope = Utils.toKey(user.EditScope);
     var approvalScope = Utils.toKey(user.ApprovalScope);
+    var canEditAdmin = hasCapability_(user, 'edit_admin');
+    var canEditActivities = hasCapability_(user, 'edit_activities');
+    var canEditOperations = hasCapability_(user, 'edit_operations_data');
+    var canEditExceptions = hasCapability_(user, 'edit_exceptions');
+    var canEditRequests = hasCapability_(user, 'edit_edit_requests');
     var allowed = false;
 
     if (actionType === WRITE_ACTIONS.UPDATE_COURSE || actionType === WRITE_ACTIONS.UPDATE_MEETINGS) {
-      allowed = role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager' || editScope === 'all' || editScope === 'full';
+      allowed = canEditAdmin || canEditActivities || canEditOperations
+        || role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager'
+        || editScope === 'all' || editScope === 'full';
     } else if (actionType === WRITE_ACTIONS.CREATE_MASTER_RECORD) {
-      allowed = role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager' || editScope === 'all' || editScope === 'full';
+      allowed = canEditAdmin || canEditActivities || canEditOperations
+        || role === 'admin' || role === 'idan_main_admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager'
+        || editScope === 'all' || editScope === 'full';
     } else if (actionType === WRITE_ACTIONS.CREATE_EDIT_REQUEST) {
-      allowed = role !== 'instructor';
+      allowed = canEditRequests || canEditActivities || canEditAdmin || role !== 'instructor';
     } else if (actionType === WRITE_ACTIONS.APPROVAL_DECISION) {
-      allowed = role === 'admin' || role === 'admin-ops' || approvalScope === 'all' || approvalScope === 'full';
+      allowed = canEditOperations || canEditAdmin || role === 'admin' || role === 'admin-ops' || approvalScope === 'all' || approvalScope === 'full';
     } else if (actionType === WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED) {
-      allowed = role === 'admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
+      allowed = canEditExceptions || canEditOperations || canEditAdmin
+        || role === 'admin' || role === 'admin-ops' || role === 'manager-lead' || role === 'manager';
     } else if (actionType === WRITE_ACTIONS.FINANCE_SYNC || actionType === WRITE_ACTIONS.FINANCE_UPDATE) {
       requireFinanceAccess_(user, { archive: false, requireEdit: true });
       allowed = true;
@@ -1792,10 +1806,17 @@ var Logic = (function () {
 
     if (!allowed) throw new Error('unauthorized_write_' + actionType);
     if ((actionType === WRITE_ACTIONS.UPDATE_COURSE || actionType === WRITE_ACTIONS.UPDATE_MEETINGS)
-      && !canEditCourseByRole_(user, context && context.courseId, context && context.team)) {
+      && !canEditCourseByRole_(user, context && context.courseId, context && context.team)
+      && !canEditAdmin && !canEditActivities && !canEditOperations) {
       throw new Error('unauthorized_scope_' + actionType);
     }
     return true;
+  }
+
+  function hasCapability_(user, key) {
+    if (!user || Utils.isEmpty(key)) return false;
+    var caps = Utils.asObject(user.Capabilities, {});
+    return isTrueFlag_(caps[key]);
   }
 
   function requireFinanceAccess_(user, options) {
