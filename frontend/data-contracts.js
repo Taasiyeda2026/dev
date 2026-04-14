@@ -1,7 +1,6 @@
 export const TAASIYEDA_DATA_CONTRACTS = {
   sheets: {
     DATA_MASTER: 'data',
-    COURSE_MEETINGS: 'operations_data',
     EDIT_REQUESTS: 'operations_data',
     OPERATIONS_DATA: 'operations_data',
     PERMISSIONS: 'permissions',
