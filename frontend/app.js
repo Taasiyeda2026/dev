@@ -156,6 +156,10 @@ function getExceptionField(row, fieldName) {
 }
 
 function role() { return String(userState.SystemRole || '').trim().toLowerCase(); }
+function actionMode() {
+  const permission = currentPermission();
+  return String(permission?.editScope || userState.EditScope || '').trim().toLowerCase();
+}
 function displayRole() {
   const permission = currentPermission();
   if (permission?.displayRole) return permission.displayRole;
@@ -173,7 +177,10 @@ function isManager() { return ['manager', 'manager-lead', 'admin', 'admin-ops'].
 function isInstructor() { return role() === 'instructor'; }
 function currentPermission() { return getPermissionForUser(userState); }
 function canEditMasterCourses() {
-  return isManager() || isEden() || isIdan();
+  return actionMode() === 'edit';
+}
+function canRequestEditCourses() {
+  return actionMode() === 'request_edit';
 }
 function canAccessEdenView() {
   const permission = currentPermission();
@@ -577,16 +584,13 @@ function renderScreen() {
     const canActive = canAccessFinanceActive();
     const canArchive = canAccessFinanceArchive();
     const showActive = viewState.finance.tab !== 'archive';
-    const rows = showActive
-      ? (viewState.finance.activeItems || []).filter((item) => String(item?.FinanceStatus || '') !== 'בוצע-גביה')
-      : viewState.finance.archiveItems;
+    const rows = showActive ? (viewState.finance.activeItems || []) : viewState.finance.archiveItems;
     const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
     const dm = viewState.finance.displayMonth || '';
     const filteredFinance = (rows || []).filter((item) => financeRowInDisplayMonth(item, dm));
     const financeSummary = summarizeFinanceBuckets(filteredFinance);
     const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
     const pendingTotal = showActive ? (viewState.finance.activeItems || [])
-      .filter((item) => String(item?.FinanceStatus || '') !== 'בוצע-גביה')
       .filter((item) => {
         const d = ['MonthEnd', 'MonthStart', 'End', 'Period'].map((k) => parseDateLike(item?.[k])).filter(Boolean)[0];
         return d ? d >= currentMonthStart : true;
@@ -599,7 +603,7 @@ function renderScreen() {
     const dmParsed = parseMonthValue(dm) || new Date();
     const financeMonthLabel = dmParsed.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
     const emptyFinanceMessage = showActive
-      ? 'אין נתוני גבייה פעילה להצגה. אם ציפית לנתונים, בדוק הרשאות או רענן FINANCE.'
+      ? 'אין נתוני כספים להצגה.'
       : 'אין נתוני ארכיון להצגה כרגע.';
 
     main.innerHTML = head('כספים', 'ניהול סל גבייה פעיל וארכיון') +
@@ -610,7 +614,7 @@ function renderScreen() {
         </div>
         <div class="finance-toolbar-actions">
           ${showActive ? '<button class="btn btn-secondary" id="financeExportBtn">ייצוא לאקסל</button>' : ''}
-          ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן FINANCE</button>' : ''}
+          ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן נתוני כספים</button>' : ''}
           <button class="btn btn-icon" id="financeRefreshBtn" title="רענן נתונים">↺</button>
           <div class="view-toggle-group">
             <button class="btn btn-icon${viewState.finance.view === 'table' ? ' active' : ''}" id="financeViewTable" title="טבלה">☰</button>
@@ -625,9 +629,7 @@ function renderScreen() {
       </section>
       <section class="kpi-grid finance-kpi-grid">
         <article class="kpi-card"><span class="kpi-title">פתוח</span><span class="kpi-value">${financeSummary.open}</span></article>
-        <article class="kpi-card"><span class="kpi-title">בטיפול</span><span class="kpi-value">${financeSummary.inProgress}</span></article>
-        <article class="kpi-card"><span class="kpi-title">הושלם</span><span class="kpi-value">${financeSummary.completed}</span></article>
-        <article class="kpi-card"><span class="kpi-title">דורש פעולה</span><span class="kpi-value">${financeSummary.needsAction}</span></article>
+        <article class="kpi-card"><span class="kpi-title">סגור</span><span class="kpi-value">${financeSummary.completed}</span></article>
         ${showActive ? `<article class="kpi-card kpi-card--highlight"><span class="kpi-title">סה"כ לגבייה</span><span class="kpi-value kpi-value--money">${esc(pendingTotalLabel)}</span><span class="kpi-sub">חודש נוכחי + קדימה</span></article>` : ''}
       </section>` +
       panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage,
@@ -658,8 +660,8 @@ function renderScreen() {
       const result = await syncFinance();
       showToast(
         result?.success
-          ? 'FINANCE עודכן בהצלחה'
-          : (result?.message || 'עדכון FINANCE נכשל'),
+          ? 'נתוני כספים עודכנו בהצלחה'
+          : (result?.message || 'עדכון נתוני כספים נכשל'),
         result?.success ? 'success' : 'error'
       );
       await loadFinanceView({ silent: true, force: true });
@@ -672,12 +674,12 @@ function renderScreen() {
     document.querySelectorAll('[data-finance-status]').forEach((select) => select.addEventListener('change', async (event) => {
       const financeRowId = event.target.dataset.financeRowId || '';
       const status = event.target.value || '';
-      const sheetName = event.target.dataset.financeSheet || 'FINANCE';
+      const sheetName = event.target.dataset.financeSheet || 'DATA';
       const result = await updateFinanceStatus(financeRowId, status, { sheetName });
       if (!result?.success) {
         showToast(result?.message || 'עדכון סטטוס נכשל.', 'error');
-      } else if (status === 'בוצע-גביה') {
-        showToast('הרשומה סומנה כבוצע-גביה והועברה לארכיון.', 'success');
+      } else if (status === 'closed') {
+        showToast('הרשומה סומנה כסגורה.', 'success');
       }
       await loadFinanceView({ silent: true, force: true });
     }));
@@ -690,14 +692,14 @@ function renderScreen() {
       const financeRowId = button.dataset.financeRowId || '';
       const noteInput = document.querySelector(`[data-finance-note-input="${cssEscape(financeRowId)}"]`);
       const statusSelect = document.querySelector(`[data-finance-status="1"][data-finance-row-id="${cssEscape(financeRowId)}"]`);
-      const status = statusSelect?.value || 'ממתין';
+      const status = statusSelect?.value || 'open';
       const statusNote = noteInput?.value.trim() ?? '';
       if (!financeRowId) {
         showToast('לא נמצא מזהה רשומה.', 'warning');
         return;
       }
       const result = await updateFinanceStatus(financeRowId, status, {
-        sheetName: showActive ? 'FINANCE' : 'FINANCE_ARCHIVE',
+        sheetName: 'DATA',
         statusNote
       });
       if (!result?.success) {
@@ -1007,17 +1009,17 @@ function renderFinanceTable(rows, options = {}) {
   function statusMini(items) {
     const counts = {};
     items.forEach((item) => {
-      const b = getFinanceStatusBucket(String(item?.FinanceStatus || 'ממתין')).key;
+      const b = getFinanceStatusBucket(String(item?.FinanceStatus || 'open')).key;
       counts[b] = (counts[b] || 0) + 1;
     });
-    const labels = { open: 'פתוח', 'in-progress': 'בטיפול', completed: 'הושלם', 'needs-action': 'דורש פעולה' };
+    const labels = { open: 'פתוח', completed: 'סגור' };
     return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
   }
   const COL_COUNT = 10;
   function renderRow(item) {
     const financeRowId = String(item?.FinanceRowID || '');
-    const status = String(item?.FinanceStatus || 'ממתין');
-    const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
+    const status = String(item?.FinanceStatus || 'open');
+    const sourceSheet = 'DATA';
     const bucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
@@ -1040,9 +1042,8 @@ function renderFinanceTable(rows, options = {}) {
       <td>
         ${canEdit
           ? `<select class="finance-inline-select" data-finance-status="1" data-finance-row-id="${escAttr(financeRowId)}" data-finance-sheet="${sourceSheet}">
-              ${renderStatusOption('ממתין', status)}
-              ${renderStatusOption('במעקב', status)}
-              ${renderStatusOption('בוצע-גביה', status)}
+              ${renderStatusOption('open', status)}
+              ${renderStatusOption('closed', status)}
             </select>`
           : `<span class="status-chip ${statusClass(status)}">${esc(status)}</span>`}
       </td>
@@ -1099,8 +1100,8 @@ function renderFinanceCards(rows, options = {}) {
   if (!prevItems.length && !currItems.length) return '<section class="panel-empty">לא נמצאו רשומות כספים לחודש שנבחר.</section>';
   function renderCard(item) {
     const financeRowId = String(item?.FinanceRowID || '');
-    const status = String(item?.FinanceStatus || 'ממתין');
-    const sourceSheet = showArchive ? 'FINANCE_ARCHIVE' : 'FINANCE';
+    const status = String(item?.FinanceStatus || 'open');
+    const sourceSheet = 'DATA';
     const statusBucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
@@ -1133,9 +1134,8 @@ function renderFinanceCards(rows, options = {}) {
           <button class="btn btn-secondary" data-finance-open="${escAttr(financeRowId)}">תאריכי ביצוע</button>
           ${canEdit ? `<label class="finance-status-edit">סטטוס
             <select data-finance-status="1" data-finance-row-id="${escAttr(financeRowId)}" data-finance-sheet="${sourceSheet}">
-              ${renderStatusOption('ממתין', status)}
-              ${renderStatusOption('במעקב', status)}
-              ${renderStatusOption('בוצע-גביה', status)}
+              ${renderStatusOption('open', status)}
+              ${renderStatusOption('closed', status)}
             </select>
           </label>` : ''}
         </footer>
@@ -1152,8 +1152,8 @@ function renderFinanceCards(rows, options = {}) {
   }
   function statusMini(items) {
     const counts = {};
-    items.forEach((item) => { const b = getFinanceStatusBucket(String(item?.FinanceStatus || 'ממתין')).key; counts[b] = (counts[b] || 0) + 1; });
-    const labels = { open: 'פתוח', 'in-progress': 'בטיפול', completed: 'הושלם', 'needs-action': 'דורש פעולה' };
+    items.forEach((item) => { const b = getFinanceStatusBucket(String(item?.FinanceStatus || 'open')).key; counts[b] = (counts[b] || 0) + 1; });
+    const labels = { open: 'פתוח', completed: 'סגור' };
     return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
   }
   function renderSection(items, label) {
@@ -1164,7 +1164,7 @@ function renderFinanceCards(rows, options = {}) {
 }
 
 function sortFinanceRowsByStatus(rows = []) {
-  const order = { open: 0, 'needs-action': 1, 'in-progress': 2, completed: 3 };
+  const order = { open: 0, completed: 1 };
   return [...rows].sort((a, b) => {
     const aBucket = getFinanceStatusBucket(a?.FinanceStatus).key;
     const bBucket = getFinanceStatusBucket(b?.FinanceStatus).key;
@@ -2047,15 +2047,21 @@ function bindExceptionActions() {
 
 function bindEditButtons() {
   document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', async () => {
+    if (!canEditMasterCourses() && !canRequestEditCourses()) {
+      showToast('אין הרשאה לעריכה או בקשת שינוי.', 'warning');
+      return;
+    }
     const row = findCourseById(b.dataset.editRow) || {};
-    const mode = 'request';
+    const mode = canEditMasterCourses() ? 'edit' : 'request';
     const formResult = await openCourseActionForm(row, mode);
     if (!formResult) return;
-    const res = await createEditRequest(row.CourseID, formResult.changes, userState);
+    const res = canEditMasterCourses()
+      ? await updateCourse(row[COURSE_FIELDS.COURSE_ID], formResult.changes, userState)
+      : await createEditRequest(row[COURSE_FIELDS.COURSE_ID], formResult.changes, userState);
     if (!res?.success) showToast(res?.message || 'הפעולה נכשלה', 'error');
     else {
       await loadMyRequests();
-      showToast('בקשת השינוי הועברה לעדן ונשמרה לזרימת אישור.', 'success');
+      showToast(canEditMasterCourses() ? 'הרשומה עודכנה בהצלחה.' : 'בקשת השינוי הועברה לתפעול.', 'success');
     }
   }));
 }
@@ -3345,9 +3351,7 @@ function hebrifyValue(val) {
 
 function getFinanceStatusBucket(statusValue) {
   const clean = String(statusValue || '').trim().toLowerCase();
-  if (clean.includes('בוצע') || clean.includes('complete') || clean.includes('closed')) return { key: 'completed', label: 'הושלם' };
-  if (clean.includes('מעקב') || clean.includes('טיפול') || clean.includes('progress') || clean.includes('processing')) return { key: 'in-progress', label: 'בטיפול' };
-  if (clean.includes('חריג') || clean.includes('חסר') || clean.includes('בעיה') || clean.includes('תקוע')) return { key: 'needs-action', label: 'דורש פעולה' };
+  if (clean === 'closed') return { key: 'completed', label: 'סגור' };
   return { key: 'open', label: 'פתוח' };
 }
 
@@ -3355,11 +3359,9 @@ function summarizeFinanceBuckets(rows = []) {
   return (rows || []).reduce((acc, item) => {
     const bucket = getFinanceStatusBucket(item?.FinanceStatus);
     if (bucket.key === 'completed') acc.completed += 1;
-    else if (bucket.key === 'in-progress') acc.inProgress += 1;
-    else if (bucket.key === 'needs-action') acc.needsAction += 1;
     else acc.open += 1;
     return acc;
-  }, { open: 0, inProgress: 0, completed: 0, needsAction: 0 });
+  }, { open: 0, completed: 0 });
 }
 async function loadEdenView() {
   viewState.eden.loading = true; viewState.eden.error = ''; renderScreen();
