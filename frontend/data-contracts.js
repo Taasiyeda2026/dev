@@ -34,7 +34,11 @@ export const TAASIYEDA_DATA_CONTRACTS = {
       REVIEW_NOTES: 'operations_notes',
       REVIEW_HANDLED_BY: 'ReviewHandledBy',
       REVIEW_HANDLED_AT: 'ReviewHandledAt',
-      DATE_FIELDS: ['start_date', ...Array.from({ length: 34 }, (_, index) => `date${index + 2}`)]
+      DATE_FIELDS: [
+        'start_date',
+        'date1',
+        ...Array.from({ length: 34 }, (_, index) => `date${index + 2}`)
+      ]
     },
     exception: {
       REVIEW_ID: 'ReviewID',
