@@ -10,51 +10,14 @@ var Utils = (function () {
   function normalizeHeaderBySheet_(sheetName, header) {
     var canonical = normalize(header);
     if (!canonical) return canonical;
-    var sheet = resolveSheetAlias_(sheetName);
 
-    var maps = {
-      permissions: {
-        active: 'ActiveFlag', emp_id: 'EmployeeID', code: 'EntryCode', name: 'EmployeeName',
-        role: 'SystemRole', default_view: 'UiProfile', action_language: 'EditScope', manager: 'InstructorManager',
-        view_finance: 'CanAccessFinance', edit_finance: 'CanEditFinance',
-        view_operations_data: 'CanAccessOperationsData', edit_operations_data: 'CanEditOperationsData'
-      },
-      data: {
-        RowID: 'RowID', activity_no: 'ProgramCode', activity_name: 'Program', activity_type: 'EventType',
-        authority: 'Authority', school: 'School', emp_id: 'EmployeeID', name: 'Employee',
-        activity_manager: 'CourseManager', manager: 'InstructorManager', sessions: 'PlannedMeetings',
-        price: 'Payment', funding: 'Funding', start_time: 'StartTime', end_time: 'EndTime',
-        start_date: 'Date1', end_date: 'End', status: 'WorkflowStatus', notes: 'Notes',
-        finance_status: 'FinanceStatus', finance_notes: 'FinanceNotes', requested_by: 'RequestedBy',
-        requested_at: 'RequestedAt', operations_notes: 'ReviewNotes', sent_to_admin_at: 'SentToAdminAt',
-        admin_status: 'FinalApprovalStatus', admin_decision_at: 'FinalizedAt', source_row_id: 'SourceRowID'
-      },
-      operations_data: {
-        request_id: 'RequestID', source_row_id: 'SourceRowID', request_type: 'ChangeType',
-        workflow_status: 'ApprovalStatus', requested_by: 'RequestedBy', requested_at: 'RequestedAt',
-        activity_manager: 'CourseManager', manager: 'InstructorManager', authority: 'Authority', school: 'School',
-        activity_type: 'EventType', activity_no: 'ProgramCode', activity_name: 'Program', sessions: 'PlannedMeetings',
-        price: 'Payment', funding: 'Funding', start_time: 'StartTime', end_time: 'EndTime', emp_id: 'EmployeeID',
-        name: 'Employee', start_date: 'Date1', end_date: 'End', status: 'WorkflowStatus', notes: 'Notes',
-        operations_notes: 'ApprovalNotes', sent_to_admin_at: 'SentToAdminAt', admin_status: 'FinalApprovalStatus',
-        admin_decision_at: 'FinalizedAt', is_new_record: 'is_new_record'
-      }
-    };
-
-    var bySheet = maps[sheet] || {};
-    if (bySheet[canonical]) return bySheet[canonical];
-
-    var dateMatch = /^date([2-9]|[12][0-9]|3[0-5])$/i.exec(canonical);
-    if (dateMatch) return 'Date' + dateMatch[1];
-    if (/^Date([1-9]|[12][0-9]|3[0-5])$/.test(canonical)) return canonical;
-
-    if (sheet === 'data' && canonical === 'RowID') return 'CourseID';
-    if (sheet === 'operations_data' && canonical === 'SourceRowID') return 'CourseID';
-    if (sheet === 'data' && canonical === 'Employee') return 'Instructor';
-    if (sheet === 'operations_data' && canonical === 'Employee') return 'Instructor';
-
+    // Real spreadsheet headers are the source of truth.
+    // Keep names as-is (including data.start_date/date2..date35, operations_data fields).
+    var dateMatch = /^date([1-9]|[12][0-9]|3[0-5])$/i.exec(canonical);
+    if (dateMatch) return 'date' + dateMatch[1];
     return canonical;
   }
+
 
   function normalize(value) {
     return value === null || value === undefined ? '' : String(value).trim();
@@ -129,16 +92,33 @@ var Utils = (function () {
 
   function resolveIndex(headers, aliases) {
     var list = Array.isArray(aliases) ? aliases : [aliases];
-    var map = {};
-    headers.forEach(function (header, index) {
-      map[toKey(header)] = index;
-    });
+    var headerKeys = (headers || []).map(function (h) { return toKey(h); });
+
     for (var i = 0; i < list.length; i += 1) {
-      var found = map[toKey(list[i])];
-      if (found !== undefined) return found;
+      var wanted = toKey(list[i]);
+      var direct = headerKeys.indexOf(wanted);
+      if (direct > -1) return direct;
+
+      // Thin compatibility: allow alias matching when code still asks for legacy keys.
+      for (var j = 0; j < headerKeys.length; j += 1) {
+        if (areFieldAliases_(wanted, headerKeys[j])) return j;
+      }
     }
     return -1;
   }
+
+  function areFieldAliases_(left, right) {
+    if (!left || !right) return false;
+    if (left === right) return true;
+    var fields = (CONFIG && CONFIG.FIELDS) ? CONFIG.FIELDS : {};
+    var keys = Object.keys(fields);
+    for (var i = 0; i < keys.length; i += 1) {
+      var aliases = (fields[keys[i]] || []).map(function (v) { return toKey(v); });
+      if (aliases.indexOf(left) > -1 && aliases.indexOf(right) > -1) return true;
+    }
+    return false;
+  }
+
 
   function readTable(sheetName, required) {
     var options = arguments.length > 2 ? asObject(arguments[2], {}) : {};
@@ -347,76 +327,20 @@ var Utils = (function () {
   }
 
   function ensureEditRequestsSheet() {
-    var requestedName = CONFIG.SHEETS.EDIT_REQUESTS;
-    var actualName = resolveSheetAlias_(requestedName);
-    if (isProtectedAliasTarget_(requestedName)) {
-      return {
-        sheetName: actualName,
-        skipped: true,
-        reason: 'protected_alias_target'
-      };
-    }
-
-    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = spreadsheet.getSheetByName(actualName);
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet(actualName);
-    }
-
-    var width = CONFIG.EDIT_REQUESTS_HEADER_ROW.length;
-    if (sheet.getMaxColumns() < width) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
-    }
-
-    sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, width).setValues([CONFIG.EDIT_REQUESTS_HEADER_ROW]);
-    sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, width).setValues([CONFIG.EDIT_REQUESTS_DISPLAY_ROW]);
-    if (sheet.getLastColumn() > width) {
-      sheet.deleteColumns(width + 1, sheet.getLastColumn() - width);
-    }
-
     return {
-      sheetName: actualName,
-      headerRow: CONFIG.EDIT_REQUESTS_HEADER_ROW.slice(),
-      displayRow: CONFIG.EDIT_REQUESTS_DISPLAY_ROW.slice(),
-      skipped: false
+      sheetName: CONFIG.SHEETS.OPERATIONS_DATA,
+      skipped: true,
+      reason: 'operations_data_is_source_of_truth'
     };
   }
-
   function ensureCourseMeetingsSheet() {
-    var requestedName = CONFIG.SHEETS.COURSE_MEETINGS;
-    var actualName = resolveSheetAlias_(requestedName);
-    if (isProtectedAliasTarget_(requestedName)) {
-      return {
-        sheetName: actualName,
-        skipped: true,
-        reason: 'protected_alias_target'
-      };
-    }
-
-    var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = spreadsheet.getSheetByName(actualName);
-    if (!sheet) {
-      sheet = spreadsheet.insertSheet(actualName);
-    }
-
-    var width = CONFIG.COURSE_MEETINGS_HEADER_ROW.length;
-    if (sheet.getMaxColumns() < width) {
-      sheet.insertColumnsAfter(sheet.getMaxColumns(), width - sheet.getMaxColumns());
-    }
-
-    sheet.getRange(CONFIG.STRUCTURE.HEADER_ROW, 1, 1, width).setValues([CONFIG.COURSE_MEETINGS_HEADER_ROW]);
-    sheet.getRange(CONFIG.STRUCTURE.DISPLAY_ROW, 1, 1, width).setValues([CONFIG.COURSE_MEETINGS_DISPLAY_ROW]);
-    if (sheet.getLastColumn() > width) {
-      sheet.deleteColumns(width + 1, sheet.getLastColumn() - width);
-    }
-
     return {
-      sheetName: actualName,
-      headerRow: CONFIG.COURSE_MEETINGS_HEADER_ROW.slice(),
-      displayRow: CONFIG.COURSE_MEETINGS_DISPLAY_ROW.slice(),
-      skipped: false
+      sheetName: CONFIG.SHEETS.DATA_MASTER,
+      skipped: true,
+      reason: 'data_date_columns_are_source_of_truth'
     };
   }
+
 
   function validateRequired(value, message) {
     if (isEmpty(value)) throw new Error(message || 'missing_required');
