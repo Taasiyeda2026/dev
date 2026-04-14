@@ -294,11 +294,11 @@ var Logic = (function () {
       });
       perf.endStage(readStage, { rows: table.rows.length });
       var transformStage = perf.startStage('transform.finance');
-      var idxStatus = Utils.resolveIndex(table.headers, ['status', 'Status']);
-      var idxEnd = Utils.resolveIndex(table.headers, ['end_date', 'End']);
-      var idxRow = Utils.resolveIndex(table.headers, ['row_id', 'RowID', 'CourseID']);
-      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['finance_status', 'FinanceStatus']);
-      var idxFinanceNotes = Utils.resolveIndex(table.headers, ['finance_notes', 'FinanceNotes']);
+      var idxStatus = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
+      var idxEnd = Utils.resolveIndex(table.headers, ['End']);
+      var idxRow = Utils.resolveIndex(table.headers, ['RowID', 'CourseID']);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
+      var idxFinanceNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
       var items = table.rows.map(function (row, index) {
         return { row: row, rowNumber: table.rowNumbers[index] };
       }).filter(function (entry) {
@@ -337,9 +337,9 @@ var Logic = (function () {
       if (financeStatus !== 'open' && financeStatus !== 'closed') return Utils.safeMessage('FinanceStatus חייב להיות open או closed.');
 
       var table = Utils.readTable(targetSheet, true);
-      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['row_id', 'RowID', 'CourseID']);
-      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['finance_status', 'FinanceStatus']);
-      var idxNotes = Utils.resolveIndex(table.headers, ['finance_notes', 'FinanceNotes']);
+      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['RowID', 'CourseID']);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
       if (idxFinanceRowId === -1 || idxFinanceStatus === -1) return Utils.safeMessage('חסרות עמודות חובה בגיליון הכספים.');
 
       for (var i = 0; i < table.rows.length; i += 1) {
@@ -945,9 +945,6 @@ var Logic = (function () {
       EdenApprovedAt: 'edenApprovedAt', FinalizedAt: 'finalizedAt', RejectedAt: 'rejectedAt',
       Date: 'date', Day: 'day', StartTime: 'startTime', EndTime: 'endTime', ClassGroup: 'classGroup',
       ActualMeetings: 'actualMeetings', CourseManager: 'courseManager', Instructor: 'instructor', Notes: 'notes',
-      request_id: 'requestId', source_row_id: 'courseId', requested_by: 'requestedBy', requested_at: 'requestedAt',
-      request_type: 'changeType', workflow_status: 'approvalStatus', admin_status: 'finalApprovalStatus',
-      activity_manager: 'courseManager', manager: 'courseManager', notes: 'notes'
     };
     return map[fieldName];
   }
@@ -1910,18 +1907,18 @@ var Logic = (function () {
     return {
       employeeId: Utils.resolveIndex(headers, CONFIG.FIELDS.EMPLOYEE_ID),
       entryCode: Utils.resolveIndex(headers, CONFIG.FIELDS.ENTRY_CODE),
-      employeeName: Utils.resolveIndex(headers, ['employee_name', 'EmployeeName', 'Employee', 'DisplayName']),
-      systemRole: Utils.resolveIndex(headers, ['system_role', 'SystemRole']),
-      displayRole: Utils.resolveIndex(headers, ['display_role', 'DisplayRole']),
-      viewScope: Utils.resolveIndex(headers, ['view_scope', 'ViewScope']),
-      editScope: Utils.resolveIndex(headers, ['action_mode', 'EditScope']),
+      employeeName: Utils.resolveIndex(headers, ['EmployeeName']),
+      systemRole: Utils.resolveIndex(headers, ['SystemRole']),
+      displayRole: Utils.resolveIndex(headers, ['DisplayRole']),
+      viewScope: Utils.resolveIndex(headers, ['ViewScope']),
+      editScope: Utils.resolveIndex(headers, ['EditScope']),
       approvalScope: Utils.resolveIndex(headers, ['ApprovalScope']),
       uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
       instructorManager: Utils.resolveIndex(headers, ['InstructorManager']),
-      activeFlag: Utils.resolveIndex(headers, ['active_flag', 'ActiveFlag']),
-      canAccessFinance: Utils.resolveIndex(headers, ['can_access_finance', 'CanAccessFinance']),
-      canEditFinance: Utils.resolveIndex(headers, ['can_edit_finance', 'CanEditFinance']),
+      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag']),
+      canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance']),
+      canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance']),
       canAccessFinanceArchive: Utils.resolveIndex(headers, ['CanAccessFinanceArchive']),
       canEditFinanceArchive: Utils.resolveIndex(headers, ['CanEditFinanceArchive'])
     };
