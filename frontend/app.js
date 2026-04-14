@@ -146,7 +146,7 @@ const TAASIYEDA_CONFIG = TAASIYEDA_DATA_CONTRACTS;
 const COURSE_DATE_FIELDS = COURSE_FIELDS.DATE_FIELDS || [];
 const COURSE_DATE_RANGE_FIELDS = COURSE_DATE_FIELDS;
 const COURSE_END_RANGE_FIELDS = [COURSE_FIELDS.END];
-const INSTRUCTOR_FALLBACK_FIELD = TAASIYEDA_CONFIG.aliases?.instructorNameFallback || 'Instructor';
+const INSTRUCTOR_FALLBACK_FIELD = 'Employee';
 
 function getCourseField(row, fieldName) {
   return row?.[fieldName];
@@ -862,7 +862,7 @@ function renderScreen() {
     document.querySelectorAll('[data-finance-status]').forEach((select) => select.addEventListener('change', async (event) => {
       const financeRowId = event.target.dataset.financeRowId || '';
       const status = event.target.value || '';
-      const sheetName = event.target.dataset.financeSheet || 'DATA';
+      const sheetName = event.target.dataset.financeSheet || 'DATA_MASTER';
       const result = await updateFinanceStatus(financeRowId, status, { sheetName });
       if (!result?.success) {
         showToast(result?.message || 'עדכון סטטוס נכשל.', 'error');
@@ -887,7 +887,7 @@ function renderScreen() {
         return;
       }
       const result = await updateFinanceStatus(financeRowId, status, {
-        sheetName: 'DATA',
+        sheetName: 'DATA_MASTER',
         statusNote
       });
       if (!result?.success) {
@@ -1222,7 +1222,7 @@ function renderFinanceTable(rows, options = {}) {
   function renderRow(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'open');
-    const sourceSheet = 'DATA';
+    const sourceSheet = 'DATA_MASTER';
     const bucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
@@ -1304,7 +1304,7 @@ function renderFinanceCards(rows, options = {}) {
   function renderCard(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'open');
-    const sourceSheet = 'DATA';
+    const sourceSheet = 'DATA_MASTER';
     const statusBucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';

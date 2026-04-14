@@ -1,6 +1,6 @@
 var CONFIG = (function () {
   var SHEETS = {
-    DATA_MASTER: 'DATA',
+    DATA_MASTER: 'DATA_MASTER',
     COURSE_MEETINGS: 'COURSE_MEETINGS',
     COURSES: 'COURSES',
     PERMISSIONS: 'permissions',
@@ -10,7 +10,7 @@ var CONFIG = (function () {
     LISTS: 'lists',
     PROGRAM_CODES: 'PROGRAM_CODES',
     README: 'settings',
-    EDIT_REQUESTS: 'תפעול',
+    EDIT_REQUESTS: 'EDIT_REQUESTS',
     EDEN_DATA_MASTER: 'EDEN_DATA_MASTER'
   };
 
@@ -21,41 +21,35 @@ var CONFIG = (function () {
   };
 
   var EDIT_REQUESTS_HEADER_ROW = [
-    'request_id',
-    'source_row_id',
-    'request_type',
-    'workflow_status',
-    'requested_by',
-    'requested_at',
-    'activity_manager',
-    'manager',
-    'authority',
-    'school',
-    'activity_type',
-    'activity_no',
-    'activity_name',
-    'sessions',
-    'price',
-    'funding',
-    'start_time',
-    'end_time',
-    'emp_id',
-    'name',
-    'start_date',
-    'date2', 'date3', 'date4', 'date5', 'date6', 'date7', 'date8', 'date9', 'date10',
-    'date11', 'date12', 'date13', 'date14', 'date15', 'date16', 'date17', 'date18', 'date19', 'date20',
-    'date21', 'date22', 'date23', 'date24', 'date25', 'date26', 'date27', 'date28', 'date29', 'date30',
-    'date31', 'date32', 'date33', 'date34', 'date35',
-    'end_date',
-    'status',
-    'notes',
-    'operations_notes',
-    'sent_to_admin_at',
-    'admin_status',
-    'admin_decision_at',
-    'is_new_record'
+    'RequestID',
+    'CourseID',
+    'Origin',
+    'ChangeType',
+    'RequestedBy',
+    'RequestedAt',
+    'RequestStatus',
+    'EdenViewStatus',
+    'FinalApprovalStatus',
+    'ApprovalStatus',
+    'ApprovalNotes',
+    'ChangeSummary',
+    'OriginalData',
+    'RequestedData',
+    'EditableBy',
+    'AssignedEditor',
+    'EdenApprovedAt',
+    'FinalizedAt',
+    'RejectedAt',
+    'Date',
+    'Day',
+    'StartTime',
+    'EndTime',
+    'ClassGroup',
+    'ActualMeetings',
+    'CourseManager',
+    'Instructor',
+    'Notes'
   ];
-
 
   var EDIT_REQUESTS_DISPLAY_ROW = EDIT_REQUESTS_HEADER_ROW.slice();
 
@@ -76,24 +70,24 @@ var CONFIG = (function () {
     ENTRY_CODE: ['EntryCode', 'LoginCode', 'Password', 'קוד כניסה'],
     DISPLAY_NAME: ['DisplayName', 'EmployeeName', 'שם מלא', 'שם עובד'],
     LOGIN_CODE: ['LoginCode', 'EntryCode', 'Password', 'קוד כניסה'],
-    SYSTEM_ROLE: ['SystemRole', 'system_role', 'תפקיד מערכת'],
-    ACCESS_SCOPE: ['AccessScope', 'action_mode', 'תחום גישה'],
-    PROGRAM: ['Program', 'activity_name', 'תוכנית'],
-    INSTRUCTOR: ['Instructor', 'name', 'מדריך', 'AssignedInstructor'],
-    EVENT_TYPE: ['EventType', 'activity_type', 'פעילות', 'Workshop', 'CourseName', 'ActivityName'],
-    AUTHORITY: ['Authority', 'authority', 'רשות', 'Municipality'],
-    SCHOOL: ['School', 'school', 'בית ספר', 'SchoolName'],
-    COURSE_MANAGER: ['CourseManager', 'manager', 'activity_manager', 'מנהל קורס'],
-    TEAM: ['InstructorManager', 'team_scope', 'מנהל מדריכים', 'TeamLead'],
+    SYSTEM_ROLE: ['SystemRole'],
+    ACCESS_SCOPE: ['AccessScope'],
+    PROGRAM: ['Program'],
+    INSTRUCTOR: ['Instructor', 'Employee'],
+    EVENT_TYPE: ['EventType'],
+    AUTHORITY: ['Authority'],
+    SCHOOL: ['School'],
+    COURSE_MANAGER: ['CourseManager'],
+    TEAM: ['InstructorManager', 'TeamScope'],
     INSTRUCTOR_MANAGER: ['InstructorManager', 'מנהל מדריכים', 'TeamLead'],
-    START_DATE: ['MonthStart', 'start_date', 'Date1'],
-    END_DATE: ['End', 'end_date', 'תאריך סיום', 'EndTime'],
-    PLANNED_MEETINGS: ['PlannedMeetings', 'sessions', 'מפגשים מתוכננים', 'MeetingsPlanned'],
+    START_DATE: ['MonthStart', 'Date1'],
+    END_DATE: ['End'],
+    PLANNED_MEETINGS: ['PlannedMeetings'],
     ACTUAL_MEETINGS: ['DatesListedCount'],
     REVIEW_STATUS: ['ReviewStatus'],
     ISSUE_STATUS: ['ReviewStatus', 'ReviewNotes'],
     CHANGE_REQUEST: ['ChangeRequest', 'בקשת שינוי'],
-    STATUS: ['status', 'Status', 'WorkflowStatus']
+    STATUS: ['WorkflowStatus']
   };
 
   EDIT_REQUESTS_HEADER_ROW.forEach(function (field) {
@@ -115,12 +109,12 @@ var CONFIG = (function () {
   };
 
   var STATUSES = {
-    DRAFT: 'pending_operations',
-    PENDING_EDEN: 'pending_operations',
-    EDEN_APPROVED: 'ready_for_admin',
-    PENDING_FINAL: 'ready_for_admin',
-    FINAL_APPROVED: 'approved',
-    DECLINED: 'rejected'
+    DRAFT: 'pending_eden',
+    PENDING_EDEN: 'pending_eden',
+    EDEN_APPROVED: 'pending_final',
+    PENDING_FINAL: 'pending_final',
+    FINAL_APPROVED: 'final_approved',
+    DECLINED: 'final_rejected'
   };
 
   return {
@@ -133,7 +127,7 @@ var CONFIG = (function () {
     EDIT_REQUESTS_DISPLAY_ROW: EDIT_REQUESTS_DISPLAY_ROW,
     COURSE_MEETINGS_HEADER_ROW: COURSE_MEETINGS_HEADER_ROW,
     COURSE_MEETINGS_DISPLAY_ROW: COURSE_MEETINGS_DISPLAY_ROW,
-    REQUESTS_SOURCE_SHEET: 'תפעול',
+    REQUESTS_SOURCE_SHEET: 'EDIT_REQUESTS',
     SESSION_KEY: 'P2026_SESSION'
   };
 })();
