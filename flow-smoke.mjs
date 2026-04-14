@@ -11,7 +11,7 @@ import {
 
 const mem = {
   data: [
-    { CourseID: 'C-1', Program: 'P1', EventType: 'A1', ReviewStatus: 'open', Authority: 'Auth1', School: 'School1' }
+    { RowID: 'R-1', activity_name: 'P1', activity_type: 'A1', status: 'open', authority: 'Auth1', school: 'School1' }
   ],
   operations_data: []
 };
@@ -38,7 +38,7 @@ const api = {
     return { success: true, data: { RequestID: `R-${mem.operations_data.length}` } };
   },
   async createDataMasterRecord({ record }) {
-    mem.data.push({ ...record, CourseID: record.CourseID || `C-${mem.data.length + 1}` });
+    mem.data.push({ ...record, RowID: record.RowID || `R-${mem.data.length + 1}` });
     return { success: true, data: record };
   },
   clearCache() {}
@@ -48,16 +48,16 @@ await initDataEngine(api, { userState: { displayName: 'QA', userId: '1' } });
 await loadDataMaster(true);
 await loadReviewItems(true);
 let snap = getStoreSnapshot();
-assert.equal(snap.courses.length, 1, 'courses should load from DATA_MASTER');
-assert.equal(snap.reviewItems.length, 1, 'review items should be derived from DATA_MASTER');
+assert.equal(snap.courses.length, 1, 'courses should load from data');
+assert.equal(snap.reviewItems.length, 1, 'review items should be derived from data');
 
-const reqRes = await createEditRequest('C-1', { Notes: 'changed' }, { displayName: 'qa-user' });
+const reqRes = await createEditRequest('R-1', { notes: 'changed' }, { displayName: 'qa-user' });
 assert.equal(reqRes.success, true, 'createEditRequest should succeed');
 await loadEditRequests(true);
 snap = getStoreSnapshot();
 assert.equal(snap.editRequests.length, 1, 'request should be tracked');
 
-const createRes = await createDataMasterRecord({ Program: 'P2', EventType: 'A2' }, {});
+const createRes = await createDataMasterRecord({ activity_name: 'P2', activity_type: 'A2' }, {});
 assert.equal(createRes.success, true, 'createDataMasterRecord should succeed');
 await loadDataMaster(true);
 snap = getStoreSnapshot();

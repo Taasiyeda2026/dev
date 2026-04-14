@@ -321,11 +321,11 @@ var Logic = (function () {
       });
       perf.endStage(readStage, { rows: table.rows.length });
       var transformStage = perf.startStage('transform.finance');
-      var idxStatus = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
-      var idxEnd = Utils.resolveIndex(table.headers, ['End']);
-      var idxRow = Utils.resolveIndex(table.headers, ['RowID', 'CourseID']);
-      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
-      var idxFinanceNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
+      var idxStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.STATUS);
+      var idxEnd = Utils.resolveIndex(table.headers, CONFIG.FIELDS.END_DATE);
+      var idxRow = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.FINANCE_STATUS);
+      var idxFinanceNotes = Utils.resolveIndex(table.headers, CONFIG.FIELDS.FINANCE_NOTES);
       var items = table.rows.map(function (row, index) {
         return { row: row, rowNumber: table.rowNumbers[index] };
       }).filter(function (entry) {
@@ -364,8 +364,8 @@ var Logic = (function () {
       if (financeStatus !== 'open' && financeStatus !== 'closed') return Utils.safeMessage('FinanceStatus חייב להיות open או closed.');
 
       var table = Utils.readTable(targetSheet, true);
-      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['RowID', 'CourseID']);
-      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
+      var idxFinanceRowId = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.FINANCE_STATUS);
       var idxNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
       if (idxFinanceRowId === -1 || idxFinanceStatus === -1) return Utils.safeMessage('חסרות עמודות חובה בגיליון הכספים.');
 
@@ -404,9 +404,9 @@ var Logic = (function () {
     if (!session.success) return session;
     try {
       var body = Utils.asObject(payload, {});
-      var courseId = Utils.normalize(body.CourseID);
+      var courseId = Utils.normalize(body.RowID || body.CourseID || body.courseId || body.rowId);
       var changes = Utils.asObject(body.changes, {});
-      if (Utils.isEmpty(courseId)) return Utils.safeMessage('CourseID הוא שדה חובה.');
+      if (Utils.isEmpty(courseId)) return Utils.safeMessage('RowID הוא שדה חובה.');
       if (!Object.keys(changes).length) return Utils.safeMessage('changes חייב להכיל לפחות שדה אחד.');
       requireWritePermission_(session.user, WRITE_ACTIONS.UPDATE_COURSE, { courseId: courseId, team: body.InstructorManager });
       if (!canEditCourseByRole_(session.user, courseId, body.InstructorManager)) return Utils.safeMessage('אין הרשאה לעדכן פעילות זו.');
@@ -418,7 +418,7 @@ var Logic = (function () {
 
       sheetTargets.forEach(function (target) {
         var table = Utils.readTable(target.sheetName, target.required);
-        var courseIndex = Utils.resolveIndex(table.headers, ['CourseID']);
+        var courseIndex = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
         if (courseIndex === -1) throw new Error('missing_course_id_' + target.sheetName);
 
         var rowMatch = findRowByCourseId_(table, courseIndex, courseId);
@@ -426,7 +426,7 @@ var Logic = (function () {
 
         var updatedRow = rowMatch.row.slice();
         Object.keys(changes).forEach(function (field) {
-          if (field === 'CourseID') return;
+          if (field === 'CourseID' || field === 'RowID') return;
           var fieldIndex = Utils.resolveIndex(table.headers, [field]);
           if (fieldIndex === -1) return;
           updatedRow[fieldIndex] = changes[field];
@@ -439,6 +439,7 @@ var Logic = (function () {
       return {
         success: true,
         data: {
+          RowID: courseId,
           CourseID: courseId,
           DATA_MASTER: updateResult[CONFIG.SHEETS.DATA_MASTER]
         }
@@ -453,7 +454,7 @@ var Logic = (function () {
     if (!session.success) return session;
     try {
       var body = Utils.asObject(payload, {});
-      var courseId = Utils.normalize(body.CourseID || body.courseId);
+      var courseId = Utils.normalize(body.RowID || body.CourseID || body.rowId || body.courseId);
       if (!courseId) return Utils.safeMessage('CourseID הוא שדה חובה.');
       Utils.ensureCourseMeetingsSheet();
       var meetingTable = Utils.readTable(CONFIG.SHEETS.COURSE_MEETINGS, true);
@@ -471,7 +472,8 @@ var Logic = (function () {
       meetings.sort(function (a, b) {
         return Number(a.MeetingNumber || 0) - Number(b.MeetingNumber || 0);
       });
-      return { success: true, data: { CourseID: courseId, items: meetings } };
+      return { success: true, data: { RowID: courseId,
+          CourseID: courseId, items: meetings } };
     } catch (err) {
       return Utils.safeMessage('לא ניתן לטעון מפגשים לקורס.');
     }
@@ -482,7 +484,7 @@ var Logic = (function () {
     if (!session.success) return session;
     try {
       var body = Utils.asObject(payload, {});
-      var courseId = Utils.normalize(body.CourseID || body.courseId);
+      var courseId = Utils.normalize(body.RowID || body.CourseID || body.rowId || body.courseId);
       var meetingNumber = Number(body.MeetingNumber || body.meetingNumber);
       var newMeetingDate = asDate_(body.NewMeetingDate || body.newMeetingDate);
       var mode = Utils.toKey(body.UpdateMode || body.updateMode || 'single');
@@ -562,6 +564,7 @@ var Logic = (function () {
       return {
         success: true,
         data: {
+          RowID: courseId,
           CourseID: courseId,
           mode: mode,
           shiftGroupId: shiftGroupId,
@@ -583,19 +586,20 @@ var Logic = (function () {
       var body = Utils.asObject(payload, {});
       var record = Utils.asObject(body.record, {});
       var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
-      if (!table.sheet || !table.headers.length) return Utils.safeMessage('DATA_MASTER לא זמין.');
+      if (!table.sheet || !table.headers.length) return Utils.safeMessage('data לא זמין.');
       var row = table.headers.map(function (header) { return ''; });
-      var courseId = Utils.normalize(record.CourseID) || generateCourseId_();
+      var courseId = Utils.normalize(record.RowID || record.CourseID) || generateCourseId_();
       Object.keys(record).forEach(function (fieldName) {
         var idx = Utils.resolveIndex(table.headers, [fieldName]);
         if (idx > -1) row[idx] = record[fieldName];
       });
-      var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+      var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
       if (idxCourse > -1) row[idxCourse] = courseId;
       var idxCreatedAt = Utils.resolveIndex(table.headers, ['CreatedAt']);
       if (idxCreatedAt > -1 && !row[idxCreatedAt]) row[idxCreatedAt] = Utils.nowIso();
       Utils.appendRow(CONFIG.SHEETS.DATA_MASTER, row);
       var created = Utils.rowToObject(table.headers, row, 0);
+      created.RowID = courseId;
       created.CourseID = courseId;
       return { success: true, data: created };
     } catch (err) {
@@ -757,6 +761,7 @@ var Logic = (function () {
         var linkedRequest = reqMap[Utils.toKey(courseId)] || null;
         return {
           RequestID: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestId) : '',
+          RowID: courseId,
           CourseID: courseId,
           Origin: linkedRequest ? valueAt_(linkedRequest, reqIdx.origin) : '',
           ChangeType: linkedRequest ? valueAt_(linkedRequest, reqIdx.changeType) : '',
@@ -879,7 +884,7 @@ var Logic = (function () {
       var fieldIndex = Utils.resolveIndex(table.headers, aliases);
       if (fieldIndex > -1) row[fieldIndex] = requestedData[fieldName];
     });
-    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
     if (idxCourse > -1) row[idxCourse] = Utils.normalize(requestedData.CourseID || requestedCourseId) || generateCourseId_();
     var idxCreatedAt = Utils.resolveIndex(table.headers, ['CreatedAt']);
     if (idxCreatedAt > -1 && !row[idxCreatedAt]) row[idxCreatedAt] = Utils.nowIso();
@@ -889,7 +894,7 @@ var Logic = (function () {
   function applyRequestedDataToCourseRow_(sheetName, courseId, requestedData) {
     var table = Utils.readTable(sheetName, false);
     if (!table.sheet || !table.headers.length) return;
-    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
     if (idxCourse === -1) return;
     for (var i = 0; i < table.rows.length; i += 1) {
       if (Utils.toKey(table.rows[i][idxCourse]) !== Utils.toKey(courseId)) continue;
@@ -1223,7 +1228,7 @@ var Logic = (function () {
     var out = {};
     Object.keys(body).forEach(function (key) { out[key] = body[key]; });
 
-    var courseId = Utils.normalize(body.CourseID || body.courseId);
+    var courseId = Utils.normalize(body.RowID || body.CourseID || body.rowId || body.courseId);
     var origin = normalizeOrigin_(body.Origin || body.origin);
     var changeType = normalizeChangeType_(body.ChangeType || body.changeType, courseId);
     var changes = Utils.asObject(body.changes, {});
@@ -1273,7 +1278,7 @@ var Logic = (function () {
       requireWritePermission_(session.user, WRITE_ACTIONS.MARK_EXCEPTION_RESOLVED, {});
       var body = Utils.asObject(payload, {});
       var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
-      if (!table.headers.length) return Utils.safeMessage('לא נמצאו כותרות ב-DATA_MASTER.');
+      if (!table.headers.length) return Utils.safeMessage('לא נמצאו כותרות ב-data.');
 
       var target = resolveReviewRowTarget_(table, body);
       if (!target) return Utils.safeMessage('לא נמצאה רשומת חריגה לעדכון.');
@@ -1413,7 +1418,7 @@ var Logic = (function () {
   }
 
   function findEdenRowByCourseId_(table, courseId) {
-    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
     if (idxCourse === -1) return null;
     for (var i = 0; i < table.rows.length; i += 1) {
       if (Utils.toKey(table.rows[i][idxCourse]) !== Utils.toKey(courseId)) continue;
@@ -1542,7 +1547,8 @@ var Logic = (function () {
         updated[idxHasDiff] = hasDiffBetweenSourceAndEden_(rowObj) ? 'true' : 'false';
       }
       Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, updated);
-      return { success: true, data: { RequestID: requestId, CourseID: courseId, WorkflowStatus: EDEN_WORKFLOW_STATUSES.EDEN_SAVED } };
+      return { success: true, data: { RequestID: requestId, RowID: courseId,
+          CourseID: courseId, WorkflowStatus: EDEN_WORKFLOW_STATUSES.EDEN_SAVED } };
     } catch (err) {
       return Utils.safeMessage('שמירת טיוטת עדן נכשלה.');
     }
@@ -1583,7 +1589,8 @@ var Logic = (function () {
       var idxSent = Utils.resolveIndex(edenTable.headers, ['SentToAdminAt']);
       if (idxSent > -1) edenUpdated[idxSent] = Utils.nowIso();
       Utils.updateRow(CONFIG.SHEETS.EDEN_DATA_MASTER, existing.rowNumber, edenUpdated);
-      return { success: true, data: { RequestID: requestId, CourseID: courseId, ApprovalStatus: EDEN_WORKFLOW_STATUSES.PENDING_FINAL } };
+      return { success: true, data: { RequestID: requestId, RowID: courseId,
+          CourseID: courseId, ApprovalStatus: EDEN_WORKFLOW_STATUSES.PENDING_FINAL } };
     } catch (err) {
       return Utils.safeMessage('העברה לאדמין נכשלה.');
     }
@@ -1603,7 +1610,8 @@ var Logic = (function () {
       var edenTable = Utils.readTable(CONFIG.SHEETS.EDEN_DATA_MASTER, true);
       var existing = findEdenRowByCourseId_(edenTable, courseId);
       if (!existing) return Utils.safeMessage('לא נמצאה רשומה.');
-      return { success: true, data: { RequestID: requestId, CourseID: courseId, refreshedAt: Utils.nowIso() } };
+      return { success: true, data: { RequestID: requestId, RowID: courseId,
+          CourseID: courseId, refreshedAt: Utils.nowIso() } };
     } catch (err) {
       return Utils.safeMessage('רענון מקור נכשל.');
     }
@@ -1662,7 +1670,7 @@ var Logic = (function () {
 
   function bootstrapMeetingsForCourse_(courseId) {
     var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
-    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
     if (idxCourse === -1) return [];
     var match = null;
     for (var i = 0; i < table.rows.length; i += 1) {
@@ -1673,7 +1681,7 @@ var Logic = (function () {
     if (!match) return [];
     var idxStartTime = Utils.resolveIndex(table.headers, ['StartTime']);
     var idxEndTime = Utils.resolveIndex(table.headers, ['EndTime']);
-    var idxStatus = Utils.resolveIndex(table.headers, ['WorkflowStatus']);
+    var idxStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.STATUS);
     var created = [];
     for (var meetingNumber = 1; meetingNumber <= 35; meetingNumber += 1) {
       var idxDate = Utils.resolveIndex(table.headers, ['Date' + meetingNumber]);
@@ -1706,7 +1714,8 @@ var Logic = (function () {
     return {
       MeetingID: meetingId,
       RowID: meetingId,
-      CourseID: courseId,
+      RowID: courseId,
+          CourseID: courseId,
       MeetingNumber: meetingNumber,
       MeetingDate: cleanDate,
       OriginalMeetingDate: cleanDate,
@@ -1838,7 +1847,7 @@ var Logic = (function () {
     if (Utils.isEmpty(courseId)) return '';
     var table = getCachedDataMasterTable_();
     if (!table.sheet || !table.headers.length) return '';
-    var idxCourse = Utils.resolveIndex(table.headers, ['CourseID']);
+    var idxCourse = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
     var idxTeam = Utils.resolveIndex(table.headers, CONFIG.FIELDS.TEAM);
     if (idxCourse === -1 || idxTeam === -1) return '';
     for (var i = 0; i < table.rows.length; i += 1) {
@@ -2077,7 +2086,7 @@ var Logic = (function () {
 
   function getCourseSnapshotById_(courseId) {
     var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
-    var courseIndex = Utils.resolveIndex(table.headers, ['CourseID']);
+    var courseIndex = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
     if (courseIndex === -1) return null;
     var match = findRowByCourseId_(table, courseIndex, courseId);
     if (!match) return null;

@@ -4,7 +4,8 @@ var CONFIG = (function () {
   // ── Real spreadsheet sheet names ─────────────────────────────────────────────
   // These are the ONLY real sheets. No phantom aliases that invent extra sheets.
   var SHEETS = {
-    DATA_MASTER:     'data',           // פעילויות (primary data)
+    DATA:            'data',           // פעילויות (primary data)
+    DATA_MASTER:     'data',           // compat alias only
     PERMISSIONS:     'permissions',    // הרשאות
     OPERATIONS_DATA: 'operations_data',// בקשות / אישורים
     LISTS:           'lists',          // רשימות
@@ -12,12 +13,13 @@ var CONFIG = (function () {
     CONTACTS:        'contacts',       // אנשי קשר
 
     // Backward-compat aliases — not separate sheets, just shortcuts
-    EDIT_REQUESTS:   'operations_data' // kept for code that hasn't migrated yet
+    EDIT_REQUESTS:   'operations_data' // compat alias only
   };
 
   // ── Sheet aliases (minimal — only truly required) ──────────────────────────────────────────
   var SHEET_ALIASES = {
-    DATA_MASTER: 'data'  // allows callers to pass 'DATA_MASTER' as sheet name
+    DATA_MASTER: 'data',
+    EDIT_REQUESTS: 'operations_data'
   };
 
   var STRUCTURE = {
@@ -132,14 +134,14 @@ var CONFIG = (function () {
   // ── Frontend field list for API responses ─────────────────────────────────────────────
   var FRONTEND_FIELDS = {
     COURSES: [
-      'RowID', 'CourseID', 'ProgramCode', 'Program', 'EventType',
-      'Employee', 'EmployeeID', 'Instructor', 'CourseManager', 'InstructorManager',
-      'Authority', 'School', 'ClassGroup',
-      'DayName', 'StartTime', 'EndTime', 'End', 'MonthStart', 'MonthEnd', 'Period',
-      'PlannedMeetings', 'DatesListedCount',
-      'Funding', 'Payment', 'ReviewStatus', 'ReviewNotes',
-      'Notes', 'WorkflowStatus', 'FinanceStatus', 'FinanceNotes',
-      'RequestedBy', 'RequestedAt', 'SourceRowID', 'FinalApprovalStatus', 'FinalizedAt'
+      'RowID', 'activity_no', 'activity_name', 'activity_type',
+      'emp_id', 'name', 'activity_manager', 'manager',
+      'authority', 'school', 'sessions',
+      'funding', 'price', 'start_time', 'end_time',
+      'start_date', 'end_date', 'status', 'notes',
+      'finance_status', 'finance_notes',
+      'requested_by', 'requested_at', 'operations_notes', 'sent_to_admin_at',
+      'admin_status', 'admin_decision_at', 'source_row_id'
     ]
   };
 
