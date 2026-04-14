@@ -1252,8 +1252,8 @@ function renderScreen() {
         </div>
         <div class="finance-toolbar-actions">
           ${showActive ? '<button class="btn btn-secondary" id="financeExportBtn">ייצוא לאקסל</button>' : ''}
-          ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">רענן נתוני כספים</button>' : ''}
-          <button class="btn btn-icon" id="financeRefreshBtn" title="רענן נתונים">↺</button>
+          ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">סנכרון כספים (ניהולי)</button>' : ''}
+          <button class="btn btn-icon" id="financeRefreshBtn" title="טעינה מחדש">↺</button>
           <div class="view-toggle-group">
             <button class="btn btn-icon${viewState.finance.view === 'table' ? ' active' : ''}" id="financeViewTable" title="טבלה">☰</button>
             <button class="btn btn-icon${viewState.finance.view === 'cards' ? ' active' : ''}" id="financeViewCards" title="כרטיסים">⊞</button>
@@ -1298,8 +1298,8 @@ function renderScreen() {
       const result = await syncFinance();
       showToast(
         result?.success
-          ? 'נתוני כספים עודכנו בהצלחה'
-          : (result?.message || 'עדכון נתוני כספים נכשל'),
+          ? 'סנכרון כספים הושלם בהצלחה'
+          : (result?.message || 'סנכרון כספים נכשל'),
         result?.success ? 'success' : 'error'
       );
       await loadFinanceView({ silent: true, force: true });
@@ -1632,6 +1632,54 @@ function financeRowInDisplayMonth(item, displayMonth) {
   return candidates.some((d) => formatMonthInputLocal(d) === displayMonth);
 }
 
+function isGefenFundingLabel(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/["׳״'\s-]/g, '');
+  return normalized === 'גפן' || normalized === 'gefen';
+}
+
+function financeMoneyValue(value) {
+  if (value == null || value === '') return 0;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const normalized = String(value).replace(/[^\d.-]/g, '');
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatFinanceMoney(value) {
+  return Number(value || 0).toLocaleString('he-IL', {
+    style: 'currency',
+    currency: 'ILS',
+    maximumFractionDigits: 0
+  });
+}
+
+function getFinanceGroupingMeta(item = {}) {
+  const funding = String(item?.Funding || '').trim();
+  const isGefen = isGefenFundingLabel(funding);
+  if (isGefen) {
+    const school = String(item?.School || '').trim() || 'ללא בית ספר';
+    return {
+      type: 'gefen',
+      groupKey: school,
+      groupTitle: school,
+      groupSummary: `סך גבייה: ${formatFinanceMoney(financeMoneyValue(item?.Payment))}`
+    };
+  }
+  const authority = String(item?.Authority || '').trim();
+  const payer = String(item?.Payer || '').trim();
+  const fundingLabel = hebrifyValue(funding) || funding;
+  const groupTitle = authority || payer || fundingLabel || 'ללא רשות';
+  return {
+    type: 'authority',
+    groupKey: groupTitle,
+    groupTitle,
+    groupSummary: ''
+  };
+}
+
 function renderFinanceMeetingsRow(item, colSpan) {
   const dates = (COURSE_DATE_FIELDS || []).map((field, idx) => {
     const raw = financeRowDateRaw(item, field);
@@ -1648,7 +1696,6 @@ function renderFinanceMeetingsRow(item, colSpan) {
 function renderFinanceTable(rows, options = {}) {
   const displayMonth = String(options.displayMonth || '').trim();
   const prevMonth = displayMonth ? addMonthsToMonthString(displayMonth, -1) : '';
-  const showArchive = Boolean(options.showArchive);
   const canEdit = Boolean(options.canEdit);
   const selectedMeetingsRowId = String(options.selectedMeetingsRowId || '');
   const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
@@ -1716,9 +1763,10 @@ function renderFinanceTable(rows, options = {}) {
   function renderSection(items, label) {
     if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:8px 0">אין רשומות לחודש זה</p></div>`;
     const grouped = items.reduce((acc, item) => {
-      const groupKey = String(item?.FinanceGroupKey || item?.Payer || 'ללא קבוצה').trim() || 'ללא קבוצה';
-      if (!acc[groupKey]) acc[groupKey] = [];
-      acc[groupKey].push(item);
+      const groupMeta = getFinanceGroupingMeta(item);
+      const groupKey = groupMeta.groupKey;
+      if (!acc[groupKey]) acc[groupKey] = { ...groupMeta, items: [] };
+      acc[groupKey].items.push(item);
       return acc;
     }, {});
     return `<div class="finance-month-section">
@@ -1726,18 +1774,25 @@ function renderFinanceTable(rows, options = {}) {
         <h4 class="finance-month-section-label">${esc(label)}</h4>
         <div class="finance-status-mini-row">${statusMini(items)}</div>
       </div>
-      ${Object.entries(grouped).map(([group, groupedRows]) => `<div class="finance-group-block">
-        <div class="finance-group-label">${esc(group)}</div>
+      ${Object.values(grouped).map((group) => {
+        const paymentTotal = group.items.reduce((sum, item) => sum + financeMoneyValue(item?.Payment), 0);
+        const activitiesCount = group.items.length;
+        const summaryLabel = group.type === 'gefen'
+          ? `סך גבייה: ${formatFinanceMoney(paymentTotal)}`
+          : `${activitiesCount} פעילויות · סך גבייה: ${formatFinanceMoney(paymentTotal)}`;
+        return `<div class="finance-group-block">
+        <div class="finance-group-label">${esc(group.groupTitle)} <span class="finance-status-mini finance-open">${esc(summaryLabel)}</span></div>
         <div class="table-wrap finance-table-wrap">
           <table class="finance-table-styled">
             <thead><tr>
               <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מנהל קורס</th>
               <th>מפגשים</th><th>גביה</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
             </tr></thead>
-            <tbody>${groupedRows.map(renderRow).join('')}</tbody>
+            <tbody>${group.items.map(renderRow).join('')}</tbody>
           </table>
         </div>
-      </div>`).join('')}
+      </div>`;
+      }).join('')}
     </div>`;
   }
   function monthLabel(monthStr) {
@@ -1750,7 +1805,6 @@ function renderFinanceTable(rows, options = {}) {
 function renderFinanceCards(rows, options = {}) {
   const displayMonth = String(options.displayMonth || '').trim();
   const prevMonth = displayMonth ? addMonthsToMonthString(displayMonth, -1) : '';
-  const showArchive = Boolean(options.showArchive);
   const canEdit = Boolean(options.canEdit);
   const allRows = sortFinanceRowsByStatus(Array.isArray(rows) ? rows : [])
     .filter((item) => {
@@ -3886,34 +3940,37 @@ function financeRowDateRaw(row, field) {
 
 function exportFinanceToExcel(rows, filename) {
   if (!rows.length) return;
-  const headers = ['קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'כל התאריכים', 'תאריך', 'תאריך התחלה', 'תאריך סיום', 'מפגשים מתוכננים', 'מפגשים בפועל', 'עלות', 'גורם מימון', 'גורם משלם', 'סטטוס', 'הערות'];
+  const dateHeaders = COURSE_DATE_FIELDS.map((field) => field.toLowerCase());
+  const headers = [
+    'קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'מנהל קורס',
+    'סטטוס', 'מחיר/גבייה', 'גורם מימון', 'גורם משלם',
+    ...dateHeaders
+  ];
   const collectPerformedDates = (row) => {
-    const values = [];
+    const values = {};
     const today = endOfDay(new Date());
     COURSE_DATE_FIELDS.forEach((field) => {
       const raw = financeRowDateRaw(row, field);
       const parsed = parseDateLike(raw);
-      if (parsed && parsed <= today) values.push(formatDate(parsed));
+      values[field.toLowerCase()] = (parsed && parsed <= today) ? (formatDate(parsed) || String(raw || '')) : '';
     });
-    return values.join(', ');
+    return values;
   };
-  const dataRows = rows.map((row) => [
-    String(row?.Course || row?.Program || row?.EventType || row?.CourseID || row?.ProgramsList || row?.PayerType || ''),
-    String(row?.Authority || ''),
-    String(row?.School || row?.SchoolsList || ''),
-    String(row?.Instructor || ''),
-    collectPerformedDates(row),
-    String(formatDate(parseDateLike(row?.Date)) || row?.Date || ''),
-    String(formatDate(parseDateLike(row?.MonthStart)) || row?.MonthStart || ''),
-    String(formatDate(parseDateLike(row?.End || row?.End)) || row?.End || row?.End || ''),
-    String(row?.PlannedMeetings || ''),
-    String(row?.DatesListedCount || ''),
-    String(row?.Payment || row?.Payment || ''),
-    hebrifyValue(row?.Funding) || '',
-    hebrifyValue(row?.Payer) || '',
-    getFinanceStatusLabel(row?.FinanceStatus || row?.finance_status || ''),
-    String(row?.FinanceNotes || row?.notes || '')
-  ]);
+  const dataRows = rows.map((row) => {
+    const performedDates = collectPerformedDates(row);
+    return [
+      String(row?.Course || row?.Program || row?.EventType || row?.CourseID || row?.ProgramsList || row?.PayerType || ''),
+      String(row?.Authority || ''),
+      String(row?.School || row?.SchoolsList || ''),
+      String(row?.Instructor || ''),
+      String(row?.CourseManager || ''),
+      getFinanceStatusLabel(row?.FinanceStatus || row?.finance_status || ''),
+      String(row?.Payment || ''),
+      hebrifyValue(row?.Funding) || '',
+      hebrifyValue(row?.Payer) || '',
+      ...dateHeaders.map((field) => String(performedDates[field] || ''))
+    ];
+  });
   const html = `<table><thead><tr>${headers.map((header) => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   const blob = new Blob([`\uFEFF${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const a = document.createElement('a');
