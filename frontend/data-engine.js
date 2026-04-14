@@ -588,32 +588,40 @@ export async function loadFinanceItems(force = false) {
   }
   const currentDate = new Date();
   const todayTs = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999).getTime();
-  dataStore.finance = (rows || []).filter((row) => isEndedUntilToday(row)).map((row) => ({
-    ...row,
-    FinanceRowID: String(row?.RowID || row?.CourseID || row?._rowNumber || ''),
-    FinanceStatus: (String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase() === 'closed' ? 'closed' : 'open'),
-    FinanceNotes: row?.finance_notes || row?.FinanceNotes || '',
-    CourseID: row?.RowID || row?.CourseID || '',
-    Course: row?.activity_name || row?.Program || '',
-    Program: row?.activity_name || row?.Program || '',
-    EventType: row?.activity_type || row?.EventType || '',
-    Authority: row?.authority || row?.Authority || '',
-    School: row?.school || row?.School || '',
-    Employee: row?.name || row?.Employee || '',
-    CourseManager: row?.activity_manager || row?.CourseManager || '',
-    Funding: row?.funding || row?.Funding || '',
-    End: row?.end_date || row?.End || '',
-    Payment: row?.price || row?.Payment || '',
-    Payer: isGefenFunding(row?.funding || row?.Funding || '') ? (row?.school || row?.School || '') : (row?.funding || row?.Funding || ''),
-    FinanceGroupKey: isGefenFunding(row?.funding || row?.Funding || '')
-      ? String(row?.school || row?.School || '').trim()
-      : String(row?.funding || row?.Funding || '').trim(),
-    FinanceGroupType: isGefenFunding(row?.funding || row?.Funding || '') ? 'school' : 'funding',
-    DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => {
-      const parsed = parseDateLike(financeMeetingDateRaw(row, field));
-      return (parsed && parsed.getTime() <= todayTs) ? count + 1 : count;
-    }, 0)
-  }));
+  dataStore.finance = (rows || []).filter((row) => isEndedUntilToday(row)).map((row) => {
+    const funding = row?.funding || row?.Funding || '';
+    const authority = row?.authority || row?.Authority || '';
+    const school = row?.school || row?.School || '';
+    const isGefen = isGefenFunding(funding);
+    const payer = isGefen ? school : (authority || funding);
+    return {
+      ...row,
+      FinanceRowID: String(row?.RowID || row?.CourseID || row?._rowNumber || ''),
+      FinanceStatus: (String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase() === 'closed' ? 'closed' : 'open'),
+      FinanceNotes: row?.finance_notes || row?.FinanceNotes || '',
+      CourseID: row?.RowID || row?.CourseID || '',
+      Course: row?.activity_name || row?.Program || '',
+      Program: row?.activity_name || row?.Program || '',
+      EventType: row?.activity_type || row?.EventType || '',
+      Authority: authority,
+      School: school,
+      Employee: row?.name || row?.Employee || '',
+      Instructor: row?.name || row?.Instructor || '',
+      CourseManager: row?.activity_manager || row?.CourseManager || '',
+      Funding: funding,
+      End: row?.end_date || row?.End || '',
+      Payment: row?.price || row?.Payment || '',
+      Payer: payer,
+      FinanceGroupKey: isGefen
+        ? String(school).trim()
+        : String(authority || funding).trim(),
+      FinanceGroupType: isGefen ? 'school' : 'authority',
+      DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => {
+        const parsed = parseDateLike(financeMeetingDateRaw(row, field));
+        return (parsed && parsed.getTime() <= todayTs) ? count + 1 : count;
+      }, 0)
+    };
+  });
   dataStore.loadedAt.finance = now();
   return dataStore.finance;
 }
