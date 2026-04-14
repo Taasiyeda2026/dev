@@ -453,7 +453,6 @@ function closeMobileNav() {
   mobileNavOpen = false;
   document.body.classList.remove('nav-open');
   render();
-  loadRouteData();
 }
 
 function isMobileViewport() {
@@ -464,7 +463,6 @@ function toggleMobileNav(force) {
   mobileNavOpen = typeof force === 'boolean' ? force : !mobileNavOpen;
   document.body.classList.toggle('nav-open', mobileNavOpen);
   render();
-  loadRouteData();
 }
 
 function toggleSidebar() {
@@ -474,7 +472,6 @@ function toggleSidebar() {
     document.body.classList.remove('nav-open');
   }
   render();
-  loadRouteData();
 }
 
 function toggleHeaderSidebarControl() {
@@ -4079,6 +4076,10 @@ const ROUTES_NEEDING_COURSES = new Set([
   'my-requests', 'approvals', 'eden-view', 'final-approvals'
 ]);
 
+const ROUTES_NEEDING_RUNTIME_RULES = new Set([
+  'dashboard', 'courses', 'instructor-view', 'week', 'month', 'instructors', 'end-dates', 'exceptions'
+]);
+
 async function loadRouteData() {
   if (!isAuth()) return;
   if (currentRoute !== 'login' && !getAllowedRoutes().includes(currentRoute)) {
@@ -4086,13 +4087,19 @@ async function loadRouteData() {
     setRoute(getFirstAllowedRoute());
     return;
   }
-  await initEnginePromise.catch(() => {});
-  await ensureRuntimeRulesLoaded();
+  if (ROUTES_NEEDING_RUNTIME_RULES.has(currentRoute)) {
+    await ensureRuntimeRulesLoaded();
+  } else if (!runtimeRulesLoaded) {
+    void ensureRuntimeRulesLoaded().catch(() => {});
+  }
   if (ROUTES_NEEDING_COURSES.has(currentRoute)) await ensureCoursesLoaded();
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'admin-settings') return loadAdminSettingsView();
   if (currentRoute === 'admin-lists') return loadAdminListsView();
-  if (currentRoute === 'admin-permissions') return loadAdminPermissionsView();
+  if (currentRoute === 'admin-permissions') {
+    if (initEnginePromise) await initEnginePromise.catch(() => {});
+    return loadAdminPermissionsView();
+  }
   if (currentRoute === 'dashboard') return loadDashboard();
   if (currentRoute === 'courses' || currentRoute === 'instructor-view') return loadCourses();
   if (currentRoute === 'week') return loadWeekView();
@@ -4622,19 +4629,26 @@ function registerGlobalCardCloseBehavior() {
 async function boot() {
   hydrateUserState();
   if (isAuth()) {
-    const profile = await api.getSessionProfile();
-    if (profile?.authenticated) {
-      logUi('session_restored', { userId: String(profile?.userId || '') ? 'present' : 'missing' });
-      setUserState(profile);
-      initEnginePromise = initDataEngine(api, { userState }).catch((error) => {
-        logUi('init_data_engine_failed_on_boot', { message: error?.message || String(error || '') });
-        throw error;
-      });
-      setRoute(getStartupRoute());
-      return;
-    }
-    logUi('session_restore_failed', { message: profile?.message || 'not_authenticated' });
-    clearUserState();
+    initEnginePromise = initDataEngine(api, { userState }).catch((error) => {
+      logUi('init_data_engine_failed_on_boot', { message: error?.message || String(error || '') });
+      throw error;
+    });
+    setRoute(getStartupRoute());
+    void api.getSessionProfile().then((profile) => {
+      if (profile?.authenticated) {
+        logUi('session_restored', { userId: String(profile?.userId || '') ? 'present' : 'missing' });
+        setUserState(profile);
+        return;
+      }
+      logUi('session_restore_failed', { message: profile?.message || 'not_authenticated' });
+      clearUserState();
+      resetClientDataStore();
+      api.clearCache?.();
+      setRoute('login');
+    }).catch((error) => {
+      logUi('session_restore_failed_network', { message: error?.message || String(error || '') });
+    });
+    return;
   }
   setRoute('login');
 }
