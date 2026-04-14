@@ -11,11 +11,13 @@ import {
   buildFilterOptions,
   loadEditRequests,
   loadReviewItems,
+  loadSettings,
   reloadCourses,
   ensureCoursesLoaded,
   resetClientDataStore,
   isCoursesCacheFresh,
   isReviewCacheFresh,
+  loadContacts,
   loadFinanceItems,
   loadFinanceArchiveItems,
   updateFinanceStatus,
@@ -41,6 +43,46 @@ const recentlyResolvedExceptions = new Set();
 let initEnginePromise = null;
 const SEARCH_RENDER_DEBOUNCE_MS = 180;
 const routeSearchDebouncers = new Map();
+const runtimeRules = {
+  allowAdminDirectDataEdit: false,
+  showOnlyNonZeroKpis: false,
+  useStatusWithDates: false
+};
+let runtimeRulesLoaded = false;
+
+function toSettingBool(value, fallback = false) {
+  if (value === null || typeof value === 'undefined' || value === '') return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['yes', 'true', '1', 'y', 'כן'].includes(normalized)) return true;
+  if (['no', 'false', '0', 'n', 'לא'].includes(normalized)) return false;
+  return fallback;
+}
+
+function getSettingValueFromStore(key, fallback) {
+  const rows = getStoreSnapshot().settings || [];
+  const hit = rows.find((row) => String(row?.key || '').trim() === key);
+  return hit ? hit.value : fallback;
+}
+
+async function ensureRuntimeRulesLoaded(force = false) {
+  if (runtimeRulesLoaded && !force) return runtimeRules;
+  await loadSettings();
+  const resolveRule = async (key, fallback = false) => {
+    const fromStore = getSettingValueFromStore(key, '');
+    if (String(fromStore ?? '').trim() !== '') return toSettingBool(fromStore, fallback);
+    const fromApi = await api.getSetting?.(key, '');
+    if (fromApi?.success) {
+      const value = fromApi?.data?.value ?? fromApi?.value ?? '';
+      if (String(value ?? '').trim() !== '') return toSettingBool(value, fallback);
+    }
+    return fallback;
+  };
+  runtimeRules.allowAdminDirectDataEdit = await resolveRule('allow_admin_direct_data_edit', false);
+  runtimeRules.showOnlyNonZeroKpis = await resolveRule('show_only_nonzero_kpis', false);
+  runtimeRules.useStatusWithDates = await resolveRule('use_status_with_dates', false);
+  runtimeRulesLoaded = true;
+  return runtimeRules;
+}
 
 const viewState = {
   dashboard: { loading: false, error: '', data: null, timeframe: 'day' },
@@ -358,6 +400,7 @@ function isIdan() { return isAdminUser(); }
 function isEden() { return hasCapability('view_operations_data') || hasCapability('edit_operations_data'); }
 function isManager() { return hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month'); }
 function canEditMasterCourses() {
+  if (isAdminUser() && runtimeRules.allowAdminDirectDataEdit) return true;
   return actionMode() === 'edit' || hasCapability('edit_activities');
 }
 function canRequestEditCourses() {
@@ -700,24 +743,34 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
 function bindUnifiedScreenHeader(route = currentRoute) {
   const input = document.getElementById('screenSearchInput');
   if (!input) return;
+  applyInPlaceSearchFilter(route, getRouteSearchTerm(route));
   input.addEventListener('input', () => {
-    const cursorStart = input.selectionStart;
-    const cursorEnd = input.selectionEnd;
     setRouteSearchTerm(route, input.value || '');
     const prev = routeSearchDebouncers.get(route);
     if (prev) clearTimeout(prev);
     const handle = setTimeout(() => {
       routeSearchDebouncers.delete(route);
       if (currentRoute !== route) return;
-      renderScreen();
-      const freshInput = document.getElementById('screenSearchInput');
-      if (!freshInput) return;
-      freshInput.focus({ preventScroll: true });
-      try {
-        if (typeof cursorStart === 'number' && typeof cursorEnd === 'number') freshInput.setSelectionRange(cursorStart, cursorEnd);
-      } catch (_) {}
+      const freshTerm = getRouteSearchTerm(route);
+      applyInPlaceSearchFilter(route, freshTerm);
     }, SEARCH_RENDER_DEBOUNCE_MS);
     routeSearchDebouncers.set(route, handle);
+  });
+}
+
+function applyInPlaceSearchFilter(route = currentRoute, rawTerm = '') {
+  if (route !== currentRoute) return;
+  const term = String(rawTerm || '').trim().toLowerCase();
+  const main = document.getElementById('main');
+  if (!main) return;
+  const targets = main.querySelectorAll('tbody tr, .management-card, .mini-card, .control-board-card');
+  targets.forEach((el) => {
+    if (!term) {
+      el.style.display = '';
+      return;
+    }
+    const text = String(el.textContent || '').toLowerCase();
+    el.style.display = text.includes(term) ? '' : 'none';
   });
 }
 
@@ -797,7 +850,6 @@ function renderScreen() {
     const perms = filterBySearch(
       viewState.adminPermissions.data || [],
       [
-        'employeeId',
         'employeeName',
         'displayRole',
         'defaultView',
@@ -807,10 +859,10 @@ function renderScreen() {
     );
     main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות (ללא קודי כניסה)', { itemsCount: perms.length })
       + panel(viewState.adminPermissions, 'אין נתוני הרשאות.',
-        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>מזהה</th><th>שם</th><th>תפקיד תצוגה</th><th>ברירת מחדל</th><th>תצוגות מורשות</th><th>פעיל</th></tr></thead><tbody>
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד תצוגה</th><th>ברירת מחדל</th><th>תצוגות מורשות</th><th>פעיל</th></tr></thead><tbody>
           ${perms.map((row) => {
       const views = Array.isArray(row.allowedViews) ? row.allowedViews.join(', ') : String(row.viewScope || '');
-      return `<tr><td>${esc(String(row.employeeId))}</td><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole)}</td><td>${esc(row.defaultView)}</td><td>${esc(views)}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td></tr>`;
+      return `<tr><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole)}</td><td>${esc(row.defaultView)}</td><td>${esc(views)}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td></tr>`;
     }).join('')}
         </tbody></table></div></section>`);
     bindUnifiedScreenHeader('admin-permissions');
@@ -820,12 +872,17 @@ function renderScreen() {
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
-    const topKpis = [
+    const allTopKpis = [
       { title: 'סך קורסים', value: d.totalCoursesCount || 0, filter: 'all_courses' },
       { title: 'סך סדנאות', value: d.workshopsCount || 0, filter: 'workshops_only' },
+      { title: 'סך סיורים', value: d.toursCount || 0, filter: 'tours_only' },
       { title: 'מסתיימים החודש', value: d.endingCurrentMonthCount || 0, filter: 'ending_this_month' },
-      { title: 'פעילים החודש', value: d.activeThisMonthCount || 0, filter: 'active_this_month' }
-    ].filter((item) => Number(item.value || 0) !== 0);
+      { title: 'פעילים החודש', value: d.activeThisMonthCount || 0, filter: 'active_this_month' },
+      { title: 'חריגים', value: d.totalExceptionsCount || 0, filter: 'exceptions' }
+    ];
+    const topKpis = runtimeRules.showOnlyNonZeroKpis
+      ? allTopKpis.filter((item) => Number(item.value || 0) !== 0)
+      : allTopKpis;
     main.innerHTML = renderUnifiedScreenHeader('dashboard', '', { dashboard: d }) + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
       `<section class="kpi-section dashboard-kpi-top-section">
         <div class="dashboard-kpi-row-centered">
@@ -968,7 +1025,7 @@ function renderScreen() {
     main.innerHTML = renderUnifiedScreenHeader('contacts', '', { itemsCount: contactsRows.length }) +
       panel(viewState.contacts, 'אין אנשי קשר להצגה.',
         `<section class="table-shell contacts-table-shell"><table><thead><tr>
-          <th>name</th><th>mobile</th><th>email</th>
+          <th>שם</th><th>נייד</th><th>דוא״ל</th>
         </tr></thead><tbody>
           ${contactsRows.map((row, index) => {
             const rowKey = String(row._rowNumber || index);
@@ -978,8 +1035,8 @@ function renderScreen() {
               <td>${esc(row.mobile || '-')}</td>
               <td><span class="contact-email-cell">${esc(row.email || '-')}<button type="button" class="btn btn-icon contact-copy-btn" data-copy-email="${escAttr(row.email || '')}" aria-label="העתקת אימייל" title="העתקת אימייל">⧉</button></span></td>
             </tr>${isExpanded ? `<tr class="contact-details-row"><td colspan="3"><div class="contact-details">
-              <p><strong>address:</strong> ${esc(row.address || '-')}</p>
-              <p><strong>employment:</strong> ${esc(row.employment || '-')}</p>
+              <p><strong>כתובת:</strong> ${esc(row.address || '-')}</p>
+              <p><strong>סוג העסקה:</strong> ${esc(row.employment || '-')}</p>
               ${canEditContacts() ? `<div class="contact-details-actions"><button class="btn btn-secondary" data-edit-contact="${index}">עריכה</button></div>` : ''}
             </div></td></tr>` : ''}`;
           }).join('')}
@@ -1865,7 +1922,7 @@ function renderCourseCards(rows, options = {}) {
           </div>
         </div>
       </div>
-      ${issueText ? `<div class="card-issue ${issueFlag ? 'has-issue' : ''}"><strong>מה חסר בפועל:</strong> ${esc(issueText)}</div>` : ''}
+      ${issueText ? `<div class="card-issue ${issueFlag ? 'has-issue' : ''}">${esc(issueText)}</div>` : ''}
       <footer class="card-actions">
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
         <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">${canEdit ? 'עריכה' : 'שלח בקשת שינוי'}</button>
@@ -1957,8 +2014,8 @@ function renderCourseTable(rows, options = {}) {
 function renderInstructorCards(rows, selectedInstructor) {
   if (!rows.length) return '<section class="panel-empty">אין נתוני מדריכים זמינים.</section>';
   return `<section class="cards-grid instructor-grid">${rows.map((row) => {
-    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} קורסים${row.hasGap ? ' · דורש טיפול' : ''}</div>`;
-    const details = `<div class="card-meta"><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>${row.hasGap ? '<span>🧩 סטטוס: דורש טיפול</span>' : ''}</div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
+    const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} קורסים</div>`;
+    const details = `<div class="card-meta"><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>${row.hasGap ? '<span>פער מדריך/נתונים</span>' : ''}</div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
     return renderExpandableCard({ summary, details, classes: `management-card instructor-card expandable-card ${selectedInstructor === row.instructor ? 'active' : ''}`, activityRow: row });
   }).join('')}</section>`;
 }
@@ -1967,7 +2024,7 @@ function renderExceptionCards(rows) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו חריגות בהתאם לסינון.</section>';
   return `<section class="cards-grid">${rows.map((row) => {
     const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
-    const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
+    const details = `<div class="card-meta"><span>${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
     return renderExpandableCard({ summary, details, classes: 'management-card exception-card expandable-card', activityRow: row });
   }).join('')}</section>`;
 }
@@ -2072,6 +2129,9 @@ function applyCourseQuickFilter(rows) {
   if (key === 'workshops_only') {
     return list.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה'));
   }
+  if (key === 'tours_only') {
+    return list.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סיור'));
+  }
   if (key === 'ending_this_month') {
     return list.filter((row) => {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
@@ -2091,7 +2151,7 @@ function applyCourseQuickFilter(rows) {
   if (key === 'needs_review') return list.filter((row) => hasOperationalIssue(row));
   if (key === 'missing_report') return list.filter((row) => isMissingReport(row));
   if (key === 'missing_data') return list.filter((row) => isMissingReport(row) || !hasInstructor(row));
-  if (key === 'ending_soon') return list.filter((row) => isDateInRange(firstDate(row, ['End', 'End']), now, plusSeven));
+  if (key === 'ending_soon') return list.filter((row) => isDateInRange(firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]), now, plusSeven));
   if (key === 'exceptions') return list.filter((row) => hasException(row));
   if (key === 'open_requests') return list.filter((row) => hasValue(row, ['ChangeRequest']));
   if (key === 'change_request') return list.filter((row) => hasValue(row, ['ChangeRequest']));
@@ -2199,7 +2259,7 @@ function isCourseCompleted(row = {}) {
     || row?.WorkflowStatus
     || ''
   ).toLowerCase();
-  if (statusText.includes('סיום') || statusText.includes('הושלם') || statusText.includes('completed') || statusText.includes('closed') || statusText.includes('ended')) {
+  if (runtimeRules.useStatusWithDates && (statusText.includes('סיום') || statusText.includes('הושלם') || statusText.includes('completed') || statusText.includes('closed') || statusText.includes('ended'))) {
     return true;
   }
   const dates = getScheduleDates(row);
@@ -2473,7 +2533,7 @@ function renderCourseDetailsPanel(course, options = {}) {
     <div class="course-core-grid">
       <div class="course-core-col"><span><strong>שם קורס:</strong> ${esc(getBusinessCourseName(course))}</span><span><strong>מדריך:</strong> ${esc(resolveInstructorName(course) || '-')}</span></div>
       <div class="course-core-col"><span><strong>בית ספר:</strong> ${esc(course[COURSE_FIELDS.SCHOOL] || '-')}</span><span><strong>רשות:</strong> ${esc(course[COURSE_FIELDS.AUTHORITY] || '-')}</span></div>
-      <div class="course-core-col">${summarizeIssue(course) ? `<span><strong>מה חסר בפועל:</strong> ${esc(summarizeIssue(course))}</span>` : ''}<span><strong>הערות דחייה:</strong> ${esc(delayText)}</span></div>
+      <div class="course-core-col">${summarizeIssue(course) ? `<span>${esc(summarizeIssue(course))}</span>` : ''}<span><strong>הערות דחייה:</strong> ${esc(delayText)}</span></div>
     </div>
     <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>תאריך מקורי</th><th>שעות</th><th>סטטוס</th><th>הערה אחרונה</th><th>פעולות</th></tr></thead><tbody>
       ${meetings.length ? meetings.map((item) => {
@@ -2508,7 +2568,7 @@ function renderCourseDetailsPanel(course, options = {}) {
 }
 
 function renderIssueBadge(row) {
-  if (hasException(row)) return '<span class="status-chip status-declined">דורש טיפול</span>';
+  if (hasException(row)) return '<span class="status-chip status-declined">חריג</span>';
   if (isMissingReport(row)) return '<span class="status-chip status-pending">חסר דיווח</span>';
   if (!hasInstructor(row)) return '<span class="status-chip status-pending-final">חסר מדריך</span>';
   return '';
@@ -2719,6 +2779,9 @@ function openMeetingChangeModal({ meetingNumber, initialDate }) {
 
 function openCourseActionForm(course, mode) {
   return new Promise((resolve) => {
+    const isDirectEdit = mode === 'edit';
+    const formTitle = isDirectEdit ? 'עריכה ישירה' : 'בקשת שינוי';
+    const formSubmitLabel = isDirectEdit ? 'שמירה ישירה' : 'שליחה לעדן';
     const planned = Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
     const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
       const n = i + 1;
@@ -2735,7 +2798,7 @@ function openCourseActionForm(course, mode) {
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card course-form-card--wide">
-        <h3>בקשת שינוי — ${esc(getBusinessCourseName(course))}</h3>
+        <h3>${esc(formTitle)} — ${esc(getBusinessCourseName(course))}</h3>
         <div class="caf-meta-row">
           <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
           <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
@@ -2747,7 +2810,7 @@ function openCourseActionForm(course, mode) {
         </div>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
-          <button class="btn btn-primary" id="courseFormSubmit">שליחה לעדן</button>
+          <button class="btn btn-primary" id="courseFormSubmit">${esc(formSubmitLabel)}</button>
         </div>
       </div>
     `;
@@ -2840,13 +2903,13 @@ function openContactEditForm(contact = {}) {
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card">
         <h3>עריכת איש קשר</h3>
-        <label>role<input id="contactRole" value="${escAttr(contact.role || '')}" /></label>
-        <label>name<input id="contactName" value="${escAttr(contact.name || '')}" /></label>
-        <label>id_number<input id="contactIdNumber" value="${escAttr(contact.id_number || '')}" /></label>
-        <label>address<input id="contactAddress" value="${escAttr(contact.address || '')}" /></label>
-        <label>mobile<input id="contactMobile" value="${escAttr(contact.mobile || '')}" /></label>
-        <label>email<input id="contactEmail" value="${escAttr(contact.email || '')}" /></label>
-        <label>employment<input id="contactEmployment" value="${escAttr(contact.employment || '')}" /></label>
+        <label>תפקיד<input id="contactRole" value="${escAttr(contact.role || '')}" /></label>
+        <label>שם<input id="contactName" value="${escAttr(contact.name || '')}" /></label>
+        <label>תעודת זהות<input id="contactIdNumber" value="${escAttr(contact.id_number || '')}" /></label>
+        <label>כתובת<input id="contactAddress" value="${escAttr(contact.address || '')}" /></label>
+        <label>נייד<input id="contactMobile" value="${escAttr(contact.mobile || '')}" /></label>
+        <label>דוא״ל<input id="contactEmail" value="${escAttr(contact.email || '')}" /></label>
+        <label>סוג העסקה<input id="contactEmployment" value="${escAttr(contact.employment || '')}" /></label>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
           <button class="btn btn-primary" id="contactSaveBtn">שמירה</button>
@@ -3319,12 +3382,7 @@ function bindWeekActions(weekData) {
     setRoute('exceptions');
   }));
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
-    const row = findCourseById(button.dataset.openCourse);
-    if (!row) return;
-    viewState.courses.selectedCourseId = String(row.CourseID || '');
-    viewState.courses.selectedCourseDetails = row;
-    await loadCourseMeetings(row.CourseID);
-    setRoute('courses');
+    await openCourseFromPlanner(button.dataset.openCourse);
   }));
   bindWeekAccordionState();
   document.getElementById('weekCloseDetails')?.addEventListener('click', () => {
@@ -3494,12 +3552,7 @@ function bindMonthActions(monthData) {
     renderScreen();
   });
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
-    const row = findCourseById(button.dataset.openCourse);
-    if (!row) return;
-    viewState.courses.selectedCourseId = String(row.CourseID || '');
-    viewState.courses.selectedCourseDetails = row;
-    await loadCourseMeetings(row.CourseID);
-    setRoute('courses');
+    await openCourseFromPlanner(button.dataset.openCourse);
   }));
 }
 
@@ -3736,7 +3789,7 @@ function renderExceptionsCards(rows) {
   return `<section class="cards-grid">${rows.map((row) => {
     const issueChips = (row.MissingTypes || []).map((t) => `<span class="status-chip status-alert">${esc(t)}</span>`).join('');
     const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3>${issueChips ? `<div class="card-chips">${issueChips}</div>` : ''}</div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
-    const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button></div>`;
+    const details = `<div class="card-meta"><span>${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button></div>`;
     return renderExpandableCard({ summary, details, activityRow: row });
   }).join('')}</section>`;
 }
@@ -3777,10 +3830,11 @@ function exportFinanceToExcel(rows, filename) {
   const headers = ['קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'כל התאריכים', 'תאריך', 'תאריך התחלה', 'תאריך סיום', 'מפגשים מתוכננים', 'מפגשים בפועל', 'עלות', 'גורם מימון', 'גורם משלם', 'סטטוס', 'הערות'];
   const collectPerformedDates = (row) => {
     const values = [];
+    const today = endOfDay(new Date());
     COURSE_DATE_FIELDS.forEach((field) => {
       const raw = financeRowDateRaw(row, field);
       const parsed = parseDateLike(raw);
-      if (parsed) values.push(formatDate(parsed));
+      if (parsed && parsed <= today) values.push(formatDate(parsed));
     });
     return values.join(', ');
   };
@@ -3799,7 +3853,7 @@ function exportFinanceToExcel(rows, filename) {
     hebrifyValue(row?.Funding) || '',
     hebrifyValue(row?.Payer) || '',
     String(row?.FinanceStatus || ''),
-    String(row?.Notes || '')
+    String(row?.FinanceNotes || row?.notes || '')
   ]);
   const html = `<table><thead><tr>${headers.map((header) => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   const blob = new Blob([`\uFEFF${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
@@ -3913,6 +3967,7 @@ async function loadRouteData() {
     return;
   }
   await initEnginePromise.catch(() => {});
+  await ensureRuntimeRulesLoaded();
   if (ROUTES_NEEDING_COURSES.has(currentRoute)) await ensureCoursesLoaded();
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'admin-settings') return loadAdminSettingsView();
@@ -3939,13 +3994,12 @@ async function loadDashboard() {
       ensureCoursesLoaded()
     ]);
     if (!dashboardRes?.success) return dashboardRes;
-    const allActivityCourses = getCoursesForUser(userState, {})
-      .filter(isCourseActivity)
-      .filter(isCourseShownOnCoursesScreen);
+    const allActivities = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
+    const allActivityCourses = allActivities.filter(isCourseActivity);
     const courses = allActivityCourses.filter((row) => !isCourseCompleted(row));
     return {
       success: true,
-      data: withOperationalMetrics(dashboardRes.data || {}, courses, { endingCourses: allActivityCourses })
+      data: withOperationalMetrics(dashboardRes.data || {}, courses, { endingCourses: allActivityCourses, allActivities })
     };
   }, null, 'לא ניתן לטעון דשבורד.');
 }
@@ -3999,9 +4053,8 @@ async function loadMyRequests() {
 
 async function loadContactsView() {
   await withLoad('contacts', async () => {
-    const res = await api.getContactsData();
-    if (!res?.success) return res;
-    return { success: true, data: { items: Array.isArray(res?.data?.items) ? res.data.items : [] } };
+    const rows = await loadContacts();
+    return { success: true, data: { items: Array.isArray(rows) ? rows : [] } };
   }, [], 'לא ניתן לטעון אנשי קשר.');
 }
 
@@ -4291,18 +4344,19 @@ function esc(v) { return String(v || '').replace(/</g, '&lt;').replace(/>/g, '&g
 function escAttr(v) { return esc(v).replace(/"/g, '&quot;'); }
 
 function withOperationalMetrics(baseData, courses, options = {}) {
+  const allActivities = Array.isArray(options.allActivities) ? options.allActivities : courses;
   const endingCourses = Array.isArray(options.endingCourses) ? options.endingCourses : courses;
   const now = new Date();
   const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-  const activeThisMonth = courses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
+  const activeThisMonth = allActivities.filter((row) => isActiveInMonthByStatusAndDates(row, currentMonthStart, currentMonthEnd));
   const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
   const activeByManager = {};
   const endingByManager = {};
   const instructorsByManager = {};
   const requiresTreatmentByManager = {};
   managers.forEach((managerName) => {
-    const managerCourses = courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
+    const managerCourses = endingCourses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
     const managerEndingCourses = endingCourses.filter((row) => String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').trim() === managerName);
     const managerActiveCourses = managerCourses.filter((row) => getScheduleDates(row).some((d) => isDateInRange(d, currentMonthStart, currentMonthEnd)));
     instructorsByManager[managerName] = new Set(managerCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size;
@@ -4314,10 +4368,14 @@ function withOperationalMetrics(baseData, courses, options = {}) {
     activeByManager[managerName] = managerActiveCourses.length;
   });
   const missing = courses.map((row) => getExceptionsPageIssues(row));
+  const activeCoursesNow = endingCourses.filter((row) => isActiveByStatusAndDates(row, now));
+  const activeWorkshopsNow = allActivities.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה') && isActiveByStatusAndDates(row, now));
+  const activeToursNow = allActivities.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סיור') && isActiveByStatusAndDates(row, now));
   return {
     ...baseData,
-    totalCoursesCount: courses.length,
-    workshopsCount: courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה')).length,
+    totalCoursesCount: activeCoursesNow.length,
+    workshopsCount: activeWorkshopsNow.length,
+    toursCount: activeToursNow.length,
     endingCurrentMonthCount: endingCourses.filter((row) => {
       const endDate = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
       return isDateInRange(endDate, currentMonthStart, currentMonthEnd);
@@ -4331,9 +4389,43 @@ function withOperationalMetrics(baseData, courses, options = {}) {
     missingDateCount: missing.filter((types) => types.includes(EXCEPTION_MISSING_START_DATE)).length,
     missingInstructorCount: missing.filter((types) => types.includes('ללא מדריך')).length,
     totalExceptionsCount: missing.filter((types) => (types || []).length > 0).length,
-    instructorsCount: new Set(courses.map((row) => resolveInstructorName(row)).filter(Boolean)).size,
-    juneEndingCount: courses.filter((row) => isCourseEndInJune2026(row)).length
+    instructorsCount: new Set(endingCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size,
+    juneEndingCount: endingCourses.filter((row) => isCourseEndInJune2026(row)).length
   };
+}
+
+
+function isClosedByStatus(row = {}) {
+  const statusText = String(getCourseField(row, COURSE_FIELDS.STATUS) || row?.WorkflowStatus || '').trim().toLowerCase();
+  return ['closed', 'ended', 'completed', 'הסתיים', 'הושלם', 'סגור'].some((marker) => statusText.includes(marker));
+}
+
+function isActiveInMonthByStatusAndDates(row, monthStart, monthEnd) {
+  if (runtimeRules.useStatusWithDates && isClosedByStatus(row)) return false;
+  const scheduleDates = getScheduleDates(row);
+  if (scheduleDates.some((d) => isDateInRange(d, monthStart, monthEnd))) return true;
+  const start = firstDate(row, [COURSE_DATE_FIELDS[0], COURSE_FIELDS.START_DATE, 'start_date']);
+  const end = firstDate(row, [COURSE_FIELDS.END_DATE, COURSE_FIELDS.END]);
+  if (start && end) return !(end < monthStart || start > monthEnd);
+  return false;
+}
+
+function isActiveByStatusAndDates(row, refDate = new Date()) {
+  if (runtimeRules.useStatusWithDates && isClosedByStatus(row)) return false;
+  return isActiveCourse(row, refDate);
+}
+
+async function openCourseFromPlanner(courseId) {
+  const row = findCourseById(courseId);
+  if (!row) return;
+  viewState.courses.quickFilter = '';
+  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '' };
+  viewState.uiContext.coursesSubtitle = 'נפתח מהתצוגה השבועית/חודשית';
+  viewState.courses.selectedCourseId = String(row.CourseID || '');
+  viewState.courses.selectedCourseDetails = row;
+  await loadCourseMeetings(row.CourseID);
+  showToast(`נפתח קורס: ${getBusinessCourseName(row)}`, 'info', 2200);
+  setRoute('courses');
 }
 
 function buildInstructorOverview(courses) {

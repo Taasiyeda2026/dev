@@ -1314,15 +1314,25 @@ a { color: var(--accent); text-decoration: none; }
 .compact-actions-row { display: flex; justify-content: flex-start; margin: 6px 0 12px; }
 .btn-compact { padding: 4px 10px; font-size: 12px; border-radius: 999px; }
 .contacts-table-shell table { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; }
-.admin-screen-shell { margin-top: 2px; }
-.admin-table-shell { border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); }
+.admin-screen-shell {
+  margin-top: 2px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.admin-screen-shell .panel-block-head {
+  margin-bottom: 10px;
+  align-items: center;
+}
+.admin-table-shell { border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); overflow: hidden; }
 .admin-table-shell table { width: 100%; border-collapse: collapse; }
 .admin-table-shell thead th { background: var(--surface-2); font-weight: 700; }
 .admin-table-shell tbody tr + tr td { border-top: 1px solid var(--border-soft); }
 .contacts-table-shell { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); padding: 6px; }
 .contacts-table-shell table { width: 100%; border-collapse: collapse; }
-.contacts-table-shell thead th { background: var(--surface-2); padding: 10px 12px; font-size: 12px; }
-.contacts-table-shell tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+.contacts-table-shell thead th { background: var(--surface-2); padding: 10px 12px; font-size: 12px; font-weight: 700; color: var(--text-secondary); }
+.contacts-table-shell tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; font-size: 13px; }
 .contacts-table-shell tbody tr:last-child td { border-bottom: none; }
 .contact-name-toggle {
   border: none;
@@ -1339,6 +1349,7 @@ a { color: var(--accent); text-decoration: none; }
 .contact-details { padding: 8px 2px; display: grid; gap: 6px; }
 .contact-details p { margin: 0; }
 .contact-details-actions { margin-top: 4px; }
+.activities-table-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
 .activities-table-wrap tbody tr + tr td { border-top: 1px solid #dbe2f1; }
 .finance-group-block { margin-top: 10px; }
 .finance-group-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin: 4px 0 6px; }
