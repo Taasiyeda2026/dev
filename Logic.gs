@@ -121,6 +121,7 @@ var Logic = (function () {
         DisplayRole: Utils.normalize(valueAt_(primary, idx.displayRole)),
         ViewScope: scopeJoin(idx.viewScope),
         EditScope: scopeJoin(idx.editScope),
+        actionMode: Utils.normalize(valueAt_(primary, idx.editScope)),
         ApprovalScope: scopeJoin(idx.approvalScope),
         UiProfile: Utils.normalize(valueAt_(primary, idx.uiProfile)),
         TeamScope: scopeJoin(idx.teamScope),
@@ -284,17 +285,32 @@ var Logic = (function () {
     try {
       var perf = startPerf_('getFinanceData');
       requireFinanceAccess_(session.user, { archive: false, requireEdit: false });
-      var readStage = perf.startStage('sheet.finance');
-      var table = Utils.readTable('FINANCE', true, {
+      var readStage = perf.startStage('sheet.data_finance_view');
+      var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true, {
         useScriptCache: true,
-        cacheKey: 'table:finance',
+        cacheKey: 'table:data_master',
         cacheTtlSeconds: PERF_CACHE.FINANCE_TTL,
         requestMemoKey: 'finance:active'
       });
       perf.endStage(readStage, { rows: table.rows.length });
       var transformStage = perf.startStage('transform.finance');
+      var idxStatus = Utils.resolveIndex(table.headers, ['status', 'Status']);
+      var idxEnd = Utils.resolveIndex(table.headers, ['end_date', 'End']);
+      var idxRow = Utils.resolveIndex(table.headers, ['row_id', 'RowID', 'CourseID']);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['finance_status', 'FinanceStatus']);
+      var idxFinanceNotes = Utils.resolveIndex(table.headers, ['finance_notes', 'FinanceNotes']);
       var items = table.rows.map(function (row, index) {
-        return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
+        return { row: row, rowNumber: table.rowNumbers[index] };
+      }).filter(function (entry) {
+        var status = Utils.toKey(valueAt_(entry.row, idxStatus));
+        return status === 'ended' && !Utils.isEmpty(valueAt_(entry.row, idxEnd));
+      }).map(function (entry) {
+        var row = entry.row;
+        var out = Utils.rowToObject(table.headers, row, entry.rowNumber);
+        out.FinanceRowID = Utils.normalize(valueAt_(row, idxRow));
+        out.FinanceStatus = Utils.normalize(valueAt_(row, idxFinanceStatus)) || 'open';
+        out.FinanceNotes = Utils.normalize(valueAt_(row, idxFinanceNotes));
+        return out;
       });
       perf.endStage(transformStage, { rows: items.length });
       perf.finish({ success: true, rows: items.length });
@@ -305,30 +321,7 @@ var Logic = (function () {
   }
 
   function getFinanceArchiveData() {
-    var session = requireSession_();
-    if (!session.success) return session;
-    try {
-      var perf = startPerf_('getFinanceArchiveData');
-      requireFinanceAccess_(session.user, { archive: true, requireEdit: false });
-      var readStage = perf.startStage('sheet.finance_archive');
-      var table = Utils.readTable('FINANCE_ARCHIVE', false, {
-        useScriptCache: true,
-        cacheKey: 'table:finance_archive',
-        cacheTtlSeconds: PERF_CACHE.FINANCE_TTL,
-        requestMemoKey: 'finance:archive'
-      });
-      perf.endStage(readStage, { rows: table.rows.length });
-      if (!table.sheet) return { success: true, data: { items: [] } };
-      var transformStage = perf.startStage('transform.finance_archive');
-      var items = table.rows.map(function (row, index) {
-        return Utils.rowToObject(table.headers, row, table.rowNumbers[index]);
-      });
-      perf.endStage(transformStage, { rows: items.length });
-      perf.finish({ success: true, rows: items.length });
-      return { success: true, data: { items: items } };
-    } catch (err) {
-      return Utils.safeMessage('אין הרשאה לצפייה בארכיון גבייה.');
-    }
+    return { success: true, data: { items: [] } };
   }
 
   function updateFinanceStatus(payload) {
@@ -338,15 +331,15 @@ var Logic = (function () {
       var body = Utils.asObject(payload, {});
       var financeRowId = Utils.normalize(body.FinanceRowID || body.financeRowId);
       var financeStatus = Utils.normalize(body.FinanceStatus || body.financeStatus);
-      var targetSheet = Utils.normalize(body.sheetName || 'FINANCE');
-      var isArchive = targetSheet === 'FINANCE_ARCHIVE';
-      requireWritePermission_(session.user, isArchive ? WRITE_ACTIONS.FINANCE_ARCHIVE_UPDATE : WRITE_ACTIONS.FINANCE_UPDATE, {});
+      var targetSheet = CONFIG.SHEETS.DATA_MASTER;
+      requireWritePermission_(session.user, WRITE_ACTIONS.FINANCE_UPDATE, {});
       if (!financeRowId || !financeStatus) return Utils.safeMessage('FinanceRowID ו-FinanceStatus הם שדות חובה.');
+      if (financeStatus !== 'open' && financeStatus !== 'closed') return Utils.safeMessage('FinanceStatus חייב להיות open או closed.');
 
       var table = Utils.readTable(targetSheet, true);
-      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['FinanceRowID']);
-      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['FinanceStatus']);
-      var idxNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
+      var idxFinanceRowId = Utils.resolveIndex(table.headers, ['row_id', 'RowID', 'CourseID']);
+      var idxFinanceStatus = Utils.resolveIndex(table.headers, ['finance_status', 'FinanceStatus']);
+      var idxNotes = Utils.resolveIndex(table.headers, ['finance_notes', 'FinanceNotes']);
       if (idxFinanceRowId === -1 || idxFinanceStatus === -1) return Utils.safeMessage('חסרות עמודות חובה בגיליון הכספים.');
 
       for (var i = 0; i < table.rows.length; i += 1) {
@@ -625,6 +618,13 @@ var Logic = (function () {
       }
 
       var status = normalizeInputStatus_(body.ApprovalStatus || body.status, existing ? valueAt_(existing.row, idx.approvalStatus) : '');
+      var openRequest = findOpenRequestBySourceRowId_(table, idx, body.CourseID, existing ? requestId : '');
+      if (openRequest) {
+        return Utils.safeMessage('כבר קיימת רשומת תפעול פתוחה עבור רשומה זו.');
+      }
+      if (!hasBusinessChanges_(body.requestedData, body.originalData)) {
+        return Utils.safeMessage('לא זוהה שינוי עסקי לשליחה לאדמין.');
+      }
       var record = buildRequestRecord_(table.headers, idx, body, session.user, requestId, status, existing ? existing.row : null);
       var values = table.headers.map(function (header) { return record[header] || ''; });
 
@@ -944,7 +944,10 @@ var Logic = (function () {
       OriginalData: 'originalData', RequestedData: 'requestedData', EditableBy: 'editableBy', AssignedEditor: 'assignedEditor',
       EdenApprovedAt: 'edenApprovedAt', FinalizedAt: 'finalizedAt', RejectedAt: 'rejectedAt',
       Date: 'date', Day: 'day', StartTime: 'startTime', EndTime: 'endTime', ClassGroup: 'classGroup',
-      ActualMeetings: 'actualMeetings', CourseManager: 'courseManager', Instructor: 'instructor', Notes: 'notes'
+      ActualMeetings: 'actualMeetings', CourseManager: 'courseManager', Instructor: 'instructor', Notes: 'notes',
+      request_id: 'requestId', source_row_id: 'courseId', requested_by: 'requestedBy', requested_at: 'requestedAt',
+      request_type: 'changeType', workflow_status: 'approvalStatus', admin_status: 'finalApprovalStatus',
+      activity_manager: 'courseManager', manager: 'courseManager', notes: 'notes'
     };
     return map[fieldName];
   }
@@ -957,6 +960,33 @@ var Logic = (function () {
       }
     }
     return null;
+  }
+
+  function findOpenRequestBySourceRowId_(table, idx, sourceRowId, excludeRequestId) {
+    if (idx.courseId === -1 || idx.approvalStatus === -1) return null;
+    var idKey = Utils.toKey(sourceRowId);
+    var excludeKey = Utils.toKey(excludeRequestId);
+    for (var i = 0; i < table.rows.length; i += 1) {
+      var row = table.rows[i];
+      if (Utils.toKey(valueAt_(row, idx.courseId)) !== idKey) continue;
+      if (excludeKey && Utils.toKey(valueAt_(row, idx.requestId)) === excludeKey) continue;
+      var status = Utils.toKey(valueAt_(row, idx.approvalStatus));
+      if (status !== Utils.toKey(CONFIG.STATUSES.FINAL_APPROVED) && status !== Utils.toKey(CONFIG.STATUSES.DECLINED)) {
+        return { row: row, rowNumber: table.rowNumbers[i] };
+      }
+    }
+    return null;
+  }
+
+  function hasBusinessChanges_(requestedData, originalData) {
+    var requested = Utils.asObject(requestedData, {});
+    var original = Utils.asObject(originalData, {});
+    var keys = Object.keys(requested);
+    if (!keys.length) return false;
+    return keys.some(function (key) {
+      if (Utils.toKey(key) === 'operations_notes') return false;
+      return Utils.normalize(requested[key]) !== Utils.normalize(original[key]);
+    });
   }
 
   function canEditDraft_(user, row, idx) {
@@ -1144,7 +1174,9 @@ var Logic = (function () {
   }
 
   function canCreateRequest_(user) {
-    return !isInstructor_(user);
+    var mode = Utils.toKey(user.actionMode || user.EditScope);
+    if (mode === 'no_edit') return false;
+    return mode === 'request_edit' || mode === 'edit' || !isInstructor_(user);
   }
 
   function canEditCourseByRole_(user, courseId, payloadTeam) {
@@ -1878,18 +1910,18 @@ var Logic = (function () {
     return {
       employeeId: Utils.resolveIndex(headers, CONFIG.FIELDS.EMPLOYEE_ID),
       entryCode: Utils.resolveIndex(headers, CONFIG.FIELDS.ENTRY_CODE),
-      employeeName: Utils.resolveIndex(headers, ['EmployeeName', 'Employee', 'DisplayName']),
-      systemRole: Utils.resolveIndex(headers, ['SystemRole']),
-      displayRole: Utils.resolveIndex(headers, ['DisplayRole']),
-      viewScope: Utils.resolveIndex(headers, ['ViewScope']),
-      editScope: Utils.resolveIndex(headers, ['EditScope']),
+      employeeName: Utils.resolveIndex(headers, ['employee_name', 'EmployeeName', 'Employee', 'DisplayName']),
+      systemRole: Utils.resolveIndex(headers, ['system_role', 'SystemRole']),
+      displayRole: Utils.resolveIndex(headers, ['display_role', 'DisplayRole']),
+      viewScope: Utils.resolveIndex(headers, ['view_scope', 'ViewScope']),
+      editScope: Utils.resolveIndex(headers, ['action_mode', 'EditScope']),
       approvalScope: Utils.resolveIndex(headers, ['ApprovalScope']),
       uiProfile: Utils.resolveIndex(headers, ['UiProfile']),
       teamScope: Utils.resolveIndex(headers, ['TeamScope']),
       instructorManager: Utils.resolveIndex(headers, ['InstructorManager']),
-      activeFlag: Utils.resolveIndex(headers, ['ActiveFlag']),
-      canAccessFinance: Utils.resolveIndex(headers, ['CanAccessFinance']),
-      canEditFinance: Utils.resolveIndex(headers, ['CanEditFinance']),
+      activeFlag: Utils.resolveIndex(headers, ['active_flag', 'ActiveFlag']),
+      canAccessFinance: Utils.resolveIndex(headers, ['can_access_finance', 'CanAccessFinance']),
+      canEditFinance: Utils.resolveIndex(headers, ['can_edit_finance', 'CanEditFinance']),
       canAccessFinanceArchive: Utils.resolveIndex(headers, ['CanAccessFinanceArchive']),
       canEditFinanceArchive: Utils.resolveIndex(headers, ['CanEditFinanceArchive'])
     };

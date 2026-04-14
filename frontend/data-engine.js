@@ -96,9 +96,26 @@ function mapPermissionRow(raw = {}) {
 }
 
 function mapCourseRow(raw = {}) {
+  const rowId = String(raw.row_id || raw.CourseID || '').trim();
   return {
     ...raw,
-    [COURSE_FIELDS.COURSE_ID]: String(raw[COURSE_FIELDS.COURSE_ID] || '').trim(),
+    CourseID: rowId,
+    row_id: rowId,
+    Program: raw.activity_name || raw.Program || '',
+    EventType: raw.activity_type || raw.EventType || '',
+    Authority: raw.authority || raw.Authority || '',
+    School: raw.school || raw.School || '',
+    Employee: raw.name || raw.Employee || '',
+    EmployeeID: toNumber(raw.emp_id || raw.EmployeeID),
+    CourseManager: raw.manager || raw.CourseManager || '',
+    InstructorManager: raw.activity_manager || raw.InstructorManager || '',
+    StartTime: raw.start_time || raw.StartTime || '',
+    EndTime: raw.end_time || raw.EndTime || '',
+    End: raw.end_date || raw.End || '',
+    Notes: raw.notes || raw.Notes || '',
+    Funding: raw.funding || raw.Funding || '',
+    Payment: raw.price || raw.Payment || '',
+    [COURSE_FIELDS.COURSE_ID]: rowId,
     [COURSE_FIELDS.PROGRAM_CODE]: toNumber(raw[COURSE_FIELDS.PROGRAM_CODE]),
     [COURSE_FIELDS.EMPLOYEE_ID]: toNumber(raw[COURSE_FIELDS.EMPLOYEE_ID]),
     [COURSE_FIELDS.PLANNED_MEETINGS]: toNumber(raw[COURSE_FIELDS.PLANNED_MEETINGS]),
@@ -381,18 +398,36 @@ export async function createDataMasterRecord(record = {}, actor = {}) {
 
 export async function loadFinanceItems(force = false) {
   if (!force && dataStore.finance.length) return dataStore.finance;
-  if (!apiRef?.getFinanceData) return [];
-  const res = await apiRef.getFinanceData();
-  dataStore.finance = res?.success ? (res?.data?.items || []) : [];
+  const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
+  dataStore.finance = (rows || []).filter((row) => {
+    const status = String(row?.status || '').trim().toLowerCase();
+    const end = String(row?.end_date || row?.End || '').trim();
+    return status === 'ended' && !!end;
+  }).map((row) => ({
+    ...row,
+    FinanceRowID: String(row?.row_id || row?._rowNumber || ''),
+    FinanceStatus: String(row?.finance_status || 'open').trim().toLowerCase(),
+    FinanceNotes: row?.finance_notes || '',
+    CourseID: row?.row_id || '',
+    Course: row?.activity_name || '',
+    Program: row?.activity_name || '',
+    EventType: row?.activity_type || '',
+    Authority: row?.authority || '',
+    School: row?.school || '',
+    Employee: row?.name || '',
+    CourseManager: row?.manager || '',
+    Funding: row?.funding || '',
+    End: row?.end_date || '',
+    Payment: row?.price || '',
+    Payer: String(row?.funding || '').trim() === 'גפן' ? (row?.school || '') : (row?.funding || ''),
+    DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => String(row?.[field] || '').trim() ? count + 1 : count, 0)
+  }));
   dataStore.loadedAt.finance = now();
   return dataStore.finance;
 }
 
 export async function loadFinanceArchiveItems(force = false) {
-  if (!force && dataStore.financeArchive.length) return dataStore.financeArchive;
-  if (!apiRef?.getFinanceArchiveData) return [];
-  const res = await apiRef.getFinanceArchiveData();
-  dataStore.financeArchive = res?.success ? (res?.data?.items || []) : [];
+  dataStore.financeArchive = [];
   dataStore.loadedAt.financeArchive = now();
   return dataStore.financeArchive;
 }
@@ -402,7 +437,7 @@ export async function updateFinanceStatus(financeRowId, financeStatus, options =
   const payload = {
     FinanceRowID: financeRowId,
     FinanceStatus: financeStatus,
-    sheetName: options.sheetName || 'FINANCE',
+    sheetName: options.sheetName || SHEET_NAMES.DATA_MASTER,
     StatusNote: options.statusNote || ''
   };
   const res = await apiRef.updateFinanceStatus(payload);
