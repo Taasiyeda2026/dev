@@ -181,6 +181,25 @@ const COURSE_DATE_FIELDS = COURSE_FIELDS.DATE_FIELDS || [];
 const COURSE_DATE_RANGE_FIELDS = COURSE_DATE_FIELDS;
 const COURSE_END_RANGE_FIELDS = [COURSE_FIELDS.END];
 const INSTRUCTOR_FALLBACK_FIELD = 'Employee';
+const ACTIVITY_COLORS_BY_CODE = Object.freeze({
+  '6089': '#4caf50',
+  '53828': '#ffaec6',
+  '9545': '#2600ff',
+  '57646': '#edffed',
+  '57651': '#cdf5ff',
+  '53819': '#e4d6fa',
+  '90001': '#87ff8c',
+  '3604': '#ff4ec4',
+  '90004': '#ffefd4',
+  '46091': '#e61c59',
+  '90002': '#f3faff',
+  '90003': '#0292b7',
+  '60025': '#f5a623',
+  '60026': '#ffe0ad',
+  '60027': '#ffd522',
+  '13990': '#87ff8c',
+  '1001': '#cb6ce6'
+});
 
 
 function logUi(event, meta = {}) {
@@ -1568,8 +1587,20 @@ function renderInfoRow(label, value) {
   return `<span><strong>${esc(label)}:</strong> ${esc(value)}</span>`;
 }
 
-function renderExpandableCard({ summary, details, open = false, classes = 'management-card expandable-card' }) {
-  return `<details class="${classes}" ${open ? 'open' : ''}><summary class="card-summary">${summary}</summary><div class="card-details">${details}</div></details>`;
+function getActivityColor(row = {}) {
+  const activityCode = String(
+    getCourseField(row, COURSE_FIELDS.PROGRAM_CODE)
+    || row?.activity_no
+    || row?.ProgramCode
+    || ''
+  ).trim();
+  return ACTIVITY_COLORS_BY_CODE[activityCode] || '';
+}
+
+function renderExpandableCard({ summary, details, open = false, classes = 'management-card expandable-card', activityRow = null }) {
+  const accent = activityRow ? getActivityColor(activityRow) : '';
+  const styleAttr = accent ? ` style="border-right:4px solid ${escAttr(accent)}"` : '';
+  return `<details class="${classes}" ${open ? 'open' : ''}${styleAttr}><summary class="card-summary">${summary}</summary><div class="card-details">${details}</div></details>`;
 }
 
 function buildCourseHierarchyDetails(row = {}) {
@@ -1671,7 +1702,7 @@ function renderCourseCards(rows, options = {}) {
         <button class="btn btn-secondary" data-open-course="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">פרטים</button>
         <button class="btn btn-primary" data-edit-row="${escAttr(row[COURSE_FIELDS.COURSE_ID] || '')}">${canEdit ? 'עריכה' : 'שלח בקשת שינוי'}</button>
       </footer>`;
-    return renderExpandableCard({ summary, details, classes: `management-card expandable-card ${options.compact ? 'course-card-external' : ''}`.trim() });
+    return renderExpandableCard({ summary, details, classes: `management-card expandable-card ${options.compact ? 'course-card-external' : ''}`.trim(), activityRow: row });
   }).join('')}</section>`;
 }
 
@@ -1761,7 +1792,7 @@ function renderInstructorCards(rows, selectedInstructor) {
   return `<section class="cards-grid instructor-grid">${rows.map((row) => {
     const summary = `<header class="card-head"><h3>${esc(row.instructor)}</h3>${renderInstructorState(row)}</header><div class="card-summary-minimal">${esc(row.coursesCount)} קורסים${row.hasGap ? ' · דורש טיפול' : ''}</div>`;
     const details = `<div class="card-meta"><span>🏛️ רשויות: ${esc(row.authorities.join(', ') || '-')}</span><span>🏫 בתי ספר: ${esc(row.schools.join(', ') || '-')}</span>${row.hasGap ? '<span>🧩 סטטוס: דורש טיפול</span>' : ''}</div><footer class="card-actions"><button class="btn btn-secondary" data-instructor-details="${escAttr(row.instructor)}">פרטי מדריך</button></footer>`;
-    return renderExpandableCard({ summary, details, classes: `management-card instructor-card expandable-card ${selectedInstructor === row.instructor ? 'active' : ''}` });
+    return renderExpandableCard({ summary, details, classes: `management-card instructor-card expandable-card ${selectedInstructor === row.instructor ? 'active' : ''}`, activityRow: row });
   }).join('')}</section>`;
 }
 
@@ -1770,7 +1801,7 @@ function renderExceptionCards(rows) {
   return `<section class="cards-grid">${rows.map((row) => {
     const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
     const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
-    return renderExpandableCard({ summary, details, classes: 'management-card exception-card expandable-card' });
+    return renderExpandableCard({ summary, details, classes: 'management-card exception-card expandable-card', activityRow: row });
   }).join('')}</section>`;
 }
 
@@ -2033,12 +2064,13 @@ function parseDateLike(value) {
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : new Date(value.getFullYear(), value.getMonth(), value.getDate(), value.getHours(), value.getMinutes(), value.getSeconds(), value.getMilliseconds());
   }
-  const isoDay = String(value).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  const normalized = String(value).trim();
+  const isoDay = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (isoDay) {
     const date = new Date(Number(isoDay[1]), Number(isoDay[2]) - 1, Number(isoDay[3]));
     return Number.isNaN(date.getTime()) ? null : date;
   }
-  const isoDateTime = String(value).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const isoDateTime = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (isoDateTime) {
     const date = new Date(
       Number(isoDateTime[1]),
@@ -2050,7 +2082,7 @@ function parseDateLike(value) {
     );
     return Number.isNaN(date.getTime()) ? null : date;
   }
-  const isoUtc = String(value).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2})(?::(\d{2}))?(\.\d+)?Z$/i);
+  const isoUtc = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2})(?::(\d{2}))?(\.\d+)?Z$/i);
   if (isoUtc) {
     const date = new Date(Date.UTC(
       Number(isoUtc[1]),
@@ -2066,9 +2098,16 @@ function parseDateLike(value) {
     const excelEpoch = new Date(1899, 11, 30);
     return new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
   }
-  const direct = new Date(String(value));
+  if (/^\d{5}(?:\.\d+)?$/.test(normalized)) {
+    const serial = Number(normalized);
+    if (Number.isFinite(serial) && serial > 20000 && serial < 60000) {
+      const excelEpoch = new Date(1899, 11, 30);
+      return new Date(excelEpoch.getTime() + (serial * 24 * 60 * 60 * 1000));
+    }
+  }
+  const direct = new Date(normalized);
   if (!Number.isNaN(direct.getTime())) return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate(), direct.getHours(), direct.getMinutes(), direct.getSeconds(), direct.getMilliseconds());
-  const m = String(value).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  const m = normalized.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
   if (!m) return null;
   const y = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);
   const d = Number(m[1]);
@@ -3025,7 +3064,7 @@ function renderWeekDetails(selected) {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
     const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '-')} | ${esc(item[COURSE_FIELDS.SCHOOL] || '-')} | מדריך/ה: ${esc(resolveInstructorName(item) || '-')}</strong>`;
     const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.Date1 || item['Date1'])) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
-    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card', activityRow: item });
   }).join('')}</div></aside>`;
 }
 
@@ -3224,7 +3263,7 @@ function renderMonthDayDetails(items, dateLabel) {
     const hierarchy = buildCourseHierarchyDetails(item);
     const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>`;
     const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(`${hierarchy.meetingsCompleted}/${hierarchy.meetingsTotal || 0} בוצעו`)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
-    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card', activityRow: item });
   }).join('') || '<div class="panel-empty">אין מפגשים</div>'}</section>`;
 }
 
@@ -3234,7 +3273,7 @@ function renderMonthSidePanel(items, dateLabel) {
     const hierarchy = buildCourseHierarchyDetails(item);
     const summary = `<strong>${esc(hierarchy.instructor || 'טרם שויך')}</strong><span>${esc(hierarchy.programActivity || '-')}</span>${hierarchy.school ? `<span class="meta-small">${esc(hierarchy.school)}</span>` : ''}`;
     const details = `<span class="meta-small">${esc([hierarchy.school, hierarchy.authority].filter(Boolean).join(' · ') || '-')}</span><span>${esc(`${hierarchy.meetingsCompleted}/${hierarchy.meetingsTotal || 0} בוצעו`)}</span><span class="meta-small">${esc(hierarchy.endDate || '-')}</span><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטי קורס</button>`;
-    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card' });
+    return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card', activityRow: item });
   }).join('') || '<div class="panel-empty">אין מפגשים</div>';
   return `<aside class="month-side-panel" id="monthSidePanel"><div class="month-side-panel-head"><h3 class="section-title">פירוט יום ${esc(formatDate(parseDateLike(dateLabel)) || dateLabel)}</h3><button type="button" class="btn btn-secondary" id="monthCloseDetails">סגור</button></div><div class="month-side-panel-body">${inner}</div></aside>`;
 }
@@ -3437,7 +3476,7 @@ function renderEndDateCards(items) {
       <span><strong>מפגשים שבוצעו:</strong> ${esc(String(item.meetingStats?.completedCount || 0))} / ${esc(String(item.meetingStats?.total || 0))}</span>
       ${item.meetingStats?.isCompleted ? '' : `<span><strong>מפגש קרוב:</strong> ${esc(item.meetingStats?.nextMeetingDate ? formatDate(item.meetingStats.nextMeetingDate) : '-')}</span>`}
     </div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div>`;
-    return renderExpandableCard({ summary, details });
+    return renderExpandableCard({ summary, details, activityRow: item.raw || item });
   }).join('')}</section>`;
 }
 
@@ -3515,7 +3554,7 @@ function renderExceptionsCards(rows) {
     const issueChips = (row.MissingTypes || []).map((t) => `<span class="status-chip status-alert">${esc(t)}</span>`).join('');
     const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3>${issueChips ? `<div class="card-chips">${issueChips}</div>` : ''}</div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
     const details = `<div class="card-meta"><span>מה חסר בפועל: ${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button></div>`;
-    return renderExpandableCard({ summary, details });
+    return renderExpandableCard({ summary, details, activityRow: row });
   }).join('')}</section>`;
 }
 
