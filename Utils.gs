@@ -336,11 +336,27 @@ var Utils = (function () {
     };
   }
 
+
+  function isProtectedAliasTarget_(sheetName) {
+    var actual = resolveSheetAlias_(sheetName);
+    return actual === CONFIG.SHEETS.OPERATIONS_DATA;
+  }
+
   function ensureEditRequestsSheet() {
+    var requestedName = CONFIG.SHEETS.EDIT_REQUESTS;
+    var actualName = resolveSheetAlias_(requestedName);
+    if (isProtectedAliasTarget_(requestedName)) {
+      return {
+        sheetName: actualName,
+        skipped: true,
+        reason: 'protected_alias_target'
+      };
+    }
+
     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.EDIT_REQUESTS);
+    var sheet = spreadsheet.getSheetByName(actualName);
     if (!sheet) {
-      sheet = spreadsheet.insertSheet(CONFIG.SHEETS.EDIT_REQUESTS);
+      sheet = spreadsheet.insertSheet(actualName);
     }
 
     var width = CONFIG.EDIT_REQUESTS_HEADER_ROW.length;
@@ -355,17 +371,28 @@ var Utils = (function () {
     }
 
     return {
-      sheetName: CONFIG.SHEETS.EDIT_REQUESTS,
+      sheetName: actualName,
       headerRow: CONFIG.EDIT_REQUESTS_HEADER_ROW.slice(),
-      displayRow: CONFIG.EDIT_REQUESTS_DISPLAY_ROW.slice()
+      displayRow: CONFIG.EDIT_REQUESTS_DISPLAY_ROW.slice(),
+      skipped: false
     };
   }
 
   function ensureCourseMeetingsSheet() {
+    var requestedName = CONFIG.SHEETS.COURSE_MEETINGS;
+    var actualName = resolveSheetAlias_(requestedName);
+    if (isProtectedAliasTarget_(requestedName)) {
+      return {
+        sheetName: actualName,
+        skipped: true,
+        reason: 'protected_alias_target'
+      };
+    }
+
     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = spreadsheet.getSheetByName(CONFIG.SHEETS.COURSE_MEETINGS);
+    var sheet = spreadsheet.getSheetByName(actualName);
     if (!sheet) {
-      sheet = spreadsheet.insertSheet(CONFIG.SHEETS.COURSE_MEETINGS);
+      sheet = spreadsheet.insertSheet(actualName);
     }
 
     var width = CONFIG.COURSE_MEETINGS_HEADER_ROW.length;
@@ -380,9 +407,10 @@ var Utils = (function () {
     }
 
     return {
-      sheetName: CONFIG.SHEETS.COURSE_MEETINGS,
+      sheetName: actualName,
       headerRow: CONFIG.COURSE_MEETINGS_HEADER_ROW.slice(),
-      displayRow: CONFIG.COURSE_MEETINGS_DISPLAY_ROW.slice()
+      displayRow: CONFIG.COURSE_MEETINGS_DISPLAY_ROW.slice(),
+      skipped: false
     };
   }
 
