@@ -1849,19 +1849,21 @@ var Logic = (function () {
   }
 
   function getCachedDataMasterTable_() {
+    var ttl = Number(getSetting('cache_data_master_ttl', PERF_CACHE.DATA_MASTER_TTL));
     return Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true, {
       useScriptCache: true,
       cacheKey: 'table:data_master',
-      cacheTtlSeconds: PERF_CACHE.DATA_MASTER_TTL,
+      cacheTtlSeconds: ttl > 0 ? ttl : PERF_CACHE.DATA_MASTER_TTL,
       requestMemoKey: 'table:data_master'
     });
   }
 
   function getCachedPermissionsTable_(required) {
+    var ttl = Number(getSetting('cache_permissions_ttl', PERF_CACHE.PERMISSIONS_TTL));
     return Utils.readTable(CONFIG.SHEETS.PERMISSIONS, required !== false, {
       useScriptCache: true,
       cacheKey: 'table:permissions',
-      cacheTtlSeconds: PERF_CACHE.PERMISSIONS_TTL,
+      cacheTtlSeconds: ttl > 0 ? ttl : PERF_CACHE.PERMISSIONS_TTL,
       requestMemoKey: 'table:permissions'
     });
   }
@@ -2459,6 +2461,255 @@ var Logic = (function () {
     return isNaN(num) ? 0 : num;
   }
 
+  function parseBooleanFlag_(value) {
+    return isTrueFlag_(value);
+  }
+
+  function parseSettingValueByType_(rawValue, rawType) {
+    var typeKey = Utils.toKey(rawType);
+    if (typeKey === 'number' || typeKey === 'int' || typeKey === 'float') {
+      var normalized = Utils.normalize(rawValue).replace(/,/g, '');
+      if (!normalized) return 0;
+      var num = Number(normalized);
+      return isNaN(num) ? 0 : num;
+    }
+    if (typeKey === 'boolean' || typeKey === 'bool') {
+      return parseBooleanFlag_(rawValue);
+    }
+    if (typeKey === 'json' || typeKey === 'object' || typeKey === 'array') {
+      return Utils.parseJson(rawValue);
+    }
+    return Utils.normalize(rawValue);
+  }
+
+  function loadActiveSettingsMap_() {
+    return Utils.withScriptCache('settings:active_map', 120, function () {
+      var table = Utils.readTable(CONFIG.SHEETS.SETTINGS, false, {
+        useScriptCache: true,
+        cacheKey: 'table:settings',
+        cacheTtlSeconds: 120,
+        requestMemoKey: 'table:settings'
+      });
+      if (!table.sheet || !table.headers.length) return {};
+      var idxKey = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_KEY);
+      var idxValue = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_VALUE);
+      var idxType = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_TYPE);
+      var idxActive = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_ACTIVE);
+      if (idxKey === -1 || idxValue === -1 || idxType === -1 || idxActive === -1) return {};
+
+      var out = {};
+      table.rows.forEach(function (row) {
+        if (!isTrueFlag_(valueAt_(row, idxActive))) return;
+        var key = Utils.normalize(valueAt_(row, idxKey));
+        if (!key) return;
+        out[key] = parseSettingValueByType_(valueAt_(row, idxValue), valueAt_(row, idxType));
+      });
+      return out;
+    });
+  }
+
+  function getSetting(key, fallback) {
+    var normalizedKey = Utils.normalize(key);
+    if (!normalizedKey) return fallback;
+    var map = loadActiveSettingsMap_();
+    if (!map.hasOwnProperty(normalizedKey)) return fallback;
+    return map[normalizedKey];
+  }
+
+  function getAllSettings() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!hasCapability_(session.user, 'view_settings') && !hasCapability_(session.user, 'view_admin')) {
+      return Utils.safeMessage('אין הרשאה לצפייה בהגדרות.');
+    }
+    try {
+      var table = Utils.readTable(CONFIG.SHEETS.SETTINGS, false, {
+        useScriptCache: true,
+        cacheKey: 'table:settings',
+        cacheTtlSeconds: 120,
+        requestMemoKey: 'table:settings'
+      });
+      if (!table.sheet || !table.headers.length) return { success: true, data: { items: [] } };
+      var idxKey = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_KEY);
+      var idxValue = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_VALUE);
+      var idxType = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_TYPE);
+      var idxActive = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_ACTIVE);
+      var idxNotes = Utils.resolveIndex(table.headers, CONFIG.FIELDS.SETTING_NOTES);
+      var items = table.rows.filter(function (row) {
+        return isTrueFlag_(valueAt_(row, idxActive));
+      }).map(function (row) {
+        var key = Utils.normalize(valueAt_(row, idxKey));
+        return {
+          key: key,
+          value: parseSettingValueByType_(valueAt_(row, idxValue), valueAt_(row, idxType)),
+          type: Utils.normalize(valueAt_(row, idxType)),
+          active: true,
+          notes: Utils.normalize(valueAt_(row, idxNotes))
+        };
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לטעון הגדרות.');
+    }
+  }
+
+  function getActiveListItemsByName_(listName) {
+    var wanted = Utils.toKey(listName);
+    if (!wanted) return [];
+    var table = Utils.readTable(CONFIG.SHEETS.LISTS, false, {
+      useScriptCache: true,
+      cacheKey: 'table:lists',
+      cacheTtlSeconds: 120,
+      requestMemoKey: 'table:lists'
+    });
+    if (!table.sheet || !table.headers.length) return [];
+    var idxName = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_NAME);
+    var idxValue = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_VALUE);
+    var idxLabel = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_LABEL);
+    var idxType = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_ACTIVITY_TYPE);
+    var idxNo = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_ACTIVITY_NO);
+    var idxActivityName = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_ACTIVITY_NAME);
+    var idxActive = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_ACTIVE);
+
+    return table.rows.filter(function (row) {
+      return isTrueFlag_(valueAt_(row, idxActive))
+        && Utils.toKey(valueAt_(row, idxName)) === wanted;
+    }).map(function (row) {
+      return {
+        list_name: Utils.normalize(valueAt_(row, idxName)),
+        value: Utils.normalize(valueAt_(row, idxValue)),
+        label: Utils.normalize(valueAt_(row, idxLabel)) || Utils.normalize(valueAt_(row, idxValue)),
+        activity_type: Utils.normalize(valueAt_(row, idxType)),
+        activity_no: Utils.normalize(valueAt_(row, idxNo)),
+        activity_name: Utils.normalize(valueAt_(row, idxActivityName)),
+        active: true
+      };
+    });
+  }
+
+  function getAllLists() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!hasCapability_(session.user, 'view_lists') && !hasCapability_(session.user, 'view_admin')) {
+      return Utils.safeMessage('אין הרשאה לצפייה ברשימות.');
+    }
+    try {
+      var table = Utils.readTable(CONFIG.SHEETS.LISTS, false, {
+        useScriptCache: true,
+        cacheKey: 'table:lists',
+        cacheTtlSeconds: 120,
+        requestMemoKey: 'table:lists'
+      });
+      if (!table.sheet || !table.headers.length) return { success: true, data: { items: [] } };
+      var idxName = Utils.resolveIndex(table.headers, CONFIG.FIELDS.LIST_NAME);
+      var names = {};
+      table.rows.forEach(function (row) {
+        var n = Utils.normalize(valueAt_(row, idxName));
+        if (n) names[n] = true;
+      });
+      var items = [];
+      Object.keys(names).forEach(function (name) {
+        items = items.concat(getActiveListItemsByName_(name));
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לטעון רשימות.');
+    }
+  }
+
+  function getListByName(listName) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!hasCapability_(session.user, 'view_lists') && !hasCapability_(session.user, 'view_admin')) {
+      return Utils.safeMessage('אין הרשאה לצפייה ברשימות.');
+    }
+    try {
+      return { success: true, data: { items: getActiveListItemsByName_(listName) } };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לטעון רשימה.');
+    }
+  }
+
+  function getContactsData() {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!hasCapability_(session.user, 'view_contacts') && !hasCapability_(session.user, 'view_admin')) {
+      return Utils.safeMessage('אין הרשאה לצפייה באנשי קשר.');
+    }
+    try {
+      var table = Utils.readTable(CONFIG.SHEETS.CONTACTS, false, {
+        useScriptCache: true,
+        cacheKey: 'table:contacts',
+        cacheTtlSeconds: 120,
+        requestMemoKey: 'table:contacts'
+      });
+      if (!table.sheet || !table.headers.length) return { success: true, data: { items: [] } };
+      var indexes = {
+        emp_id: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_EMP_ID),
+        role: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_ROLE),
+        name: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_NAME),
+        id_number: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_ID_NUMBER),
+        address: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_ADDRESS),
+        mobile: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_MOBILE),
+        email: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_EMAIL),
+        employment: Utils.resolveIndex(table.headers, CONFIG.FIELDS.CONTACT_EMPLOYMENT)
+      };
+      var items = table.rows.map(function (row, i) {
+        return {
+          emp_id: Utils.normalize(valueAt_(row, indexes.emp_id)),
+          role: Utils.normalize(valueAt_(row, indexes.role)),
+          name: Utils.normalize(valueAt_(row, indexes.name)),
+          id_number: Utils.normalize(valueAt_(row, indexes.id_number)),
+          address: Utils.normalize(valueAt_(row, indexes.address)),
+          mobile: Utils.normalize(valueAt_(row, indexes.mobile)),
+          email: Utils.normalize(valueAt_(row, indexes.email)),
+          employment: Utils.normalize(valueAt_(row, indexes.employment)),
+          _rowNumber: table.rowNumbers[i]
+        };
+      });
+      return { success: true, data: { items: items } };
+    } catch (err) {
+      return Utils.safeMessage('לא ניתן לטעון אנשי קשר.');
+    }
+  }
+
+  function updateContact(payload) {
+    var session = requireSession_();
+    if (!session.success) return session;
+    if (!hasCapability_(session.user, 'edit_contacts') && !hasCapability_(session.user, 'edit_admin')) {
+      return Utils.safeMessage('אין הרשאה לעריכת אנשי קשר.');
+    }
+    try {
+      var body = Utils.asObject(payload, {});
+      var rowNumber = Number(body._rowNumber || body.rowNumber);
+      if (!rowNumber) return Utils.safeMessage('חסר מזהה שורה לעריכה.');
+      var table = Utils.readTable(CONFIG.SHEETS.CONTACTS, true, { requestMemoKey: 'table:contacts:update' });
+      var rowIndex = table.rowNumbers.indexOf(rowNumber);
+      if (rowIndex === -1) return Utils.safeMessage('רשומת איש קשר לא נמצאה.');
+      var existing = table.rows[rowIndex].slice();
+      var pairs = [
+        { key: 'emp_id', aliases: CONFIG.FIELDS.CONTACT_EMP_ID },
+        { key: 'role', aliases: CONFIG.FIELDS.CONTACT_ROLE },
+        { key: 'name', aliases: CONFIG.FIELDS.CONTACT_NAME },
+        { key: 'id_number', aliases: CONFIG.FIELDS.CONTACT_ID_NUMBER },
+        { key: 'address', aliases: CONFIG.FIELDS.CONTACT_ADDRESS },
+        { key: 'mobile', aliases: CONFIG.FIELDS.CONTACT_MOBILE },
+        { key: 'email', aliases: CONFIG.FIELDS.CONTACT_EMAIL },
+        { key: 'employment', aliases: CONFIG.FIELDS.CONTACT_EMPLOYMENT }
+      ];
+      pairs.forEach(function (field) {
+        var idx = Utils.resolveIndex(table.headers, field.aliases);
+        if (idx === -1) return;
+        if (!body.hasOwnProperty(field.key)) return;
+        existing[idx] = Utils.normalize(body[field.key]);
+      });
+      Utils.updateRow(CONFIG.SHEETS.CONTACTS, rowNumber, existing);
+      return { success: true, data: { _rowNumber: rowNumber } };
+    } catch (err) {
+      return Utils.safeMessage('עדכון איש קשר נכשל.');
+    }
+  }
+
   function isRowEmpty_(row) {
     for (var i = 0; i < row.length; i += 1) {
       if (!Utils.isEmpty(row[i])) return false;
@@ -2527,6 +2778,12 @@ var Logic = (function () {
     getSheetRows: getSheetRows,
     getFinanceData: getFinanceData,
     getFinanceArchiveData: getFinanceArchiveData,
+    getContactsData: getContactsData,
+    updateContact: updateContact,
+    getAllLists: getAllLists,
+    getListByName: getListByName,
+    getAllSettings: getAllSettings,
+    getSetting: getSetting,
     getCourseMeetings: getCourseMeetings,
     updateCourseMeeting: updateCourseMeeting,
     updateFinanceStatus: updateFinanceStatus,

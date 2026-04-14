@@ -8,7 +8,6 @@ export const TAASIYEDA_DATA_CONTRACTS = {
     FINANCE: 'data',
     FINANCE_ARCHIVE: 'data',
     LISTS: 'lists',
-    PROGRAM_CODES: 'lists',
     SETTINGS: 'settings',
     CONTACTS: 'contacts'
   },

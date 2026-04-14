@@ -17,7 +17,8 @@ const dataStore = {
   permissions: [],
   courses: [],
   lists: [],
-  programCodes: [],
+  settings: [],
+  contacts: [],
   editRequests: [],
   reviewItems: [],
   finance: [],
@@ -27,7 +28,8 @@ const dataStore = {
     permissions: 0,
     courses: 0,
     lists: 0,
-    programCodes: 0,
+    settings: 0,
+    contacts: 0,
     editRequests: 0,
     reviewItems: 0,
     finance: 0,
@@ -187,7 +189,8 @@ export function resetClientDataStore() {
   dataStore.permissions = [];
   dataStore.courses = [];
   dataStore.lists = [];
-  dataStore.programCodes = [];
+  dataStore.settings = [];
+  dataStore.contacts = [];
   dataStore.editRequests = [];
   dataStore.reviewItems = [];
   dataStore.finance = [];
@@ -197,7 +200,8 @@ export function resetClientDataStore() {
     permissions: 0,
     courses: 0,
     lists: 0,
-    programCodes: 0,
+    settings: 0,
+    contacts: 0,
     editRequests: 0,
     reviewItems: 0,
     finance: 0,
@@ -212,12 +216,11 @@ export async function initDataEngine(api, options = {}) {
     loadCourses(),
     loadPermissions(options.userState)
   ]);
-  void Promise.all([loadLists(), loadProgramCodes()]).catch(() => {});
+  void Promise.all([loadLists(), loadSettings(), loadContacts()]).catch(() => {});
   return {
     courses,
     permissions,
-    lists: dataStore.lists,
-    programCodes: dataStore.programCodes
+    lists: dataStore.lists
   };
 }
 
@@ -255,15 +258,26 @@ export async function loadPermissions(userState = {}) {
 }
 
 export async function loadLists() {
-  dataStore.lists = await fetchSheet(SHEET_NAMES.LISTS);
+  if (apiRef?.getAllLists) {
+    const res = await apiRef.getAllLists();
+    dataStore.lists = Array.isArray(res?.data?.items) ? res.data.items : [];
+  } else {
+    dataStore.lists = await fetchSheet(SHEET_NAMES.LISTS);
+  }
   dataStore.loadedAt.lists = now();
   return dataStore.lists;
 }
 
-export async function loadProgramCodes() {
-  dataStore.programCodes = await fetchSheet(SHEET_NAMES.LISTS);
-  dataStore.loadedAt.programCodes = now();
-  return dataStore.programCodes;
+export async function loadSettings() {
+  dataStore.settings = await fetchSheet(SHEET_NAMES.SETTINGS);
+  dataStore.loadedAt.settings = now();
+  return dataStore.settings;
+}
+
+export async function loadContacts() {
+  dataStore.contacts = await fetchSheet(SHEET_NAMES.CONTACTS);
+  dataStore.loadedAt.contacts = now();
+  return dataStore.contacts;
 }
 
 export async function loadEditRequests(force = false) {
@@ -296,7 +310,8 @@ export function getStoreSnapshot() {
     permissions: [...dataStore.permissions],
     courses: [...dataStore.courses],
     lists: [...dataStore.lists],
-    programCodes: [...dataStore.programCodes],
+    settings: [...dataStore.settings],
+    contacts: [...dataStore.contacts],
     editRequests: [...dataStore.editRequests],
     reviewItems: [...dataStore.reviewItems],
     finance: [...dataStore.finance],
