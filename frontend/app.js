@@ -39,6 +39,8 @@ let mobileNavOpen = false;
 let sidebarOpen = true;
 const recentlyResolvedExceptions = new Set();
 let initEnginePromise = null;
+const SEARCH_RENDER_DEBOUNCE_MS = 180;
+const routeSearchDebouncers = new Map();
 
 const viewState = {
   dashboard: { loading: false, error: '', data: null, timeframe: 'day' },
@@ -557,7 +559,11 @@ function render() {
 }
 
 function buildMenuNavigation() {
-  return getAllowedRoutes().map((route) => nav(route, routeLabels[route] || route)).join('');
+  const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions']) : null;
+  return getAllowedRoutes()
+    .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
+    .map((route) => nav(route, routeLabels[route] || route))
+    .join('');
 }
 
 function nav(route, label) { return `<button class="nav-btn ${currentRoute === route ? 'active' : ''}" data-route="${route}"><span class="nav-icon" aria-hidden="true">${routeIcons[route] || '•'}</span><span>${label}</span></button>`; }
@@ -695,8 +701,23 @@ function bindUnifiedScreenHeader(route = currentRoute) {
   const input = document.getElementById('screenSearchInput');
   if (!input) return;
   input.addEventListener('input', () => {
+    const cursorStart = input.selectionStart;
+    const cursorEnd = input.selectionEnd;
     setRouteSearchTerm(route, input.value || '');
-    renderScreen();
+    const prev = routeSearchDebouncers.get(route);
+    if (prev) clearTimeout(prev);
+    const handle = setTimeout(() => {
+      routeSearchDebouncers.delete(route);
+      if (currentRoute !== route) return;
+      renderScreen();
+      const freshInput = document.getElementById('screenSearchInput');
+      if (!freshInput) return;
+      freshInput.focus({ preventScroll: true });
+      try {
+        if (typeof cursorStart === 'number' && typeof cursorEnd === 'number') freshInput.setSelectionRange(cursorStart, cursorEnd);
+      } catch (_) {}
+    }, SEARCH_RENDER_DEBOUNCE_MS);
+    routeSearchDebouncers.set(route, handle);
   });
 }
 
@@ -754,9 +775,9 @@ function renderScreen() {
     );
     main.innerHTML = renderUnifiedScreenHeader('admin-settings', 'הגדרות פעילות מהשרת', { itemsCount: rows.length })
       + panel(viewState.adminSettings, 'אין הגדרות להצגה.',
-        `<section class="table-shell"><table><thead><tr><th>מפתח</th><th>ערך</th><th>סוג</th><th>הערות</th></tr></thead><tbody>
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הגדרות מערכת</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>מפתח</th><th>ערך</th><th>סוג</th><th>הערות</th></tr></thead><tbody>
           ${rows.map((row) => `<tr><td>${esc(row.key)}</td><td>${esc(String(row.value))}</td><td>${esc(row.type || '')}</td><td>${esc(row.notes || '')}</td></tr>`).join('')}
-        </tbody></table></section>`);
+        </tbody></table></div></section>`);
     bindUnifiedScreenHeader('admin-settings');
     return;
   }
@@ -765,9 +786,9 @@ function renderScreen() {
     const rows = filterBySearch(viewState.adminLists.data || [], ['list_name', 'value', 'label', 'activity_type', 'activity_name'], 'admin-lists');
     main.innerHTML = renderUnifiedScreenHeader('admin-lists', 'פריטי רשימות מהשרת', { itemsCount: rows.length })
       + panel(viewState.adminLists, 'אין רשימות להצגה.',
-        `<section class="table-shell"><table><thead><tr><th>רשימה</th><th>ערך</th><th>תווית</th><th>סוג פעילות</th><th>מס׳</th><th>שם פעילות</th></tr></thead><tbody>
-          ${rows.map((row) => `<tr><td>${esc(row.list_name)}</td><td>${esc(row.value)}</td><td>${esc(row.label)}</td><td>${esc(row.activity_type)}</td><td>${esc(row.activity_no)}</td><td>${esc(row.activity_name)}</td></tr>`).join('')}
-        </tbody></table></section>`);
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">רשימות מערכת</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>רשימה</th><th>ערך</th><th>תווית</th><th>סוג פעילות</th><th>שם פעילות</th></tr></thead><tbody>
+          ${rows.map((row) => `<tr><td>${esc(row.list_name)}</td><td>${esc(row.value)}</td><td>${esc(row.label)}</td><td>${esc(row.activity_type)}</td><td>${esc(row.activity_name)}</td></tr>`).join('')}
+        </tbody></table></div></section>`);
     bindUnifiedScreenHeader('admin-lists');
     return;
   }
@@ -786,12 +807,12 @@ function renderScreen() {
     );
     main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות (ללא קודי כניסה)', { itemsCount: perms.length })
       + panel(viewState.adminPermissions, 'אין נתוני הרשאות.',
-        `<section class="table-shell"><table><thead><tr><th>מזהה</th><th>שם</th><th>תפקיד תצוגה</th><th>ברירת מחדל</th><th>תצוגות מורשות</th><th>פעיל</th></tr></thead><tbody>
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>מזהה</th><th>שם</th><th>תפקיד תצוגה</th><th>ברירת מחדל</th><th>תצוגות מורשות</th><th>פעיל</th></tr></thead><tbody>
           ${perms.map((row) => {
       const views = Array.isArray(row.allowedViews) ? row.allowedViews.join(', ') : String(row.viewScope || '');
       return `<tr><td>${esc(String(row.employeeId))}</td><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole)}</td><td>${esc(row.defaultView)}</td><td>${esc(views)}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td></tr>`;
     }).join('')}
-        </tbody></table></section>`);
+        </tbody></table></div></section>`);
     bindUnifiedScreenHeader('admin-permissions');
     return;
   }
@@ -799,14 +820,17 @@ function renderScreen() {
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
+    const topKpis = [
+      { title: 'סך קורסים', value: d.totalCoursesCount || 0, filter: 'all_courses' },
+      { title: 'סך סדנאות', value: d.workshopsCount || 0, filter: 'workshops_only' },
+      { title: 'מסתיימים החודש', value: d.endingCurrentMonthCount || 0, filter: 'ending_this_month' },
+      { title: 'פעילים החודש', value: d.activeThisMonthCount || 0, filter: 'active_this_month' }
+    ].filter((item) => Number(item.value || 0) !== 0);
     main.innerHTML = renderUnifiedScreenHeader('dashboard', '', { dashboard: d }) + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
       `<section class="kpi-section dashboard-kpi-top-section">
         <div class="dashboard-kpi-row-centered">
           <div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
-            ${kpiCard('סך קורסים', d.totalCoursesCount || 0, 'all_courses')}
-            ${kpiCard('סך סדנאות', d.workshopsCount || 0, 'workshops_only')}
-            ${kpiCard('מסתיימים החודש', d.endingCurrentMonthCount || 0, 'ending_this_month')}
-            ${kpiCard('פעילים החודש', d.activeThisMonthCount || 0, 'active_this_month')}
+            ${topKpis.map((item) => kpiCard(item.title, item.value, item.filter)).join('')}
           </div>
         </div>
       </section>
@@ -815,10 +839,12 @@ function renderScreen() {
         <article class="panel-block dashboard-manager-column">
           <div class="panel-block-head"><h3>${esc(managerName)}</h3></div>
           <div class="kpi-grid dashboard-kpi-grid manager-kpi-grid">
-            ${kpiCard('מדריכים', d.instructorsByManager?.[managerName] || 0, 'all_courses', '', `manager:${managerName}|subtitle:מדריכים`)}
-            ${kpiCard('פעילים החודש', d.activeByManager?.[managerName] || 0, 'active_this_month', '', `manager:${managerName}|subtitle:פעילים החודש - ${managerName}`)}
-            ${kpiCard('מסתיימים החודש', d.endingByManager?.[managerName] || 0, 'ending_this_month', '', `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}`)}
-            ${kpiCard('דורשים טיפול', d.requiresTreatmentByManager?.[managerName] || 0, 'requires_treatment', '', `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}`)}
+            ${[
+              { title: 'מדריכים', value: d.instructorsByManager?.[managerName] || 0, filter: 'all_courses', context: `manager:${managerName}|subtitle:מדריכים` },
+              { title: 'פעילים החודש', value: d.activeByManager?.[managerName] || 0, filter: 'active_this_month', context: `manager:${managerName}|subtitle:פעילים החודש - ${managerName}` },
+              { title: 'מסתיימים החודש', value: d.endingByManager?.[managerName] || 0, filter: 'ending_this_month', context: `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}` },
+              { title: 'דורשים טיפול', value: d.requiresTreatmentByManager?.[managerName] || 0, filter: 'requires_treatment', context: `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}` }
+            ].filter((item) => Number(item.value || 0) !== 0).map((item) => kpiCard(item.title, item.value, item.filter, '', item.context)).join('')}
           </div>
         </article>`).join('')}
         </div>
@@ -937,7 +963,7 @@ function renderScreen() {
   }
 
   if (currentRoute === 'contacts') {
-    const contactsRows = filterBySearch(viewState.contacts.data || [], ['emp_id', 'name', 'role', 'mobile', 'email', 'address', 'employment'], 'contacts');
+    const contactsRows = filterBySearch(viewState.contacts.data || [], ['name', 'mobile', 'email', 'address', 'employment'], 'contacts');
     const expandedRowKey = viewState.contacts.expandedRowKey || '';
     main.innerHTML = renderUnifiedScreenHeader('contacts', '', { itemsCount: contactsRows.length }) +
       panel(viewState.contacts, 'אין אנשי קשר להצגה.',
@@ -1496,9 +1522,10 @@ function financeRowInDisplayMonth(item, displayMonth) {
 }
 
 function renderFinanceMeetingsRow(item, colSpan) {
-  const dates = Array.from({ length: 35 }, (_, i) => {
-    const val = item?.[`Date${i + 1}`];
-    return val ? { num: i + 1, date: formatDate(parseDateLike(val)) || String(val) } : null;
+  const dates = (COURSE_DATE_FIELDS || []).map((field, idx) => {
+    const raw = financeRowDateRaw(item, field);
+    if (!String(raw || '').trim()) return null;
+    return { num: idx + 1, date: formatDate(parseDateLike(raw)) || String(raw) };
   }).filter(Boolean);
   if (!dates.length) return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><em>אין תאריכי ביצוע ברשומה זו.</em></td></tr>`;
   const chips = dates.map(({ num, date }) =>
@@ -1577,20 +1604,29 @@ function renderFinanceTable(rows, options = {}) {
   }
   function renderSection(items, label) {
     if (!items.length) return `<div class="finance-month-section"><h4 class="finance-month-section-label">${esc(label)}</h4><p class="panel-empty" style="padding:8px 0">אין רשומות לחודש זה</p></div>`;
+    const grouped = items.reduce((acc, item) => {
+      const groupKey = String(item?.FinanceGroupKey || item?.Payer || 'ללא קבוצה').trim() || 'ללא קבוצה';
+      if (!acc[groupKey]) acc[groupKey] = [];
+      acc[groupKey].push(item);
+      return acc;
+    }, {});
     return `<div class="finance-month-section">
       <div class="finance-month-section-head">
         <h4 class="finance-month-section-label">${esc(label)}</h4>
         <div class="finance-status-mini-row">${statusMini(items)}</div>
       </div>
-      <div class="table-wrap finance-table-wrap">
-        <table class="finance-table-styled">
-          <thead><tr>
-            <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מנהל קורס</th>
-            <th>מפגשים</th><th>גביה</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
-          </tr></thead>
-          <tbody>${items.map(renderRow).join('')}</tbody>
-        </table>
-      </div>
+      ${Object.entries(grouped).map(([group, groupedRows]) => `<div class="finance-group-block">
+        <div class="finance-group-label">${esc(group)}</div>
+        <div class="table-wrap finance-table-wrap">
+          <table class="finance-table-styled">
+            <thead><tr>
+              <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מנהל קורס</th>
+              <th>מפגשים</th><th>גביה</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
+            </tr></thead>
+            <tbody>${groupedRows.map(renderRow).join('')}</tbody>
+          </table>
+        </div>
+      </div>`).join('')}
     </div>`;
   }
   function monthLabel(monthStr) {
@@ -1840,10 +1876,9 @@ function renderCourseCards(rows, options = {}) {
 
 function renderCourseInlineDetails(row) {
   const planned = Math.max(0, Number(row[COURSE_FIELDS.PLANNED_MEETINGS] || 0));
-  const dateDates = Array.from({ length: 35 }, (_, i) => {
-    const v = row[`Date${i + 1}`];
-    return v ? parseDateLike(v) : null;
-  });
+  const dateDates = (COURSE_DATE_FIELDS || [])
+    .map((field) => parseDateLike(courseMeetingDateRaw(row, field)))
+    .filter(Boolean);
   const now = startOfDay(new Date());
   const timeLabel = `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}–${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`;
   const notes = String(getCourseField(row, COURSE_FIELDS.NOTES) || '').trim();
@@ -1899,7 +1934,7 @@ function renderCourseTable(rows, options = {}) {
     </tr>`;
     return rowHtml + (isOpen ? renderCourseInlineDetails(row) : '');
   }).join('');
-  return `<div class="table-wrap courses-table-wrap">
+  return `<div class="table-wrap courses-table-wrap activities-table-wrap">
     <table class="courses-table-styled">
       <thead><tr>
         <th class="ct-num">#</th>
@@ -2333,8 +2368,11 @@ function joinLocation(row) {
 }
 
 function formatSchedule(row) {
-  const start = firstDate(row, COURSE_DATE_RANGE_FIELDS);
-  const end = firstDate(row, COURSE_END_RANGE_FIELDS);
+  const dates = getScheduleDates(row).sort((a, b) => a - b);
+  const start = dates[0] || firstDate(row, COURSE_DATE_RANGE_FIELDS);
+  const listedEnd = dates.length ? dates[dates.length - 1] : null;
+  const fallbackEnd = firstDate(row, COURSE_END_RANGE_FIELDS);
+  const end = listedEnd || fallbackEnd;
   if (!start && !end) return '-';
   if (start && end) return `${formatDate(start)} - ${formatDate(end)}`;
   return formatDate(start || end);
@@ -2802,7 +2840,6 @@ function openContactEditForm(contact = {}) {
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card">
         <h3>עריכת איש קשר</h3>
-        <label>emp_id<input id="contactEmpId" value="${escAttr(contact.emp_id || '')}" /></label>
         <label>role<input id="contactRole" value="${escAttr(contact.role || '')}" /></label>
         <label>name<input id="contactName" value="${escAttr(contact.name || '')}" /></label>
         <label>id_number<input id="contactIdNumber" value="${escAttr(contact.id_number || '')}" /></label>
@@ -2825,7 +2862,7 @@ function openContactEditForm(contact = {}) {
     root.querySelector('#contactSaveBtn')?.addEventListener('click', () => {
       close({
         _rowNumber: contact._rowNumber,
-        emp_id: root.querySelector('#contactEmpId')?.value.trim() || '',
+        emp_id: contact.emp_id || '',
         role: root.querySelector('#contactRole')?.value.trim() || '',
         name: root.querySelector('#contactName')?.value.trim() || '',
         id_number: root.querySelector('#contactIdNumber')?.value.trim() || '',
@@ -3281,8 +3318,15 @@ function bindWeekActions(weekData) {
   document.querySelectorAll('[data-go-exceptions]').forEach((button) => button.addEventListener('click', () => {
     setRoute('exceptions');
   }));
+  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
+    const row = findCourseById(button.dataset.openCourse);
+    if (!row) return;
+    viewState.courses.selectedCourseId = String(row.CourseID || '');
+    viewState.courses.selectedCourseDetails = row;
+    await loadCourseMeetings(row.CourseID);
+    setRoute('courses');
+  }));
   bindWeekAccordionState();
-  bindCourseActions();
   document.getElementById('weekCloseDetails')?.addEventListener('click', () => {
     viewState.week.selected = null;
     viewState.week.instructorPanel = null;
@@ -3449,7 +3493,14 @@ function bindMonthActions(monthData) {
     viewState.month.selectedDate = '';
     renderScreen();
   });
-  bindCourseActions();
+  document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
+    const row = findCourseById(button.dataset.openCourse);
+    if (!row) return;
+    viewState.courses.selectedCourseId = String(row.CourseID || '');
+    viewState.courses.selectedCourseDetails = row;
+    await loadCourseMeetings(row.CourseID);
+    setRoute('courses');
+  }));
 }
 
 function parseMonthValue(value) {
