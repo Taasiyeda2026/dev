@@ -108,6 +108,7 @@ function routeAction_(action, payload) {
 
   // ── Contacts ────────────────────────────────────────────────────────────────────────
   if (action === 'getContactsDataAction')    return getContactsDataAction(payload);
+  if (action === 'updateContactAction')      return updateContactAction(payload);
 
   // ── Lists ────────────────────────────────────────────────────────────────────────────
   if (action === 'getAllListsAction')         return getAllListsAction(payload);
@@ -162,6 +163,7 @@ function syncFinanceAction(p)          { return Logic.syncFinance(p || {}); }
 // ── Contacts ─────────────────────────────────────────────────────────────────────────────
 // Contacts
 function getContactsDataAction(p)      { return Logic.getContactsData(p || {}); }
+function updateContactAction(p)        { return Logic.updateContact(p || {}); }
 
 // ── Lists ────────────────────────────────────────────────────────────────────────────────
 // Lists

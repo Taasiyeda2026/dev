@@ -318,6 +318,10 @@ var Utils = (function () {
       'table:dashboard_export',
       'table:permissions',
       'table:data_master',
+      'table:lists',
+      'table:settings',
+      'table:contacts',
+      'settings:active_map',
       'table:finance',
       'table:finance_archive'
     ];
@@ -430,7 +434,6 @@ var Utils = (function () {
     }
     if (
       actual === CONFIG.SHEETS.LISTS ||
-      actual === CONFIG.SHEETS.PROGRAM_CODES ||
       actual === CONFIG.SHEETS.README ||
       actual === CONFIG.SHEETS.SETTINGS ||
       actual === CONFIG.SHEETS.CONTACTS ||

@@ -64,6 +64,7 @@ const viewState = {
   endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', month: '' } },
   exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
   ,
+  contacts: { loading: false, error: '', data: [] },
   finance: {
     loading: false,
     error: '',
@@ -104,6 +105,7 @@ const routeLabels = {
   instructors: 'מדריכים',
   'end-dates': 'תאריכי סיום',
   exceptions: 'חריגות',
+  contacts: 'אנשי קשר',
   finance: 'כספים'
 };
 
@@ -120,6 +122,7 @@ const routeIcons = {
   instructors: '🧑‍🏫',
   'end-dates': '⏳',
   exceptions: '⚠️',
+  contacts: '📇',
   finance: '💳',
   logout: '↩'
 };
@@ -132,6 +135,7 @@ const ROUTE_UI_SCALES = {
   instructors: 0.8,
   'end-dates': 0.8,
   exceptions: 0.8,
+  contacts: 0.8,
   finance: 0.8,
   'my-requests': 0.8,
   'eden-view': 0.8
@@ -146,6 +150,7 @@ const ROUTE_CAPABILITY_MAP = {
   instructors: 'view_instructors',
   'end-dates': 'view_exceptions',
   exceptions: 'view_exceptions',
+  contacts: 'view_contacts',
   finance: 'view_finance',
   'my-requests': 'view_edit_requests',
   approvals: 'view_operations_data',
@@ -155,7 +160,7 @@ const ROUTE_CAPABILITY_MAP = {
 };
 
 const MENU_ROUTE_ORDER = [
-  'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
+  'dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions', 'contacts',
   'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
 ];
 
@@ -257,6 +262,9 @@ function canEditFinanceActive() {
   const permission = currentPermission();
   if (permission) return Boolean(permission.canEditFinance || hasCapability('edit_finance'));
   return Boolean(userState.CanEditFinance || hasCapability('edit_finance'));
+}
+function canEditContacts() {
+  return hasCapability('edit_contacts');
 }
 
 function canAccessFinanceArchive() {
@@ -518,6 +526,12 @@ function getHeaderKpis(route = currentRoute, context = {}) {
       { label: 'סגור', value: context.closedCount || 0 }
     ];
   }
+  if (route === 'contacts') {
+    return [
+      { label: 'אנשי קשר', value: context.itemsCount || 0 },
+      { label: 'ניתן לעריכה', value: canEditContacts() ? 'כן' : 'לא' }
+    ];
+  }
   if (route === 'my-requests' || route === 'approvals' || route === 'final-approvals' || route === 'eden-view') {
     return [
       { label: 'רשומות מוצגות', value: context.itemsCount || 0 },
@@ -720,6 +734,40 @@ function renderScreen() {
       `</div>${viewState.week.selected ? renderWeekDetails(viewState.week.selected) : ''}${viewState.week.instructorPanel ? renderWeekInstructorSidePanel(viewState.week.instructorPanel) : ''}${weekSideOpen ? '<button type="button" class="week-side-backdrop" id="weekBackdrop" aria-label="סגור"></button>' : ''}</div>`;
     bindWeekActions(weekData);
     bindUnifiedScreenHeader('week');
+    return;
+  }
+
+  if (currentRoute === 'contacts') {
+    const contactsRows = filterBySearch(viewState.contacts.data || [], ['emp_id', 'name', 'role', 'mobile', 'email'], 'contacts');
+    main.innerHTML = renderUnifiedScreenHeader('contacts', 'נתונים מגיליון contacts', { itemsCount: contactsRows.length }) +
+      panel(viewState.contacts, 'אין אנשי קשר להצגה.',
+        `<section class="table-shell"><table><thead><tr>
+          <th>emp_id</th><th>role</th><th>name</th><th>id_number</th><th>address</th><th>mobile</th><th>email</th><th>employment</th>${canEditContacts() ? '<th>פעולות</th>' : ''}
+        </tr></thead><tbody>
+          ${contactsRows.map((row, index) => `<tr>
+            <td>${esc(row.emp_id || '-')}</td>
+            <td>${esc(row.role || '-')}</td>
+            <td>${esc(row.name || '-')}</td>
+            <td>${esc(row.id_number || '-')}</td>
+            <td>${esc(row.address || '-')}</td>
+            <td>${esc(row.mobile || '-')}</td>
+            <td>${esc(row.email || '-')}</td>
+            <td>${esc(row.employment || '-')}</td>
+            ${canEditContacts() ? `<td><button class="btn btn-secondary" data-edit-contact="${index}">עריכה</button></td>` : ''}
+          </tr>`).join('')}
+        </tbody></table></section>`);
+    document.querySelectorAll('[data-edit-contact]').forEach((btn) => btn.addEventListener('click', async () => {
+      const idx = Number(btn.dataset.editContact || -1);
+      const current = contactsRows[idx];
+      if (!current) return;
+      const updated = await openContactEditForm(current);
+      if (!updated) return;
+      const res = await api.updateContact(updated);
+      if (!res?.success) return showToast(res?.message || 'עדכון איש קשר נכשל.', 'error');
+      await loadContactsView();
+      showToast('איש הקשר עודכן בהצלחה.', 'success');
+    }));
+    bindUnifiedScreenHeader('contacts');
     return;
   }
 
@@ -2503,6 +2551,50 @@ function openAddRecordForm(options = {}) {
   });
 }
 
+function openContactEditForm(contact = {}) {
+  return new Promise((resolve) => {
+    const root = document.createElement('div');
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card">
+        <h3>עריכת איש קשר</h3>
+        <label>emp_id<input id="contactEmpId" value="${escAttr(contact.emp_id || '')}" /></label>
+        <label>role<input id="contactRole" value="${escAttr(contact.role || '')}" /></label>
+        <label>name<input id="contactName" value="${escAttr(contact.name || '')}" /></label>
+        <label>id_number<input id="contactIdNumber" value="${escAttr(contact.id_number || '')}" /></label>
+        <label>address<input id="contactAddress" value="${escAttr(contact.address || '')}" /></label>
+        <label>mobile<input id="contactMobile" value="${escAttr(contact.mobile || '')}" /></label>
+        <label>email<input id="contactEmail" value="${escAttr(contact.email || '')}" /></label>
+        <label>employment<input id="contactEmployment" value="${escAttr(contact.employment || '')}" /></label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="contactSaveBtn">שמירה</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const close = (value = null) => {
+      root.remove();
+      resolve(value);
+    };
+    root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
+    root.querySelector('#contactSaveBtn')?.addEventListener('click', () => {
+      close({
+        _rowNumber: contact._rowNumber,
+        emp_id: root.querySelector('#contactEmpId')?.value.trim() || '',
+        role: root.querySelector('#contactRole')?.value.trim() || '',
+        name: root.querySelector('#contactName')?.value.trim() || '',
+        id_number: root.querySelector('#contactIdNumber')?.value.trim() || '',
+        address: root.querySelector('#contactAddress')?.value.trim() || '',
+        mobile: root.querySelector('#contactMobile')?.value.trim() || '',
+        email: root.querySelector('#contactEmail')?.value.trim() || '',
+        employment: root.querySelector('#contactEmployment')?.value.trim() || ''
+      });
+    });
+  });
+}
+
 function bindApprovalButtons() {
   document.querySelectorAll('[data-approve-row]').forEach((b) => b.addEventListener('click', () => doDecision(b, true)));
   document.querySelectorAll('[data-reject-row]').forEach((b) => b.addEventListener('click', () => doDecision(b, false)));
@@ -3469,6 +3561,7 @@ async function loadRouteData() {
   if (currentRoute === 'instructors') return loadInstructorsView();
   if (currentRoute === 'end-dates') return loadEndDatesView();
   if (currentRoute === 'exceptions') return loadExceptionsView();
+  if (currentRoute === 'contacts') return loadContactsView();
   if (currentRoute === 'finance') return loadFinanceView();
   if (currentRoute === 'my-requests') return loadMyRequests();
   if (currentRoute === 'approvals' || currentRoute === 'final-approvals') return loadApprovals();
@@ -3533,6 +3626,14 @@ async function loadMyRequests() {
       }
     };
   }, [], 'לא ניתן לטעון בקשות.');
+}
+
+async function loadContactsView() {
+  await withLoad('contacts', async () => {
+    const res = await api.getContactsData();
+    if (!res?.success) return res;
+    return { success: true, data: { items: Array.isArray(res?.data?.items) ? res.data.items : [] } };
+  }, [], 'לא ניתן לטעון אנשי קשר.');
 }
 
 async function loadFinanceView(options = {}) {

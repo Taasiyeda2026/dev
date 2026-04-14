@@ -93,6 +93,12 @@ export const api = {
   getFinanceArchiveData: () => callAction('getFinanceArchiveDataAction', {}),
   updateFinanceStatus: (payload) => callAction('updateFinanceStatusAction', payload),
   syncFinance: () => callAction('syncFinanceAction', {}),
+  getContactsData: () => callAction('getContactsDataAction', {}),
+  updateContact: (payload) => callAction('updateContactAction', payload),
+  getAllLists: () => callAction('getAllListsAction', {}),
+  getListByName: (listName) => callAction('getListByNameAction', { listName }),
+  getAllSettings: () => callAction('getAllSettingsAction', {}),
+  getSetting: (key, fallback) => callAction('getSettingAction', { key, fallback }),
   createDataMasterRecord: (payload) => callAction('createDataMasterRecordAction', payload),
   clearCache: clearActionCache
 };
