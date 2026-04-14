@@ -501,6 +501,51 @@ export async function createDataMasterRecord(record = {}, actor = {}) {
   return res;
 }
 
+
+function parseDateLike(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === 'number' && value > 20000 && value < 60000) {
+    const excelEpoch = new Date(1899, 11, 30);
+    const d = new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const raw = String(value).trim();
+  if (/^\d{5}(?:\.\d+)?$/.test(raw)) {
+    const serial = Number(raw);
+    if (Number.isFinite(serial) && serial > 20000 && serial < 60000) {
+      const excelEpoch = new Date(1899, 11, 30);
+      const d = new Date(excelEpoch.getTime() + (serial * 24 * 60 * 60 * 1000));
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+  }
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const isoDateTime = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (isoDateTime) {
+    const d = new Date(
+      Number(isoDateTime[1]),
+      Number(isoDateTime[2]) - 1,
+      Number(isoDateTime[3]),
+      Number(isoDateTime[4]),
+      Number(isoDateTime[5]),
+      Number(isoDateTime[6] || '0')
+    );
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const dmy = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if (dmy) {
+    const y = Number(dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]);
+    const d = new Date(y, Number(dmy[2]) - 1, Number(dmy[1]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const direct = new Date(raw);
+  return Number.isNaN(direct.getTime()) ? null : direct;
+}
+
 function financeMeetingDateRaw(row, field) {
   const direct = row?.[field];
   if (String(direct ?? '').trim()) return direct;
@@ -509,16 +554,23 @@ function financeMeetingDateRaw(row, field) {
   return m ? row?.[`Date${m[1]}`] : '';
 }
 
+function isGefenFunding(value) {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/["׳״'\s-]/g, '');
+  return normalized === 'גפן' || normalized === 'gefen';
+}
+
 function isEndedUntilToday(row = {}) {
-  const now = new Date();
-  const todayTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+  const todayNow = new Date();
+  const todayTs = new Date(todayNow.getFullYear(), todayNow.getMonth(), todayNow.getDate(), 23, 59, 59, 999).getTime();
   const endRaw = row?.end_date || row?.End || '';
-  const endDate = endRaw ? new Date(endRaw) : null;
+  const endDate = parseDateLike(endRaw);
   const status = String(row?.status || row?.WorkflowStatus || '').trim().toLowerCase();
   const statusEnded = ['ended', 'completed', 'closed', 'הסתיים', 'הושלם', 'סגור'].some((marker) => status.includes(marker));
-  if (endDate && Number.isFinite(endDate.getTime())) return endDate.getTime() <= todayTs;
-  if (statusEnded) return true;
-  return false;
+  if (endDate) return endDate.getTime() <= todayTs;
+  return statusEnded;
 }
 
 export async function loadFinanceItems(force = false) {
@@ -529,10 +581,12 @@ export async function loadFinanceItems(force = false) {
   } else {
     rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
   }
+  const currentDate = new Date();
+  const todayTs = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999).getTime();
   dataStore.finance = (rows || []).filter((row) => isEndedUntilToday(row)).map((row) => ({
     ...row,
     FinanceRowID: String(row?.RowID || row?.CourseID || row?._rowNumber || ''),
-    FinanceStatus: String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase(),
+    FinanceStatus: (String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase() === 'closed' ? 'closed' : 'open'),
     FinanceNotes: row?.finance_notes || row?.FinanceNotes || '',
     CourseID: row?.RowID || row?.CourseID || '',
     Course: row?.activity_name || row?.Program || '',
@@ -545,14 +599,15 @@ export async function loadFinanceItems(force = false) {
     Funding: row?.funding || row?.Funding || '',
     End: row?.end_date || row?.End || '',
     Payment: row?.price || row?.Payment || '',
-    Payer: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן' ? (row?.school || row?.School || '') : (row?.funding || row?.Funding || ''),
-    FinanceGroupKey: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן'
+    Payer: isGefenFunding(row?.funding || row?.Funding || '') ? (row?.school || row?.School || '') : (row?.funding || row?.Funding || ''),
+    FinanceGroupKey: isGefenFunding(row?.funding || row?.Funding || '')
       ? String(row?.school || row?.School || '').trim()
       : String(row?.funding || row?.Funding || '').trim(),
-    FinanceGroupType: String(row?.funding || row?.Funding || '').trim() === 'גפ"ן' ? 'school' : 'funding',
-    DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => (
-      String(financeMeetingDateRaw(row, field) || '').trim() ? count + 1 : count
-    ), 0)
+    FinanceGroupType: isGefenFunding(row?.funding || row?.Funding || '') ? 'school' : 'funding',
+    DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => {
+      const parsed = parseDateLike(financeMeetingDateRaw(row, field));
+      return (parsed && parsed.getTime() <= todayTs) ? count + 1 : count;
+    }, 0)
   }));
   dataStore.loadedAt.finance = now();
   return dataStore.finance;
