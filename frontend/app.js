@@ -12,6 +12,7 @@ import {
   loadEditRequests,
   loadReviewItems,
   reloadCourses,
+  ensureCoursesLoaded,
   resetClientDataStore,
   isCoursesCacheFresh,
   isReviewCacheFresh,
@@ -3835,6 +3836,11 @@ async function onLogin(event) {
   setRoute(getStartupRoute());
 }
 
+const ROUTES_NEEDING_COURSES = new Set([
+  'dashboard', 'courses', 'instructor-view', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
+  'my-requests', 'approvals', 'eden-view', 'final-approvals'
+]);
+
 async function loadRouteData() {
   if (!isAuth()) return;
   if (currentRoute !== 'login' && !getAllowedRoutes().includes(currentRoute)) {
@@ -3842,6 +3848,8 @@ async function loadRouteData() {
     setRoute(getFirstAllowedRoute());
     return;
   }
+  await initEnginePromise.catch(() => {});
+  if (ROUTES_NEEDING_COURSES.has(currentRoute)) await ensureCoursesLoaded();
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'admin-settings') return loadAdminSettingsView();
   if (currentRoute === 'admin-lists') return loadAdminListsView();
@@ -3864,7 +3872,7 @@ async function loadDashboard() {
   await withLoad('dashboard', async () => {
     const [dashboardRes] = await Promise.all([
       api.getDashboard(),
-      initEnginePromise || reloadCourses(false)
+      ensureCoursesLoaded()
     ]);
     if (!dashboardRes?.success) return dashboardRes;
     const allActivityCourses = getCoursesForUser(userState, {})
@@ -3879,6 +3887,7 @@ async function loadDashboard() {
 }
 async function loadCourses(options = {}) {
   const { silent = false, forceRefreshCourseId = '' } = options;
+  await ensureCoursesLoaded();
   if (!silent) {
     viewState.courses.loading = true;
     viewState.courses.error = '';

@@ -201,6 +201,8 @@ async function fetchSheet(sheetName) {
     });
 }
 
+let coursesLoadPromise = null;
+
 async function loadCourses() {
   if (!apiRef) return [];
   const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
@@ -209,6 +211,17 @@ async function loadCourses() {
   dataStore.courses = rows.map(mapCourseRow);
   dataStore.loadedAt.courses = now();
   return dataStore.courses;
+}
+
+/** Single in-flight / shared refresh for DATA_MASTER; use after permissions on boot. */
+export async function ensureCoursesLoaded() {
+  if (isCoursesCacheFresh() && dataStore.courses.length) return dataStore.courses;
+  if (!coursesLoadPromise) {
+    coursesLoadPromise = loadCourses().finally(() => {
+      coursesLoadPromise = null;
+    });
+  }
+  return coursesLoadPromise;
 }
 
 export function isCoursesCacheFresh(ttlMs = COURSES_CACHE_TTL_MS) {
@@ -224,10 +237,12 @@ export function isReviewCacheFresh(ttlMs = REVIEW_CACHE_TTL_MS) {
 /** רענון מלא מול השרת; force=true תמיד מושך מחדש */
 export async function reloadCourses(force = false) {
   if (!force && isCoursesCacheFresh()) return dataStore.courses;
+  coursesLoadPromise = null;
   return loadCourses();
 }
 
 export function resetClientDataStore() {
+  coursesLoadPromise = null;
   dataStore.permissions = [];
   dataStore.courses = [];
   dataStore.lists = [];
@@ -254,15 +269,12 @@ export function resetClientDataStore() {
 
 export async function initDataEngine(api, options = {}) {
   apiRef = api;
-  const [courses, permissions] = await Promise.all([
-    loadCourses(),
-    loadPermissions(options.userState)
-  ]);
-  void Promise.all([loadLists(), loadSettings(), loadContacts()]).catch((error) => {
-    logEngine('warn', 'background_load_failed', { message: error?.message || String(error || '') });
+  const permissions = await loadPermissions(options.userState);
+  void ensureCoursesLoaded().catch((error) => {
+    logEngine('warn', 'courses_bootstrap_failed', { message: error?.message || String(error || '') });
   });
   return {
-    courses,
+    courses: dataStore.courses,
     permissions,
     lists: dataStore.lists
   };
@@ -499,7 +511,12 @@ function financeMeetingDateRaw(row, field) {
 
 export async function loadFinanceItems(force = false) {
   if (!force && dataStore.finance.length) return dataStore.finance;
-  const rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
+  let rows;
+  if (!force && isCoursesCacheFresh() && dataStore.dataMaster.length) {
+    rows = dataStore.dataMaster;
+  } else {
+    rows = await fetchSheet(SHEET_NAMES.DATA_MASTER);
+  }
   dataStore.finance = (rows || []).filter((row) => {
     const status = String(row?.status || row?.WorkflowStatus || '').trim().toLowerCase();
     const end = String(row?.end_date || row?.End || '').trim();

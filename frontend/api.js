@@ -1,4 +1,4 @@
-const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzhD4u3-S8CTWLJ_lIyN1sIvnhVA7ejAOtQxY8upFi5HtJKfoH2qjMjX5CZBuDq7PGz1w/exec';
+const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbykKxrPl8ALlbvIHaUqst0dBqPJGIggyyhac5iPa_PsuJRLjGm3UP1lqgFB8fxY2-FOqg/exec';
 const WEB_APP_URL = (globalThis.__WEB_APP_URL__ && String(globalThis.__WEB_APP_URL__).trim()) || DEFAULT_WEB_APP_URL;
 const actionCache = new Map();
 
@@ -9,11 +9,17 @@ function logApi(level, event, meta = {}) {
 }
 
 const ACTION_TTL_MS = {
+  getSessionProfileAction: 60 * 1000,
   getDashboardDataAction: 90 * 1000,
   getMyCoursesDataAction: 180 * 1000,
   getFinanceDataAction: 180 * 1000,
-  getFinanceArchiveDataAction: 180 * 1000
+  getFinanceArchiveDataAction: 180 * 1000,
+  getContactsDataAction: 120 * 1000,
+  getAllSettingsAction: 120 * 1000,
+  getAllListsAction: 120 * 1000
 };
+
+const inflightActions = new Map();
 
 function appendPayload(params, value, path) {
   if (value === null || typeof value === 'undefined') return;
@@ -44,28 +50,35 @@ async function callAction(action, payload) {
     const cached = actionCache.get(key);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
   }
-  try {
-    const response = await fetch(WEB_APP_URL, {
-      method: 'POST',
-      body: buildRequestParams(action, payload)
-    });
+  if (inflightActions.has(key)) return inflightActions.get(key);
+  const exec = (async () => {
+    try {
+      const response = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        body: buildRequestParams(action, payload)
+      });
 
-    if (!response.ok) {
-      logApi('warn', 'http_not_ok', { action, status: response.status });
-      return { success: false, message: 'השרת אינו זמין כרגע.' };
-    }
+      if (!response.ok) {
+        logApi('warn', 'http_not_ok', { action, status: response.status });
+        return { success: false, message: 'השרת אינו זמין כרגע.' };
+      }
 
-    const data = await response.json();
-    const resolved = data && typeof data === 'object' ? data : { success: false, message: 'התקבלה תשובה לא תקינה.' };
-    if (!resolved?.success) logApi('warn', 'action_failed', { action, message: resolved?.message || '' });
-    if (ttl > 0 && resolved?.success) {
-      actionCache.set(key, { value: resolved, expiresAt: Date.now() + ttl });
+      const data = await response.json();
+      const resolved = data && typeof data === 'object' ? data : { success: false, message: 'התקבלה תשובה לא תקינה.' };
+      if (!resolved?.success) logApi('warn', 'action_failed', { action, message: resolved?.message || '' });
+      if (ttl > 0 && (resolved?.success || resolved?.authenticated)) {
+        actionCache.set(key, { value: resolved, expiresAt: Date.now() + ttl });
+      }
+      return resolved;
+    } catch (error) {
+      logApi('error', 'network_or_parse_error', { action, error: error?.message || String(error || '') });
+      return { success: false, message: 'לא ניתן להשלים את הפעולה כעת.' };
+    } finally {
+      inflightActions.delete(key);
     }
-    return resolved;
-  } catch (error) {
-    logApi('error', 'network_or_parse_error', { action, error: error?.message || String(error || '') });
-    return { success: false, message: 'לא ניתן להשלים את הפעולה כעת.' };
-  }
+  })();
+  inflightActions.set(key, exec);
+  return exec;
 }
 
 function clearActionCache(actions = []) {
