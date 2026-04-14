@@ -118,6 +118,7 @@ function routeAction_(action, payload) {
   if (action === 'getAllSettingsAction')      return getAllSettingsAction(payload);
   if (action === 'getSettingAction')          return getSettingAction(payload);
 
+  Logger.log('[WARN][routeAction] unsupported action=%s', action || '');
   return { success: false, message: 'פעולה לא נתמכת.' };
 }
 

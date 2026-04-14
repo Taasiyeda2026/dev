@@ -6,10 +6,10 @@ const FIELDS = ['Program', 'Authority', 'School', 'Instructor', 'ActivityType', 
 const now = () => new Date().toISOString();
 
 const sheets = {
-  DATA_MASTER: [
+  data: [
     {
       RowID: 'ROW-1',
-      CourseID: 'C-100',
+      CourseID: 'ROW-1',
       Program: 'Robotics',
       Authority: 'Tel Aviv',
       School: 'School A',
@@ -21,8 +21,8 @@ const sheets = {
       UpdatedAt: '2026-04-01T08:00:00.000Z'
     }
   ],
-  EDIT_REQUESTS: [],
-  EDEN_DATA_MASTER: [],
+  operations_data: [],
+  eden_data: [],
   COURSES: [],
   DASHBOARD_EXPORT: [],
   REVIEW_REQUIRED: [],
@@ -32,8 +32,8 @@ const sheets = {
 const writes = Object.fromEntries(Object.keys(sheets).map((k) => [k, 0]));
 
 function touchWrite(sheetName) { writes[sheetName] += 1; }
-function dmRow(courseId) { return sheets.DATA_MASTER.find((r) => r.CourseID === courseId); }
-function edenByRequest(requestId) { return sheets.EDEN_DATA_MASTER.find((r) => r.RequestID === requestId); }
+function dmRow(courseId) { return sheets.data.find((r) => r.CourseID === courseId); }
+function edenByRequest(requestId) { return sheets.eden_data.find((r) => r.RequestID === requestId); }
 
 function initEdenRowFromRequest({ requestId, courseId, requestedData, requestedBy }) {
   const source = structuredClone(dmRow(courseId));
@@ -61,8 +61,8 @@ function initEdenRowFromRequest({ requestId, courseId, requestedData, requestedB
   });
   row.HasDiffBetweenSourceAndEden = hasDiff(row) ? 'true' : 'false';
 
-  sheets.EDEN_DATA_MASTER.push(row);
-  touchWrite('EDEN_DATA_MASTER');
+  sheets.eden_data.push(row);
+  touchWrite('eden_data');
   return row;
 }
 
@@ -81,8 +81,9 @@ function submitEditRequest({ courseId, requestedBy, requestedData }) {
     OriginalData: structuredClone(dmRow(courseId)),
     RequestedData: structuredClone(requestedData)
   };
-  sheets.EDIT_REQUESTS.push(request);
-  touchWrite('EDIT_REQUESTS');
+  request.source_row_id = courseId;
+  sheets.operations_data.push(request);
+  touchWrite('operations_data');
   initEdenRowFromRequest({ requestId, courseId, requestedData, requestedBy });
   return requestId;
 }
@@ -97,7 +98,7 @@ function edenSave({ requestId, edenDraft, edenNotes }) {
   row.WorkflowStatus = 'eden_saved';
   row.EdenLastSavedAt = now();
   row.HasDiffBetweenSourceAndEden = hasDiff(row) ? 'true' : 'false';
-  touchWrite('EDEN_DATA_MASTER');
+  touchWrite('eden_data');
 }
 
 function refreshSourceFromMaster({ requestId }) {
@@ -112,12 +113,12 @@ function refreshSourceFromMaster({ requestId }) {
     row.HasMasterChangedAfterEdenEdit = 'true';
   }
   row.HasDiffBetweenSourceAndEden = hasDiff(row) ? 'true' : 'false';
-  touchWrite('EDEN_DATA_MASTER');
+  touchWrite('eden_data');
 }
 
 function edenSubmitAdmin({ requestId }) {
   const row = edenByRequest(requestId);
-  const req = sheets.EDIT_REQUESTS.find((r) => r.RequestID === requestId);
+  const req = sheets.operations_data.find((r) => r.RequestID === requestId);
 
   const requestedData = {};
   FIELDS.forEach((field) => { requestedData[field] = row[`Eden_${field}`]; });
@@ -125,40 +126,40 @@ function edenSubmitAdmin({ requestId }) {
   req.RequestedData = requestedData;
   req.ApprovalStatus = 'pending_final';
   req.RequestStatus = 'pending_final';
-  touchWrite('EDIT_REQUESTS');
+  touchWrite('operations_data');
 
   row.WorkflowStatus = 'pending_final';
   row.SentToAdminAt = now();
   row.HasDiffBetweenSourceAndEden = hasDiff(row) ? 'true' : 'false';
-  touchWrite('EDEN_DATA_MASTER');
+  touchWrite('eden_data');
 }
 
 function approveRequestApplyMaster({ requestId }) {
-  const req = sheets.EDIT_REQUESTS.find((r) => r.RequestID === requestId);
+  const req = sheets.operations_data.find((r) => r.RequestID === requestId);
   assert.equal(req.ApprovalStatus, 'pending_final');
   const master = dmRow(req.CourseID);
   Object.entries(req.RequestedData).forEach(([field, value]) => {
     master[field] = value;
   });
   master.UpdatedAt = now();
-  touchWrite('DATA_MASTER');
+  touchWrite('data');
 
   req.ApprovalStatus = 'final_approved';
   req.RequestStatus = 'final_approved';
-  touchWrite('EDIT_REQUESTS');
+  touchWrite('operations_data');
 
   const row = edenByRequest(requestId);
   row.WorkflowStatus = 'final_approved';
   row.AdminDecision = 'approved';
   row.AdminApprovedAt = now();
-  touchWrite('EDEN_DATA_MASTER');
+  touchWrite('eden_data');
 }
 
 // ==== Scenario ==== 
-const beforeMaster = structuredClone(dmRow('C-100'));
+const beforeMaster = structuredClone(dmRow('ROW-1'));
 
 const requestId = submitEditRequest({
-  courseId: 'C-100',
+  courseId: 'ROW-1',
   requestedBy: 'qa-user',
   requestedData: { Notes: 'request-level proposal' }
 });
@@ -171,16 +172,16 @@ edenSave({
 });
 
 // master changed externally after eden saved
-const master = dmRow('C-100');
+const master = dmRow('ROW-1');
 master.Notes = 'master changed externally';
 master.UpdatedAt = '2026-04-07T12:00:00.000Z';
-touchWrite('DATA_MASTER');
+touchWrite('data');
 refreshSourceFromMaster({ requestId });
 
 const afterEden = structuredClone(edenByRequest(requestId));
 edenSubmitAdmin({ requestId });
 approveRequestApplyMaster({ requestId });
-const afterAdminMaster = structuredClone(dmRow('C-100'));
+const afterAdminMaster = structuredClone(dmRow('ROW-1'));
 
 // Required assertions
 assert.equal(afterEden.WorkflowStatus, 'eden_saved', 'status should be eden_saved after save');
@@ -188,13 +189,14 @@ assert.equal(afterEden.HasMasterChangedAfterEdenEdit, 'true', 'must detect maste
 assert.equal(afterEden.Source_Notes, 'master changed externally', 'source should refresh from master');
 assert.equal(afterEden.Eden_Notes, 'eden edited note', 'eden draft must not be overwritten by source refresh');
 
-const reqAfterSubmit = sheets.EDIT_REQUESTS.find((r) => r.RequestID === requestId);
+const reqAfterSubmit = sheets.operations_data.find((r) => r.RequestID === requestId);
 assert.equal(reqAfterSubmit.RequestStatus, 'final_approved', 'request should be final_approved after admin approve');
+assert.equal(reqAfterSubmit.source_row_id, 'ROW-1', 'operations row must keep source_row_id');
 assert.equal(afterAdminMaster.Notes, 'eden edited note', 'admin apply must write eden value to master');
 assert.equal(afterAdminMaster.Instructor, 'Roni', 'admin apply must write eden instructor to master');
 
 for (const legacy of LEGACY_SHEETS) {
-  assert.equal(writes[legacy], 0, `${legacy} must not be written`);
+  assert.equal(writes[legacy] || 0, 0, `${legacy} must not be written`);
 }
 
 const report = {

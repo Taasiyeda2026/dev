@@ -62,12 +62,16 @@ export function hydrateUserState() {
     if (!raw) return;
     setUserState(JSON.parse(raw));
   } catch (error) {
+    console.warn('[session:hydrate_failed]', { reason: error?.message || String(error || '') });
     clearUserState();
   }
 }
 
 export function setUserState(next) {
   Object.assign(userState, pickAllowed(next));
+  if (userState.authenticated && !userState.userId) {
+    console.warn('[session:invalid_user_state]', { authenticated: true, hasUserId: false });
+  }
   persist();
 }
 

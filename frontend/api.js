@@ -2,6 +2,12 @@ const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwu3Xj5pzOK
 const WEB_APP_URL = (globalThis.__WEB_APP_URL__ && String(globalThis.__WEB_APP_URL__).trim()) || DEFAULT_WEB_APP_URL;
 const actionCache = new Map();
 
+
+function logApi(level, event, meta = {}) {
+  const fn = level === 'error' ? console.error : console.warn;
+  fn(`[api:${event}]`, meta);
+}
+
 const ACTION_TTL_MS = {
   getDashboardDataAction: 90 * 1000,
   getMyCoursesDataAction: 180 * 1000,
@@ -45,16 +51,19 @@ async function callAction(action, payload) {
     });
 
     if (!response.ok) {
+      logApi('warn', 'http_not_ok', { action, status: response.status });
       return { success: false, message: 'השרת אינו זמין כרגע.' };
     }
 
     const data = await response.json();
     const resolved = data && typeof data === 'object' ? data : { success: false, message: 'התקבלה תשובה לא תקינה.' };
+    if (!resolved?.success) logApi('warn', 'action_failed', { action, message: resolved?.message || '' });
     if (ttl > 0 && resolved?.success) {
       actionCache.set(key, { value: resolved, expiresAt: Date.now() + ttl });
     }
     return resolved;
   } catch (error) {
+    logApi('error', 'network_or_parse_error', { action, error: error?.message || String(error || '') });
     return { success: false, message: 'לא ניתן להשלים את הפעולה כעת.' };
   }
 }

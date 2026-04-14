@@ -175,6 +175,12 @@ const COURSE_DATE_RANGE_FIELDS = COURSE_DATE_FIELDS;
 const COURSE_END_RANGE_FIELDS = [COURSE_FIELDS.END];
 const INSTRUCTOR_FALLBACK_FIELD = 'Employee';
 
+
+function logUi(event, meta = {}) {
+  console.warn(`[app:${event}]`, meta);
+}
+
+
 function getCourseField(row, fieldName) {
   return row?.[fieldName];
 }
@@ -218,9 +224,9 @@ function normalizeDefaultRoute(rawRoute) {
   const normalized = route.replace(/^view_/, '').replace(/_/g, '-').toLowerCase();
   const aliasMap = {
     activities: 'courses',
-    operations-data: 'approvals',
-    edit-requests: 'my-requests',
-    my-data: 'instructor-view'
+    'operations-data': 'approvals',
+    'edit-requests': 'my-requests',
+    'my-data': 'instructor-view'
   };
   return aliasMap[normalized] || normalized;
 }
@@ -345,11 +351,15 @@ function resetCoursesNavFromMenu() {
 function setRoute(route) {
   const nextRoute = normalizeRouteAlias(route);
   if (!isAuth() && nextRoute !== 'login') {
+    logUi('route_redirect_to_login', { reason: 'not_authenticated', from: nextRoute });
     currentRoute = 'login';
   } else if (nextRoute === 'login') {
     currentRoute = 'login';
   } else {
     const allowedRoutes = getAllowedRoutes();
+    if (!allowedRoutes.includes(nextRoute)) {
+      logUi('route_fallback_unauthorized', { requested: nextRoute, fallback: getFirstAllowedRoute() });
+    }
     currentRoute = allowedRoutes.includes(nextRoute) ? nextRoute : getFirstAllowedRoute();
   }
   mobileNavOpen = false;
@@ -3535,6 +3545,7 @@ async function onLogin(event) {
 
   const res = await api.login({ userId, code });
   if (!res?.authenticated) {
+    logUi('login_failed', { hasUserId: Boolean(userId), message: res?.message || '' });
     errorEl.textContent = res?.message || 'ההתחברות נכשלה.';
     button.disabled = false;
     button.classList.remove('is-loading');
@@ -3542,7 +3553,10 @@ async function onLogin(event) {
     return;
   }
   setUserState(res);
-  initEnginePromise = initDataEngine(api, { userState });
+  initEnginePromise = initDataEngine(api, { userState }).catch((error) => {
+    logUi('init_data_engine_failed_after_login', { message: error?.message || String(error || '') });
+    throw error;
+  });
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
   setRoute(getStartupRoute());
@@ -3551,6 +3565,7 @@ async function onLogin(event) {
 async function loadRouteData() {
   if (!isAuth()) return;
   if (currentRoute !== 'login' && !getAllowedRoutes().includes(currentRoute)) {
+    logUi('current_route_not_allowed', { currentRoute, fallback: getFirstAllowedRoute() });
     setRoute(getFirstAllowedRoute());
     return;
   }
@@ -4035,11 +4050,16 @@ async function boot() {
   if (isAuth()) {
     const profile = await api.getSessionProfile();
     if (profile?.authenticated) {
+      logUi('session_restored', { userId: String(profile?.userId || '') ? 'present' : 'missing' });
       setUserState(profile);
-      initEnginePromise = initDataEngine(api, { userState });
+      initEnginePromise = initDataEngine(api, { userState }).catch((error) => {
+        logUi('init_data_engine_failed_on_boot', { message: error?.message || String(error || '') });
+        throw error;
+      });
       setRoute(getStartupRoute());
       return;
     }
+    logUi('session_restore_failed', { message: profile?.message || 'not_authenticated' });
     clearUserState();
   }
   setRoute('login');
