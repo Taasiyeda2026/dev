@@ -50,11 +50,17 @@ var Logic = (function () {
     NEW_RECORD: 'NEW_RECORD'
   };
 
+  function logDiag_(level, eventName, meta) {
+    try {
+      Logger.log('[%s][%s] %s', String(level || 'INFO').toUpperCase(), eventName || 'event', Utils.safeJson(meta || {}));
+    } catch (err) {}
+  }
+
   function login(userIdInput, codeInput) {
     try {
       var userId = normalizeCredential_(userIdInput);
       var code = normalizeCredential_(codeInput);
-      Logger.log('loginAction: received userId=%s, code=%s', userId, code);
+      logDiag_('INFO', 'login_attempt', { hasUserId: !Utils.isEmpty(userId), hasCode: !Utils.isEmpty(code) });
       if (Utils.isEmpty(userId) || Utils.isEmpty(code)) return { authenticated: false, message: 'ההתחברות נכשלה.' };
 
       var table = getCachedPermissionsTable_(true);
@@ -105,6 +111,7 @@ var Logic = (function () {
       PropertiesService.getUserProperties().setProperty(CONFIG.SESSION_KEY, JSON.stringify(profile));
       return profile;
     } catch (err) {
+      logDiag_('WARN', 'login_failed_exception', { message: err && err.message ? err.message : String(err || '') });
       return { authenticated: false, message: 'ההתחברות נכשלה.' };
     }
   }
@@ -291,6 +298,15 @@ var Logic = (function () {
       if (Utils.isEmpty(sheetName)) return Utils.safeMessage('sheetName הוא שדה חובה.');
 
       var table = Utils.readTable(sheetName, true);
+      if (sheetName === CONFIG.SHEETS.DATA_MASTER) {
+        Utils.validateTableHeaders(table, { rowId: CONFIG.FIELDS.ROW_ID }, 'getSheetRows:data');
+      }
+      if (sheetName === CONFIG.SHEETS.OPERATIONS_DATA) {
+        Utils.validateTableHeaders(table, { sourceRowId: CONFIG.FIELDS.SOURCE_ROW_ID }, 'getSheetRows:operations_data');
+      }
+      if (sheetName === CONFIG.SHEETS.LISTS) {
+        Utils.validateTableHeaders(table, { listName: CONFIG.FIELDS.LIST_NAME }, 'getSheetRows:lists');
+      }
       return {
         success: true,
         data: {
@@ -302,6 +318,7 @@ var Logic = (function () {
         }
       };
     } catch (err) {
+      logDiag_('WARN', 'sheet_read_failed', { sheetName: (payload || {}).sheetName || '', message: err && err.message ? err.message : String(err || '') });
       return Utils.safeMessage('לא ניתן לטעון נתונים מהגיליון.');
     }
   }
@@ -364,6 +381,7 @@ var Logic = (function () {
       if (financeStatus !== 'open' && financeStatus !== 'closed') return Utils.safeMessage('FinanceStatus חייב להיות open או closed.');
 
       var table = Utils.readTable(targetSheet, true);
+      Utils.validateTableHeaders(table, { rowId: CONFIG.FIELDS.ROW_ID, financeStatus: CONFIG.FIELDS.FINANCE_STATUS }, 'updateFinanceStatus:data');
       var idxFinanceRowId = Utils.resolveIndex(table.headers, CONFIG.FIELDS.ROW_ID);
       var idxFinanceStatus = Utils.resolveIndex(table.headers, CONFIG.FIELDS.FINANCE_STATUS);
       var idxNotes = Utils.resolveIndex(table.headers, ['FinanceNotes']);
@@ -384,6 +402,7 @@ var Logic = (function () {
 
       return Utils.safeMessage('FinanceRowID לא נמצא לעדכון.');
     } catch (err) {
+      logDiag_('WARN', 'finance_update_failed', { message: err && err.message ? err.message : String(err || '') });
       return Utils.safeMessage('לא ניתן לעדכן סטטוס גבייה.');
     }
   }
@@ -609,6 +628,11 @@ var Logic = (function () {
       var body = normalizeEditRequestPayload_(payload, session.user);
       var requestId = Utils.normalize(body.RequestID) || generateRequestId_();
       var idx = resolveRequestIndexes_(table.headers);
+      Utils.validateTableHeaders(table, {
+        requestId: ['request_id', 'RequestID'],
+        sourceRowId: CONFIG.FIELDS.SOURCE_ROW_ID,
+        approvalStatus: ['admin_status', 'ApprovalStatus']
+      }, 'submitEditRequest:operations_data');
       var existing = findRequestById_(table, idx.requestId, requestId);
 
       if (existing && !canEditDraft_(session.user, existing.row, idx)) {
@@ -623,7 +647,9 @@ var Logic = (function () {
       }
 
       var status = normalizeInputStatus_(body.admin_status || body.ApprovalStatus || body.status, existing ? valueAt_(existing.row, idx.approvalStatus) : '');
-      var openRequest = findOpenRequestBySourceRowId_(table, idx, body.source_row_id || body.RowID || body.CourseID, existing ? requestId : '');
+      var sourceRowId = Utils.normalize(body.source_row_id || body.RowID || body.CourseID);
+      if (!sourceRowId) return Utils.safeMessage('source_row_id הוא שדה חובה.');
+      var openRequest = findOpenRequestBySourceRowId_(table, idx, sourceRowId, existing ? requestId : '');
       if (openRequest) {
         return Utils.safeMessage('כבר קיימת רשומת תפעול פתוחה עבור רשומה זו.');
       }
@@ -641,6 +667,7 @@ var Logic = (function () {
       Utils.appendRow(CONFIG.SHEETS.EDIT_REQUESTS, values);
             return { success: true, data: { RequestID: requestId, ApprovalStatus: status, mode: 'append' } };
     } catch (err) {
+      logDiag_('WARN', 'submit_edit_request_failed', { message: err && err.message ? err.message : String(err || '') });
       return Utils.safeMessage('לא ניתן לשמור בקשה.');
     }
   }
@@ -2592,6 +2619,7 @@ var Logic = (function () {
       var rowNumber = Number(body._rowNumber || body.rowNumber);
       if (!rowNumber) return Utils.safeMessage('חסר מזהה שורה לעריכה.');
       var table = Utils.readTable(CONFIG.SHEETS.CONTACTS, true, { requestMemoKey: 'table:contacts:update' });
+      Utils.validateTableHeaders(table, { empId: CONFIG.FIELDS.CONTACT_EMP_ID, name: CONFIG.FIELDS.CONTACT_NAME }, 'updateContact:contacts');
       var rowIndex = table.rowNumbers.indexOf(rowNumber);
       if (rowIndex === -1) return Utils.safeMessage('רשומת איש קשר לא נמצאה.');
       var existing = table.rows[rowIndex].slice();
@@ -2614,6 +2642,7 @@ var Logic = (function () {
       Utils.updateRow(CONFIG.SHEETS.CONTACTS, rowNumber, existing);
       return { success: true, data: { _rowNumber: rowNumber } };
     } catch (err) {
+      logDiag_('WARN', 'contacts_update_failed', { message: err && err.message ? err.message : String(err || '') });
       return Utils.safeMessage('עדכון איש קשר נכשל.');
     }
   }
@@ -2646,7 +2675,10 @@ var Logic = (function () {
 
   function requireSession_() {
     var profile = getSession_();
-    if (!profile || !profile.authenticated || Utils.isEmpty(profile.userId)) return { success: false, message: 'אין חיבור פעיל.' };
+    if (!profile || !profile.authenticated || Utils.isEmpty(profile.userId)) {
+      logDiag_('WARN', 'session_missing_or_invalid', { hasProfile: Boolean(profile), authenticated: Boolean(profile && profile.authenticated) });
+      return { success: false, message: 'אין חיבור פעיל.' };
+    }
     return { success: true, user: profile };
   }
 

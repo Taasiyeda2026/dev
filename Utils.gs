@@ -66,6 +66,12 @@ var Utils = (function () {
     return { success: false, message: message || 'הפעולה לא בוצעה.' };
   }
 
+  function logWarn(eventName, details) {
+    try {
+      Logger.log('[WARN][%s] %s', normalize(eventName), safeJson(details || {}));
+    } catch (err) {}
+  }
+
   function safeJson(value) {
     try {
       return JSON.stringify(value || {});
@@ -342,23 +348,32 @@ var Utils = (function () {
   }
 
 
+  function validateTableHeaders(table, requiredAliases, contextLabel) {
+    var aliasesMap = asObject(requiredAliases, {});
+    var headers = (table && table.headers) ? table.headers : [];
+    var missing = [];
+    var indexes = {};
+    Object.keys(aliasesMap).forEach(function (key) {
+      var idx = resolveIndex(headers, aliasesMap[key]);
+      indexes[key] = idx;
+      if (idx === -1) missing.push(key);
+    });
+    if (missing.length) {
+      var message = 'missing_required_headers:' + normalize(contextLabel || 'unknown') + ':' + missing.join(',');
+      logWarn('validateTableHeaders', { context: contextLabel || 'unknown', missing: missing, headersCount: headers.length });
+      throw new Error(message);
+    }
+    return indexes;
+  }
+
   function validateRequired(value, message) {
     if (isEmpty(value)) throw new Error(message || 'missing_required');
   }
 
   function resolveStructure_(sheetName) {
     var actual = resolveSheetAlias_(sheetName);
-    if (actual === CONFIG.SHEETS.DASHBOARD_EXPORT) {
-      return {
-        headerRow: 1,
-        displayRow: null,
-        dataStartRow: 2,
-        hasDisplayRow: false
-      };
-    }
     if (
       actual === CONFIG.SHEETS.LISTS ||
-      actual === CONFIG.SHEETS.README ||
       actual === CONFIG.SHEETS.SETTINGS ||
       actual === CONFIG.SHEETS.CONTACTS ||
       actual === CONFIG.SHEETS.DATA_MASTER ||
@@ -406,6 +421,8 @@ var Utils = (function () {
     removeScriptCache: removeScriptCache,
     ensureEditRequestsSheet: ensureEditRequestsSheet,
     ensureCourseMeetingsSheet: ensureCourseMeetingsSheet,
+    validateTableHeaders: validateTableHeaders,
+    logWarn: logWarn,
     validateRequired: validateRequired
   };
 })();

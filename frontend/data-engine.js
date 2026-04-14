@@ -44,6 +44,19 @@ let apiRef = null;
 const COURSES_CACHE_TTL_MS = 3 * 60 * 1000;
 const REVIEW_CACHE_TTL_MS = 2 * 60 * 1000;
 
+
+function logEngine(level, event, meta = {}) {
+  const fn = level === 'error' ? console.error : console.warn;
+  fn(`[data-engine:${event}]`, meta);
+}
+
+function assertRequired(value, message, meta = {}) {
+  if (String(value ?? '').trim()) return;
+  const err = new Error(message);
+  err.meta = meta;
+  throw err;
+}
+
 function now() {
   return Date.now();
 }
@@ -133,7 +146,8 @@ function mapPermissionRow(raw = {}) {
 }
 
 function mapCourseRow(raw = {}) {
-  const rowId = String(pickFirst(raw, ['RowID', 'CourseID', 'source_row_id', 'SourceRowID'])).trim();
+  const rowId = String(pickFirst(raw, ['RowID', 'CourseID'])).trim();
+  if (!rowId) logEngine('warn', 'missing_row_id_in_data_row', { rowNumber: raw?._rowNumber || 0 });
   const mapped = {
     ...raw,
     RowID: rowId,
@@ -151,11 +165,26 @@ function mapCourseRow(raw = {}) {
 async function fetchSheet(sheetName) {
   if (!apiRef?.getSheetRows) return [];
   const res = await apiRef.getSheetRows({ sheetName });
-  if (!res?.success) return [];
+  if (!res?.success) {
+    logEngine('warn', 'sheet_read_failed', { sheetName, message: res?.message || '' });
+    return [];
+  }
   const headers = Array.isArray(res?.data?.headerRow) ? res.data.headerRow : [];
   const dataRows = Array.isArray(res?.data?.dataRows) ? res.data.dataRows : [];
   const rowNumbers = Array.isArray(res?.data?.rowNumbers) ? res.data.rowNumbers : [];
-  if (!headers.length) return [];
+  if (sheetName === SHEET_NAMES.DATA_MASTER && !headers.includes('RowID')) {
+    throw new Error('DATA_MASTER missing required RowID header');
+  }
+  if (sheetName === SHEET_NAMES.OPERATIONS_DATA && !headers.includes('source_row_id')) {
+    throw new Error('operations_data missing required source_row_id header');
+  }
+  if (sheetName === SHEET_NAMES.LISTS && !headers.includes('list_name')) {
+    throw new Error('lists missing required list_name header');
+  }
+  if (!headers.length) {
+    logEngine('warn', 'sheet_missing_headers', { sheetName });
+    return [];
+  }
   return dataRows
     .filter((row) => Array.isArray(row) && row.some((cell) => String(cell || '').trim() !== ''))
     .map((row, rowIndex) => {
@@ -227,7 +256,9 @@ export async function initDataEngine(api, options = {}) {
     loadCourses(),
     loadPermissions(options.userState)
   ]);
-  void Promise.all([loadLists(), loadSettings(), loadContacts()]).catch(() => {});
+  void Promise.all([loadLists(), loadSettings(), loadContacts()]).catch((error) => {
+    logEngine('warn', 'background_load_failed', { message: error?.message || String(error || '') });
+  });
   return {
     courses,
     permissions,
@@ -281,12 +312,23 @@ export async function loadLists() {
 
 export async function loadSettings() {
   dataStore.settings = await fetchSheet(SHEET_NAMES.SETTINGS);
+  if (dataStore.settings.length) {
+    const sample = dataStore.settings[0] || {};
+    if (!Object.prototype.hasOwnProperty.call(sample, 'key') || !Object.prototype.hasOwnProperty.call(sample, 'value')) {
+      throw new Error('settings missing key/value headers');
+    }
+  }
   dataStore.loadedAt.settings = now();
   return dataStore.settings;
 }
 
 export async function loadContacts() {
   dataStore.contacts = await fetchSheet(SHEET_NAMES.CONTACTS);
+  dataStore.contacts.forEach((row) => {
+    if (!String(row?.emp_id || '').trim() && !String(row?.name || '').trim()) {
+      logEngine('warn', 'malformed_contact_row', { rowNumber: row?._rowNumber || 0 });
+    }
+  });
   dataStore.loadedAt.contacts = now();
   return dataStore.contacts;
 }
@@ -413,12 +455,14 @@ export async function updateCourse(courseId, changes, actor = {}) {
 
 export async function createEditRequest(courseId, changes, actor = {}) {
   if (!apiRef?.createEditRequest) return { success: false, message: 'API לא זמין לבקשת שינוי.' };
+  assertRequired(courseId, 'RowID is required for createEditRequest', { actor: actor?.userId || actor?.displayName || '' });
   const payload = {
     [REQUEST_FIELDS.COURSE_ID]: courseId,
     [REQUEST_FIELDS.REQUESTED_BY]: actor.displayName || actor.userId || '',
     changes
   };
   const res = await apiRef.createEditRequest(payload);
+  if (!res?.success) logEngine('warn', 'create_edit_request_failed', { rowId: courseId, message: res?.message || '' });
   if (res?.success) {
     apiRef?.clearCache?.(['getDashboardDataAction']);
     await loadEditRequests(true);
@@ -474,6 +518,7 @@ export async function loadFinanceArchiveItems(force = false) {
 
 export async function updateFinanceStatus(financeRowId, financeStatus, options = {}) {
   if (!apiRef?.updateFinanceStatus) return { success: false, message: 'API לא זמין לעדכון סטטוס גבייה.' };
+  assertRequired(financeRowId, 'FinanceRowID is required for updateFinanceStatus');
   const payload = {
     FinanceRowID: financeRowId,
     FinanceStatus: financeStatus,
@@ -481,6 +526,7 @@ export async function updateFinanceStatus(financeRowId, financeStatus, options =
     StatusNote: options.statusNote || ''
   };
   const res = await apiRef.updateFinanceStatus(payload);
+  if (!res?.success) logEngine('warn', 'finance_update_failed', { financeRowId, status: financeStatus, message: res?.message || '' });
   if (res?.success) {
     apiRef?.clearCache?.(['getFinanceDataAction', 'getFinanceArchiveDataAction', 'getDashboardDataAction']);
     await Promise.all([
@@ -494,6 +540,7 @@ export async function updateFinanceStatus(financeRowId, financeStatus, options =
 export async function syncFinance() {
   if (!apiRef?.syncFinance) return { success: false, message: 'API לא זמין לרענון כספים.' };
   const res = await apiRef.syncFinance();
+  if (!res?.success) logEngine('warn', 'finance_sync_failed', { message: res?.message || '' });
   if (res?.success) {
     apiRef?.clearCache?.(['getFinanceDataAction', 'getFinanceArchiveDataAction', 'getDashboardDataAction']);
     await Promise.all([
