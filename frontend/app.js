@@ -155,7 +155,7 @@ const routeLabels = {
   'admin-permissions': 'הרשאות משתמשים',
   dashboard: 'דשבורד',
   courses: 'פעילויות',
-  'my-requests': 'הבקשות שלי',
+  'my-requests': 'אישורים',
   approvals: 'אישורי בקרה ותפעול',
   'eden-view': 'מסך עדן',
   'final-approvals': 'אישור סופי הנהלה',
