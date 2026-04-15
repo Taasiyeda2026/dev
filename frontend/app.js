@@ -148,12 +148,12 @@ const roleMap = {
 
 const routeLabels = {
   login: 'התחברות',
-  'admin-home': 'מרכז ניהול',
+  'admin-home': 'ניהול',
   'operations-home': 'מסך תפעול ראשי',
   'admin-settings': 'הגדרות מערכת',
   'admin-lists': 'רשימות מערכת',
   'admin-permissions': 'הרשאות משתמשים',
-  dashboard: 'דשבורד פעילות ארצי',
+  dashboard: 'דשבורד',
   courses: 'פעילויות',
   'my-requests': 'הבקשות שלי',
   approvals: 'אישורי בקרה ותפעול',
