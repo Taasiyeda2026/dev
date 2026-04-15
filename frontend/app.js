@@ -2168,11 +2168,12 @@ function renderCourseInlineDetails(row) {
     const dayStr = d ? d.toLocaleDateString('he-IL', { weekday: 'short' }) : '';
     return `<span class="ci-chip ${cls}"><span class="ci-chip-num">${i + 1}</span><span class="ci-chip-date">${esc(dateStr)}</span>${dayStr ? `<span class="ci-chip-day">${esc(dayStr)}</span>` : ''}</span>`;
   }).join('');
-  return `<tr class="course-inline-details-row"><td colspan="11" class="course-inline-details-cell">
+  return `<tr class="course-inline-details-row"><td colspan="10" class="course-inline-details-cell">
     <div class="course-inline-details">
       <div class="ci-meta">
         ${timeLabel && timeLabel !== '–' ? `<span><strong>שעות</strong>${esc(timeLabel)}</span>` : ''}
         <span><strong>בוצעו</strong>${completedCount} מתוך ${totalSlots || '-'}</span>
+        ${getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) ? `<span><strong>מנהל קורס</strong>${esc(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER))}</span>` : ''}
         ${notes ? `<span style="grid-column:1/-1"><strong>הערות</strong>${esc(notes)}</span>` : ''}
       </div>
       <div class="ci-meetings">${chips || '<em>אין תאריכים</em>'}</div>
@@ -2184,7 +2185,7 @@ function renderCourseTable(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const canEdit = Boolean(options.canEdit);
   const openId = String(options.openDetailsId || '');
-  const COL_COUNT = 10;
+  const COL_COUNT = 9;
   const body = rows.map((row, idx) => {
     const h = buildCourseHierarchyDetails(row);
     const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
@@ -2198,7 +2199,6 @@ function renderCourseTable(rows, options = {}) {
       <td><span class="cell-ellipsis" title="${escAttr(h.programActivity || '')}">${esc(h.programActivity || 'לא זמין')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(h.school || '')}">${esc(h.school || '-')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(h.instructor || '')}">${esc(h.instructor || 'לא משויך')}</span></td>
-      <td><span class="cell-ellipsis" title="${escAttr(row[COURSE_FIELDS.COURSE_MANAGER] || '')}">${esc(row[COURSE_FIELDS.COURSE_MANAGER] || '-')}</span></td>
       <td style="white-space:nowrap">${esc(h.dayName || '-')}</td>
       <td style="white-space:nowrap">${esc(h.timeLabel || '-')}</td>
       <td style="text-align:center">${esc(String(row[COURSE_FIELDS.PLANNED_MEETINGS] || '-'))}</td>
@@ -2217,7 +2217,6 @@ function renderCourseTable(rows, options = {}) {
         <th>שם פעילות</th>
         <th>בית ספר</th>
         <th>מדריך</th>
-        <th>מנהל קורס</th>
         <th>יום</th>
         <th>שעות</th>
         <th>מ"מ</th>
