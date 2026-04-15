@@ -2147,7 +2147,7 @@ function renderCourseTable(rows, options = {}) {
     <table class="courses-table-styled">
       <thead><tr>
         <th class="ct-num">#</th>
-        <th>שם קורס</th>
+        <th>שם פעילות</th>
         <th>בית ספר</th>
         <th>מדריך</th>
         <th>מנהל קורס</th>

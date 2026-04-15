@@ -1262,11 +1262,12 @@ a { color: var(--accent); text-decoration: none; }
 }
 .courses-table-styled thead th:first-child { border-radius: 0 var(--radius-sm) 0 0; }
 .courses-table-styled thead th:last-child  { border-radius: var(--radius-sm) 0 0 0; }
-.courses-table-styled tbody td { border-bottom: 1px solid var(--border-soft); padding: 8px 12px; vertical-align: middle; font-size: 12px; }
+.courses-table-styled tbody td { border-bottom: 1px solid var(--border); padding: 8px 12px; vertical-align: middle; font-size: 12px; }
 .courses-table-styled tbody tr:last-child td { border-bottom: none; }
-.courses-table-styled tbody tr:hover td { background: var(--accent-soft, #eef2ff); }
+.courses-table-styled tbody tr:nth-child(even) td { background: #f7f8fc; }
+.courses-table-styled tbody tr:hover td { background: var(--accent-soft, #eef2ff) !important; }
 .courses-table-styled .ct-num { color: var(--text-muted); font-size: 11px; text-align: center; min-width: 28px; }
-.course-tr--open td { background: var(--accent-soft, #eef2ff); }
+.course-tr--open td { background: var(--accent-soft, #eef2ff) !important; }
 
 /* inline details row */
 .course-inline-details-row td { padding: 0 !important; border-bottom: 2px solid var(--accent) !important; }
