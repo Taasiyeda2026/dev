@@ -3463,91 +3463,59 @@ async function loadWeekView() {
     const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
     viewState.week.rangeStart = formatIsoDateLocal(startOfDay(sunday));
   }
-  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
-  if (needFetch) {
-    viewState.week.loading = true;
-    renderScreen();
-  }
   viewState.week.error = '';
-  try {
-    await reloadCourses(false);
-    await loadReviewItems(false);
-  } catch (error) {
-    viewState.week.error = 'לא ניתן לרענן נתוני קורסים לשבוע.';
-  }
-  viewState.week.loading = false;
   renderScreen();
+  if (!isCoursesCacheFresh() || !isReviewCacheFresh()) {
+    reloadCourses(false).then(() => loadReviewItems(false)).then(() => {
+      if (currentRoute === 'week') renderScreen();
+    }).catch(() => {});
+  }
 }
 
 async function loadMonthView() {
   if (!viewState.month.monthDate) {
     viewState.month.monthDate = formatMonthInputLocal(new Date());
   }
-  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
-  if (needFetch) {
-    viewState.month.loading = true;
-    renderScreen();
-  }
   viewState.month.error = '';
-  try {
-    await reloadCourses(false);
-    await loadReviewItems(false);
-  } catch (error) {
-    viewState.month.error = 'לא ניתן לרענן נתוני קורסים לחודש.';
-  }
-  viewState.month.loading = false;
   renderScreen();
+  if (!isCoursesCacheFresh() || !isReviewCacheFresh()) {
+    reloadCourses(false).then(() => loadReviewItems(false)).then(() => {
+      if (currentRoute === 'month') renderScreen();
+    }).catch(() => {});
+  }
 }
 
 async function loadInstructorsView() {
-  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
-  if (needFetch) {
-    viewState.instructors.loading = true;
-    renderScreen();
-  }
   viewState.instructors.error = '';
-  try {
-    await reloadCourses(false);
-    await loadReviewItems(false);
-  } catch (error) {
-    viewState.instructors.error = 'לא ניתן לרענן נתוני קורסים למדריכים.';
-  }
-  viewState.instructors.loading = false;
   renderScreen();
+  if (!isCoursesCacheFresh() || !isReviewCacheFresh()) {
+    reloadCourses(false).then(() => loadReviewItems(false)).then(() => {
+      if (currentRoute === 'instructors') renderScreen();
+    }).catch(() => {});
+  }
 }
 
 async function loadEndDatesView() {
   if (!viewState.endDates.filters.month) {
     viewState.endDates.filters.month = formatMonthInputLocal(new Date());
   }
-  const needFetch = !isCoursesCacheFresh() || !isReviewCacheFresh();
-  if (needFetch) {
-    viewState.endDates.loading = true;
-    renderScreen();
-  }
   viewState.endDates.error = '';
-  try {
-    await reloadCourses(false);
-    await loadReviewItems(false);
-  } catch (error) {
-    viewState.endDates.error = 'לא ניתן לרענן נתוני קורסים לתאריכי סיום.';
-  }
-  viewState.endDates.loading = false;
   renderScreen();
+  if (!isCoursesCacheFresh() || !isReviewCacheFresh()) {
+    reloadCourses(false).then(() => loadReviewItems(false)).then(() => {
+      if (currentRoute === 'end-dates') renderScreen();
+    }).catch(() => {});
+  }
 }
 
 async function loadExceptionsView() {
-  viewState.exceptions.loading = true;
   viewState.exceptions.error = '';
   renderScreen();
-  try {
-    await reloadCourses(true);
-    await loadReviewItems(true);
-  } catch (error) {
-    viewState.exceptions.error = 'לא ניתן לרענן נתוני קורסים לחריגות.';
+  if (!isCoursesCacheFresh() || !isReviewCacheFresh()) {
+    reloadCourses(false).then(() => loadReviewItems(false)).then(() => {
+      if (currentRoute === 'exceptions') renderScreen();
+    }).catch(() => {});
   }
-  viewState.exceptions.loading = false;
-  renderScreen();
 }
 
 function renderWeekFilters() {

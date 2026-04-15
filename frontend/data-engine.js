@@ -41,9 +41,9 @@ const dataStore = {
 let apiRef = null;
 
 /** מטמון לניווט בין מסכים — מפחית קריאות כבדות ל-Sheets */
-const COURSES_CACHE_TTL_MS = 3 * 60 * 1000;
-const REVIEW_CACHE_TTL_MS = 2 * 60 * 1000;
-const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
+const COURSES_CACHE_TTL_MS = 6 * 60 * 1000;
+const REVIEW_CACHE_TTL_MS = 5 * 60 * 1000;
+const SETTINGS_CACHE_TTL_MS = 10 * 60 * 1000;
 
 
 function logEngine(level, event, meta = {}) {

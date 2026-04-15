@@ -9,17 +9,17 @@ function logApi(level, event, meta = {}) {
 }
 
 const ACTION_TTL_MS = {
-  getSessionProfileAction: 60 * 1000,
-  getDashboardDataAction: 90 * 1000,
-  getMyCoursesDataAction: 180 * 1000,
-  getFinanceDataAction: 180 * 1000,
-  getFinanceArchiveDataAction: 180 * 1000,
-  getContactsDataAction: 120 * 1000,
-  getAllSettingsAction: 120 * 1000,
-  getAllListsAction: 120 * 1000,
-  getMyRequestsDataAction: 60 * 1000,
-  getApprovalsDataAction: 60 * 1000,
-  getEdenViewDataAction: 60 * 1000
+  getSessionProfileAction: 120 * 1000,
+  getDashboardDataAction: 120 * 1000,
+  getMyCoursesDataAction: 360 * 1000,
+  getFinanceDataAction: 300 * 1000,
+  getFinanceArchiveDataAction: 300 * 1000,
+  getContactsDataAction: 240 * 1000,
+  getAllSettingsAction: 600 * 1000,
+  getAllListsAction: 300 * 1000,
+  getMyRequestsDataAction: 90 * 1000,
+  getApprovalsDataAction: 90 * 1000,
+  getEdenViewDataAction: 90 * 1000
 };
 
 const inflightActions = new Map();
