@@ -1228,7 +1228,7 @@ function renderScreen() {
       ['Program', 'Authority', 'School', 'Instructor', 'CourseManager', 'issuesLabel'],
       'exceptions'
     );
-    main.innerHTML = renderUnifiedScreenHeader('exceptions', 'ללא מדריך / ללא שעות / חסר start_date (מפגש ראשון) / או סיום ביוני 2026', {
+    main.innerHTML = renderUnifiedScreenHeader('exceptions', '', {
       itemsCount: exceptionRows.length,
       noInstructorCount: exceptionRows.filter((row) => String(row.Instructor || '').trim() === '').length,
       missingDateCount: exceptionRows.filter((row) => String(row.issuesLabel || '').includes(EXCEPTION_MISSING_START_DATE)).length
