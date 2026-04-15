@@ -773,9 +773,9 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
       ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}
     </div>
     <div class="screen-top-tools">
-      <label class="screen-search-wrap" for="screenSearchInput">
+      <label class="screen-search-wrap">
         <span>חיפוש</span>
-        <input id="screenSearchInput" type="search" placeholder="חיפוש מהיר במסך הנוכחי" value="${escAttr(searchTerm)}" />
+        <input id="screenSearchInput" type="search" placeholder="חיפוש מהיר במסך הנוכחי" value="${escAttr(searchTerm)}" autocomplete="off" />
       </label>
       <div class="screen-mini-kpis">
         ${kpis.map((item) => `<article class="screen-mini-kpi"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></article>`).join('')}
