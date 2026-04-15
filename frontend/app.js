@@ -579,6 +579,7 @@ function render() {
         <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
         <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
         ${buildMenuNavigation()}
+        <a class="nav-btn nav-btn-external" href="https://taasiyeda2026.github.io/attendance/" target="_blank" rel="noopener noreferrer"><span class="nav-icon" aria-hidden="true">📋</span><span>מערכת נוכחות</span></a>
         </nav><button class="nav-btn nav-btn-logout" data-route="logout"><span class="nav-icon" aria-hidden="true">${routeIcons.logout}</span><span>יציאה</span></button></aside>
         <button class="mobile-nav-backdrop ${mobileNavOpen ? 'show' : ''}" id="mobileNavBackdrop" aria-label="סגירת תפריט"></button>
         <section class="main-shell">

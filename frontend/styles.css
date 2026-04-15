@@ -227,6 +227,13 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 
 .nav-icon { font-size: 15px; flex-shrink: 0; width: 18px; text-align: center; }
 
+.nav-btn-external {
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--shell-text);
+  margin-top: 4px;
+}
+.nav-btn-external:hover { color: #fff; }
 .nav-btn-logout {
   margin: 8px 10px 16px;
   width: calc(100% - 20px);
