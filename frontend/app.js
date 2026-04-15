@@ -2441,14 +2441,14 @@ function parseDateLike(value) {
     return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds());
   }
   if (typeof value === 'number' && value > 20000 && value < 60000) {
-    const excelEpoch = new Date(1899, 11, 30);
-    return new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
+    const utc = new Date((value - 25569) * 86400000);
+    return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
   }
   if (/^\d{5}(?:\.\d+)?$/.test(normalized)) {
     const serial = Number(normalized);
     if (Number.isFinite(serial) && serial > 20000 && serial < 60000) {
-      const excelEpoch = new Date(1899, 11, 30);
-      return new Date(excelEpoch.getTime() + (serial * 24 * 60 * 60 * 1000));
+      const utc = new Date((serial - 25569) * 86400000);
+      return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
     }
   }
   const direct = new Date(normalized);

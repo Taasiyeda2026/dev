@@ -507,9 +507,8 @@ function parseDateLike(value) {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
 
   if (typeof value === 'number' && value > 20000 && value < 60000) {
-    const excelEpoch = new Date(1899, 11, 30);
-    const d = new Date(excelEpoch.getTime() + (value * 24 * 60 * 60 * 1000));
-    return Number.isNaN(d.getTime()) ? null : d;
+    const utc = new Date((value - 25569) * 86400000);
+    return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
   }
 
   const raw = String(value).trim();
@@ -517,9 +516,8 @@ function parseDateLike(value) {
   if (/^\d{5}(?:\.\d+)?$/.test(raw)) {
     const serial = Number(raw);
     if (Number.isFinite(serial) && serial > 20000 && serial < 60000) {
-      const excelEpoch = new Date(1899, 11, 30);
-      const d = new Date(excelEpoch.getTime() + (serial * 24 * 60 * 60 * 1000));
-      return Number.isNaN(d.getTime()) ? null : d;
+      const utc = new Date((serial - 25569) * 86400000);
+      return new Date(utc.getUTCFullYear(), utc.getUTCMonth(), utc.getUTCDate());
     }
   }
   const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
