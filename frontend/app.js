@@ -1064,6 +1064,7 @@ function renderScreen() {
           : renderCourseTable(visibleCourses, { canEdit: canEditMasterCourses(), openDetailsId: viewState.courses.openDetailsId }))
       : renderCourseCards(visibleCourses, { canEdit: canEditMasterCourses(), showInstructorManager: true })}`) +
     renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
+    liftCourseDetailsToBody();
     document.getElementById('filterCourses')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
@@ -1267,6 +1268,7 @@ function renderScreen() {
       renderEndDatesFilters() +
       panel({ loading: viewState.endDates.loading, error: viewState.endDates.error, data: endDateItems }, 'אין קורסים בטווח הסיום שנבחר.', renderEndDateCards(endDateItems)) +
       renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
+    liftCourseDetailsToBody();
     bindEndDatesActions();
     bindUnifiedScreenHeader('end-dates');
     return;
@@ -1286,6 +1288,7 @@ function renderScreen() {
       renderExceptionsFilters() +
       panel({ loading: viewState.exceptions.loading, error: viewState.exceptions.error, data: exceptionRows }, 'אין חריגות להצגה.', renderExceptionsCards(exceptionRows)) +
       renderCourseDetailsPanel(viewState.courses.selectedCourseDetails, { canEdit: canEditMasterCourses() });
+    liftCourseDetailsToBody();
     bindExceptionsActions();
     bindUnifiedScreenHeader('exceptions');
     return;
@@ -2738,6 +2741,16 @@ async function loadCourseMeetings(courseId) {
   const items = Array.isArray(res?.data?.items) ? res.data.items : [];
   viewState.courses.meetingsByCourseId[normalized] = items;
   return items;
+}
+
+function liftCourseDetailsToBody() {
+  const main = document.getElementById('main');
+  if (!main) return;
+  document.querySelectorAll('body > .course-details-overlay').forEach((el) => el.remove());
+  const overlay = main.querySelector('.course-details-overlay');
+  if (!overlay) return;
+  main.removeChild(overlay);
+  document.body.appendChild(overlay);
 }
 
 function renderCourseDetailsPanel(course, options = {}) {
