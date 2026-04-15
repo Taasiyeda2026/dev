@@ -1394,6 +1394,12 @@ function renderScreen() {
       viewState.finance.selectedMeetingsRowId = viewState.finance.selectedMeetingsRowId === id ? '' : id;
       renderScreen();
     }));
+    document.querySelectorAll('[data-finance-export-row]').forEach((button) => button.addEventListener('click', () => {
+      const id = button.dataset.financeExportRow || '';
+      const allItems = [...(viewState.finance.activeItems || []), ...(viewState.finance.archiveItems || [])];
+      const item = allItems.find((r) => String(r?.FinanceRowID || '') === id);
+      if (item) exportFinanceRowDatesToExcel(item);
+    }));
     bindUnifiedScreenHeader('finance');
     return;
   }
@@ -1789,8 +1795,9 @@ function renderFinanceTable(rows, options = {}) {
           <button class="btn btn-xs btn-secondary finance-note-save-btn" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}" title="שמור הערה">💾</button>
         </div>
       </td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap;display:flex;gap:4px;align-items:center">
         <button class="btn btn-xs${isOpen ? ' btn-primary' : ' btn-secondary'}" data-finance-meetings="${escAttr(financeRowId)}">תאריכים ▾</button>
+        <button class="btn btn-xs btn-secondary" title="ייצוא תאריכים לאקסל" data-finance-export-row="${escAttr(financeRowId)}">📥</button>
       </td>
     </tr>
     ${isOpen ? renderFinanceMeetingsRow(item, COL_COUNT) : ''}`;
@@ -4000,6 +4007,35 @@ function financeRowDateRaw(row, field) {
     if (String(v ?? '').trim()) return v;
   }
   return '';
+}
+
+function exportFinanceRowDatesToExcel(item) {
+  const programLine = String(item?.Course || item?.Program || item?.CourseID || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+  const today = endOfDay(new Date());
+  const dates = [];
+  const seenTs = new Set();
+  (COURSE_DATE_FIELDS || []).forEach((field, idx) => {
+    const raw = financeRowDateRaw(item, field);
+    const parsed = parseDateLike(raw);
+    if (parsed) {
+      const ts = parsed.getTime();
+      if (!seenTs.has(ts)) {
+        seenTs.add(ts);
+        dates.push({ num: idx + 1, date: formatDate(parsed) || String(raw), past: parsed <= today });
+      }
+    }
+  });
+  if (!dates.length) { showToast('לא נמצאו תאריכים לשורה זו', 'error'); return; }
+  const headers = ['#', 'תאריך', 'סטטוס'];
+  const dataRows = dates.map(({ num, date, past }) => [num, date, past ? 'בוצע' : 'מתוכנן']);
+  const tableHtml = `<table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((c) => `<td>${esc(String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  const safeProgram = programLine.replace(/[^\u05D0-\u05EAa-zA-Z0-9]/g, '_').slice(0, 30);
+  const filename = `תאריכים_${safeProgram}_${formatIsoDateLocal(new Date())}.xlsx`;
+  const blob = new Blob([`\uFEFF${tableHtml}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
 }
 
 function exportFinanceToExcel(rows, filename) {
