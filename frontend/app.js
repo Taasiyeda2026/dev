@@ -3407,10 +3407,33 @@ function openAddRecordForm(options = {}) {
   const enforceCourseId = Boolean(options?.enforceCourseId);
 
   const courses = getStoreSnapshot().courses || [];
+  const lists = getStoreSnapshot().lists || [];
   const uniqSorted = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
   const instructorOpts = uniqSorted(courses.map((row) => resolveInstructorName(row)));
-  const programOpts = uniqSorted(courses.map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || String(row?.[COURSE_FIELDS.EVENT_TYPE] || '').trim()));
+
+  // Build activity types: prefer lists, fall back to courses
+  const listActivityTypes = lists.filter(l => String(l.list_name || '').toLowerCase() === 'activity_type' || String(l.list_name || '').toLowerCase() === 'activity_types');
+  const activityTypeOpts = listActivityTypes.length
+    ? uniqSorted(listActivityTypes.map(l => String(l.value || l.label || '')))
+    : uniqSorted(courses.map(r => String(getCourseField(r, COURSE_FIELDS.EVENT_TYPE) || '').trim()));
+
+  // Build programs-by-activity-type map
+  const programsByType = {};
+  const allPrograms = uniqSorted(courses.map(r => getCourseField(r, COURSE_FIELDS.PROGRAM) || String(r?.[COURSE_FIELDS.EVENT_TYPE] || '').trim()));
+  activityTypeOpts.forEach(type => {
+    programsByType[type] = uniqSorted(
+      courses
+        .filter(r => String(getCourseField(r, COURSE_FIELDS.EVENT_TYPE) || '').trim() === type)
+        .map(r => getCourseField(r, COURSE_FIELDS.PROGRAM) || '')
+    );
+  });
+
   const buildOpts = (list) => `<option value=""></option>${list.map((v) => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
+  const buildActivityTypeOpts = () => `<option value="">בחר סוג פעילות...</option>${activityTypeOpts.map(v => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
+  const buildProgramOpts = (forType) => {
+    const opts = (forType && programsByType[forType]?.length) ? programsByType[forType] : allPrograms;
+    return `<option value=""></option>${opts.map(v => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
+  };
 
   return new Promise((resolve) => {
     const root = document.createElement('div');
@@ -3420,8 +3443,8 @@ function openAddRecordForm(options = {}) {
       <div class="course-form-card">
         <h3>${esc(formTitle)}</h3>
         <label>מזהה קורס (אופציונלי)<input id="newCourseId" placeholder="אם ריק ייווצר אוטומטית" /></label>
-        <label>תוכנית<select id="newProgram">${buildOpts(programOpts)}</select></label>
-        <label>סוג פעילות<input id="newActivity" /></label>
+        <label>סוג פעילות (חובה)<select id="newActivity" required>${buildActivityTypeOpts()}</select></label>
+        <label>תוכנית<select id="newProgram">${buildProgramOpts('')}</select></label>
         <label>רשות<input id="newAuthority" /></label>
         <label>בית ספר<input id="newSchool" /></label>
         <label>מדריך<select id="newInstructor">${buildOpts(instructorOpts)}</select></label>
@@ -3438,16 +3461,26 @@ function openAddRecordForm(options = {}) {
       </div>
     `;
     document.body.appendChild(root);
-    const close = (result = null) => {
-      root.remove();
-      resolve(result);
-    };
+    const close = (result = null) => { root.remove(); resolve(result); };
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
+
+    // Cascading: when activity type changes → update program dropdown
+    root.querySelector('#newActivity')?.addEventListener('change', (e) => {
+      const selectedType = e.target.value;
+      const programSelect = root.querySelector('#newProgram');
+      if (programSelect) programSelect.innerHTML = buildProgramOpts(selectedType);
+    });
+
     root.querySelector('#newRecordSubmit')?.addEventListener('click', () => {
+      const eventType = root.querySelector('#newActivity')?.value.trim() || '';
+      if (!eventType) {
+        showToast('יש לבחור סוג פעילות.', 'warning');
+        return;
+      }
       const out = {
         CourseID: root.querySelector('#newCourseId')?.value.trim() || '',
         Program: root.querySelector('#newProgram')?.value.trim() || '',
-        EventType: root.querySelector('#newActivity')?.value.trim() || '',
+        EventType: eventType,
         Authority: root.querySelector('#newAuthority')?.value.trim() || '',
         School: root.querySelector('#newSchool')?.value.trim() || '',
         Instructor: root.querySelector('#newInstructor')?.value.trim() || '',
@@ -3458,10 +3491,6 @@ function openAddRecordForm(options = {}) {
         Payment: root.querySelector('#newPayment')?.value.trim() || '',
         Notes: root.querySelector('#newNotes')?.value.trim() || ''
       };
-      if (!out.Program && !out.EventType) {
-        showToast('יש להזין לפחות תוכנית או סוג פעילות.', 'warning');
-        return;
-      }
       if (enforceCourseId && !out.CourseID) {
         showToast('יש להזין מזהה קורס.', 'warning');
         return;
