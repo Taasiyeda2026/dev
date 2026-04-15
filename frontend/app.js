@@ -3061,16 +3061,17 @@ function openAddRecordForm(options = {}) {
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card">
         <h3>${esc(formTitle)}</h3>
-        <p class="details-text">מצב New Record פעיל: הזנה ידנית מלאה ללא טעינת רשומה קיימת.</p>
-        <label>CourseID (אופציונלי)<input id="newCourseId" placeholder="אם ריק ייווצר אוטומטית" /></label>
-        <label>Program<input id="newProgram" /></label>
-        <label>EventType<input id="newActivity" /></label>
-        <label>Authority<input id="newAuthority" /></label>
-        <label>School<input id="newSchool" /></label>
-        <label>Instructor<input id="newInstructor" /></label>        <label>StartTime<input id="newStartTime" placeholder="hh:mm" /></label>
-        <label>EndTime<input id="newEndTime" placeholder="hh:mm" /></label>
-        <label>Funding<input id="newFunding" /></label>
-        <label>Payment<input id="newPayment" type="number" step="0.01" min="0" /></label>        <label>Notes<input id="newNotes" /></label>
+        <label>מזהה קורס (אופציונלי)<input id="newCourseId" placeholder="אם ריק ייווצר אוטומטית" /></label>
+        <label>תוכנית<input id="newProgram" /></label>
+        <label>סוג פעילות<input id="newActivity" /></label>
+        <label>רשות<input id="newAuthority" /></label>
+        <label>בית ספר<input id="newSchool" /></label>
+        <label>מדריך<input id="newInstructor" /></label>
+        <label>שעת התחלה<input id="newStartTime" placeholder="hh:mm" /></label>
+        <label>שעת סיום<input id="newEndTime" placeholder="hh:mm" /></label>
+        <label>מימון<input id="newFunding" /></label>
+        <label>תשלום<input id="newPayment" type="number" step="0.01" min="0" /></label>
+        <label>הערות<input id="newNotes" /></label>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
           <button class="btn btn-primary" id="newRecordSubmit">${esc(submitLabel)}</button>
@@ -3098,11 +3099,11 @@ function openAddRecordForm(options = {}) {
         Notes: root.querySelector('#newNotes')?.value.trim() || ''
       };
       if (!out.Program && !out.EventType) {
-        showToast('יש להזין לפחות Program או EventType.', 'warning');
+        showToast('יש להזין לפחות תוכנית או סוג פעילות.', 'warning');
         return;
       }
       if (enforceCourseId && !out.CourseID) {
-        showToast('במצב New Record יש להזין CourseID.', 'warning');
+        showToast('יש להזין מזהה קורס.', 'warning');
         return;
       }
       close(out);
