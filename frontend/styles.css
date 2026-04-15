@@ -3210,3 +3210,61 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   from { opacity: 0; transform: translateX(-50%) translateY(10px); }
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
+
+/* ============================================================
+   EDEN DATA CARDS
+   ============================================================ */
+.eden-data-card .course-core-grid { margin-top: 8px; }
+
+.eden-changes-details {
+  margin: 8px 0 0;
+  border-radius: 6px;
+  border: 1px solid var(--border-light, #e5e7eb);
+  background: var(--bg-subtle, #f9fafb);
+}
+.eden-changes-details summary {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent, #4f46e5);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.eden-changes-details summary::before { content: '✏️'; font-size: 11px; }
+.eden-changes-list {
+  margin: 0;
+  padding: 6px 12px 10px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.eden-changes-list li { font-size: 12px; color: var(--text-main); }
+.eden-old { color: var(--text-muted); text-decoration: line-through; margin-inline-end: 2px; }
+.eden-new { color: var(--status-active, #16a34a); font-weight: 600; }
+
+.eden-notes-row { margin-top: 10px; }
+.eden-notes-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.eden-notes-textarea {
+  width: 100%;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  background: var(--bg-input, #fff);
+  color: var(--text-main);
+  box-sizing: border-box;
+}
+.eden-notes-textarea:focus { outline: 2px solid var(--accent, #4f46e5); border-color: transparent; }

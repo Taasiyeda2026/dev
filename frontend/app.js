@@ -1631,43 +1631,63 @@ function renderCellContent(fieldKey, rawValue) {
 function renderEdenQueue(queue = []) {
   const rows = queue || [];
   if (!rows.length) return '<section class="panel-block"><div class="panel-empty">אין בקשות ממתינות במסך עדן.</div></section>';
-  return `<section class="panel-block"><div class="panel-block-head"><h3>תור עבודה עדן</h3></div>
+  return `<section class="panel-block cards-grid course-cards-grid">
     ${rows.map((row) => {
       const sourceRow = safeParseJson(row.SourceData || row.OriginalData);
       const edenRow = safeParseJson(row.RequestedData);
-      const compared = buildEdenComparedRows(sourceRow, edenRow);
+      const data = { ...sourceRow, ...edenRow };
+      const changedFields = buildEdenComparedRows(sourceRow, edenRow).filter(i => i.changed);
       const changedMaster = String(row?.HasMasterChangedAfterEdenEdit || '').toLowerCase() === 'true';
-      const hasDiff = String(row?.HasDiffBetweenSourceAndEden || '').toLowerCase() === 'true';
-      const warning = changedMaster ? '<span class="status-chip status-declined">⚠ המאסטר השתנה מאז עריכת עדן</span>' : '';
-      return `<article class="management-card">
-        <div class="card-head">
-          <h3>${esc(edenRow?.Program || edenRow?.EventType || row.CourseID || '-')}</h3>
-          <span class="status-chip ${statusClass(row.ApprovalStatus)}">${statusLabel(row.ApprovalStatus)}</span>
+      const title = esc(data.Program || data.EventType || row.CourseID || '-');
+      const school = esc(data.School || '-');
+      const authority = esc(data.Authority || '-');
+      const instructor = esc(data.Instructor || '-');
+      const startDate = esc(formatDate(parseDateLike(data.StartDate)) || data.StartDate || '-');
+      const endDate = esc(formatDate(parseDateLike(data.EndDate)) || data.EndDate || '-');
+      const startTime = esc(data.StartTime || '');
+      const endTime = esc(data.EndTime || '');
+      const timeLabel = (startTime && endTime) ? `${startTime}–${endTime}` : (startTime || '');
+      const sessions = esc(String(data.Sessions || data.PlannedMeetings || ''));
+      const notes = esc(String(data.Notes || '').trim());
+      const edenNotes = String(row.EdenNotes || '').trim();
+      const lastSaved = esc(formatDate(parseDateLike(row.EdenLastSavedAt)) || row.EdenLastSavedAt || '');
+      return `<article class="management-card expandable-card eden-data-card">
+        <header class="card-head">
+          <div>
+            <h3>${title}</h3>
+            <p class="card-subtitle">${school} · ${authority}</p>
+          </div>
+          <div class="card-status">
+            <span class="status-chip ${statusClass(row.ApprovalStatus)}">${statusLabel(row.ApprovalStatus)}</span>
+            ${changedMaster ? '<span class="status-chip status-declined">⚠ מאסטר השתנה</span>' : ''}
+          </div>
+        </header>
+        <div class="course-core-grid">
+          <div class="course-core-col">
+            <span><strong>מדריך:</strong> ${instructor}</span>
+            <span><strong>מקור:</strong> ${esc(edenOriginLabel(row.Origin))}</span>
+          </div>
+          <div class="course-core-col">
+            <span><strong>תאריך התחלה:</strong> ${startDate}</span>
+            <span><strong>תאריך סיום:</strong> ${endDate}</span>
+          </div>
+          <div class="course-core-col">
+            ${timeLabel ? `<span><strong>שעות:</strong> ${esc(timeLabel)}</span>` : ''}
+            ${sessions ? `<span><strong>מפגשים:</strong> ${sessions}</span>` : ''}
+            <span><strong>מזהה:</strong> ${esc(row.CourseID || '-')}</span>
+          </div>
         </div>
-        <div class="card-meta">
-          <span>מזהה: ${esc(row.CourseID || '-')}</span>
-          <span>מקור: ${esc(edenOriginLabel(row.Origin))}</span>
-          <span>סוג: ${esc(edenChangeTypeLabel(row.ChangeType))}</span>
-          <span>רשות: ${esc(edenRow?.Authority || sourceRow?.Authority || '-')}</span>
-          <span>בית ספר: ${esc(edenRow?.School || sourceRow?.School || '-')}</span>
-          <span>מדריך: ${esc(edenRow?.Instructor || sourceRow?.Instructor || '-')}</span>
-          ${hasDiff ? '<span>יש שינויים בין גרסאות</span>' : ''}
-          ${warning}
+        ${notes ? `<div class="card-issue"><strong>הערות:</strong> ${notes}</div>` : ''}
+        ${changedFields.length ? `<details class="eden-changes-details"><summary>התוספות שלי (${changedFields.length})</summary><ul class="eden-changes-list">${changedFields.map(i => `<li><strong>${esc(i.field)}:</strong> <span class="eden-old">${esc(i.source)}</span> → <span class="eden-new">${esc(i.eden)}</span></li>`).join('')}</ul></details>` : ''}
+        <div class="eden-notes-row">
+          <label class="eden-notes-label">הערות שלי<textarea class="eden-notes-textarea" data-eden-notes="${escAttr(row.RequestID || '')}" rows="2" placeholder="הערות פנימיות...">${esc(edenNotes)}</textarea></label>
         </div>
-        <details open><summary>שינויים (${compared.filter(i => i.changed).length})</summary>
-          <div class="table-wrap compact-table"><table><thead><tr><th>שדה</th><th>לפני</th><th>אחרי</th></tr></thead><tbody>
-          ${compared.filter(i => i.changed).map((item) => `<tr class="row-changed">
-            <th>${esc(item.field)}</th><td>${esc(item.source)}</td><td>${esc(item.eden)}</td></tr>`).join('')
-            || '<tr><td colspan="3">אין שינויים</td></tr>'}
-          </tbody></table></div>
-        </details>
-        <div class="card-meta"><span>שמירה אחרונה: ${esc(formatDate(parseDateLike(row.EdenLastSavedAt)) || row.EdenLastSavedAt || '-')}</span><span>נשלח לאדמין: ${esc(formatDate(parseDateLike(row.SentToAdminAt)) || row.SentToAdminAt || '-')}</span></div>
-        <label>הערות עדן<textarea data-eden-notes="${escAttr(row.RequestID || '')}" rows="2">${esc(row.EdenNotes || '')}</textarea></label>
-        <div class="card-actions">
-          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">שמור בנתוני עדן</button>
+        ${lastSaved ? `<div class="card-meta"><span>שמירה אחרונה: ${lastSaved}</span></div>` : ''}
+        <footer class="card-actions">
+          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">עריכה ושמירה</button>
           <button class="btn btn-primary" data-eden-submit="${escAttr(row.RequestID || '')}">שליחה לאדמין</button>
-          <button class="btn btn-secondary" data-eden-refresh="${escAttr(row.RequestID || '')}">רענן מקור</button>
-        </div>
+          <button class="btn btn-secondary btn-xxs" data-eden-refresh="${escAttr(row.RequestID || '')}">רענן מקור</button>
+        </footer>
       </article>`;
     }).join('')}
   </section>`;
