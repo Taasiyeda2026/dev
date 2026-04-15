@@ -2347,7 +2347,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   border-color: transparent;
 }
 .kpi-card--highlight .kpi-title { color: rgba(255,255,255,0.8); }
-.kpi-value--money { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+.kpi-card--highlight .kpi-value { color: #fff; }
+.kpi-value--money { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: inherit; }
 .kpi-sub { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: -4px; }
 
 /* ============================================================
