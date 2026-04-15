@@ -2111,13 +2111,9 @@ function renderCourseCards(rows, options = {}) {
           ${renderInfoRow('שעות', hierarchy.timeLabel)}
         </div>
         <div class="course-core-col">
-          ${renderInfoRow('מפגשים שבוצעו', hierarchy.meetingsTotal ? `${hierarchy.meetingsCompleted} / ${hierarchy.meetingsTotal}` : '')}
-          ${(!hierarchy.isCompleted && hierarchy.meetingsRemaining > 0) ? renderInfoRow('מפגשים שנותרו', String(hierarchy.meetingsRemaining)) : ''}
-          ${(!hierarchy.isCompleted && hierarchy.nextMeetingDate) ? renderInfoRow('מפגש קרוב', hierarchy.nextMeetingDate) : ''}
-          ${hierarchy.isCompleted ? renderInfoRow('סטטוס', 'הסתיים') : ''}
-          <div class="progress-mini">
-            <div class="progress-mini-fill ${progress.level}" style="width:${progress.percent}%"></div>
-          </div>
+          ${renderInfoRow('רשות', hierarchy.authority)}
+          ${renderInfoRow('בית ספר', hierarchy.school)}
+          ${renderInfoRow('מפגשים', hierarchy.meetingsTotal ? `${hierarchy.meetingsTotal}` : (String(getCourseField(row, COURSE_FIELDS.PLANNED_MEETINGS) || '-')))}
         </div>
       </div>
       ${issueText ? `<div class="card-issue ${issueFlag ? 'has-issue' : ''}">${esc(issueText)}</div>` : ''}
@@ -2739,10 +2735,10 @@ function renderCourseDetailsPanel(course, options = {}) {
   const meetings = getCourseMeetingsForDisplay(course);
   const meetingStats = getMeetingStatsFromDates(course);
   const delayText = formatDelayNotes(course[COURSE_FIELDS.NOTES]);
-  return `<section class="panel-block course-details-panel">
+  return `<div class="course-details-overlay"><section class="panel-block course-details-panel">
     <div class="panel-block-head">
-      <h3>פרטי קורס: ${esc(course[COURSE_FIELDS.PROGRAM] || course[COURSE_FIELDS.ACTIVITY] || 'ללא שם קורס')}</h3>
-      <button class="btn btn-secondary" id="closeCourseDetails">סגור</button>
+      <h3>${esc(course[COURSE_FIELDS.PROGRAM] || course[COURSE_FIELDS.ACTIVITY] || 'ללא שם קורס')}</h3>
+      <button class="btn btn-secondary" id="closeCourseDetails">סגור ✕</button>
     </div>
     <div class="course-core-grid">
       <div class="course-core-col"><span><strong>שם קורס:</strong> ${esc(getBusinessCourseName(course))}</span><span><strong>מדריך:</strong> ${esc(resolveInstructorName(course) || '-')}</span></div>
@@ -2778,7 +2774,7 @@ function renderCourseDetailsPanel(course, options = {}) {
     <footer class="card-actions">
       <button class="btn btn-primary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
     </footer>
-  </section>`;
+  </section><div class="course-details-backdrop" id="closeCourseDetailsBackdrop"></div></div>`;
 }
 
 function renderIssueBadge(row) {
@@ -2854,11 +2850,13 @@ function bindCourseActions() {
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
     await openCourseFromPlanner(button.dataset.openCourse);
   }));
-  document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
+  const closeCourseDetailsFn = () => {
     viewState.courses.selectedCourseId = '';
     viewState.courses.selectedCourseDetails = null;
     renderScreen();
-  });
+  };
+  document.getElementById('closeCourseDetails')?.addEventListener('click', closeCourseDetailsFn);
+  document.getElementById('closeCourseDetailsBackdrop')?.addEventListener('click', closeCourseDetailsFn);
 }
 
 function bindInstructorCards() {
@@ -4017,11 +4015,13 @@ function bindEndDatesActions() {
   document.querySelectorAll('[data-open-course]').forEach((button) => button.addEventListener('click', async () => {
     await openCourseFromPlanner(button.dataset.openCourse);
   }));
-  document.getElementById('closeCourseDetails')?.addEventListener('click', () => {
+  const closeCourseDetailsWeekFn = () => {
     viewState.courses.selectedCourseId = '';
     viewState.courses.selectedCourseDetails = null;
     renderScreen();
-  });
+  };
+  document.getElementById('closeCourseDetails')?.addEventListener('click', closeCourseDetailsWeekFn);
+  document.getElementById('closeCourseDetailsBackdrop')?.addEventListener('click', closeCourseDetailsWeekFn);
 }
 
 function renderExceptionsFilters() {
