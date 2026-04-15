@@ -421,6 +421,9 @@ function canEditMasterCourses() {
 function canRequestEditCourses() {
   return actionMode() === 'request_edit' || hasCapability('edit_edit_requests');
 }
+function canEdenEditCourses() {
+  return !isAdminUser() && isEden();
+}
 function canAccessEdenView() {
   return hasCapability('view_operations_data');
 }
@@ -625,7 +628,7 @@ function render() {
 
 function buildMenuNavigation() {
   const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions', 'finance', 'exceptions', 'end-dates', 'contacts']) : null;
-  const hiddenForOperations = (!isAdminUser() && isEden()) ? new Set(['dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions', 'contacts', 'finance', 'instructor-view', 'my-requests']) : null;
+  const hiddenForOperations = (!isAdminUser() && isEden()) ? new Set(['dashboard', 'instructors', 'end-dates', 'exceptions', 'contacts', 'finance', 'instructor-view', 'my-requests']) : null;
   const hasHome = Boolean(getHomeRoute());
   return getAllowedRoutes()
     .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
@@ -2991,14 +2994,30 @@ function bindExceptionActions() {
 
 function bindEditButtons() {
   document.querySelectorAll('[data-edit-row]').forEach((b) => b.addEventListener('click', async () => {
-    if (!canEditMasterCourses() && !canRequestEditCourses()) {
+    if (!canEditMasterCourses() && !canEdenEditCourses() && !canRequestEditCourses()) {
       showToast('אין הרשאה לעריכה או בקשת שינוי.', 'warning');
       return;
     }
     const row = findCourseById(b.dataset.editRow) || {};
-    const mode = canEditMasterCourses() ? 'edit' : 'request';
+    const mode = (canEditMasterCourses() || canEdenEditCourses()) ? 'edit' : 'request';
     const formResult = await openCourseActionForm(row, mode);
     if (!formResult) return;
+    if (canEdenEditCourses()) {
+      const originalData = { ...row };
+      const requestedData = { ...originalData, ...formResult.changes };
+      const res = await api.createEditRequest({
+        CourseID: row[COURSE_FIELDS.COURSE_ID],
+        ApprovalStatus: 'pending_eden',
+        Origin: 'EDEN_INITIATED',
+        ChangeType: 'UPDATE_EXISTING',
+        RequestedData: requestedData,
+        OriginalData: originalData,
+        ChangeSummary: 'יוזמת עדן - עריכה ממסך קורסים'
+      });
+      if (!res?.success) showToast(res?.message || 'הפעולה נכשלה', 'error');
+      else { await loadEdenView(); showToast('נשמר במסך עדן — ממתין לשליחה לאדמין.', 'success'); }
+      return;
+    }
     const res = canEditMasterCourses()
       ? await updateCourse(row[COURSE_FIELDS.COURSE_ID], formResult.changes, userState)
       : await createEditRequest(row[COURSE_FIELDS.COURSE_ID], formResult.changes, userState);
