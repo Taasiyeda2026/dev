@@ -684,9 +684,8 @@ function getHeaderKpis(route = currentRoute, context = {}) {
   }
   if (route === 'courses' || route === 'instructor-view') {
     return [
-      { label: 'רשומות מוצגות', value: context.visibleCount || 0 },
-      { label: 'מדריכים מוצגים', value: context.instructorsCount || 0 },
-      { label: 'סך רשומות לאחר סינון', value: context.totalCount || 0 }
+      { label: 'פעילויות מוצגות', value: context.visibleCount || 0 },
+      { label: 'מדריכים', value: context.instructorsCount || 0 }
     ];
   }
   if (route === 'week') {
@@ -1015,7 +1014,7 @@ function renderScreen() {
       totalCount: filteredCourses.length,
       instructorsCount: new Set(visibleCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size
     }) +
-    (currentRoute === 'courses' ? renderMonthStatBadge({ count: visibleCourses.length, monthRaw: courseMonthRaw, noun: 'קורסים פעילים' }) : '') +
+    (currentRoute === 'courses' ? renderActivityTypeSummary(visibleCourses) : '') +
     (currentRoute === 'courses' ? `<div class="courses-quick-nav">${[
       { route: 'end-dates', label: 'תאריכי סיום', icon: '⏳' },
       { route: 'week',      label: 'שבוע',         icon: '🗓️' },
@@ -1656,6 +1655,21 @@ function renderSelectOptions(options = [], selected = '') {
 }
 function renderActivityTypeOptions(options = [], selected = '') {
   return '<option value="">הכל</option>' + options.map((v) => `<option value="${escAttr(v)}" ${v === selected ? 'selected' : ''}>${esc(ACTIVITY_TYPE_LABELS[v] || v)}</option>`).join('');
+}
+
+function renderActivityTypeSummary(courses) {
+  if (!Array.isArray(courses) || !courses.length) return '';
+  const counts = {};
+  courses.forEach((row) => {
+    const type = String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase();
+    if (type) counts[type] = (counts[type] || 0) + 1;
+  });
+  const items = Object.entries(counts)
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, count]) => `<span class="activity-type-chip">${esc(ACTIVITY_TYPE_LABELS[key] || key)}<strong>${count}</strong></span>`);
+  if (!items.length) return '';
+  return `<div class="activity-type-summary">${items.join('')}</div>`;
 }
 
 function getUiFilterOptions() {
