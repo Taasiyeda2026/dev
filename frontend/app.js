@@ -415,7 +415,7 @@ function isEden() { return hasCapability('view_operations_data') || hasCapabilit
 function isManager() { return hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month'); }
 function canEditMasterCourses() {
   if (isAdminUser() && runtimeRules.allowAdminDirectDataEdit) return true;
-  return actionMode() === 'edit' || hasCapability('edit_activities');
+  return actionMode() === 'edit' || hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month');
 }
 function canRequestEditCourses() {
   return actionMode() === 'request_edit' || hasCapability('edit_edit_requests');
