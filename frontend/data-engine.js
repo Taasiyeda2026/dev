@@ -612,12 +612,20 @@ export async function loadFinanceItems(force = false) {
       Payer: payer,
       FinanceGroupKey: isGefen
         ? String(school).trim()
-        : String(authority || funding).trim(),
-      FinanceGroupType: isGefen ? 'school' : 'authority',
-      DatesListedCount: (COURSE_FIELDS.DATE_FIELDS || []).reduce((count, field) => {
-        const parsed = parseDateLike(financeMeetingDateRaw(row, field));
-        return (parsed && parsed.getTime() <= todayTs) ? count + 1 : count;
-      }, 0)
+        : String(funding).trim() || 'ללא מימון',
+      FinanceGroupType: isGefen ? 'school' : 'funding',
+      DatesListedCount: (() => {
+        const seenTs = new Set();
+        let count = 0;
+        (COURSE_FIELDS.DATE_FIELDS || []).forEach((field) => {
+          const parsed = parseDateLike(financeMeetingDateRaw(row, field));
+          if (parsed && parsed.getTime() <= todayTs) {
+            const ts = parsed.getTime();
+            if (!seenTs.has(ts)) { seenTs.add(ts); count += 1; }
+          }
+        });
+        return count;
+      })()
     };
   });
   dataStore.loadedAt.finance = now();

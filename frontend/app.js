@@ -419,6 +419,9 @@ function canEditFinanceActive() {
   if (permission) return Boolean(permission.canEditFinance || hasCapability('edit_finance'));
   return Boolean(userState.CanEditFinance || hasCapability('edit_finance'));
 }
+function canSyncFinance() {
+  return hasCapability('sync_finance');
+}
 function canEditContacts() {
   return hasCapability('edit_contacts');
 }
@@ -1263,7 +1266,7 @@ function renderScreen() {
         </div>
         <div class="finance-toolbar-actions">
           ${showActive ? '<button class="btn btn-secondary" id="financeExportBtn">ייצוא לאקסל</button>' : ''}
-          ${showActive && canEditFinanceActive() ? '<button class="btn btn-primary" id="financeSyncBtn">סנכרון כספים (ניהולי)</button>' : ''}
+          ${showActive && canSyncFinance() ? '<button class="btn btn-primary" id="financeSyncBtn">סנכרון כספים (ניהולי)</button>' : ''}
           <button class="btn btn-icon" id="financeRefreshBtn" title="טעינה מחדש">↺</button>
           <div class="view-toggle-group">
             <button class="btn btn-icon${viewState.finance.view === 'table' ? ' active' : ''}" id="financeViewTable" title="טבלה">☰</button>
@@ -1638,9 +1641,11 @@ function getUiFilterOptions() {
 
 function financeRowInDisplayMonth(item, displayMonth) {
   if (!displayMonth) return true;
-  const candidates = ['MonthEnd', 'MonthStart', 'End', 'Period'].map((k) => parseDateLike(item?.[k])).filter(Boolean);
-  if (!candidates.length) return true;
-  return candidates.some((d) => formatMonthInputLocal(d) === displayMonth);
+  const endDate = parseDateLike(item?.End || '');
+  if (endDate) return formatMonthInputLocal(endDate) === displayMonth;
+  const fallbacks = ['MonthEnd', 'MonthStart', 'Period'].map((k) => parseDateLike(item?.[k])).filter(Boolean);
+  if (fallbacks.length) return fallbacks.some((d) => formatMonthInputLocal(d) === displayMonth);
+  return true;
 }
 
 function isGefenFundingLabel(value) {
@@ -1679,14 +1684,11 @@ function getFinanceGroupingMeta(item = {}) {
       groupSummary: `סך גבייה: ${formatFinanceMoney(financeMoneyValue(item?.Payment))}`
     };
   }
-  const authority = String(item?.Authority || '').trim();
-  const payer = String(item?.Payer || '').trim();
-  const fundingLabel = hebrifyValue(funding) || funding;
-  const groupTitle = authority || payer || fundingLabel || 'ללא רשות';
+  const fundingLabel = hebrifyValue(funding) || funding || 'ללא מימון';
   return {
-    type: 'authority',
-    groupKey: groupTitle,
-    groupTitle,
+    type: 'funding',
+    groupKey: String(funding).trim() || 'ללא מימון',
+    groupTitle: fundingLabel,
     groupSummary: ''
   };
 }
@@ -1727,30 +1729,34 @@ function renderFinanceTable(rows, options = {}) {
     const labels = { open: 'פתוח', completed: 'סגור' };
     return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
   }
-  const COL_COUNT = 10;
+  const COL_COUNT = 12;
   function renderRow(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'open');
     const sourceSheet = TAASIYEDA_CONFIG.sheets.DATA_MASTER;
     const bucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const programLine = String(item?.Course || item?.Program || item?.EventType || item?.CourseID || item?.ProgramsList || hebrifyValue(item?.PayerType) || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
-    const authLine = String(item?.Authority || '').trim() || String(item?.AuthoritiesList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const meetings = `${item?.DatesListedCount || '-'}/${item?.PlannedMeetings || '-'}`;
+    const programLine = String(item?.Course || item?.Program || item?.CourseID || item?.ProgramsList || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
+    const eventTypeLine = String(item?.EventType || item?.activity_type || '').trim() || '-';
+    const authLine = String(item?.Authority || '').trim() || '-';
+    const instructorLine = String(item?.Instructor || item?.Employee || '-').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
+    const meetings = `${item?.DatesListedCount ?? '-'}`;
     const notes = String(item?.FinanceNotes || '').trim();
-    const payerLabel = [hebrifyValue(item?.Payer), hebrifyValue(item?.Funding)].filter(Boolean).join(' · ') || '-';
+    const fundingLabel = hebrifyValue(item?.Funding) || String(item?.Funding || '-');
     const managerLine = String(item?.CourseManager || '-').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const paymentRaw = item?.Payment;
     const paymentLabel = paymentRaw != null && paymentRaw !== '' ? `₪${Number(paymentRaw).toLocaleString('he-IL')}` : '-';
     const isOpen = selectedMeetingsRowId === financeRowId;
     return `<tr class="finance-tr finance-tr-${escAttr(bucket.key)}${isOpen ? ' finance-tr--open' : ''}">
       <td><span class="cell-ellipsis" title="${escAttr(programLine)}">${esc(programLine)}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(eventTypeLine)}">${esc(eventTypeLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(schoolLine)}">${esc(schoolLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(authLine)}">${esc(authLine)}</span></td>
+      <td><span class="cell-ellipsis" title="${escAttr(instructorLine)}">${esc(instructorLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(managerLine)}">${esc(managerLine)}</span></td>
       <td style="text-align:center;white-space:nowrap">${esc(meetings)}</td>
       <td class="finance-payment-cell">${paymentLabel !== '-' ? `<strong>${esc(paymentLabel)}</strong>` : '<span style="color:var(--text-muted)">-</span>'}</td>
-      <td style="white-space:nowrap" title="${escAttr(payerLabel)}">${esc(payerLabel)}</td>
+      <td style="white-space:nowrap" title="${escAttr(fundingLabel)}">${esc(fundingLabel)}</td>
       <td>
         ${canEdit
           ? `<select class="finance-inline-select" data-finance-status="1" data-finance-row-id="${escAttr(financeRowId)}" data-finance-sheet="${sourceSheet}">
@@ -1765,7 +1771,7 @@ function renderFinanceTable(rows, options = {}) {
           <button class="btn btn-xs btn-secondary finance-note-save-btn" type="button" data-finance-note-save="1" data-finance-row-id="${escAttr(financeRowId)}" title="שמור הערה">💾</button>
         </div>
       </td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
+      <td style="white-space:nowrap">
         <button class="btn btn-xs${isOpen ? ' btn-primary' : ' btn-secondary'}" data-finance-meetings="${escAttr(financeRowId)}">תאריכים ▾</button>
       </td>
     </tr>
@@ -1796,8 +1802,8 @@ function renderFinanceTable(rows, options = {}) {
         <div class="table-wrap finance-table-wrap">
           <table class="finance-table-styled">
             <thead><tr>
-              <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מנהל קורס</th>
-              <th>מפגשים</th><th>גביה</th><th>גורם משלם</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
+              <th>קורס / פעילות</th><th>סוג פעילות</th><th>בית ספר</th><th>רשות</th><th>מדריך</th><th>מנהל קורס</th>
+              <th>מפגשים</th><th>גבייה</th><th>מימון</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
             </tr></thead>
             <tbody>${group.items.map(renderRow).join('')}</tbody>
           </table>
@@ -1905,7 +1911,8 @@ function sortFinanceRowsByStatus(rows = []) {
 }
 
 function renderStatusOption(value, selected) {
-  return `<option value="${escAttr(value)}" ${value === selected ? 'selected' : ''}>${value}</option>`;
+  const labels = { open: 'פתוח', closed: 'סגור' };
+  return `<option value="${escAttr(value)}" ${value === selected ? 'selected' : ''}>${labels[value] || esc(value)}</option>`;
 }
 
 function renderFinanceDetailsPanel(item) {
@@ -3955,32 +3962,40 @@ function exportFinanceToExcel(rows, filename) {
   if (!rows.length) return;
   const dateHeaders = COURSE_DATE_FIELDS.map((field) => field.toLowerCase());
   const headers = [
-    'קורס/תוכנית/פעילות', 'רשות', 'בית ספר', 'מדריך', 'מנהל קורס',
-    'סטטוס', 'מחיר/גבייה', 'גורם מימון', 'גורם משלם',
+    'שם פעילות / תוכנית', 'סוג פעילות', 'רשות', 'בית ספר', 'מימון',
+    'מדריך', 'מנהל קורס', 'סטטוס כספי', 'מחיר / גבייה', 'הערות כספים',
     ...dateHeaders
   ];
   const collectPerformedDates = (row) => {
     const values = {};
     const today = endOfDay(new Date());
+    const seenTs = new Set();
     COURSE_DATE_FIELDS.forEach((field) => {
       const raw = financeRowDateRaw(row, field);
       const parsed = parseDateLike(raw);
-      values[field.toLowerCase()] = (parsed && parsed <= today) ? (formatDate(parsed) || String(raw || '')) : '';
+      if (parsed && parsed <= today) {
+        const ts = parsed.getTime();
+        values[field.toLowerCase()] = !seenTs.has(ts) ? (formatDate(parsed) || String(raw || '')) : '';
+        seenTs.add(ts);
+      } else {
+        values[field.toLowerCase()] = '';
+      }
     });
     return values;
   };
   const dataRows = rows.map((row) => {
     const performedDates = collectPerformedDates(row);
     return [
-      String(row?.Course || row?.Program || row?.EventType || row?.CourseID || row?.ProgramsList || row?.PayerType || ''),
+      String(row?.Course || row?.Program || row?.CourseID || ''),
+      String(row?.EventType || row?.activity_type || ''),
       String(row?.Authority || ''),
-      String(row?.School || row?.SchoolsList || ''),
-      String(row?.Instructor || ''),
+      String(row?.School || ''),
+      hebrifyValue(row?.Funding) || String(row?.Funding || ''),
+      String(row?.Instructor || row?.Employee || ''),
       String(row?.CourseManager || ''),
       getFinanceStatusLabel(row?.FinanceStatus || row?.finance_status || ''),
       String(row?.Payment || ''),
-      hebrifyValue(row?.Funding) || '',
-      hebrifyValue(row?.Payer) || '',
+      String(row?.FinanceNotes || ''),
       ...dateHeaders.map((field) => String(performedDates[field] || ''))
     ];
   });
