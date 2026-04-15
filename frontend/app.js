@@ -46,6 +46,7 @@ const recentlyResolvedExceptions = new Set();
 let initEnginePromise = null;
 const SEARCH_RENDER_DEBOUNCE_MS = 180;
 const routeSearchDebouncers = new Map();
+const viewLoadPromises = new Map();
 const runtimeRules = {
   allowAdminDirectDataEdit: false,
   showOnlyNonZeroKpis: false,
@@ -496,6 +497,7 @@ function resetCoursesNavFromMenu() {
 
 function setRoute(route, { skipHistory = false } = {}) {
   const nextRoute = normalizeRouteAlias(route);
+  const previousRoute = currentRoute;
   if (!isAuth() && nextRoute !== 'login') {
     logUi('route_redirect_to_login', { reason: 'not_authenticated', from: nextRoute });
     currentRoute = 'login';
@@ -518,7 +520,10 @@ function setRoute(route, { skipHistory = false } = {}) {
   document.body.classList.remove('nav-open');
   render();
   triggerPageEnter();
-  loadRouteData();
+  if (previousRoute === currentRoute && !skipHistory) return;
+  requestAnimationFrame(() => {
+    void loadRouteData();
+  });
 }
 
 function goBack() {
@@ -4248,7 +4253,7 @@ async function loadAdminPermissionsView() {
         logUi('admin_permissions_engine_wait_failed', { message: e?.message || String(e || '') });
       }
     }
-    await ensurePermissionsLoaded(userState, { forceRemote: true });
+    await ensurePermissionsLoaded(userState);
     const snap = getStoreSnapshot();
     const items = (snap.permissions || []).map((row) => ({
       employeeId: row.employeeId,
@@ -4578,16 +4583,25 @@ function applyExceptionFilters(rows = []) {
 }
 
 async function withLoad(key, fn, emptyValue, errorText) {
-  viewState[key].loading = true; viewState[key].error = ''; renderScreen();
-  const res = await fn();
-  viewState[key].loading = false;
-  if (!res?.success) {
-    viewState[key].error = res?.message || errorText;
-    viewState[key].data = emptyValue;
-  } else {
-    viewState[key].data = res?.data?.items || res?.data || emptyValue;
+  if (viewLoadPromises.has(key)) return viewLoadPromises.get(key);
+  const runner = (async () => {
+    viewState[key].loading = true; viewState[key].error = ''; renderScreen();
+    const res = await fn();
+    viewState[key].loading = false;
+    if (!res?.success) {
+      viewState[key].error = res?.message || errorText;
+      viewState[key].data = emptyValue;
+    } else {
+      viewState[key].data = res?.data?.items || res?.data || emptyValue;
+    }
+    renderScreen();
+  })();
+  viewLoadPromises.set(key, runner);
+  try {
+    await runner;
+  } finally {
+    viewLoadPromises.delete(key);
   }
-  renderScreen();
 }
 
 function normalizeCoursesResponse(data) {
