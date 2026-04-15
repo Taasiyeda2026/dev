@@ -324,6 +324,7 @@ function isOperationsUser() {
 }
 function canAccessRoute(route) {
   if (route === 'admin-home') return isAdminUser();
+  if (route === 'operations-home') return !isAdminUser() && hasCapability('view_operations_data');
   return hasCapability(ROUTE_CAPABILITY_MAP[route]);
 }
 function getAllowedRoutes() {
