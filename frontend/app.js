@@ -3286,18 +3286,22 @@ function openCourseActionForm(course, mode) {
     const courses = getStoreSnapshot().courses || [];
     const uniqSorted = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
     const instructorOpts = uniqSorted(courses.map((row) => resolveInstructorName(row)));
-    const programOpts = uniqSorted(courses.map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || String(row?.[COURSE_FIELDS.EVENT_TYPE] || '').trim()));
+    const endIso = (() => { const d = parseDateLike(getCourseField(course, COURSE_FIELDS.END)); return d ? formatIsoDateLocal(d) : ''; })();
+    const curProgram = getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '';
+    const curEventType = getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '';
+    const curInstructor = resolveInstructorName(course) || '';
     const eventTypeOpts = uniqSorted(courses.map((row) => String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim()));
+    const programOpts = uniqSorted(
+      courses
+        .filter((row) => !curEventType || String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim() === curEventType)
+        .map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || String(row?.[COURSE_FIELDS.EVENT_TYPE] || '').trim())
+    );
     const buildSelect = (id, opts, currentVal) => {
       const cur = String(currentVal || '').trim();
       const hasMatch = opts.includes(cur);
       const allOpts = hasMatch ? opts : (cur ? [cur, ...opts] : opts);
       return `<select id="${id}"><option value=""></option>${allOpts.map((v) => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
     };
-    const endIso = (() => { const d = parseDateLike(getCourseField(course, COURSE_FIELDS.END)); return d ? formatIsoDateLocal(d) : ''; })();
-    const curProgram = getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '';
-    const curEventType = getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '';
-    const curInstructor = resolveInstructorName(course) || '';
 
     const root = document.createElement('div');
     root.className = 'course-form-modal';
@@ -3438,7 +3442,7 @@ function openAddRecordForm(options = {}) {
   const buildOpts = (list) => `<option value=""></option>${list.map((v) => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
   const buildActivityTypeOpts = () => `<option value="">בחר סוג פעילות...</option>${activityTypeOpts.map(v => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
   const buildProgramOpts = (forType) => {
-    const opts = (forType && programsByType[forType]?.length) ? programsByType[forType] : allPrograms;
+    const opts = forType ? (programsByType[forType] || []) : allPrograms;
     return `<option value=""></option>${opts.map(v => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
   };
 
