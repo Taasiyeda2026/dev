@@ -665,8 +665,8 @@ function getHeaderKpis(route = currentRoute, context = {}) {
   if (route === 'dashboard') {
     const d = context.dashboard || viewState.dashboard.data || {};
     return [
-      { label: 'כמות קורסים פעילים', value: d.activeThisMonthCount || 0 },
-      { label: 'ריכוז חריגות (סה״כ)', value: d.totalExceptionsCount || 0 },
+      { label: 'קורסים פעילים', value: d.activeThisMonthCount || 0 },
+      { label: 'סה"כ חריגות', value: d.totalExceptionsCount || 0 },
       { label: 'כמות מדריכים', value: d.instructorsCount || 0 }
     ];
   }
