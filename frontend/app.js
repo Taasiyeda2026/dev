@@ -2138,9 +2138,7 @@ function renderCourseCards(rows, options = {}) {
           ${renderInfoRow('שעות', hierarchy.timeLabel)}
         </div>
         <div class="course-core-col">
-          ${renderInfoRow('רשות', hierarchy.authority)}
-          ${renderInfoRow('בית ספר', hierarchy.school)}
-          ${renderInfoRow('מפגשים', hierarchy.meetingsTotal ? `${hierarchy.meetingsTotal}` : (String(getCourseField(row, COURSE_FIELDS.PLANNED_MEETINGS) || '-')))}
+          ${renderInfoRow('מ"מ', String(getCourseField(row, COURSE_FIELDS.PLANNED_MEETINGS) || '-'))}
         </div>
       </div>
       ${issueText ? `<div class="card-issue ${issueFlag ? 'has-issue' : ''}">${esc(issueText)}</div>` : ''}
