@@ -1030,7 +1030,7 @@ function renderScreen() {
       totalCount: filteredCourses.length,
       instructorsCount: new Set(visibleCourses.map((row) => resolveInstructorName(row)).filter(Boolean)).size
     }) +
-    (currentRoute === 'courses' ? renderActivityTypeSummary(visibleCourses) : '') +
+    (currentRoute === 'courses' ? renderActivityTypeSummary(viewState.courses.data, viewState.courses.filters.activityType) : '') +
     (currentRoute === 'courses' ? `<div class="courses-quick-nav">${[
       { route: 'end-dates', label: 'תאריכי סיום', icon: '⏳' },
       { route: 'week',      label: 'שבוע',         icon: '🗓️' },
@@ -1082,6 +1082,26 @@ function renderScreen() {
       viewState.courses.selectedInstructor = '';
       viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: '' };
       loadCourses();
+    });
+    document.querySelectorAll('[data-type-filter]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const typeKey = chip.dataset.typeFilter;
+        const sel = document.getElementById('activityTypeFilter');
+        if (!sel) return;
+        const isActive = viewState.courses.filters.activityType === typeKey;
+        sel.value = isActive ? '' : typeKey;
+        viewState.courses.quickFilter = '';
+        viewState.courses.selectedInstructor = '';
+        viewState.courses.filters = {
+          authority: document.getElementById('authorityFilter')?.value.trim() || '',
+          school: document.getElementById('schoolFilter')?.value.trim() || '',
+          courseManager: document.getElementById('courseManagerFilter')?.value.trim() || '',
+          employee: document.getElementById('employeeFilter')?.value.trim() || '',
+          courseMonth: document.getElementById('courseMonthFilter')?.value.trim() || '',
+          activityType: isActive ? '' : typeKey
+        };
+        loadCourses();
+      });
     });
     document.getElementById('clearInstructorDetails')?.addEventListener('click', () => {
       viewState.courses.selectedInstructor = '';
@@ -1676,7 +1696,7 @@ function renderActivityTypeOptions(options = [], selected = '') {
   return '<option value="">הכל</option>' + options.map((v) => `<option value="${escAttr(v)}" ${v === selected ? 'selected' : ''}>${esc(ACTIVITY_TYPE_LABELS[v] || v)}</option>`).join('');
 }
 
-function renderActivityTypeSummary(courses) {
+function renderActivityTypeSummary(courses, activeType = '') {
   if (!Array.isArray(courses) || !courses.length) return '';
   const counts = {};
   courses.forEach((row) => {
@@ -1686,7 +1706,10 @@ function renderActivityTypeSummary(courses) {
   const items = Object.entries(counts)
     .filter(([, v]) => v > 0)
     .sort((a, b) => b[1] - a[1])
-    .map(([key, count]) => `<span class="activity-type-chip">${esc(ACTIVITY_TYPE_LABELS[key] || key)}<strong>${count}</strong></span>`);
+    .map(([key, count]) => {
+      const isActive = activeType === key;
+      return `<span class="activity-type-chip${isActive ? ' activity-type-chip--active' : ''}" role="button" tabindex="0" data-type-filter="${escAttr(key)}">${esc(ACTIVITY_TYPE_LABELS[key] || key)}<strong>${count}</strong></span>`;
+    });
   if (!items.length) return '';
   return `<div class="activity-type-summary">${items.join('')}</div>`;
 }
