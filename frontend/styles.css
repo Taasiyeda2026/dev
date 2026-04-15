@@ -2516,7 +2516,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   font-weight: 500;
   color: var(--text-secondary);
 }
-.course-form-card input {
+.course-form-card input,
+.course-form-card select {
   height: 38px;
   padding: 0 12px;
   border: 1px solid var(--border);
@@ -2526,6 +2527,10 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+.course-form-card select {
+  cursor: pointer;
+  appearance: auto;
 }
 .course-form-card textarea {
   min-height: 220px;
@@ -2539,7 +2544,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   outline: none;
   resize: vertical;
 }
-.course-form-card input:focus {
+.course-form-card input:focus,
+.course-form-card select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
   background: var(--surface);

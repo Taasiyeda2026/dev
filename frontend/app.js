@@ -3104,6 +3104,13 @@ function openAddRecordForm(options = {}) {
   const formTitle = String(options?.title || 'יצירת רשומה חדשה');
   const submitLabel = String(options?.submitLabel || 'יצירה');
   const enforceCourseId = Boolean(options?.enforceCourseId);
+
+  const courses = getStoreSnapshot().courses || [];
+  const uniqSorted = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+  const instructorOpts = uniqSorted(courses.map((row) => resolveInstructorName(row)));
+  const programOpts = uniqSorted(courses.map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || String(row?.[COURSE_FIELDS.EVENT_TYPE] || '').trim()));
+  const buildOpts = (list) => `<option value=""></option>${list.map((v) => `<option value="${escAttr(v)}">${esc(v)}</option>`).join('')}`;
+
   return new Promise((resolve) => {
     const root = document.createElement('div');
     root.className = 'course-form-modal';
@@ -3112,11 +3119,11 @@ function openAddRecordForm(options = {}) {
       <div class="course-form-card">
         <h3>${esc(formTitle)}</h3>
         <label>מזהה קורס (אופציונלי)<input id="newCourseId" placeholder="אם ריק ייווצר אוטומטית" /></label>
-        <label>תוכנית<input id="newProgram" /></label>
+        <label>תוכנית<select id="newProgram">${buildOpts(programOpts)}</select></label>
         <label>סוג פעילות<input id="newActivity" /></label>
         <label>רשות<input id="newAuthority" /></label>
         <label>בית ספר<input id="newSchool" /></label>
-        <label>מדריך<input id="newInstructor" /></label>
+        <label>מדריך<select id="newInstructor">${buildOpts(instructorOpts)}</select></label>
         <label>תאריך<input id="newDate1" type="date" /></label>
         <label>שעת התחלה<input id="newStartTime" placeholder="hh:mm" /></label>
         <label>שעת סיום<input id="newEndTime" placeholder="hh:mm" /></label>
