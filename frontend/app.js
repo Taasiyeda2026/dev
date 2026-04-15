@@ -4435,7 +4435,7 @@ async function loadAdminPermissionsView() {
         logUi('admin_permissions_engine_wait_failed', { message: e?.message || String(e || '') });
       }
     }
-    await ensurePermissionsLoaded(userState);
+    await ensurePermissionsLoaded(userState, { forceRemote: true });
     const snap = getStoreSnapshot();
     const items = (snap.permissions || []).map((row) => ({
       employeeId: row.employeeId,
