@@ -1489,7 +1489,7 @@ function renderScreen() {
       itemsCount: filteredQueue.length,
       totalCount: queue.length
     }) +
-    `<section class="kpi-grid">
+    `<section class="kpi-grid kpi-grid--compact">
       <article class="kpi-card"><span class="kpi-title">ממתין עדן</span><span class="kpi-value">${counters.pending_eden || 0}</span></article>
       <article class="kpi-card"><span class="kpi-title">נשמר אצל עדן</span><span class="kpi-value">${counters.eden_saved || 0}</span></article>
       <article class="kpi-card"><span class="kpi-title">נשלח לאדמין</span><span class="kpi-value">${counters.pending_final || 0}</span></article>

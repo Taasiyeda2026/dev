@@ -666,6 +666,10 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   margin-bottom: 0;
 }
 .finance-kpi-grid { grid-template-columns: repeat(4, 1fr); margin-bottom: 24px; }
+.kpi-grid--compact { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.kpi-grid--compact .kpi-card { padding: 8px 12px; gap: 4px; border-radius: var(--radius); }
+.kpi-grid--compact .kpi-title { font-size: 10px; }
+.kpi-grid--compact .kpi-value { font-size: 20px; }
 
 .kpi-card {
   background: linear-gradient(140deg, #ffffff 0%, var(--pastel-sky) 100%);
