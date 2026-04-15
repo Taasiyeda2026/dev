@@ -3812,7 +3812,10 @@ function buildInstructorsViewData(courses) {
     if (!byEmployeeId.has(employeeKey)) byEmployeeId.set(employeeKey, []);
     byEmployeeId.get(employeeKey).push(course);
   });
-  const items = Array.from(byEmployeeId.entries()).map(([employeeId, list]) => {
+  const items = Array.from(byEmployeeId.entries()).filter(([, list]) => {
+    const name = resolveInstructorName(list[0]) || '';
+    return name && name !== 'לא משויך';
+  }).map(([employeeId, list]) => {
     const name = resolveInstructorName(list[0]) || 'לא משויך';
     const authorities = Array.from(new Set(list.map((item) => getCourseField(item, COURSE_FIELDS.AUTHORITY)).filter(Boolean)));
     const schools = Array.from(new Set(list.map((item) => getCourseField(item, COURSE_FIELDS.SCHOOL)).filter(Boolean)));
