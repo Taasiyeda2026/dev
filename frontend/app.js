@@ -845,7 +845,7 @@ function renderScreen() {
       : (isAdminHome && canAccessRoute('dashboard')
         ? [{ key: 'dashboard', label: 'דשבורד', route: 'dashboard' }]
         : targets);
-    main.innerHTML = renderUnifiedScreenHeader(currentRoute, isAdminHome ? 'לוח בקרה ניהולי ראשי' : 'לוח בקרה תפעולי ראשי', { destinationsCount: landingTargets.length }) + `
+    main.innerHTML = renderUnifiedScreenHeader(currentRoute, '', { destinationsCount: landingTargets.length }) + `
       <section class="control-board-grid">
         ${landingTargets.map((item) => `<button class="control-board-card" type="button" data-primary-nav="${escAttr(item.route)}"><strong>${esc(item.label)}</strong><span>${esc(routeLabels[item.route] || item.route)}</span></button>`).join('')}
       </section>`;
