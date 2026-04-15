@@ -129,6 +129,7 @@ function mapPermissionRow(raw = {}) {
     entryCode: String(pickFirst(raw, ['code', 'EntryCode', PERMISSION_FIELDS.ENTRY_CODE]) || '').trim(),
     systemRole: String(pickFirst(raw, ['role', 'SystemRole', PERMISSION_FIELDS.SYSTEM_ROLE]) || '').trim(),
     displayRole: String(displayRole || '').trim(),
+    rolevalue: String(raw['rolevalue'] || raw['RoleValue'] || '').trim(),
     viewScope: listEnabledCapabilities(capabilities, 'view_').join(',' ) || scopes.viewScope,
     editScope: listEnabledCapabilities(capabilities, 'edit_').join(',' ) || scopes.editScope,
     approvalScope: scopes.approvalScope,
