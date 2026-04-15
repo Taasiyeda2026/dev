@@ -396,6 +396,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   gap: 4px;
   font-size: 11px;
   color: var(--text-muted);
+  max-width: 50%;
 }
 .screen-search-wrap input {
   width: 100%;
