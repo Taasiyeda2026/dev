@@ -2063,7 +2063,11 @@ function buildCourseHierarchyDetails(row = {}) {
       const firstDate = parseDateLike(courseMeetingDateRaw(row, firstDateField));
       return firstDate ? firstDate.toLocaleDateString('he-IL', { weekday: 'long' }) : '';
     })(),
-    timeLabel: `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}-${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`
+    timeLabel: (() => {
+      const s = formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME));
+      const e = formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME));
+      return (s === '--:--' && e === '--:--') ? '' : `${s}-${e}`;
+    })()
   };
 }
 
@@ -2156,7 +2160,9 @@ function renderCourseInlineDetails(row) {
     .map((field) => parseDateLike(courseMeetingDateRaw(row, field)))
     .filter(Boolean);
   const now = startOfDay(new Date());
-  const timeLabel = `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}–${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`;
+  const _s = formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME));
+  const _e = formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME));
+  const timeLabel = (_s === '--:--' && _e === '--:--') ? '' : `${_s}–${_e}`;
   const notes = String(getCourseField(row, COURSE_FIELDS.NOTES) || '').trim();
   const completedCount = dateDates.filter((d) => d && endOfDay(d) < now).length;
   const totalSlots = Math.max(planned, dateDates.filter(Boolean).length);
