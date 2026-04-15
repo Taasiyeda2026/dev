@@ -341,7 +341,7 @@ function getAllowedRoutes() {
   return MENU_ROUTE_ORDER.filter((route) => canAccessRoute(route));
 }
 function getAllowedBusinessRoutes() {
-  return MENU_ROUTE_ORDER.filter((route) => !['admin-home', 'operations-home'].includes(route) && hasCapability(ROUTE_CAPABILITY_MAP[route]));
+  return MENU_ROUTE_ORDER.filter((route) => !['admin-home', 'operations-home'].includes(route) && canAccessRoute(route));
 }
 function getFirstAllowedRoute() {
   const routes = getAllowedRoutes();
