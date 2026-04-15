@@ -2745,7 +2745,7 @@ function renderCourseDetailsPanel(course, options = {}) {
       <div class="course-core-col"><span><strong>בית ספר:</strong> ${esc(course[COURSE_FIELDS.SCHOOL] || '-')}</span><span><strong>רשות:</strong> ${esc(course[COURSE_FIELDS.AUTHORITY] || '-')}</span></div>
       <div class="course-core-col">${summarizeIssue(course) ? `<span>${esc(summarizeIssue(course))}</span>` : ''}<span><strong>הערות דחייה:</strong> ${esc(delayText)}</span></div>
     </div>
-    <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>תאריך מקורי</th><th>שעות</th><th>סטטוס</th><th>הערה אחרונה</th><th>פעולות</th></tr></thead><tbody>
+    <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>שעות</th><th>הערה אחרונה</th><th>פעולות</th></tr></thead><tbody>
       ${meetings.length ? meetings.map((item) => {
         const meetingDate = parseDateLike(item.MeetingDate || item.value);
         const originalDate = parseDateLike(item.OriginalMeetingDate || item.value);
@@ -2756,13 +2756,11 @@ function renderCourseDetailsPanel(course, options = {}) {
           <td>${esc(`מפגש ${meetingNumber}`)}</td>
           <td>${esc(formatDate(meetingDate) || '-')} ${isChanged ? '<span class="status-chip status-pending">שונה</span>' : ''}</td>
           <td>${esc(dayLabel)}</td>
-          <td>${esc(formatDate(originalDate) || '-')}</td>
           <td>${esc(`${formatTimeValue(item.StartTime || course[COURSE_FIELDS.START_TIME])}-${formatTimeValue(item.EndTime || course[COURSE_FIELDS.END_TIME])}`)}</td>
-          <td>${esc(String(item.MeetingStatus || '-'))}</td>
           <td>${esc(String(item.ChangeNote || '-'))}</td>
           <td><button class="btn btn-tertiary" data-edit-meeting="${escAttr(`${course.CourseID}::${meetingNumber}`)}" data-meeting-date="${escAttr(meetingDate ? formatIsoDateLocal(meetingDate) : '')}">שינוי</button></td>
         </tr>`;
-      }).join('') : '<tr><td colspan="8">אין תאריכי מפגש</td></tr>'}
+      }).join('') : '<tr><td colspan="6">אין תאריכי מפגש</td></tr>'}
     </tbody></table></div>
     <div class="card-kpi-row">
       <span><strong>מפגשים שבוצעו:</strong> ${esc(String(meetingStats.completedCount))} מתוך ${esc(String(meetingStats.total || 0))}</span>
@@ -3982,7 +3980,6 @@ function renderEndDateCards(items) {
     const hierarchy = buildCourseHierarchyDetails(item);
     const summary = `<div class="card-head"><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3>${(item.postpone.isPostponed || item.hasReviewDelay) ? '<span class="status-chip status-pending-final">נדחה</span>' : ''}</div><div class="card-summary-minimal">${[hierarchy.authority, hierarchy.school].filter(Boolean).map(s => esc(s)).join(' · ')}</div><div class="card-summary-minimal">סיום: ${esc(hierarchy.endDate || '-')}</div>`;
     const details = `${renderCourseHierarchyStrip(item)}<div class="card-meta">
-      <span><strong>סטטוס:</strong> ${item.meetingStats?.isCompleted ? 'הסתיים' : 'פעיל'}</span>
       <span><strong>מפגשים שבוצעו:</strong> ${esc(String(item.meetingStats?.completedCount || 0))} / ${esc(String(item.meetingStats?.total || 0))}</span>
       ${item.meetingStats?.isCompleted ? '' : `<span><strong>מפגש קרוב:</strong> ${esc(item.meetingStats?.nextMeetingDate ? formatDate(item.meetingStats.nextMeetingDate) : '-')}</span>`}
     </div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פרטים</button></div>`;
