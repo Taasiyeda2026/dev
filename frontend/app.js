@@ -3038,25 +3038,24 @@ function openMeetingChangeModal({ meetingNumber, initialDate }) {
 }
 
 function openCourseActionForm(course, mode) {
+  const MAX_DATES = 35;
   return new Promise((resolve) => {
     const isDirectEdit = mode === 'edit';
     const formTitle = isDirectEdit ? 'עריכה ישירה' : 'בקשת שינוי';
     const formSubmitLabel = isDirectEdit ? 'שמירה ישירה' : 'שליחה לעדן';
     const isWorkshop = String(getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
-    const planned = isWorkshop ? 1 : Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
+    const planned = isWorkshop ? 1 : Math.max(1, Math.min(MAX_DATES, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
     const getDateField = (n) => {
       const fieldName = (COURSE_DATE_FIELDS && COURSE_DATE_FIELDS[n - 1]) || (n === 1 ? 'start_date' : `date${n}`);
       return courseMeetingDateRaw(course, fieldName) || '';
     };
-    const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
-      const n = i + 1;
-      const rawVal = getDateField(n);
-      const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? formatIsoDateLocal(d) : ''; })() : '';
-      return `<div class="caf-date-row">
-        ${isWorkshop ? '' : `<span class="caf-date-label">מפגש ${n}</span>`}
-        <input class="caf-date-input" id="courseFormDate${n}" type="date" value="${escAttr(isoVal)}" data-meeting-num="${n}" />
-      </div>`;
-    }).join('');
+    const makeDateRow = (n, isoVal = '') => {
+      const row = document.createElement('div');
+      row.className = 'caf-date-row';
+      row.dataset.meetingNum = String(n);
+      row.innerHTML = `${isWorkshop ? '' : `<span class="caf-date-label">מפגש ${n}</span>`}<input class="caf-date-input" id="courseFormDate${n}" type="date" value="${escAttr(isoVal)}" data-meeting-num="${n}" />`;
+      return row;
+    };
 
     const root = document.createElement('div');
     root.className = 'course-form-modal';
@@ -3070,8 +3069,11 @@ function openCourseActionForm(course, mode) {
           <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
         </div>
         <div class="caf-dates-section">
-          <h4 class="caf-dates-title">${isWorkshop ? 'תאריך' : `תאריכי מפגשים <span class="caf-dates-count">${planned} מפגשים</span>`}</h4>
-          <div class="caf-dates-grid">${dateInputsHtml}</div>
+          <div class="caf-dates-header">
+            <h4 class="caf-dates-title">${isWorkshop ? 'תאריך' : 'תאריכי מפגשים'}</h4>
+            ${isWorkshop ? '' : '<button type="button" class="btn-add-date" id="cafAddDateBtn" title="הוסף תאריך">+</button>'}
+          </div>
+          <div class="caf-dates-grid" id="cafDatesGrid"></div>
         </div>
         <div class="card-actions">
           <button class="btn btn-secondary" data-form-close="1">ביטול</button>
@@ -3081,6 +3083,22 @@ function openCourseActionForm(course, mode) {
     `;
     document.body.appendChild(root);
 
+    const grid = root.querySelector('#cafDatesGrid');
+    let totalDates = planned;
+
+    for (let i = 1; i <= planned; i++) {
+      const rawVal = getDateField(i);
+      const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? formatIsoDateLocal(d) : ''; })() : '';
+      grid.appendChild(makeDateRow(i, isoVal));
+    }
+
+    root.querySelector('#cafAddDateBtn')?.addEventListener('click', () => {
+      if (totalDates >= MAX_DATES) { showToast(`מקסימום ${MAX_DATES} תאריכים.`, 'warning'); return; }
+      totalDates += 1;
+      grid.appendChild(makeDateRow(totalDates, ''));
+      grid.lastElementChild?.querySelector('input')?.focus();
+    });
+
     const close = (result = null) => { root.remove(); resolve(result); };
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
@@ -3089,12 +3107,12 @@ function openCourseActionForm(course, mode) {
         EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
         Notes: root.querySelector('#courseFormNotes')?.value.trim() || ''
       };
-      Array.from({ length: planned }, (_, i) => i + 1).forEach((n) => {
+      for (let n = 1; n <= totalDates; n++) {
         const val = root.querySelector(`#courseFormDate${n}`)?.value.trim() || '';
         const rawOrig = getDateField(n);
         const origIso = rawOrig ? (() => { const d = parseDateLike(rawOrig); return d ? formatIsoDateLocal(d) : ''; })() : '';
         if (val !== origIso) changes[`Date${n}`] = val;
-      });
+      }
       close({ changes });
     });
   });
