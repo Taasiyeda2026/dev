@@ -2692,8 +2692,21 @@ function formatTimeValue(value) {
   }
   const text = String(value).trim();
   if (/^\d{1,2}:\d{2}/.test(text)) return text.slice(0, 5);
-  const parsed = parseDateLike(value);
-  if (parsed) return `${String(parsed.getHours()).padStart(2, '0')}:${String(parsed.getMinutes()).padStart(2, '0')}`;
+  const numericFraction = Number(text);
+  if (Number.isFinite(numericFraction) && numericFraction >= 0 && numericFraction < 1 && text.includes('.')) {
+    const totalMinutes = Math.round(numericFraction * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+  const isoTimeMatch = text.match(/T(\d{2}):(\d{2})/);
+  if (isoTimeMatch) {
+    if (text.toUpperCase().endsWith('Z')) {
+      const d = new Date(text);
+      if (!Number.isNaN(d.getTime())) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+    return `${isoTimeMatch[1]}:${isoTimeMatch[2]}`;
+  }
   return '--:--';
 }
 
