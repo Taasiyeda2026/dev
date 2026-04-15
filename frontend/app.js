@@ -684,10 +684,7 @@ function getHeaderKpis(route = currentRoute, context = {}) {
     return [];
   }
   if (route === 'courses' || route === 'instructor-view') {
-    return [
-      { label: 'פעילויות מוצגות', value: context.visibleCount || 0 },
-      { label: 'מדריכים', value: context.instructorsCount || 0 }
-    ];
+    return [];
   }
   if (route === 'week') {
     return [

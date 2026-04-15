@@ -1298,7 +1298,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .courses-table-styled thead th:last-child  { border-radius: var(--radius-sm) 0 0 0; }
 .courses-table-styled tbody td { border-bottom: 1px solid var(--border); padding: 8px 12px; vertical-align: middle; font-size: 12px; }
 .courses-table-styled tbody tr:last-child td { border-bottom: none; }
-.courses-table-styled tbody tr:nth-child(even) td { background: #f7f8fc; }
+.courses-table-styled tbody tr:nth-child(odd) td { background: #ffffff; }
+.courses-table-styled tbody tr:nth-child(even) td { background: #e9edf8; }
 .courses-table-styled tbody tr:hover td { background: var(--accent-soft, #eef2ff) !important; }
 .courses-table-styled .ct-num { color: var(--text-muted); font-size: 11px; text-align: center; min-width: 28px; }
 .course-tr--open td { background: var(--accent-soft, #eef2ff) !important; }
