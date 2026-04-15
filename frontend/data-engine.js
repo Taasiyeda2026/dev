@@ -594,7 +594,10 @@ export async function loadFinanceItems(force = false) {
   }
   const currentDate = new Date();
   const todayTs = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), 23, 59, 59, 999).getTime();
-  dataStore.finance = (rows || []).filter((row) => isEndedUntilToday(row)).map((row) => {
+  dataStore.finance = (rows || []).filter((row) => {
+    const fs = String(row?.finance_status || row?.FinanceStatus || 'open').trim().toLowerCase();
+    return fs !== 'closed';
+  }).map((row) => {
     const funding = row?.funding || row?.Funding || '';
     const authority = row?.authority || row?.Authority || '';
     const school = row?.school || row?.School || '';
