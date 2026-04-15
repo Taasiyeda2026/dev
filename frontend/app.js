@@ -1500,7 +1500,7 @@ function renderScreen() {
       itemsCount: rows.length,
       totalCount: (viewState.approvals.data || []).length
     }) + panel({ ...viewState.approvals, data: rows }, 'אין בקשות.',
-      table(rows, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי']], false, true, currentRoute === 'final-approvals'));
+      table(rows, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי']], false, true, true));
     bindApprovalButtons();
     bindUnifiedScreenHeader(currentRoute);
     return;
@@ -3606,7 +3606,7 @@ async function doDecision(button, approved) {
   const res = await fn({ RequestID: row.RequestID, ApprovalNotes: notes });
   if (!res?.success) return showToast(res?.message || 'הפעולה נכשלה', 'error');
   await Promise.all([loadApprovals(), loadEdenView()]);
-  const approveText = currentRoute === 'final-approvals' ? 'האישור הסופי הושלם — הנתונים עודכנו' : 'הבקשה נשלחה לאדמין בהצלחה';
+  const approveText = 'האישור הסופי הושלם — הנתונים עודכנו';
   showToast(approved ? approveText : 'הבקשה נדחתה', approved ? 'success' : 'error');
 }
 
