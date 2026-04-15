@@ -679,6 +679,7 @@ export function buildFilterOptions(rows = []) {
     authority: uniq(COURSE_FIELDS.AUTHORITY),
     school: uniq(COURSE_FIELDS.SCHOOL),
     employee: uniq(COURSE_FIELDS.EMPLOYEE),
-    courseManager: uniq(COURSE_FIELDS.COURSE_MANAGER)
+    courseManager: uniq(COURSE_FIELDS.COURSE_MANAGER),
+    activityType: uniq(COURSE_FIELDS.EVENT_TYPE)
   };
 }

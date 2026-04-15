@@ -95,8 +95,8 @@ const viewState = {
     loading: false,
     error: '',
     data: [],
-    filters: { authority: '', school: '', courseManager: '', employee: '', courseMonth: '' },
-    filterOptions: { authority: [], school: [], courseManager: [], employee: [] },
+    filters: { authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: '' },
+    filterOptions: { authority: [], school: [], courseManager: [], employee: [], activityType: [] },
     quickFilter: '',
     selectedInstructor: '',
     selectedCourseId: '',
@@ -502,7 +502,7 @@ function resetCoursesNavFromMenu() {
   viewState.uiContext.coursesSubtitle = '';
   viewState.courses.quickFilter = '';
   viewState.courses.filters = {
-    authority: '', school: '', courseManager: '', employee: '', courseMonth: ''
+    authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: ''
   };
 }
 
@@ -1022,6 +1022,7 @@ function renderScreen() {
       .map((item) => `<button class="btn courses-nav-pill" type="button" data-courses-nav="${escAttr(item.route)}">${item.icon} ${esc(item.label)}</button>`)
       .join('')}</div>` : '') +
     `<section class="filters-wrap courses-filters">
+      <label>סוג פעילות<select id="activityTypeFilter">${renderActivityTypeOptions(viewState.courses.filterOptions.activityType, viewState.courses.filters.activityType)}</select></label>
       <label>רשות<select id="authorityFilter">${renderSelectOptions(viewState.courses.filterOptions.authority, viewState.courses.filters.authority)}</select></label>
       <label>בית ספר<select id="schoolFilter">${renderSelectOptions(viewState.courses.filterOptions.school, viewState.courses.filters.school)}</select></label>
       <label>מנהל קורס<select id="courseManagerFilter">${renderSelectOptions(viewState.courses.filterOptions.courseManager, viewState.courses.filters.courseManager)}</select></label>
@@ -1053,14 +1054,15 @@ function renderScreen() {
         school: document.getElementById('schoolFilter')?.value.trim() || '',
         courseManager: document.getElementById('courseManagerFilter')?.value.trim() || '',
         employee: document.getElementById('employeeFilter')?.value.trim() || '',
-        courseMonth: document.getElementById('courseMonthFilter')?.value.trim() || ''
+        courseMonth: document.getElementById('courseMonthFilter')?.value.trim() || '',
+        activityType: document.getElementById('activityTypeFilter')?.value.trim() || ''
       };
       loadCourses();
     });
     document.getElementById('resetCourseFilters')?.addEventListener('click', () => {
       viewState.courses.quickFilter = '';
       viewState.courses.selectedInstructor = '';
-      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '' };
+      viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: '' };
       loadCourses();
     });
     document.getElementById('clearInstructorDetails')?.addEventListener('click', () => {
@@ -1637,10 +1639,14 @@ function table(rows, cols, canEdit, canApprove, isApplyMode = false) {
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
+const ACTIVITY_TYPE_LABELS = { course: 'קורס', after_school: 'חוג אפטרסקול', workshop: 'סדנה', tour: 'סיור', escape_room: 'חדר בריחה' };
 function renderSelectOptions(options = [], selected = '') {
   const initial = '<option value="">הכל</option>';
   const body = options.map((option) => `<option value="${escAttr(option)}" ${option === selected ? 'selected' : ''}>${esc(option)}</option>`).join('');
   return `${initial}${body}`;
+}
+function renderActivityTypeOptions(options = [], selected = '') {
+  return '<option value="">הכל</option>' + options.map((v) => `<option value="${escAttr(v)}" ${v === selected ? 'selected' : ''}>${esc(ACTIVITY_TYPE_LABELS[v] || v)}</option>`).join('');
 }
 
 function getUiFilterOptions() {
@@ -2253,7 +2259,8 @@ function onKpiClick(filterName, contextText = '') {
     school: '',
     courseManager: context.manager || '',
     employee: '',
-    courseMonth: ''
+    courseMonth: '',
+    activityType: ''
   };
   viewState.uiContext.coursesSubtitle = context.subtitle || '';
   setRoute(isInstructor() ? 'instructor-view' : 'courses');
@@ -4495,6 +4502,7 @@ function applyCoursesFiltersByUiScope(rows, filters) {
   const courseMonthRaw = String(rawFilters.courseMonth || '').trim();
   const clean = Object.fromEntries(Object.entries(rawFilters).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
   return list.filter((row) => {
+    if (clean.activityType && String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || row?.EventType || '').toLowerCase() !== clean.activityType) return false;
     if (clean.authority && !String(getCourseField(row, COURSE_FIELDS.AUTHORITY) || '').toLowerCase().includes(clean.authority)) return false;
     if (clean.school && !String(getCourseField(row, COURSE_FIELDS.SCHOOL) || '').toLowerCase().includes(clean.school)) return false;
     if (clean.courseManager && !String(getCourseField(row, COURSE_FIELDS.COURSE_MANAGER) || '').toLowerCase().includes(clean.courseManager)) return false;
@@ -4629,7 +4637,7 @@ async function openCourseFromPlanner(courseId) {
   const row = findCourseById(courseId);
   if (!row) return;
   viewState.courses.quickFilter = '';
-  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '' };
+  viewState.courses.filters = { authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: '' };
   viewState.uiContext.coursesSubtitle = 'נפתח מהתצוגה השבועית/חודשית';
   viewState.courses.selectedCourseId = String(row.CourseID || '');
   viewState.courses.selectedCourseDetails = row;
