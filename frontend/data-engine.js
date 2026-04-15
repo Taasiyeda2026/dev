@@ -532,6 +532,10 @@ function parseDateLike(value) {
 
   const isoDateTime = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z)?$/);
   if (isoDateTime) {
+    if (raw.includes('Z')) {
+      const utc = new Date(raw);
+      return Number.isNaN(utc.getTime()) ? null : new Date(utc.getFullYear(), utc.getMonth(), utc.getDate());
+    }
     const d = new Date(
       Number(isoDateTime[1]),
       Number(isoDateTime[2]) - 1,
