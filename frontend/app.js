@@ -630,7 +630,7 @@ function render() {
 
 function buildMenuNavigation() {
   const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions', 'finance', 'exceptions', 'end-dates', 'contacts']) : null;
-  const hiddenForOperations = (!isAdminUser() && isEden()) ? new Set(['dashboard', 'instructors', 'end-dates', 'exceptions', 'contacts', 'finance', 'instructor-view', 'my-requests']) : null;
+  const hiddenForOperations = (!isAdminUser() && isEden()) ? new Set(['instructors', 'end-dates', 'exceptions', 'contacts', 'finance', 'instructor-view', 'my-requests']) : null;
   const hasHome = Boolean(getHomeRoute());
   return getAllowedRoutes()
     .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
