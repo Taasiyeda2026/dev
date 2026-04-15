@@ -3017,11 +3017,19 @@ function openCourseActionForm(course, mode) {
     const isDirectEdit = mode === 'edit';
     const formTitle = isDirectEdit ? 'עריכה ישירה' : 'בקשת שינוי';
     const formSubmitLabel = isDirectEdit ? 'שמירה ישירה' : 'שליחה לעדן';
+    const isWorkshop = String(getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
+    const planned = isWorkshop ? 1 : Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
     const rawDate1 = course[`Date1`] || course[`start_date`] || '';
     const isoDate1 = rawDate1 ? (() => { const d = parseDateLike(rawDate1); return d ? formatIsoDateLocal(d) : ''; })() : '';
-    const dateInputsHtml = `<div class="caf-date-row">
-      <input class="caf-date-input" id="courseFormDate1" type="date" value="${escAttr(isoDate1)}" data-meeting-num="1" />
-    </div>`;
+    const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
+      const n = i + 1;
+      const rawVal = n === 1 ? rawDate1 : (course[`Date${n}`] || '');
+      const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? formatIsoDateLocal(d) : ''; })() : '';
+      return `<div class="caf-date-row">
+        ${isWorkshop ? '' : `<span class="caf-date-label">מפגש ${n}</span>`}
+        <input class="caf-date-input" id="courseFormDate${n}" type="date" value="${escAttr(isoVal)}" data-meeting-num="${n}" />
+      </div>`;
+    }).join('');
 
     const root = document.createElement('div');
     root.className = 'course-form-modal';
@@ -3035,7 +3043,7 @@ function openCourseActionForm(course, mode) {
           <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
         </div>
         <div class="caf-dates-section">
-          <h4 class="caf-dates-title">תאריך</h4>
+          <h4 class="caf-dates-title">${isWorkshop ? 'תאריך' : `תאריכי מפגשים <span class="caf-dates-count">${planned} מפגשים</span>`}</h4>
           <div class="caf-dates-grid">${dateInputsHtml}</div>
         </div>
         <div class="card-actions">
@@ -3054,9 +3062,12 @@ function openCourseActionForm(course, mode) {
         EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
         Notes: root.querySelector('#courseFormNotes')?.value.trim() || ''
       };
-      const val1 = root.querySelector('#courseFormDate1')?.value.trim() || '';
-      const origIso1 = isoDate1;
-      if (val1 !== origIso1) changes['Date1'] = val1;
+      Array.from({ length: planned }, (_, i) => i + 1).forEach((n) => {
+        const val = root.querySelector(`#courseFormDate${n}`)?.value.trim() || '';
+        const rawOrig = n === 1 ? rawDate1 : (course[`Date${n}`] || '');
+        const origIso = rawOrig ? (() => { const d = parseDateLike(rawOrig); return d ? formatIsoDateLocal(d) : ''; })() : '';
+        if (val !== origIso) changes[`Date${n}`] = val;
+      });
       close({ changes });
     });
   });
