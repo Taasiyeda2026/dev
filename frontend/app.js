@@ -2163,7 +2163,6 @@ function renderCourseTable(rows, options = {}) {
       <td style="white-space:nowrap">${esc(h.dayName || '-')}</td>
       <td style="white-space:nowrap">${esc(h.timeLabel || '-')}</td>
       <td style="text-align:center">${esc(String(row[COURSE_FIELDS.PLANNED_MEETINGS] || '-'))}</td>
-      <td style="white-space:nowrap">${esc(h.endDate || '-')}</td>
       <td>${statusCell}</td>
       <td style="white-space:nowrap;display:flex;gap:4px">
         <button class="btn btn-xs${isOpen ? ' btn-primary' : ' btn-secondary'}" data-course-inline="${escAttr(courseId)}">פרטים${isOpen ? ' ▲' : ' ▼'}</button>
@@ -2183,7 +2182,6 @@ function renderCourseTable(rows, options = {}) {
         <th>יום</th>
         <th>שעות</th>
         <th>מ"מ</th>
-        <th>סיום</th>
         <th>מצב</th>
         <th>פעולות</th>
       </tr></thead>

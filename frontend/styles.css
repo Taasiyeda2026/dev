@@ -1285,23 +1285,33 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .courses-table-wrap th { padding: 8px 10px; font-size: 11px; }
 
 /* styled courses table */
+.courses-table-styled {
+  width: 100%;
+  table-layout: fixed;
+}
 .courses-table-styled thead th {
   background: var(--accent);
   color: #fff;
   font-weight: 700;
-  font-size: 12px;
-  padding: 10px 12px;
+  font-size: 11px;
+  padding: 8px 6px;
   border-bottom: none;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.courses-table-styled thead th:first-child { border-radius: 0 var(--radius-sm) 0 0; }
-.courses-table-styled thead th:last-child  { border-radius: var(--radius-sm) 0 0 0; }
-.courses-table-styled tbody td { border-bottom: 1px solid var(--border); padding: 8px 12px; vertical-align: middle; font-size: 12px; }
+.courses-table-styled thead th:first-child { border-radius: 0 var(--radius-sm) 0 0; width: 36px; }
+.courses-table-styled thead th:last-child  { border-radius: var(--radius-sm) 0 0 0; width: 110px; }
+.courses-table-styled thead th:nth-child(6),
+.courses-table-styled thead th:nth-child(7),
+.courses-table-styled thead th:nth-child(8) { width: 52px; text-align: center; }
+.courses-table-styled thead th:nth-child(9) { width: 70px; }
+.courses-table-styled tbody td { border-bottom: 1px solid var(--border); padding: 6px 6px; vertical-align: middle; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .courses-table-styled tbody tr:last-child td { border-bottom: none; }
 .courses-table-styled tbody tr:nth-child(odd) td { background: #ffffff; }
 .courses-table-styled tbody tr:nth-child(even) td { background: #e9edf8; }
 .courses-table-styled tbody tr:hover td { background: var(--accent-soft, #eef2ff) !important; }
-.courses-table-styled .ct-num { color: var(--text-muted); font-size: 11px; text-align: center; min-width: 28px; }
+.courses-table-styled .ct-num { color: var(--text-muted); font-size: 10px; text-align: center; }
 .course-tr--open td { background: var(--accent-soft, #eef2ff) !important; }
 
 /* inline details row */
@@ -1526,7 +1536,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .admin-table-shell thead th { background: var(--surface-2); font-weight: 700; }
 .admin-table-shell tbody tr + tr td { border-top: 1px solid var(--border-soft); }
 .contact-details-actions { margin-top: 4px; }
-.activities-table-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+.activities-table-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; overflow-x: hidden; }
 .activities-table-wrap tbody tr + tr td { border-top: 1px solid #dbe2f1; }
 .finance-group-block { margin-top: 10px; }
 .finance-group-label { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin: 4px 0 6px; }
