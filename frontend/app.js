@@ -2218,7 +2218,7 @@ function renderExceptionCards(rows) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו חריגות בהתאם לסינון.</section>';
   return `<section class="cards-grid">${rows.map((row) => {
     const summary = `<div class="card-head"><h3>${esc(row.Program || 'שם קורס לא זמין')}</h3><span class="status-chip status-declined">פתוח</span></div><div class="card-summary-minimal">${esc(row.School || '-')} · ${esc(row.Authority || '-')}</div>`;
-    const details = `<div class="card-meta"><span>${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">שלח בקשת שינוי</button></div>`;
+    const details = `<div class="card-meta"><span>${esc((row.MissingTypes || []).join(' / ') || '-')}</span><span>מדריך: ${esc(row.Employee || 'לא משויך')}</span><span>מנהל קורס: ${esc(row.CourseManager || '-')}</span></div><div class="card-actions"><button class="btn btn-secondary" data-open-course="${escAttr(row.CourseID || '')}">פרטי קורס</button><button class="btn btn-primary" data-edit-row="${escAttr(row.CourseID || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button></div>`;
     return renderExpandableCard({ summary, details, classes: 'management-card exception-card expandable-card', activityRow: row });
   }).join('')}</section>`;
 }
@@ -2770,7 +2770,7 @@ function renderCourseDetailsPanel(course, options = {}) {
     </div>
     ${delayText !== 'אין הערות' ? `<div class="card-issue ${hasException(course) ? 'has-issue' : ''}"><strong>הערות:</strong> ${esc(delayText)}</div>` : ''}
     <footer class="card-actions">
-      <button class="btn btn-primary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">שלח בקשת שינוי</button>
+      <button class="btn btn-primary" data-edit-row="${escAttr(course[COURSE_FIELDS.COURSE_ID] || '')}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button>
     </footer>
   </section><div class="course-details-backdrop" id="closeCourseDetailsBackdrop"></div></div>`;
 }
