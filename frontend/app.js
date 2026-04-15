@@ -238,6 +238,8 @@ const MENU_ROUTE_ORDER = [
   'contacts', 'finance', 'my-requests', 'approvals', 'eden-view', 'final-approvals', 'instructor-view'
 ];
 
+const HIDDEN_IN_HOME_ROUTES = new Set(['week', 'month', 'end-dates', 'exceptions']);
+
 const ADMIN_LANDING_LINKS = [
   { key: 'settings', label: 'הגדרות', route: 'admin-settings' },
   { key: 'lists', label: 'רשימות', route: 'admin-lists' },
@@ -336,6 +338,11 @@ function getAllowedBusinessRoutes() {
 function getFirstAllowedRoute() {
   const routes = getAllowedRoutes();
   return routes[0] || 'login';
+}
+function getHomeRoute() {
+  if (canAccessRoute('admin-home')) return 'admin-home';
+  if (canAccessRoute('operations-home')) return 'operations-home';
+  return null;
 }
 function normalizeRouteAlias(route) {
   if (route === 'assignments') return 'dashboard';
@@ -603,8 +610,10 @@ function render() {
 
 function buildMenuNavigation() {
   const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions', 'finance', 'exceptions', 'end-dates', 'contacts']) : null;
+  const hasHome = Boolean(getHomeRoute());
   return getAllowedRoutes()
     .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
+    .filter((route) => !(hasHome && HIDDEN_IN_HOME_ROUTES.has(route)))
     .map((route) => nav(route, routeLabels[route] || route))
     .join('');
 }
@@ -736,8 +745,13 @@ function getHeaderKpis(route = currentRoute, context = {}) {
 function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context = {}) {
   const searchTerm = getRouteSearchTerm(route);
   const kpis = getHeaderKpis(route, context).slice(0, 3);
+  const homeRoute = getHomeRoute();
+  const backBtn = (homeRoute && HIDDEN_IN_HOME_ROUTES.has(route))
+    ? `<button class="btn-back-home" type="button" data-back-home="${escAttr(homeRoute)}">&#x2192; חזור</button>`
+    : '';
   return `<section class="screen-top-unified">
     <div class="screen-top-main">
+      ${backBtn}
       <h1>${esc(routeLabels[route] || routeLabels.dashboard)}</h1>
       ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}
     </div>
@@ -754,6 +768,9 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
 }
 
 function bindUnifiedScreenHeader(route = currentRoute) {
+  document.querySelectorAll('[data-back-home]').forEach((btn) => {
+    btn.addEventListener('click', () => setRoute(btn.dataset.backHome));
+  });
   const input = document.getElementById('screenSearchInput');
   if (!input) return;
   applyInPlaceSearchFilter(route, getRouteSearchTerm(route));
