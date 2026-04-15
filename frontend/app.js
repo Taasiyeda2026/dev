@@ -728,9 +728,7 @@ function getHeaderKpis(route = currentRoute, context = {}) {
   }
   if (route === 'finance') {
     return [
-      { label: 'רשומות מוצגות', value: context.itemsCount || 0 },
-      { label: 'פתוח', value: context.openCount || 0 },
-      { label: 'סגור', value: context.closedCount || 0 }
+      { label: 'רשומות מוצגות', value: context.itemsCount || 0 }
     ];
   }
   if (route === 'contacts') {
@@ -1277,7 +1275,7 @@ function renderScreen() {
 
   if (currentRoute === 'finance') {
     if (!canAccessFinanceActive() && !canAccessFinanceArchive()) {
-      main.innerHTML = renderUnifiedScreenHeader('finance', 'גישה מותנית הרשאות', { itemsCount: 0, openCount: 0, closedCount: 0 }) + '<section class="panel-state error"><span class="panel-state-icon">⛔</span><span>אין הרשאה למסך כספים.</span></section>';
+      main.innerHTML = renderUnifiedScreenHeader('finance', 'גישה מותנית הרשאות', { itemsCount: 0 }) + '<section class="panel-state error"><span class="panel-state-icon">⛔</span><span>אין הרשאה למסך כספים.</span></section>';
       bindUnifiedScreenHeader('finance');
       return;
     }
@@ -1292,18 +1290,11 @@ function renderScreen() {
     const canEdit = showActive ? canEditFinanceActive() : canEditFinanceArchive();
     const dm = viewState.finance.displayMonth || '';
     const filteredFinance = (rows || []).filter((item) => financeRowInDisplayMonth(item, dm));
-    const financeSummary = summarizeFinanceBuckets(filteredFinance);
-    const currentMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const pendingTotal = showActive ? (viewState.finance.activeItems || [])
-      .filter((item) => {
-        const d = ['MonthEnd', 'MonthStart', 'End', 'Period'].map((k) => parseDateLike(item?.[k])).filter(Boolean)[0];
-        return d ? d >= currentMonthStart : true;
-      })
-      .reduce((sum, item) => {
-        const raw = String(item?.Payment || '').replace(/[^\d.]/g, '');
-        return sum + (parseFloat(raw) || 0);
-      }, 0) : 0;
-    const pendingTotalLabel = pendingTotal > 0 ? pendingTotal.toLocaleString('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }) : '-';
+    const openTotal = filteredFinance.reduce((sum, item) => {
+      const raw = String(item?.Payment || '').replace(/[^\d.]/g, '');
+      return sum + (parseFloat(raw) || 0);
+    }, 0);
+    const openTotalLabel = openTotal > 0 ? openTotal.toLocaleString('he-IL', { style: 'currency', currency: 'ILS', maximumFractionDigits: 0 }) : '-';
     const dmParsed = parseMonthValue(dm) || new Date();
     const financeMonthLabel = dmParsed.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
     const emptyFinanceMessage = showActive
@@ -1311,9 +1302,7 @@ function renderScreen() {
       : 'אין נתוני ארכיון להצגה כרגע.';
 
     main.innerHTML = renderUnifiedScreenHeader('finance', 'ניהול סל גבייה פעיל וארכיון', {
-      itemsCount: filteredFinance.length,
-      openCount: financeSummary.open,
-      closedCount: financeSummary.completed
+      itemsCount: filteredFinance.length
     }) +
       `<section class="finance-toolbar">
         <div class="finance-tabs">
@@ -1335,11 +1324,9 @@ function renderScreen() {
         <span class="finance-month-label">${esc(financeMonthLabel)}</span>
         <button type="button" class="btn btn-secondary" id="financeMonthNext" aria-label="חודש הבא">▶</button>
       </section>
-      <section class="kpi-grid finance-kpi-grid">
-        <article class="kpi-card"><span class="kpi-title">פתוח</span><span class="kpi-value">${financeSummary.open}</span></article>
-        <article class="kpi-card"><span class="kpi-title">סגור</span><span class="kpi-value">${financeSummary.completed}</span></article>
-        ${showActive ? `<article class="kpi-card kpi-card--highlight"><span class="kpi-title">סה"כ לגבייה</span><span class="kpi-value kpi-value--money">${esc(pendingTotalLabel)}</span><span class="kpi-sub">חודש נוכחי + קדימה</span></article>` : ''}
-      </section>` +
+      ${showActive ? `<section class="kpi-grid finance-kpi-grid">
+        <article class="kpi-card kpi-card--highlight"><span class="kpi-title">סה"כ סל גבייה פתוח</span><span class="kpi-value kpi-value--money">${esc(openTotalLabel)}</span></article>
+      </section>` : ''}` +
       panel({ loading: viewState.finance.loading, error: viewState.finance.error, data: rows }, emptyFinanceMessage,
         viewState.finance.view === 'table'
           ? renderFinanceTable(rows, { showArchive: !showActive, canEdit, displayMonth: dm, selectedMeetingsRowId: viewState.finance.selectedMeetingsRowId })
