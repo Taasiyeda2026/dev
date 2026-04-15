@@ -317,10 +317,6 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   color: var(--text-primary);
 }
 
-.screen-top-toggle {
-  order: -1;
-  margin-left: auto;
-}
 
 .app-top-header-arrow {
   font-size: 16px;
