@@ -3593,7 +3593,10 @@ function renderWeekDetails(selected) {
   return `<aside class="week-side-panel" id="weekSidePanel"><div class="week-side-panel-head"><h3 class="section-title">פרטי יום: ${esc(selected.label)}</h3><button type="button" class="btn btn-secondary" id="weekCloseDetails">סגור</button></div><div class="week-side-panel-body">${selected.items.map((item) => {
     const postpone = parseDelayInfo(item[COURSE_FIELDS.NOTES]);
     const summary = `<strong>${esc(item[COURSE_FIELDS.PROGRAM] || item[COURSE_FIELDS.ACTIVITY] || '-')} | ${esc(item[COURSE_FIELDS.SCHOOL] || '-')} | מדריך/ה: ${esc(resolveInstructorName(item) || '-')}</strong>`;
-    const details = `<span>רשות/בית ספר: ${esc(item[COURSE_FIELDS.AUTHORITY] || '-')} / ${esc(item[COURSE_FIELDS.SCHOOL] || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.start_date || item.Date1)) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span><span>שעות: ${esc(formatTimeValue(item[COURSE_FIELDS.START_TIME]))}-${esc(formatTimeValue(item[COURSE_FIELDS.END_TIME]))}</span><span>הערות: ${esc(item[COURSE_FIELDS.NOTES] || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
+    const startT = formatTimeValue(getCourseField(item, COURSE_FIELDS.START_TIME));
+    const endT   = formatTimeValue(getCourseField(item, COURSE_FIELDS.END_TIME));
+    const hoursLine = (startT !== '--:--' || endT !== '--:--') ? `<span>שעות: ${esc(startT)}-${esc(endT)}</span>` : '';
+    const details = `<span>רשות/בית ספר: ${esc(getCourseField(item, COURSE_FIELDS.AUTHORITY) || '-')} / ${esc(getCourseField(item, COURSE_FIELDS.SCHOOL) || '-')}</span><span>תאריך: ${esc(formatDate(parseDateLike(item.Date || item.start_date || item.Date1)) || '-')}</span><span>מפגש ${esc(item.meetingNumber)} מתוך ${esc(item.plannedMeetings)}</span><span>דחייה: ${postpone.isPostponed ? 'כן' : 'לא'} | מקורי: ${esc(postpone.originalDate)} | חדש: ${esc(postpone.newDate)}</span>${hoursLine}<span>הערות: ${esc(getCourseField(item, COURSE_FIELDS.NOTES) || '-')}</span><div class="card-actions"><button class="btn btn-tertiary" data-open-course="${escAttr(getCourseField(item, COURSE_FIELDS.COURSE_ID) || '')}">פתח קורס</button>${item.hasReviewItem ? '<button class="btn btn-tertiary" data-go-exceptions="1">לחריגות</button>' : ''}</div>`;
     return renderExpandableCard({ summary, details, classes: 'mini-card expandable-card', activityRow: item });
   }).join('')}</div></aside>`;
 }
@@ -3615,6 +3618,7 @@ function renderWeekInstructorSidePanel(panel) {
         <li><span>רשות:</span> ${esc(authority)}</li>
         <li><span>קורס:</span> ${esc(courseName)}</li>
         <li><span>מספר מפגש:</span> ${meetingLine}</li>
+        ${(() => { const s = formatTimeValue(getCourseField(item, COURSE_FIELDS.START_TIME)); const e = formatTimeValue(getCourseField(item, COURSE_FIELDS.END_TIME)); return (s !== '--:--' || e !== '--:--') ? `<li><span>שעות:</span> ${esc(s)}-${esc(e)}</li>` : ''; })()}
       </ul>
       <div class="card-actions"><button type="button" class="btn btn-tertiary" data-open-course="${escAttr(item[COURSE_FIELDS.COURSE_ID] || '')}">פתח קורס</button></div>
     </div>`;
