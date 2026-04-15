@@ -208,6 +208,8 @@ async function fetchSheet(sheetName) {
 }
 
 let coursesLoadPromise = null;
+let dataMasterLoadPromise = null;
+let settingsLoadPromise = null;
 
 async function loadCourses() {
   if (!apiRef) return [];
@@ -353,15 +355,64 @@ export async function loadSettings(force = false) {
   if (!force && dataStore.settings.length && settingsLoadedAt && (now() - settingsLoadedAt) < SETTINGS_CACHE_TTL_MS) {
     return dataStore.settings;
   }
-  dataStore.settings = await fetchSheet(SHEET_NAMES.SETTINGS);
-  if (dataStore.settings.length) {
-    const sample = dataStore.settings[0] || {};
-    if (!Object.prototype.hasOwnProperty.call(sample, 'key') || !Object.prototype.hasOwnProperty.call(sample, 'value')) {
-      throw new Error('settings missing key/value headers');
-    }
+  if (!settingsLoadPromise || force) {
+    settingsLoadPromise = (async () => {
+      dataStore.settings = await fetchSheet(SHEET_NAMES.SETTINGS);
+      if (dataStore.settings.length) {
+        const sample = dataStore.settings[0] || {};
+        if (!Object.prototype.hasOwnProperty.call(sample, 'key') || !Object.prototype.hasOwnProperty.call(sample, 'value')) {
+          throw new Error('settings missing key/value headers');
+        }
+      }
+      dataStore.loadedAt.settings = now();
+      return dataStore.settings;
+    })().finally(() => {
+      settingsLoadPromise = null;
+    });
   }
-  dataStore.loadedAt.settings = now();
-  return dataStore.settings;
+  return settingsLoadPromise;
+}
+
+export async function loadDataMaster(force = false) {
+  if (!force && dataStore.dataMaster.length) return dataStore.dataMaster;
+  if (!dataMasterLoadPromise || force) {
+    dataMasterLoadPromise = (async () => {
+      dataStore.dataMaster = await fetchSheet(SHEET_NAMES.DATA_MASTER);
+      dataStore.loadedAt.dataMaster = now();
+      return dataStore.dataMaster;
+    })().finally(() => {
+      dataMasterLoadPromise = null;
+    });
+  }
+  return dataMasterLoadPromise;
+}
+
+export async function loadReviewItems(force = false) {
+  if (!force && isReviewCacheFresh()) return dataStore.reviewItems;
+  const baseRows = (!force && dataStore.dataMaster.length)
+    ? dataStore.dataMaster
+    : await loadDataMaster(force);
+  dataStore.reviewItems = (baseRows || []).filter((row) => {
+    const reviewStatus = String(row?.[COURSE_FIELDS.REVIEW_STATUS] || row?.ReviewStatus || row?.status || '').trim().toLowerCase();
+    return !!reviewStatus && !['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'].includes(reviewStatus);
+  });
+  dataStore.loadedAt.reviewItems = now();
+  return dataStore.reviewItems;
+}
+
+export function getStoreSnapshot() {
+  return {
+    permissions: [...dataStore.permissions],
+    courses: [...dataStore.courses],
+    lists: [...dataStore.lists],
+    settings: [...dataStore.settings],
+    contacts: [...dataStore.contacts],
+    editRequests: [...dataStore.editRequests],
+    reviewItems: [...dataStore.reviewItems],
+    finance: [...dataStore.finance],
+    financeArchive: [...dataStore.financeArchive],
+    loadedAt: { ...dataStore.loadedAt }
+  };
 }
 
 export async function loadContacts() {
@@ -382,38 +433,6 @@ export async function loadEditRequests(force = false) {
   return dataStore.editRequests;
 }
 
-export async function loadReviewItems(force = false) {
-  if (!force && isReviewCacheFresh()) return dataStore.reviewItems;
-  const dataMasterRows = await loadDataMaster(force);
-  dataStore.reviewItems = (dataMasterRows || []).filter((row) => {
-    const reviewStatus = String(row?.[COURSE_FIELDS.REVIEW_STATUS] || row?.ReviewStatus || row?.status || '').trim().toLowerCase();
-    return !!reviewStatus && !['resolved', 'closed', 'done', 'טופל', 'טופלה', 'נסגר', 'סגור'].includes(reviewStatus);
-  });
-  dataStore.loadedAt.reviewItems = now();
-  return dataStore.reviewItems;
-}
-
-export async function loadDataMaster(force = false) {
-  if (!force && dataStore.dataMaster.length) return dataStore.dataMaster;
-  dataStore.dataMaster = await fetchSheet(SHEET_NAMES.DATA_MASTER);
-  dataStore.loadedAt.dataMaster = now();
-  return dataStore.dataMaster;
-}
-
-export function getStoreSnapshot() {
-  return {
-    permissions: [...dataStore.permissions],
-    courses: [...dataStore.courses],
-    lists: [...dataStore.lists],
-    settings: [...dataStore.settings],
-    contacts: [...dataStore.contacts],
-    editRequests: [...dataStore.editRequests],
-    reviewItems: [...dataStore.reviewItems],
-    finance: [...dataStore.finance],
-    financeArchive: [...dataStore.financeArchive],
-    loadedAt: { ...dataStore.loadedAt }
-  };
-}
 
 export function getPermissionForUser(userState = {}) {
   const userKey = String(userState.EmployeeID || userState.userId || userState.emp_id || '').trim();

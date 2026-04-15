@@ -10,6 +10,9 @@
   "display": "standalone",
   "orientation": "portrait-primary",
   "display_override": ["standalone", "minimal-ui", "browser"],
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
   "theme_color": "#003A99",
   "background_color": "#F5F7FB",
   "categories": ["productivity", "business"],
@@ -24,6 +27,20 @@
       "name": "קורסים",
       "short_name": "קורסים",
       "url": "./#courses"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "./assets/splash-1290x2796.png",
+      "sizes": "1290x2796",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "./assets/splash-1668x2388.png",
+      "sizes": "1668x2388",
+      "type": "image/png",
+      "form_factor": "wide"
     }
   ],
   "icons": [

@@ -44,6 +44,7 @@ let sidebarOpen = true;
 const routeHistory = [];
 const recentlyResolvedExceptions = new Set();
 let initEnginePromise = null;
+let routeLoadToken = 0;
 const SEARCH_RENDER_DEBOUNCE_MS = 180;
 const routeSearchDebouncers = new Map();
 const viewLoadPromises = new Map();
@@ -521,8 +522,9 @@ function setRoute(route, { skipHistory = false } = {}) {
   render();
   triggerPageEnter();
   if (previousRoute === currentRoute && !skipHistory) return;
+  const nextToken = ++routeLoadToken;
   requestAnimationFrame(() => {
-    void loadRouteData();
+    void loadRouteData(nextToken);
   });
 }
 
@@ -3449,7 +3451,8 @@ async function loadWeekView() {
   }
   viewState.week.error = '';
   try {
-    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
+    await reloadCourses(false);
+    await loadReviewItems(false);
   } catch (error) {
     viewState.week.error = 'לא ניתן לרענן נתוני קורסים לשבוע.';
   }
@@ -3468,7 +3471,8 @@ async function loadMonthView() {
   }
   viewState.month.error = '';
   try {
-    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
+    await reloadCourses(false);
+    await loadReviewItems(false);
   } catch (error) {
     viewState.month.error = 'לא ניתן לרענן נתוני קורסים לחודש.';
   }
@@ -3484,7 +3488,8 @@ async function loadInstructorsView() {
   }
   viewState.instructors.error = '';
   try {
-    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
+    await reloadCourses(false);
+    await loadReviewItems(false);
   } catch (error) {
     viewState.instructors.error = 'לא ניתן לרענן נתוני קורסים למדריכים.';
   }
@@ -3503,7 +3508,8 @@ async function loadEndDatesView() {
   }
   viewState.endDates.error = '';
   try {
-    await Promise.all([reloadCourses(false), loadReviewItems(false)]);
+    await reloadCourses(false);
+    await loadReviewItems(false);
   } catch (error) {
     viewState.endDates.error = 'לא ניתן לרענן נתוני קורסים לתאריכי סיום.';
   }
@@ -3516,7 +3522,8 @@ async function loadExceptionsView() {
   viewState.exceptions.error = '';
   renderScreen();
   try {
-    await Promise.all([reloadCourses(true), loadReviewItems(true)]);
+    await reloadCourses(true);
+    await loadReviewItems(true);
   } catch (error) {
     viewState.exceptions.error = 'לא ניתן לרענן נתוני קורסים לחריגות.';
   }
@@ -4298,21 +4305,46 @@ async function onLogin(event) {
     return;
   }
   setUserState(res);
-  initEnginePromise = initDataEngine(api, { userState }).catch((error) => {
-    logUi('init_data_engine_failed_after_login', { message: error?.message || String(error || '') });
-    throw error;
-  });
+  const startupRoute = getStartupRoute();
+  setRoute(startupRoute);
+  scheduleNonBlockingStartupTasks(startupRoute);
+  initEnginePromise = Promise.resolve()
+    .then(() => initDataEngine(api, { userState }))
+    .catch((error) => {
+      logUi('init_data_engine_failed_after_login', { message: error?.message || String(error || '') });
+      throw error;
+    });
   button.classList.remove('is-loading');
   button.textContent = 'התחבר';
-  setRoute(getStartupRoute());
 }
 
 const ROUTES_NEEDING_RUNTIME_RULES = new Set([
   'dashboard', 'courses', 'instructor-view', 'week', 'month', 'instructors', 'end-dates', 'exceptions'
 ]);
+const ROUTES_NEEDING_COURSE_DATA = new Set([
+  'courses', 'instructor-view', 'week', 'month', 'instructors', 'end-dates', 'exceptions'
+]);
 
-async function loadRouteData() {
+function scheduleNonBlockingStartupTasks(startupRoute = '') {
+  const run = () => {
+    if (ROUTES_NEEDING_RUNTIME_RULES.has(startupRoute) && !runtimeRulesLoaded) {
+      void ensureRuntimeRulesLoaded().catch(() => {});
+    }
+    if (ROUTES_NEEDING_COURSE_DATA.has(startupRoute) && !isCoursesCacheFresh()) {
+      void ensureCoursesLoaded().catch(() => {});
+    }
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 1200 });
+    return;
+  }
+  window.setTimeout(run, 0);
+}
+
+async function loadRouteData(loadToken = routeLoadToken) {
+  if (loadToken !== routeLoadToken) return;
   if (!isAuth()) return;
+  const routeAtStart = currentRoute;
   if (currentRoute !== 'login' && !getAllowedRoutes().includes(currentRoute)) {
     logUi('current_route_not_allowed', { currentRoute, fallback: getFirstAllowedRoute() });
     setRoute(getFirstAllowedRoute());
@@ -4324,6 +4356,7 @@ async function loadRouteData() {
       if (ROUTES_NEEDING_RUNTIME_RULES.has(currentRoute)) renderScreen();
     }).catch(() => {});
   }
+  if (loadToken !== routeLoadToken || routeAtStart !== currentRoute) return null;
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'admin-settings') return loadAdminSettingsView();
   if (currentRoute === 'admin-lists') return loadAdminListsView();
@@ -4887,11 +4920,15 @@ function registerGlobalCardCloseBehavior() {
 async function boot() {
   hydrateUserState();
   if (isAuth()) {
-    initEnginePromise = initDataEngine(api, { userState }).catch((error) => {
-      logUi('init_data_engine_failed_on_boot', { message: error?.message || String(error || '') });
-      throw error;
-    });
-    setRoute(getStartupRoute());
+    const startupRoute = getStartupRoute();
+    setRoute(startupRoute);
+    scheduleNonBlockingStartupTasks(startupRoute);
+    initEnginePromise = Promise.resolve()
+      .then(() => initDataEngine(api, { userState }))
+      .catch((error) => {
+        logUi('init_data_engine_failed_on_boot', { message: error?.message || String(error || '') });
+        throw error;
+      });
     void api.getSessionProfile().then((profile) => {
       if (profile?.authenticated) {
         logUi('session_restored', { userId: String(profile?.userId || '') ? 'present' : 'missing' });
