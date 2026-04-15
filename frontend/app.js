@@ -1484,7 +1484,7 @@ function renderScreen() {
     const counters = viewState.eden.data.counters || {};
     const searchFilteredQueue = filterBySearch(queue, ['CourseID', 'Origin', 'Authority', 'School', 'Instructor', 'ApprovalStatus', 'ChangeType'], 'eden-view');
     const filteredQueue = applyEdenQueueFilters(searchFilteredQueue);
-    main.innerHTML = renderUnifiedScreenHeader('eden-view', 'Source / Eden Draft עם שליטה מלאה ב-workflow', {
+    main.innerHTML = renderUnifiedScreenHeader('eden-view', 'תור בקשות ויוזמות בקרה ותפעול', {
       itemsCount: filteredQueue.length,
       totalCount: queue.length
     }) +
@@ -1499,11 +1499,11 @@ function renderScreen() {
     <section class="filters-wrap">
       <button class="btn btn-secondary" id="edenStartExisting">פתיחת שינוי על רשומה קיימת</button>
       <button class="btn btn-primary" id="edenStartNew">יצירת רשומה חדשה (יוזמת עדן)</button>
-      <span class="status-chip">New Record = טופס מלא ידני בלבד</span>
+      <span class="status-chip">רשומה חדשה = מילוי טופס ידני</span>
     </section>
     <section class="filters-wrap">
-      <label>סטטוס<select id="edenWorkflowFilter">${renderSelectOptions(['pending_eden','eden_saved','pending_final','final_approved','final_rejected','closed'], viewState.eden.filters.workflow)}</select></label>
-      <label>מקור<select id="edenOriginFilter">${renderSelectOptions(['REQUEST','EDEN_INITIATED'], viewState.eden.filters.origin)}</select></label>
+      <label>סטטוס<select id="edenWorkflowFilter"><option value="">הכל</option>${[['pending_eden','ממתין לבדיקת בקרה ותפעול'],['eden_saved','נשמר אצל עדן'],['pending_final','ממתין לאישור סופי'],['final_approved','אושר לדאטה הראשית'],['final_rejected','נדחה סופית'],['closed','נסגר']].map(([v,l])=>`<option value="${escAttr(v)}" ${v===viewState.eden.filters.workflow?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+      <label>מקור<select id="edenOriginFilter"><option value="">הכל</option>${[['REQUEST','בקשת מנהל'],['EDEN_INITIATED','יוזמת עדן']].map(([v,l])=>`<option value="${escAttr(v)}" ${v===viewState.eden.filters.origin?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
       <label>חיפוש<select id="edenAuthorityFilter">${renderSelectOptions(uniqueValues(queue, 'Authority'), viewState.eden.filters.authority)}</select></label>
       <label>בית ספר<select id="edenSchoolFilter">${renderSelectOptions(uniqueValues(queue, 'School'), viewState.eden.filters.school)}</select></label>
       <label>מדריך<select id="edenInstructorFilter">${renderSelectOptions(uniqueValues(queue, 'Instructor'), viewState.eden.filters.instructor)}</select></label>
@@ -1637,7 +1637,7 @@ function renderEdenQueue(queue = []) {
         <div class="card-meta"><span>שמירה אחרונה: ${esc(formatDate(parseDateLike(row.EdenLastSavedAt)) || row.EdenLastSavedAt || '-')}</span><span>נשלח לאדמין: ${esc(formatDate(parseDateLike(row.SentToAdminAt)) || row.SentToAdminAt || '-')}</span></div>
         <label>הערות עדן<textarea data-eden-notes="${escAttr(row.RequestID || '')}" rows="2">${esc(row.EdenNotes || '')}</textarea></label>
         <div class="card-actions">
-          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">שמור ב-Eden Data Master</button>
+          <button class="btn btn-secondary" data-eden-edit="${escAttr(row.RequestID || '')}">שמור בנתוני עדן</button>
           <button class="btn btn-primary" data-eden-submit="${escAttr(row.RequestID || '')}">שליחה לאדמין</button>
           <button class="btn btn-secondary" data-eden-refresh="${escAttr(row.RequestID || '')}">רענן מקור</button>
         </div>
@@ -1693,7 +1693,7 @@ function table(rows, cols, canEdit, canApprove, isApplyMode = false) {
     const tdClass = WRAP_TABLE_FIELDS.has(fieldKey) ? 'cell-wrap' : '';
     if (fieldKey === 'ApprovalStatus') return `<td class="${tdClass}" title="${escAttr(textValue || '-')}"><span class="status-chip ${statusClass(rawValue)}">${statusLabel(rawValue)}</span></td>`;
     return `<td class="${tdClass}" title="${escAttr(textValue || '-')}">${renderCellContent(fieldKey, rawValue)}</td>`;
-  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${escAttr(String(r.CourseID || ''))}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${escAttr(String(r.RequestID || i))}">${isApplyMode ? 'Apply to Master' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${escAttr(String(r.RequestID || i))}">דחה</button>` : ''}</td></tr>`).join('');
+  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${escAttr(String(r.CourseID || ''))}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${escAttr(String(r.RequestID || i))}">${isApplyMode ? 'אשר ועדכן' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${escAttr(String(r.RequestID || i))}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
@@ -3394,7 +3394,7 @@ async function doDecision(button, approved) {
   if (!res?.success) return showToast(res?.message || 'הפעולה נכשלה', 'error');
   await loadApprovals();
   await loadEdenView();
-  const approveText = currentRoute === 'final-approvals' ? 'Apply to Master הושלם בהצלחה' : 'הבקשה נשלחה לאדמין בהצלחה';
+  const approveText = currentRoute === 'final-approvals' ? 'האישור הסופי הושלם — הנתונים עודכנו' : 'הבקשה נשלחה לאדמין בהצלחה';
   showToast(approved ? approveText : 'הבקשה נדחתה', approved ? 'success' : 'error');
 }
 
