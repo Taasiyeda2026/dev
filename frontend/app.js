@@ -4608,7 +4608,9 @@ async function loadMyRequests() {
           ...(apiRes.data || {}),
           items: (apiRes?.data?.items || []).map((item) => ({
             ...item,
-            CourseLabel: getCourseDisplayNameById(item.CourseID)
+            CourseLabel: getCourseDisplayNameById(item.CourseID),
+            OriginalDataView: toHumanDiff(item.OriginalData, item.RequestedData, 'original'),
+            RequestedDataView: toHumanDiff(item.OriginalData, item.RequestedData, 'requested')
           }))
         }
       };
@@ -4618,7 +4620,9 @@ async function loadMyRequests() {
       data: {
         items: (sheetRows || []).map((item) => ({
           ...item,
-          CourseLabel: getCourseDisplayNameById(item.CourseID)
+          CourseLabel: getCourseDisplayNameById(item.CourseID),
+          OriginalDataView: toHumanDiff(item.OriginalData, item.RequestedData, 'original'),
+          RequestedDataView: toHumanDiff(item.OriginalData, item.RequestedData, 'requested')
         }))
       }
     };
@@ -4746,8 +4750,8 @@ async function loadApprovals() {
   viewState.approvals.data = (res?.data?.items || []).map((item) => ({
     ...item,
     CourseLabel: getCourseDisplayNameById(item.CourseID),
-    OriginalDataView: toHuman(item.OriginalData),
-    RequestedDataView: toHuman(item.RequestedData)
+    OriginalDataView: toHumanDiff(item.OriginalData, item.RequestedData, 'original'),
+    RequestedDataView: toHumanDiff(item.OriginalData, item.RequestedData, 'requested')
   }));
   renderScreen();
 }
@@ -4904,10 +4908,35 @@ function isManagedByCurrentUser(row) {
   return managerName === currentName || instructorManager === currentName;
 }
 
+const DIFF_FIELD_LABELS = {
+  activity_name: 'תוכנית', activity_type: 'סוג פעילות', school: 'בית ספר', authority: 'רשות',
+  name: 'מדריך', activity_manager: 'מנהל קורס', start_time: 'שעת התחלה', end_time: 'שעת סיום',
+  end_date: 'סיום מחזור', notes: 'הערות', sessions: 'מספר מפגשים', start_date: 'תאריך 1',
+  ...Object.fromEntries(Array.from({ length: 34 }, (_, i) => [`date${i + 2}`, `תאריך ${i + 2}`]))
+};
+const DIFF_SKIP_FIELDS = new Set([
+  'RowID','status','operations_notes','ReviewHandledBy','ReviewHandledAt','Period','MonthStart',
+  'MonthEnd','emp_id','manager','activity_no','CourseID','RequestID','_rowNumber'
+]);
 function toHuman(raw) {
   try {
     const obj = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw || {});
     return Object.entries(obj).filter(([,v]) => String(v || '').trim()).map(([k,v]) => `${k}: ${v}`).join(' | ');
+  } catch { return ''; }
+}
+function toHumanDiff(originalRaw, requestedRaw, side) {
+  try {
+    const orig = typeof originalRaw === 'string' ? JSON.parse(originalRaw || '{}') : (originalRaw || {});
+    const req = typeof requestedRaw === 'string' ? JSON.parse(requestedRaw || '{}') : (requestedRaw || {});
+    const allKeys = new Set([...Object.keys(orig), ...Object.keys(req)]);
+    const changed = [...allKeys].filter(k => !DIFF_SKIP_FIELDS.has(k) && String(orig[k] || '').trim() !== String(req[k] || '').trim());
+    const source = side === 'original' ? orig : req;
+    if (!changed.length) return '—';
+    return changed.map(k => {
+      const label = DIFF_FIELD_LABELS[k] || k;
+      const val = String(source[k] || '').trim();
+      return val ? `${label}: ${val}` : `${label}: —`;
+    }).join(' | ');
   } catch { return ''; }
 }
 
