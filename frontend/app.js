@@ -3094,31 +3094,47 @@ function openCourseActionForm(course, mode) {
       return row;
     };
 
-    const infoItem = (label, value) => {
-      const v = String(value || '').trim() || '—';
-      return `<div class="caf-info-item"><span class="caf-info-label">${esc(label)}</span><span class="caf-info-value" title="${escAttr(v)}">${esc(v)}</span></div>`;
+    const courses = getStoreSnapshot().courses || [];
+    const uniqSorted = (arr) => Array.from(new Set(arr.filter(Boolean))).sort((a, b) => a.localeCompare(b, 'he'));
+    const instructorOpts = uniqSorted(courses.map((row) => resolveInstructorName(row)));
+    const programOpts = uniqSorted(courses.map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || String(row?.[COURSE_FIELDS.EVENT_TYPE] || '').trim()));
+    const eventTypeOpts = uniqSorted(courses.map((row) => String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim()));
+    const buildSelect = (id, opts, currentVal) => {
+      const cur = String(currentVal || '').trim();
+      const hasMatch = opts.includes(cur);
+      const allOpts = hasMatch ? opts : (cur ? [cur, ...opts] : opts);
+      return `<select id="${id}"><option value=""></option>${allOpts.map((v) => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
     };
-    const endDateDisplay = (() => { const d = parseDateLike(getCourseField(course, COURSE_FIELDS.END)); return d ? formatDate(d) : ''; })();
+    const endIso = (() => { const d = parseDateLike(getCourseField(course, COURSE_FIELDS.END)); return d ? formatIsoDateLocal(d) : ''; })();
+    const curProgram = getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY) || '';
+    const curEventType = getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '';
+    const curInstructor = resolveInstructorName(course) || '';
 
     const root = document.createElement('div');
     root.className = 'course-form-modal';
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card course-form-card--wide">
-        <h3>${esc(formTitle)}</h3>
-        <div class="caf-info-grid">
-          ${infoItem('תוכנית', getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY))}
-          ${infoItem('סוג פעילות', getCourseField(course, COURSE_FIELDS.EVENT_TYPE))}
-          ${infoItem('בית ספר', getCourseField(course, COURSE_FIELDS.SCHOOL))}
-          ${infoItem('רשות', getCourseField(course, COURSE_FIELDS.AUTHORITY))}
-          ${infoItem('מדריך', resolveInstructorName(course))}
-          ${infoItem('מנהל קורס', getCourseField(course, COURSE_FIELDS.COURSE_MANAGER))}
-          ${infoItem('מ"מ', getCourseField(course, COURSE_FIELDS.PLANNED_MEETINGS))}
-          ${endDateDisplay ? infoItem('סיום מחזור', endDateDisplay) : ''}
+        <h3>${esc(formTitle)} — ${esc(getBusinessCourseName(course))}</h3>
+        <div class="caf-meta-row">
+          <label>תוכנית${buildSelect('courseFormProgram', programOpts, curProgram)}</label>
+          <label>סוג פעילות${buildSelect('courseFormEventType', eventTypeOpts, curEventType)}</label>
+        </div>
+        <div class="caf-meta-row">
+          <label>בית ספר<input id="courseFormSchool" value="${escAttr(getCourseField(course, COURSE_FIELDS.SCHOOL) || '')}" /></label>
+          <label>רשות<input id="courseFormAuthority" value="${escAttr(getCourseField(course, COURSE_FIELDS.AUTHORITY) || '')}" /></label>
+        </div>
+        <div class="caf-meta-row">
+          <label>מדריך${buildSelect('courseFormInstructor', instructorOpts, curInstructor)}</label>
+          <label>מנהל קורס<input id="courseFormManager" value="${escAttr(getCourseField(course, COURSE_FIELDS.COURSE_MANAGER) || '')}" /></label>
         </div>
         <div class="caf-meta-row">
           <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
           <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>
+          <label>מ"מ מתוכנן<input id="courseFormPlanned" type="number" min="0" max="35" value="${escAttr(String(getCourseField(course, COURSE_FIELDS.PLANNED_MEETINGS) || ''))}" /></label>
+        </div>
+        <div class="caf-meta-row">
+          <label>סיום מחזור<input id="courseFormEndDate" type="date" value="${escAttr(endIso)}" /></label>
           <label>הערות<input id="courseFormNotes" value="${escAttr(course.Notes || '')}" /></label>
         </div>
         <div class="caf-dates-section">
@@ -3156,8 +3172,16 @@ function openCourseActionForm(course, mode) {
     root.querySelectorAll('[data-form-close]').forEach((button) => button.addEventListener('click', () => close(null)));
     root.querySelector('#courseFormSubmit')?.addEventListener('click', () => {
       const changes = {
+        Program: root.querySelector('#courseFormProgram')?.value.trim() || '',
+        EventType: root.querySelector('#courseFormEventType')?.value.trim() || '',
+        School: root.querySelector('#courseFormSchool')?.value.trim() || '',
+        Authority: root.querySelector('#courseFormAuthority')?.value.trim() || '',
+        Instructor: root.querySelector('#courseFormInstructor')?.value.trim() || '',
+        CourseManager: root.querySelector('#courseFormManager')?.value.trim() || '',
         StartTime: root.querySelector('#courseFormStartTime')?.value.trim() || '',
         EndTime: root.querySelector('#courseFormEndTime')?.value.trim() || '',
+        PlannedMeetings: root.querySelector('#courseFormPlanned')?.value.trim() || '',
+        EndDate: root.querySelector('#courseFormEndDate')?.value.trim() || '',
         Notes: root.querySelector('#courseFormNotes')?.value.trim() || ''
       };
       for (let n = 1; n <= totalDates; n++) {
