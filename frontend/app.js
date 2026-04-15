@@ -398,6 +398,7 @@ function resolveAdminLandingTargets() {
 function getStartupRoute() {
   const allowedRoutes = getAllowedRoutes();
   if (!allowedRoutes.length) return 'login';
+  if (isEden() && !isAdminUser()) return 'operations-home';
   const requested = normalizeDefaultRoute(getDefaultViewSource());
   if (requested && allowedRoutes.includes(requested)) return requested;
   const home = getHomeRoute();
