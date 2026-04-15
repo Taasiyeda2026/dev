@@ -1326,8 +1326,8 @@ a { color: var(--accent); text-decoration: none; }
 }
 .control-board-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 185px));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 140px));
+  gap: 8px;
   margin-top: 12px;
   justify-content: center;
   justify-items: stretch;
@@ -1341,12 +1341,12 @@ a { color: var(--accent); text-decoration: none; }
   background: linear-gradient(160deg, #fff 0%, #f8fbff 100%);
   border-radius: var(--radius-md);
   text-align: right;
-  padding: 10px 12px;
+  padding: 7px 10px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   cursor: pointer;
-  min-height: 68px;
+  min-height: 50px;
   box-shadow: 0 4px 12px rgba(22, 35, 70, 0.07);
   transform: translateY(0);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
@@ -1368,8 +1368,8 @@ a { color: var(--accent); text-decoration: none; }
 .control-board-card:nth-child(4n + 2) { border-right-color: #fdba74; }
 .control-board-card:nth-child(4n + 3) { border-right-color: #7dd3fc; }
 .control-board-card:nth-child(4n + 4) { border-right-color: #86efac; }
-.control-board-card strong { font-size: 13px; }
-.control-board-card span { color: var(--text-muted); font-size: 11px; }
+.control-board-card strong { font-size: 12px; }
+.control-board-card span { color: var(--text-muted); font-size: 10px; }
 .permissions-summary-row td { vertical-align: middle; }
 .permissions-details-row td {
   background: #f8fafc;
@@ -2705,7 +2705,7 @@ a { color: var(--accent); text-decoration: none; }
   }
 
   .control-board-grid {
-    grid-template-columns: repeat(3, minmax(130px, 185px));
+    grid-template-columns: repeat(3, minmax(100px, 140px));
   }
 }
 
