@@ -2743,7 +2743,7 @@ function renderCourseDetailsPanel(course, options = {}) {
     <div class="course-core-grid">
       <div class="course-core-col"><span><strong>שם קורס:</strong> ${esc(getBusinessCourseName(course))}</span><span><strong>מדריך:</strong> ${esc(resolveInstructorName(course) || '-')}</span></div>
       <div class="course-core-col"><span><strong>בית ספר:</strong> ${esc(course[COURSE_FIELDS.SCHOOL] || '-')}</span><span><strong>רשות:</strong> ${esc(course[COURSE_FIELDS.AUTHORITY] || '-')}</span></div>
-      <div class="course-core-col">${summarizeIssue(course) ? `<span>${esc(summarizeIssue(course))}</span>` : ''}<span><strong>הערות דחייה:</strong> ${esc(delayText)}</span></div>
+      <div class="course-core-col">${summarizeIssue(course) ? `<span>${esc(summarizeIssue(course))}</span>` : ''}</div>
     </div>
     <div class="table-wrap compact-table"><table><thead><tr><th>מפגש</th><th>תאריך</th><th>יום</th><th>שעות</th><th>הערה אחרונה</th><th>פעולות</th></tr></thead><tbody>
       ${meetings.length ? meetings.map((item) => {
