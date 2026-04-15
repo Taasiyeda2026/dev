@@ -2140,8 +2140,10 @@ function renderCourseCards(rows, options = {}) {
 }
 
 function renderCourseInlineDetails(row) {
-  const planned = Math.max(0, Number(row[COURSE_FIELDS.PLANNED_MEETINGS] || 0));
-  const dateDates = (COURSE_DATE_FIELDS || [])
+  const isWorkshop = String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
+  const planned = isWorkshop ? 1 : Math.max(0, Number(row[COURSE_FIELDS.PLANNED_MEETINGS] || 0));
+  const dateFields = isWorkshop ? (COURSE_DATE_FIELDS || []).slice(0, 1) : (COURSE_DATE_FIELDS || []);
+  const dateDates = dateFields
     .map((field) => parseDateLike(courseMeetingDateRaw(row, field)))
     .filter(Boolean);
   const now = startOfDay(new Date());
@@ -2695,11 +2697,13 @@ function courseProgress(row) {
 }
 
 function collectCourseDates(row) {
+  const isWorkshop = String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
   const dates = [];
   const fieldNames = COURSE_DATE_FIELDS.length
     ? COURSE_DATE_FIELDS
     : Array.from({ length: COURSES_SCREEN_CONFIG.meetingFields.end }, (_, i) => `Date${i + 1}`);
-  fieldNames.forEach((fieldName, index) => {
+  const limitedFields = isWorkshop ? fieldNames.slice(0, 1) : fieldNames;
+  limitedFields.forEach((fieldName, index) => {
     const date = parseDateLike(courseMeetingDateRaw(row, fieldName));
     if (date) dates.push({ label: fieldName, value: date, index: index + 1 });
   });
@@ -3013,7 +3017,8 @@ function openCourseActionForm(course, mode) {
     const isDirectEdit = mode === 'edit';
     const formTitle = isDirectEdit ? 'עריכה ישירה' : 'בקשת שינוי';
     const formSubmitLabel = isDirectEdit ? 'שמירה ישירה' : 'שליחה לעדן';
-    const planned = Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
+    const isWorkshop = String(getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
+    const planned = isWorkshop ? 1 : Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
     const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
       const n = i + 1;
       const rawVal = course[`Date${n}`];
