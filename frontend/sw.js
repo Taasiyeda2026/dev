@@ -1,4 +1,4 @@
-const SW_VERSION = 'dashboard2026-v4';
+const SW_VERSION = 'dashboard2026-v5';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`;
 const IMAGE_CACHE = `${SW_VERSION}-images`;
@@ -6,6 +6,7 @@ const IMAGE_CACHE = `${SW_VERSION}-images`;
 const APP_SHELL_ASSETS = [
   './',
   './index.html',
+  './offline.html',
   './styles.css',
   './app.js',
   './api.js',
@@ -88,7 +89,7 @@ async function networkFirstWithShellFallback(request) {
   } catch (_) {
     const cached = await runtimeCache.match(request);
     if (cached) return cached;
-    return caches.match('./index.html');
+    return (await caches.match('./index.html')) || caches.match('./offline.html');
   }
 }
 
@@ -109,7 +110,7 @@ async function staleWhileRevalidate(request) {
 
   const networkResponse = await networkFetch;
   if (networkResponse) return networkResponse;
-  return caches.match(request);
+  return (await caches.match(request)) || caches.match('./offline.html');
 }
 
 async function cacheFirstImages(request) {
