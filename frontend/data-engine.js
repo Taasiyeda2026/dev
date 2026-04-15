@@ -290,7 +290,9 @@ function hasRichSessionProfile(userState = {}) {
     && Object.keys(userState.Capabilities || {}).length > 0;
   const hasDefaultView = String(userState?.default_view || userState?.DefaultView || userState?.UiProfile || '').trim() !== '';
   const hasAllowedViews = Array.isArray(userState?.AllowedViews) && userState.AllowedViews.length > 0;
-  return hasCapabilities || hasDefaultView || hasAllowedViews;
+  const hasEditData = String(userState?.EditScope || '').trim() !== ''
+    || Object.keys(userState?.Capabilities || {}).some((k) => k.startsWith('edit_'));
+  return (hasCapabilities || hasDefaultView || hasAllowedViews) && hasEditData;
 }
 
 function mapSessionPermissionRow(userState = {}) {
