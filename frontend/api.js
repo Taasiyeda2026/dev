@@ -1,4 +1,4 @@
-const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbycfy4OHiEOWeoCM-SUC1emMTqHYuWMfafwHs7nHkPBbBpZ8OyDynAP8p1UXsGJ_Mkhcg/exec';
+const DEFAULT_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxe8tTVquQLr-VtsVyMMTJB4ZGOAMIdtwEWdQWLuRc14pokaSEgG0N0ssbjgPHqFkUY-w/exec';
 const WEB_APP_URL = (globalThis.__WEB_APP_URL__ && String(globalThis.__WEB_APP_URL__).trim()) || DEFAULT_WEB_APP_URL;
 const actionCache = new Map();
 
