@@ -349,7 +349,7 @@ export async function loadContacts() {
 
 export async function loadEditRequests(force = false) {
   if (!force && dataStore.editRequests.length) return dataStore.editRequests;
-  dataStore.editRequests = await fetchSheet(SHEET_NAMES.OPERATIONS_DATA);
+  dataStore.editRequests = await fetchSheet(SHEET_NAMES.EDIT_REQUESTS);
   dataStore.loadedAt.editRequests = now();
   return dataStore.editRequests;
 }

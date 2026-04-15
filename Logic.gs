@@ -579,10 +579,10 @@ var Logic = (function () {
         data: {
           RowID: courseId,
           CourseID: courseId,
-          mode: mode,
-          shiftGroupId: shiftGroupId,
-          monthEndChanged: syncResult.monthEndChanged,
-          financeRefreshed: financeRefreshed,
+          mode: 'DIRECT_UPDATE',
+          shiftGroupId: '',
+          monthEndChanged: idxEnd > -1,
+          financeRefreshed: false,
           items: refreshed.data.items
         }
       };
@@ -744,36 +744,42 @@ var Logic = (function () {
     if (!isEden_(session.user) && !isIdan_(session.user)) return Utils.safeMessage('אין הרשאה.');
 
     try {
-      var table = Utils.readTable(CONFIG.SHEETS.OPERATIONS_DATA, false);
+      var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, false);
       if (!table.sheet || !table.headers.length) return { success: true, data: { items: [], counters: {} } };
       var idx = resolveRequestIndexes_(table.headers);
       var query = Utils.asObject(payload, {});
       var limit = Math.max(1, Math.min(Number(query.limit || 250), 500));
       var offset = Math.max(0, Number(query.offset || 0));
       var items = table.rows.filter(function (row) {
-        return Boolean(valueAt_(row, idxWorkflow));
+        var status = Utils.toKey(valueAt_(row, idx.approvalStatus));
+        return status === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_EDEN)
+          || status === Utils.toKey(EDEN_WORKFLOW_STATUSES.EDEN_SAVED)
+          || status === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_FINAL)
+          || status === Utils.toKey(EDEN_WORKFLOW_STATUSES.FINAL_APPROVED)
+          || status === Utils.toKey(EDEN_WORKFLOW_STATUSES.FINAL_REJECTED)
+          || status === Utils.toKey(EDEN_WORKFLOW_STATUSES.CLOSED);
       }).map(function (row) {
-        var rowObj = Utils.rowToObject(table.headers, row, 0);
-        var requested = extractEdenDraftFromRow_(rowObj);
-        var source = extractEdenSourceFromRow_(rowObj);
-        var courseId = valueAt_(row, idxCourseId);
-        var linkedRequest = reqMap[Utils.toKey(courseId)] || null;
+        var requestId = valueAt_(row, idx.requestId);
+        var courseId = valueAt_(row, idx.courseId);
+        var requested = Utils.asObject(Utils.parseJson(valueAt_(row, idx.requestedData)), {});
+        var source = Utils.asObject(Utils.parseJson(valueAt_(row, idx.originalData)), {});
+        var sourceChanged = hasMasterChangedAfterSourceSnapshot_(courseId, source);
         return {
-          RequestID: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestId) : '',
+          RequestID: requestId,
           RowID: courseId,
           CourseID: courseId,
-          Origin: linkedRequest ? valueAt_(linkedRequest, reqIdx.origin) : '',
-          ChangeType: linkedRequest ? valueAt_(linkedRequest, reqIdx.changeType) : '',
-          ApprovalStatus: valueAt_(row, idxWorkflow),
+          Origin: valueAt_(row, idx.origin),
+          ChangeType: valueAt_(row, idx.changeType),
+          ApprovalStatus: valueAt_(row, idx.approvalStatus),
           RequestedData: Utils.safeJson(requested),
           SourceData: Utils.safeJson(source),
-          EdenNotes: valueAt_(row, idxNotes),
-          HasDiffBetweenSourceAndEden: valueAt_(row, idxHasDiff),
-          HasMasterChangedAfterEdenEdit: valueAt_(row, idxHasMasterChanged),
-          SentToAdminAt: valueAt_(row, idxSentToAdminAt),
-          EdenLastSavedAt: valueAt_(row, idxEdenLastSavedAt),
-          RequestedBy: linkedRequest ? valueAt_(linkedRequest, reqIdx.requestedBy) : '',
-          OriginalData: linkedRequest ? valueAt_(linkedRequest, reqIdx.originalData) : ''
+          EdenNotes: valueAt_(row, idx.approvalNotes),
+          HasDiffBetweenSourceAndEden: hasBusinessChanges_(requested, source),
+          HasMasterChangedAfterEdenEdit: sourceChanged,
+          SentToAdminAt: valueAt_(row, idx.edenApprovedAt),
+          EdenLastSavedAt: valueAt_(row, idx.requestedAt),
+          RequestedBy: valueAt_(row, idx.requestedBy),
+          OriginalData: valueAt_(row, idx.originalData)
         };
       }).slice(offset, offset + limit);
       var counters = {
@@ -789,6 +795,9 @@ var Logic = (function () {
         if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_EDEN)) counters.pending_eden += 1;
         if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.EDEN_SAVED)) counters.eden_saved += 1;
         if (wfKey === Utils.toKey(EDEN_WORKFLOW_STATUSES.PENDING_FINAL)) counters.pending_final += 1;
+        if (item.HasMasterChangedAfterEdenEdit) counters.master_changed_warning += 1;
+        if (Utils.toKey(item.Origin) === Utils.toKey(EDEN_CHANGE_ORIGINS.REQUEST)) counters.request_origin += 1;
+        if (Utils.toKey(item.Origin) === Utils.toKey(EDEN_CHANGE_ORIGINS.EDEN_INITIATED)) counters.eden_initiated_origin += 1;
       });
       return { success: true, data: { items: items, counters: counters } };
     } catch (err) {
@@ -1044,7 +1053,9 @@ var Logic = (function () {
       if (Utils.toKey(valueAt_(row, idx.courseId)) !== idKey) continue;
       if (excludeKey && Utils.toKey(valueAt_(row, idx.requestId)) === excludeKey) continue;
       var status = Utils.toKey(valueAt_(row, idx.approvalStatus));
-      if (status !== Utils.toKey(CONFIG.STATUSES.FINAL_APPROVED) && status !== Utils.toKey(CONFIG.STATUSES.DECLINED)) {
+      if (status !== Utils.toKey(CONFIG.STATUSES.FINAL_APPROVED)
+        && status !== Utils.toKey(CONFIG.STATUSES.DECLINED)
+        && status !== Utils.toKey(EDEN_WORKFLOW_STATUSES.CLOSED)) {
         return { row: row, rowNumber: table.rowNumbers[i] };
       }
     }
@@ -1075,6 +1086,8 @@ var Logic = (function () {
     if (normalized === Utils.toKey(CONFIG.STATUSES.PENDING_FINAL)) return CONFIG.STATUSES.PENDING_FINAL;
     if (normalized === Utils.toKey(CONFIG.STATUSES.FINAL_APPROVED)) return CONFIG.STATUSES.FINAL_APPROVED;
     if (normalized === Utils.toKey(CONFIG.STATUSES.DECLINED)) return CONFIG.STATUSES.DECLINED;
+    if (normalized === Utils.toKey(EDEN_WORKFLOW_STATUSES.EDEN_SAVED)) return EDEN_WORKFLOW_STATUSES.EDEN_SAVED;
+    if (normalized === Utils.toKey(EDEN_WORKFLOW_STATUSES.CLOSED)) return EDEN_WORKFLOW_STATUSES.CLOSED;
     if (normalized === Utils.toKey(CONFIG.STATUSES.PENDING_EDEN) || normalized === Utils.toKey('pending')) return CONFIG.STATUSES.PENDING_EDEN;
     if (Utils.toKey(fallback) === Utils.toKey(CONFIG.STATUSES.DRAFT)) return CONFIG.STATUSES.DRAFT;
     return CONFIG.STATUSES.PENDING_EDEN;
@@ -1328,20 +1341,31 @@ var Logic = (function () {
     if (!session.success) return session;
     var requestId = Utils.normalize(body.RequestID || body.request_id);
     if (!requestId) return Utils.safeMessage('RequestID הוא שדה חובה.');
-    var table = Utils.readTable(CONFIG.SHEETS.OPERATIONS_DATA, true);
+    var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
     var idx = resolveRequestIndexes_(table.headers);
     var found = findRequestById_(table, idx.requestId, requestId);
     if (!found) return Utils.safeMessage('הבקשה לא נמצאה.');
     var row = found.row.slice();
     var op = Utils.toKey(body.operation);
     if (op === Utils.toKey('EDEN_SAVE')) {
+      if (idx.requestedData > -1 && body.RequestedData) {
+        row[idx.requestedData] = Utils.safeJson(Utils.asObject(body.RequestedData, {}));
+      }
       if (idx.approvalNotes > -1) row[idx.approvalNotes] = Utils.normalize(body.EdenNotes || body.operations_notes || body.ApprovalNotes);
       if (idx.approvalStatus > -1) row[idx.approvalStatus] = EDEN_WORKFLOW_STATUSES.EDEN_SAVED;
+      if (idx.requestStatus > -1) row[idx.requestStatus] = EDEN_WORKFLOW_STATUSES.EDEN_SAVED;
     } else if (op === Utils.toKey('EDEN_SUBMIT_ADMIN')) {
       if (idx.approvalStatus > -1) row[idx.approvalStatus] = CONFIG.STATUSES.PENDING_FINAL;
+      if (idx.requestStatus > -1) row[idx.requestStatus] = CONFIG.STATUSES.PENDING_FINAL;
       if (idx.edenApprovedAt > -1) row[idx.edenApprovedAt] = Utils.nowIso();
+    } else if (op === Utils.toKey('EDEN_REFRESH_SOURCE')) {
+      var courseId = Utils.normalize(valueAt_(row, idx.courseId));
+      var snapshot = getCourseSnapshotById_(courseId);
+      if (idx.originalData > -1 && snapshot) row[idx.originalData] = Utils.safeJson(snapshot);
+    } else {
+      return Utils.safeMessage('פעולת Eden לא נתמכת.');
     }
-    Utils.updateRow(CONFIG.SHEETS.OPERATIONS_DATA, found.rowNumber, row);
+    Utils.updateRow(CONFIG.SHEETS.EDIT_REQUESTS, found.rowNumber, row);
     return { success: true, data: projectRequestForFrontend_(row, idx) };
   }
 
@@ -1412,7 +1436,12 @@ var Logic = (function () {
   }
 
   function syncRequestToEdenDataMaster_(requestRecord) {
-    return;
+    if (!requestRecord || !requestRecord.RequestID) return false;
+    return updateEdenWorkflowByRequestId_(requestRecord.RequestID, requestRecord.ApprovalStatus || CONFIG.STATUSES.PENDING_EDEN, {
+      requestedData: requestRecord.RequestedData,
+      originalData: requestRecord.OriginalData,
+      approvalNotes: requestRecord.ApprovalNotes
+    });
   }
   function buildEdenRowFromRequest_(requestRecord) {
     var source = getCourseSnapshotById_(requestRecord.CourseID) || {};
@@ -1441,7 +1470,7 @@ var Logic = (function () {
   }
 
   function ensureEdenDataMasterSheet_() {
-    return { sheet: null, headers: [], rows: [], rowNumbers: [] };
+    return Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
   }
   function findRowByRequestId_(table, idxRequestId, requestId) {
     if (idxRequestId === -1) return null;
@@ -1607,7 +1636,20 @@ var Logic = (function () {
     }
   }
   function updateEdenWorkflowByRequestId_(requestId, workflowStatus, extraFields) {
-    return false;
+    var table = Utils.readTable(CONFIG.SHEETS.EDIT_REQUESTS, true);
+    var idx = resolveRequestIndexes_(table.headers);
+    var found = findRequestById_(table, idx.requestId, requestId);
+    if (!found) return false;
+    var row = found.row.slice();
+    if (idx.approvalStatus > -1) row[idx.approvalStatus] = workflowStatus;
+    if (idx.requestStatus > -1) row[idx.requestStatus] = workflowStatus;
+    var extras = Utils.asObject(extraFields, {});
+    if (idx.requestedData > -1 && extras.requestedData) row[idx.requestedData] = Utils.safeJson(Utils.asObject(extras.requestedData, {}));
+    if (idx.originalData > -1 && extras.originalData) row[idx.originalData] = Utils.safeJson(Utils.asObject(extras.originalData, {}));
+    if (idx.approvalNotes > -1 && extras.approvalNotes !== undefined) row[idx.approvalNotes] = Utils.normalize(extras.approvalNotes);
+    if (idx.edenApprovedAt > -1 && Utils.toKey(workflowStatus) === Utils.toKey(CONFIG.STATUSES.PENDING_FINAL)) row[idx.edenApprovedAt] = Utils.nowIso();
+    Utils.updateRow(CONFIG.SHEETS.EDIT_REQUESTS, found.rowNumber, row);
+    return true;
   }
   function resolveMeetingIndexes_(headers) {
     return {
@@ -1682,17 +1724,31 @@ var Logic = (function () {
     return out;
   }
   function createMeetingRow_(courseId, meetingNumber, dateValue, startTime, endTime, status) {
+    var meetingId = [Utils.normalize(courseId), String(meetingNumber)].join('-M');
     return {
       MeetingID: meetingId,
-      RowID: meetingId,
       RowID: courseId,
-          CourseID: courseId,
+      CourseID: courseId,
       MeetingNumber: meetingNumber,
       MeetingDate: stripTime_(dateValue),
       StartTime: startTime || '',
       EndTime: endTime || '',
       MeetingStatus: status || ''
     };
+  }
+
+  function hasMasterChangedAfterSourceSnapshot_(courseId, sourceSnapshot) {
+    if (!courseId) return false;
+    var latest = getCourseSnapshotById_(courseId);
+    if (!latest) return false;
+    var source = Utils.asObject(sourceSnapshot, {});
+    var latestKeys = Object.keys(latest);
+    for (var i = 0; i < latestKeys.length; i += 1) {
+      var key = latestKeys[i];
+      if (Utils.toKey(key) === 'rownumber') continue;
+      if (Utils.normalize(latest[key]) !== Utils.normalize(source[key])) return true;
+    }
+    return false;
   }
   function syncCourseMeetingsToDataMaster_(courseId) {
     var table = Utils.readTable(CONFIG.SHEETS.DATA_MASTER, true);
