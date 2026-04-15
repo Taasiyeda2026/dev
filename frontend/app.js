@@ -690,12 +690,7 @@ function getHeaderKpis(route = currentRoute, context = {}) {
     ];
   }
   if (route === 'dashboard') {
-    const d = context.dashboard || viewState.dashboard.data || {};
-    return [
-      { label: 'קורסים פעילים', value: d.activeThisMonthCount || 0 },
-      { label: 'סה"כ חריגות', value: d.totalExceptionsCount || 0 },
-      { label: 'כמות מדריכים', value: d.instructorsCount || 0 }
-    ];
+    return [];
   }
   if (route === 'courses' || route === 'instructor-view') {
     return [
