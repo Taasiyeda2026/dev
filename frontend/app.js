@@ -2764,7 +2764,7 @@ function renderCourseDetailsPanel(course, options = {}) {
           <td>${esc(`${formatTimeValue(item.StartTime || course[COURSE_FIELDS.START_TIME])}-${formatTimeValue(item.EndTime || course[COURSE_FIELDS.END_TIME])}`)}</td>
           <td>${esc(String(item.MeetingStatus || '-'))}</td>
           <td>${esc(String(item.ChangeNote || '-'))}</td>
-          <td><button class="btn btn-tertiary" data-edit-meeting="${escAttr(`${course.CourseID}::${meetingNumber}`)}" data-meeting-date="${escAttr(meetingDate ? meetingDate.toISOString().slice(0, 10) : '')}">שינוי</button></td>
+          <td><button class="btn btn-tertiary" data-edit-meeting="${escAttr(`${course.CourseID}::${meetingNumber}`)}" data-meeting-date="${escAttr(meetingDate ? formatIsoDateLocal(meetingDate) : '')}">שינוי</button></td>
         </tr>`;
       }).join('') : '<tr><td colspan="8">אין תאריכי מפגש</td></tr>'}
     </tbody></table></div>
@@ -2997,7 +2997,7 @@ function openCourseActionForm(course, mode) {
     const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
       const n = i + 1;
       const rawVal = course[`Date${n}`];
-      const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? d.toISOString().slice(0, 10) : ''; })() : '';
+      const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? formatIsoDateLocal(d) : ''; })() : '';
       return `<div class="caf-date-row">
         <span class="caf-date-label">מפגש ${n}</span>
         <input class="caf-date-input" id="courseFormDate${n}" type="date" value="${escAttr(isoVal)}" data-meeting-num="${n}" />
@@ -3038,7 +3038,7 @@ function openCourseActionForm(course, mode) {
       Array.from({ length: planned }, (_, i) => i + 1).forEach((n) => {
         const val = root.querySelector(`#courseFormDate${n}`)?.value.trim() || '';
         const origRaw = course[`Date${n}`];
-        const origIso = origRaw ? (() => { const d = parseDateLike(origRaw); return d ? d.toISOString().slice(0, 10) : ''; })() : '';
+        const origIso = origRaw ? (() => { const d = parseDateLike(origRaw); return d ? formatIsoDateLocal(d) : ''; })() : '';
         if (val !== origIso) changes[`Date${n}`] = val;
       });
       close({ changes });
