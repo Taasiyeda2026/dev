@@ -418,7 +418,7 @@ function isIdan() { return isAdminUser(); }
 function isEden() { return hasCapability('view_operations_data') || hasCapability('edit_operations_data'); }
 function isManager() { return hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month'); }
 function canEditMasterCourses() {
-  if (isAdminUser() && runtimeRules.allowAdminDirectDataEdit) return true;
+  if (isAdminUser()) return true;
   return actionMode() === 'edit' || hasCapability('edit_activities') || hasCapability('edit_week') || hasCapability('edit_month');
 }
 function canRequestEditCourses() {
