@@ -1645,19 +1645,20 @@ function renderEdenQueue(queue = []) {
           <span class="status-chip ${statusClass(row.ApprovalStatus)}">${statusLabel(row.ApprovalStatus)}</span>
         </div>
         <div class="card-meta">
-          <span>CourseID: ${esc(row.CourseID || '-')}</span>
-          <span>מקור: ${esc(row.Origin || 'REQUEST')}</span>
-          <span>סוג: ${esc(row.ChangeType || 'UPDATE_EXISTING')}</span>
+          <span>מזהה: ${esc(row.CourseID || '-')}</span>
+          <span>מקור: ${esc(edenOriginLabel(row.Origin))}</span>
+          <span>סוג: ${esc(edenChangeTypeLabel(row.ChangeType))}</span>
           <span>רשות: ${esc(edenRow?.Authority || sourceRow?.Authority || '-')}</span>
           <span>בית ספר: ${esc(edenRow?.School || sourceRow?.School || '-')}</span>
           <span>מדריך: ${esc(edenRow?.Instructor || sourceRow?.Instructor || '-')}</span>
-          <span>${hasDiff ? 'Δ יש פער בין מקור לטיוטה' : 'ללא פערים'}</span>
+          ${hasDiff ? '<span>יש שינויים בין גרסאות</span>' : ''}
           ${warning}
         </div>
-        <details open><summary>לפני / אחרי</summary>
-          <div class="table-wrap compact-table"><table><tbody>
-          ${compared.map((item) => `<tr class="${item.changed ? 'row-changed' : ''}">
-            <th>${esc(item.field)}</th><td>${esc(item.source)}</td><td>${esc(item.eden)}</td></tr>`).join('')}
+        <details open><summary>שינויים (${compared.filter(i => i.changed).length})</summary>
+          <div class="table-wrap compact-table"><table><thead><tr><th>שדה</th><th>לפני</th><th>אחרי</th></tr></thead><tbody>
+          ${compared.filter(i => i.changed).map((item) => `<tr class="row-changed">
+            <th>${esc(item.field)}</th><td>${esc(item.source)}</td><td>${esc(item.eden)}</td></tr>`).join('')
+            || '<tr><td colspan="3">אין שינויים</td></tr>'}
           </tbody></table></div>
         </details>
         <div class="card-meta"><span>שמירה אחרונה: ${esc(formatDate(parseDateLike(row.EdenLastSavedAt)) || row.EdenLastSavedAt || '-')}</span><span>נשלח לאדמין: ${esc(formatDate(parseDateLike(row.SentToAdminAt)) || row.SentToAdminAt || '-')}</span></div>
@@ -1672,14 +1673,40 @@ function renderEdenQueue(queue = []) {
   </section>`;
 }
 
+const EDEN_FIELD_LABELS = {
+  CourseID: 'מזהה קורס', Program: 'תוכנית', EventType: 'סוג אירוע', Authority: 'רשות', School: 'בית ספר',
+  Instructor: 'מדריך', ActivityManager: 'מנהל פעילות', StartDate: 'תאריך התחלה', EndDate: 'תאריך סיום',
+  StartTime: 'שעת התחלה', EndTime: 'שעת סיום', Sessions: 'מספר מפגשים', Notes: 'הערות',
+  Period: 'תקופה', MonthStart: 'תחילת חודש', MonthEnd: 'סוף חודש', Status: 'סטטוס',
+  ApprovalStatus: 'סטטוס אישור', ChangeSummary: 'סיכום שינוי', ChangeType: 'סוג שינוי',
+  Origin: 'מקור', Grade: 'כיתה', Population: 'אוכלוסייה', City: 'עיר', Region: 'אזור',
+  ...Object.fromEntries(Array.from({ length: 34 }, (_, i) => [`Date${i + 2}`, `תאריך ${i + 2}`]))
+};
+const EDEN_SKIP_FIELDS = new Set([
+  'RequestID','WorkflowStatus','EdenNotes','RowID','emp_id','manager','activity_no',
+  '_rowNumber','status','operations_notes','ReviewHandledBy','ReviewHandledAt'
+]);
+function edenFieldLabel(field) {
+  return EDEN_FIELD_LABELS[field] || field;
+}
+function edenOriginLabel(origin) {
+  if (String(origin || '').toUpperCase() === 'EDEN_INITIATED') return 'יוזמת עדן';
+  if (String(origin || '').toUpperCase() === 'REQUEST') return 'בקשת מנהל';
+  return origin || 'בקשת מנהל';
+}
+function edenChangeTypeLabel(type) {
+  if (String(type || '').toUpperCase() === 'UPDATE_EXISTING') return 'עדכון רשומה';
+  if (String(type || '').toUpperCase() === 'NEW_RECORD') return 'רשומה חדשה';
+  return type || 'עדכון';
+}
 function buildEdenComparedRows(source = {}, eden = {}) {
   const keys = new Set([...Object.keys(source || {}), ...Object.keys(eden || {})]);
   return Array.from(keys)
-    .filter((field) => !String(field).startsWith('_') && !['RequestID', 'WorkflowStatus', 'EdenNotes'].includes(String(field)))
+    .filter((field) => !String(field).startsWith('_') && !EDEN_SKIP_FIELDS.has(String(field)))
     .map((field) => {
       const sourceText = String(source?.[field] ?? '');
       const edenText = String(eden?.[field] ?? '');
-      return { field, source: sourceText || '-', eden: edenText || '-', changed: sourceText !== edenText };
+      return { field: edenFieldLabel(field), source: sourceText || '-', eden: edenText || '-', changed: sourceText !== edenText };
     });
 }
 
