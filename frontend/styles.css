@@ -1340,15 +1340,25 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   font-size: 12px;
 }
 .ci-meta strong { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 1px; }
-.ci-meetings { display: flex; flex-wrap: wrap; gap: 6px; }
+.ci-meetings {
+  display: grid;
+  grid-template-columns: repeat(8, max-content);
+  gap: 6px;
+}
 .ci-chip {
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  border-radius: 99px;
-  padding: 3px 10px 3px 5px;
+  gap: 2px;
+  border-radius: 8px;
+  padding: 5px 8px;
   font-size: 11px;
   border: 1px solid var(--border);
+}
+.ci-chip-day {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
 }
 .ci-chip-num {
   display: inline-flex;
@@ -1364,9 +1374,11 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .ci-chip--done   { background: #f0fdf4; border-color: #86efac; }
 .ci-chip--done   .ci-chip-num { background: #22c55e; color: #fff; }
 .ci-chip--done   .ci-chip-date { color: #15803d; }
+.ci-chip--done   .ci-chip-day  { color: #15803d; }
 .ci-chip--future { background: #eff6ff; border-color: #bfdbfe; }
 .ci-chip--future .ci-chip-num { background: var(--accent); color: #fff; }
 .ci-chip--future .ci-chip-date { color: #1d4ed8; }
+.ci-chip--future .ci-chip-day  { color: #3b82f6; }
 .ci-chip--pending { background: var(--surface-2); border-color: var(--border); }
 .ci-chip--pending .ci-chip-num { background: var(--text-muted); color: #fff; }
 .ci-chip--pending .ci-chip-date { color: var(--text-muted); font-style: italic; }

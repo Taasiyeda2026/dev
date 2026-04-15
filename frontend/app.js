@@ -2056,7 +2056,13 @@ function buildCourseHierarchyDetails(row = {}) {
     nextMeetingDate: meetingStats.nextMeetingDate ? formatDate(meetingStats.nextMeetingDate) : '',
     isCompleted: meetingStats.isCompleted,
     endDate: formatDate(parseDateLike(getCourseField(row, COURSE_FIELDS.END))) || '',
-    dayName: getCourseField(row, COURSE_FIELDS.DAY_NAME || 'DayName'),
+    dayName: (() => {
+      const fromField = getCourseField(row, COURSE_FIELDS.DAY_NAME || 'DayName');
+      if (fromField) return fromField;
+      const firstDateField = (COURSE_DATE_FIELDS || [])[0] || 'Date1';
+      const firstDate = parseDateLike(courseMeetingDateRaw(row, firstDateField));
+      return firstDate ? firstDate.toLocaleDateString('he-IL', { weekday: 'long' }) : '';
+    })(),
     timeLabel: `${formatTimeValue(getCourseField(row, COURSE_FIELDS.START_TIME))}-${formatTimeValue(getCourseField(row, COURSE_FIELDS.END_TIME))}`
   };
 }
@@ -2159,7 +2165,8 @@ function renderCourseInlineDetails(row) {
     const dateStr = d ? formatDate(d) : 'טרם נקבע';
     const isPast = d ? endOfDay(d) < now : false;
     const cls = !d ? 'ci-chip--pending' : isPast ? 'ci-chip--done' : 'ci-chip--future';
-    return `<span class="ci-chip ${cls}"><span class="ci-chip-num">${i + 1}</span><span class="ci-chip-date">${esc(dateStr)}</span></span>`;
+    const dayStr = d ? d.toLocaleDateString('he-IL', { weekday: 'short' }) : '';
+    return `<span class="ci-chip ${cls}"><span class="ci-chip-num">${i + 1}</span><span class="ci-chip-date">${esc(dateStr)}</span>${dayStr ? `<span class="ci-chip-day">${esc(dayStr)}</span>` : ''}</span>`;
   }).join('');
   return `<tr class="course-inline-details-row"><td colspan="11" class="course-inline-details-cell">
     <div class="course-inline-details">
