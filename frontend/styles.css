@@ -1310,16 +1310,13 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.courses-table-styled thead th:first-child   { border-radius: 0 var(--radius-sm) 0 0; width: 36px; }
-.courses-table-styled thead th:last-child    { border-radius: var(--radius-sm) 0 0 0; width: 110px; }
-.courses-table-styled thead th:nth-child(2),
-.courses-table-styled thead th:nth-child(3),
-.courses-table-styled thead th:nth-child(4) { width: 18%; }
-.courses-table-styled thead th:nth-child(5) { width: 76px; }
-.courses-table-styled thead th:nth-child(6) { width: 68px; }
+.courses-table-styled thead th:first-child  { border-radius: 0 var(--radius-sm) 0 0; width: 32px; }
+.courses-table-styled thead th:last-child   { border-radius: var(--radius-sm) 0 0 0; width: 108px; }
+.courses-table-styled thead th:nth-child(5) { width: 78px; }
+.courses-table-styled thead th:nth-child(6) { width: 66px; }
 .courses-table-styled thead th:nth-child(7),
-.courses-table-styled thead th:nth-child(8) { width: 52px; text-align: center; }
-.courses-table-styled thead th:nth-child(9) { width: 70px; }
+.courses-table-styled thead th:nth-child(8) { width: 50px; text-align: center; }
+.courses-table-styled thead th:nth-child(9) { width: 68px; }
 .courses-table-styled tbody td { border-bottom: 1px solid var(--border); padding: 6px 6px; vertical-align: middle; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .courses-table-styled tbody tr:last-child td { border-bottom: none; }
 .courses-table-styled tbody tr:nth-child(odd) td { background: #ffffff; }
