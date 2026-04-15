@@ -4502,6 +4502,27 @@ function financeRowDateRaw(row, field) {
   return '';
 }
 
+function xlsXmlEsc(v) {
+  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function buildXlsXml(headers, dataRows, sheetName) {
+  const name = xlsXmlEsc(sheetName || 'גיליון1');
+  const headerRow = headers.map((h) => `<Cell><Data ss:Type="String">${xlsXmlEsc(h)}</Data></Cell>`).join('');
+  const bodyRows = dataRows.map((cells) =>
+    `<Row>${cells.map((c) => `<Cell><Data ss:Type="String">${xlsXmlEsc(String(c ?? ''))}</Data></Cell>`).join('')}</Row>`
+  ).join('');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="${name}"><Table><Row>${headerRow}</Row>${bodyRows}</Table></Worksheet></Workbook>`;
+}
+
+function downloadXls(xml, filename) {
+  const blob = new Blob(['\uFEFF' + xml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
 function exportFinanceRowDatesToExcel(item) {
   const programLine = String(item?.Course || item?.Program || item?.CourseID || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
   const today = endOfDay(new Date());
@@ -4521,14 +4542,9 @@ function exportFinanceRowDatesToExcel(item) {
   if (!dates.length) { showToast('לא נמצאו תאריכים לשורה זו', 'error'); return; }
   const headers = ['#', 'תאריך', 'סטטוס'];
   const dataRows = dates.map(({ num, date, past }) => [num, date, past ? 'בוצע' : 'מתוכנן']);
-  const tableHtml = `<table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((c) => `<td>${esc(String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   const safeProgram = programLine.replace(/[^\u05D0-\u05EAa-zA-Z0-9]/g, '_').slice(0, 30);
   const filename = `תאריכים_${safeProgram}_${formatIsoDateLocal(new Date())}.xls`;
-  const blob = new Blob([`\uFEFF${tableHtml}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
+  downloadXls(buildXlsXml(headers, dataRows, 'תאריכים'), filename);
 }
 
 function exportFinanceToExcel(rows, filename) {
@@ -4572,12 +4588,7 @@ function exportFinanceToExcel(rows, filename) {
       ...dateHeaders.map((field) => String(performedDates[field] || ''))
     ];
   });
-  const html = `<table><thead><tr>${headers.map((header) => `<th>${esc(header)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((cell) => `<td>${esc(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-  const blob = new Blob([`\uFEFF${html}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  a.click();
+  downloadXls(buildXlsXml(headers, dataRows, 'כספים'), filename);
 }
 
 function formatIsoDateLocal(date) {
