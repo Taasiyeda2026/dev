@@ -565,7 +565,7 @@ function render() {
     <div class="dashboard-canvas" style="--ui-scale:${getUiScaleForRoute(currentRoute)};">
       <div class="layout ${sidebarOpen ? '' : 'sidebar-collapsed'}">
         <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="פתיחת תפריט ניווט" aria-expanded="${mobileNavOpen ? 'true' : 'false'}">☰</button>
-        <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar" aria-hidden="${(!sidebarOpen && !isMobileViewport()) ? 'true' : 'false'}"><div class="brand">${APP_NAME}</div>
+        <aside class="sidebar ${mobileNavOpen ? 'open' : ''}" id="sidebar" aria-hidden="${(!sidebarOpen && !isMobileViewport()) ? 'true' : 'false'}"><div class="brand"><img class="brand-logo" src="./assets/logo-white.png" alt="" aria-hidden="true" /><span class="brand-name">${APP_NAME}</span></div>
         <div class="sidebar-user">${esc(userState.displayName || userState.userId)}</div>
         <div class="sidebar-role">${esc(displayRole())}</div><nav class="nav-list">
         ${buildMenuNavigation()}
