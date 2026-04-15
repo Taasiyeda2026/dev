@@ -755,8 +755,10 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
   const backBtn = (homeRoute && HIDDEN_IN_HOME_ROUTES.has(route))
     ? `<button class="btn-back-home" type="button" data-back-home="${escAttr(homeRoute)}">&#x2192; חזור</button>`
     : '';
+  const toggleBtn = `<button class="app-top-header-toggle screen-top-toggle" id="topSubbarToggle" type="button" aria-label="${sidebarOpen ? 'סגור סרגל צד' : 'פתח סרגל צד'}"><span class="app-top-header-arrow" aria-hidden="true">${sidebarOpen ? '⇥' : '⇤'}</span></button>`;
   return `<section class="screen-top-unified">
     <div class="screen-top-main">
+      ${toggleBtn}
       ${backBtn}
       <h1>${esc(routeLabels[route] || routeLabels.dashboard)}</h1>
       ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}

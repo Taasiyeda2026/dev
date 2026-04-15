@@ -249,17 +249,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 }
 
 .app-top-header {
-  min-height: 64px;
-  padding: 10px 24px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  position: sticky;
-  top: 0;
-  z-index: 30;
+  display: none;
 }
 
 .app-top-header-brand-wrap {
@@ -316,11 +306,18 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
 .app-top-header-toggle:hover {
   background: var(--surface-2);
   color: var(--text-primary);
+}
+
+.screen-top-toggle {
+  order: -1;
+  margin-left: auto;
 }
 
 .app-top-header-arrow {
@@ -354,6 +351,11 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   border-radius: var(--radius-md);
   background: var(--surface);
   display: grid;
+  gap: 10px;
+}
+.screen-top-main {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 .screen-top-main h1 {
