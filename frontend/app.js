@@ -564,6 +564,18 @@ function render() {
     return;
   }
 
+  const existingLayout = document.getElementById('sidebar');
+  if (existingLayout) {
+    const layout = document.querySelector('.layout');
+    if (layout) layout.className = `layout ${sidebarOpen ? '' : 'sidebar-collapsed'}`;
+    document.querySelectorAll('.nav-btn[data-route]').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.route === currentRoute);
+    });
+    renderScreen();
+    document.getElementById('topSubbarToggle')?.addEventListener('click', toggleHeaderSidebarControl);
+    return;
+  }
+
   app.innerHTML = `<div class="dashboard-viewport">
     <div class="dashboard-canvas" style="--ui-scale:${getUiScaleForRoute(currentRoute)};">
       <div class="layout ${sidebarOpen ? '' : 'sidebar-collapsed'}">
