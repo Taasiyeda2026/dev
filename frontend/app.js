@@ -1461,6 +1461,7 @@ function renderScreen() {
     }) + panel({ ...viewState.requests, data: rows }, 'אין בקשות.',
       table(rows, [['CourseLabel','קורס'],['OriginalDataView','לפני'],['RequestedDataView','אחרי'],['ApprovalStatus','סטטוס'],['ApprovalNotes','הערות']], canEditMasterCourses()));
     bindUnifiedScreenHeader('my-requests');
+    if (canEditMasterCourses()) bindEditButtons();
     return;
   }
 
@@ -1690,7 +1691,7 @@ function table(rows, cols, canEdit, canApprove, isApplyMode = false) {
     const tdClass = WRAP_TABLE_FIELDS.has(fieldKey) ? 'cell-wrap' : '';
     if (fieldKey === 'ApprovalStatus') return `<td class="${tdClass}" title="${escAttr(textValue || '-')}"><span class="status-chip ${statusClass(rawValue)}">${statusLabel(rawValue)}</span></td>`;
     return `<td class="${tdClass}" title="${escAttr(textValue || '-')}">${renderCellContent(fieldKey, rawValue)}</td>`;
-  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${i}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${i}">${isApplyMode ? 'Apply to Master' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${i}">דחה</button>` : ''}</td></tr>`).join('');
+  }).join('')}<td>${canEdit ? `<button class="btn btn-secondary" data-edit-row="${escAttr(String(r.CourseID || ''))}">${canEditMasterCourses() ? 'עריכה' : 'שלח בקשת שינוי'}</button>` : canApprove ? `<button class="btn btn-primary" data-approve-row="${escAttr(String(r.RequestID || i))}">${isApplyMode ? 'Apply to Master' : 'שלח לאדמין'}</button> <button class="btn btn-secondary" data-reject-row="${escAttr(String(r.RequestID || i))}">דחה</button>` : ''}</td></tr>`).join('');
   return `<section class="table-wrap"><table><thead><tr>${cols.map((c) => `<th>${c[1]}</th>`).join('')}<th>פעולה</th></tr></thead><tbody>${body}</tbody></table></section>`;
 }
 
@@ -3378,7 +3379,8 @@ function bindApprovalButtons() {
 }
 
 async function doDecision(button, approved) {
-  const row = viewState.approvals.data[Number(button.dataset.approveRow || button.dataset.rejectRow)] || {};
+  const requestId = String(button.dataset.approveRow || button.dataset.rejectRow || '');
+  const row = viewState.approvals.data.find((r) => String(r.RequestID || '') === requestId) || viewState.approvals.data[Number(requestId)] || {};
   const fn = approved ? api.approveRequest : api.rejectRequest;
   let notes = '';
   if (!approved) {
@@ -4690,7 +4692,10 @@ function summarizeFinanceBuckets(rows = []) {
 }
 async function loadEdenView() {
   viewState.eden.loading = true; viewState.eden.error = ''; renderScreen();
-  const queueRes = await api.getEdenView();
+  const [queueRes] = await Promise.all([
+    api.getEdenView(),
+    ensureCoursesLoaded().catch(() => {})
+  ]);
   viewState.eden.loading = false;
   if (!queueRes?.success) {
     viewState.eden.error = queueRes?.message || 'לא ניתן לטעון את תצוגת עדן.';
