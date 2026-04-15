@@ -229,7 +229,7 @@ const ROUTE_CAPABILITY_MAP = {
   'my-requests': 'view_edit_requests',
   approvals: 'view_operations_data',
   'eden-view': 'view_operations_data',
-  'final-approvals': 'view_operations_data',
+  'final-approvals': 'view_final_approvals',
   'instructor-view': 'view_my_data',
   'operations-home': 'view_operations_data'
 };
