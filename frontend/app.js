@@ -400,6 +400,8 @@ function getStartupRoute() {
   if (!allowedRoutes.length) return 'login';
   const requested = normalizeDefaultRoute(getDefaultViewSource());
   if (requested && allowedRoutes.includes(requested)) return requested;
+  const home = getHomeRoute();
+  if (home && allowedRoutes.includes(home)) return home;
   return allowedRoutes[0];
 }
 function displayRole() {
