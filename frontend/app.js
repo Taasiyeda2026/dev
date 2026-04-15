@@ -917,7 +917,7 @@ function renderScreen() {
     const canEditPerms = canEditPermissions();
     main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות משתמשים', { itemsCount: perms.length })
       + panel(viewState.adminPermissions, 'אין נתוני הרשאות.',
-        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3>${canEditPerms ? '' : '<span class="status-chip status-none">תצוגה בלבד</span>'}</div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד</th><th>ברירת מחדל</th><th>פעיל</th><th>פירוט</th>${canEditPerms ? '<th>עריכה</th>' : ''}</tr></thead><tbody>
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3>${canEditPerms ? '' : '<span class="status-chip status-none">תצוגה בלבד</span>'}</div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד</th><th>מספר עובד</th><th>פעיל</th><th>פירוט</th>${canEditPerms ? '<th>עריכה</th>' : ''}</tr></thead><tbody>
           ${perms.map((row, idx) => {
       const summaryId = `perm-summary-${cssEscape(row.employeeId || row.employeeName || '')}`;
       const detailsId = `perm-details-${cssEscape(row.employeeId || row.employeeName || '')}`;
@@ -925,13 +925,14 @@ function renderScreen() {
       const editPermissions = mapCapabilityLabels(row.allowedEdits || row.editScope, 'edit');
       const viewPermsText = viewPermissions.length ? viewPermissions.join(', ') : 'ללא הרשאות צפייה';
       const editPermsText = editPermissions.length ? editPermissions.join(', ') : 'ללא הרשאות עריכה';
-      return `<tr class="permissions-summary-row" id="${summaryId}"><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole || row.systemRole || '-')}</td><td>${esc(row.defaultView || '-')}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td><td><button class="btn btn-secondary btn-xxs permissions-toggle-btn" type="button" data-perm-toggle="${escAttr(detailsId)}" aria-expanded="false" aria-controls="${detailsId}">פירוט</button></td>${canEditPerms ? `<td><button class="btn btn-secondary btn-xxs" type="button" data-edit-perm="${idx}">עריכה</button></td>` : ''}</tr>
+      const roleHeb = roleMap[row.systemRole] || row.displayRole || row.systemRole || '-';
+      const defaultViewHeb = routeLabels[row.defaultView] || row.defaultView || '-';
+      return `<tr class="permissions-summary-row" id="${summaryId}"><td>${esc(row.employeeName)}</td><td>${esc(roleHeb)}</td><td>${esc(row.employeeId || '-')}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td><td><button class="btn btn-secondary btn-xxs permissions-toggle-btn" type="button" data-perm-toggle="${escAttr(detailsId)}" aria-expanded="false" aria-controls="${detailsId}">פירוט</button></td>${canEditPerms ? `<td><button class="btn btn-secondary btn-xxs" type="button" data-edit-perm="${idx}">עריכה</button></td>` : ''}</tr>
       <tr class="permissions-details-row" id="${detailsId}" hidden><td colspan="${canEditPerms ? 6 : 5}"><div class="permission-details-grid">
-      <article><span>מספר עובד</span><strong>${esc(row.employeeId || '-')}</strong></article>
       <article><span>קוד כניסה</span><strong>${esc(row.entryCode || '-')}</strong></article>
-      <article><span>תפקיד</span><strong>${esc(row.displayRole || row.systemRole || '-')}</strong></article>
+      <article><span>תפקיד</span><strong>${esc(roleHeb)}</strong></article>
       <article><span>פעיל</span><strong>${row.activeFlag ? 'כן' : 'לא'}</strong></article>
-      <article><span>מסך ברירת מחדל</span><strong>${esc(row.defaultView || '-')}</strong></article>
+      <article><span>מסך ברירת מחדל</span><strong>${esc(defaultViewHeb)}</strong></article>
       <article class="permission-details-full"><span>הרשאות צפייה</span><strong>${esc(viewPermsText)}</strong></article>
       <article class="permission-details-full"><span>הרשאות עריכה</span><strong>${esc(editPermsText)}</strong></article>
       </div></td></tr>`;
