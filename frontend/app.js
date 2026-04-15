@@ -1115,25 +1115,39 @@ function renderScreen() {
   if (currentRoute === 'contacts') {
     const contactsRows = filterBySearch(viewState.contacts.data || [], ['name', 'mobile', 'email', 'address', 'employment'], 'contacts');
     const expandedRowKey = viewState.contacts.expandedRowKey || '';
+    const AVATAR_PALETTE = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899','#6366f1','#0ea5e9','#d97706'];
+    const avatarColor = (name) => { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff; return AVATAR_PALETTE[Math.abs(h) % AVATAR_PALETTE.length]; };
+    const initials = (name) => { const p = String(name || '').trim().split(/\s+/); return p.length >= 2 ? (p[0][0] + p[p.length - 1][0]) : String(name || '').slice(0, 2); };
     main.innerHTML = renderUnifiedScreenHeader('contacts', '', { itemsCount: contactsRows.length }) +
       panel(viewState.contacts, 'אין אנשי קשר להצגה.',
-        `<section class="table-shell contacts-table-shell"><table><thead><tr>
-          <th>שם</th><th>נייד</th><th>דוא״ל</th>
-        </tr></thead><tbody>
+        `<div class="contacts-grid">
           ${contactsRows.map((row, index) => {
             const rowKey = String(row._rowNumber || index);
             const isExpanded = expandedRowKey === rowKey;
-            return `<tr>
-              <td><button type="button" class="contact-name-toggle" data-contact-expand="${escAttr(rowKey)}">${esc(row.name || '-')}</button></td>
-              <td>${esc(row.mobile || '-')}</td>
-              <td><span class="contact-email-cell">${esc(row.email || '-')}<button type="button" class="btn btn-icon contact-copy-btn" data-copy-email="${escAttr(row.email || '')}" aria-label="העתקת אימייל" title="העתקת אימייל">⧉</button></span></td>
-            </tr>${isExpanded ? `<tr class="contact-details-row"><td colspan="3"><div class="contact-details">
-              <p><strong>כתובת:</strong> ${esc(row.address || '-')}</p>
-              <p><strong>סוג העסקה:</strong> ${esc(row.employment || '-')}</p>
-              ${canEditContacts() ? `<div class="contact-details-actions"><button class="btn btn-secondary" data-edit-contact="${index}">עריכה</button></div>` : ''}
-            </div></td></tr>` : ''}`;
+            const bg = avatarColor(row.name || '');
+            const ini = initials(row.name || '?');
+            return `<article class="contact-card${isExpanded ? ' contact-card--open' : ''}">
+              <div class="contact-card-head">
+                <div class="contact-avatar" style="background:${bg}">${esc(ini)}</div>
+                <div class="contact-card-body">
+                  <button type="button" class="contact-name-toggle" data-contact-expand="${escAttr(rowKey)}">${esc(row.name || '-')}</button>
+                  ${row.employment ? `<span class="contact-employment">${esc(row.employment)}</span>` : ''}
+                </div>
+                <div class="contact-card-quick">
+                  ${row.mobile ? `<a class="contact-action-icon" href="tel:${escAttr(row.mobile)}" title="חייג ל${escAttr(row.name || '')}">📞</a>` : ''}
+                  ${row.email ? `<button type="button" class="contact-action-icon" data-copy-email="${escAttr(row.email)}" title="העתק אימייל">✉️</button>` : ''}
+                </div>
+              </div>
+              ${isExpanded ? `<div class="contact-card-details">
+                ${row.mobile ? `<div class="contact-detail-item"><span class="contact-detail-icon">📱</span><span class="contact-detail-value">${esc(row.mobile)}</span></div>` : ''}
+                ${row.email ? `<div class="contact-detail-item"><span class="contact-detail-icon">✉️</span><span class="contact-detail-value">${esc(row.email)}</span></div>` : ''}
+                ${row.address ? `<div class="contact-detail-item"><span class="contact-detail-icon">📍</span><span class="contact-detail-value">${esc(row.address)}</span></div>` : ''}
+                ${row.employment ? `<div class="contact-detail-item"><span class="contact-detail-icon">💼</span><span class="contact-detail-value">${esc(row.employment)}</span></div>` : ''}
+                ${canEditContacts() ? `<div class="contact-details-actions"><button class="btn btn-secondary btn-sm" data-edit-contact="${index}">עריכה</button></div>` : ''}
+              </div>` : ''}
+            </article>`;
           }).join('')}
-        </tbody></table></section>`);
+        </div>`);
     document.querySelectorAll('[data-contact-expand]').forEach((btn) => btn.addEventListener('click', () => {
       const rowKey = btn.dataset.contactExpand || '';
       viewState.contacts.expandedRowKey = viewState.contacts.expandedRowKey === rowKey ? '' : rowKey;
