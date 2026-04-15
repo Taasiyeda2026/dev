@@ -2447,6 +2447,16 @@ a { color: var(--accent); text-decoration: none; }
   padding: 16px 18px;
 }
 .instructor-modal-card .panel-block-head {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  background: var(--surface);
+  margin-top: -16px;
+  padding-top: 16px;
+  margin-right: -18px;
+  margin-left: -18px;
+  padding-right: 18px;
+  padding-left: 18px;
   margin-bottom: 14px;
   padding-bottom: 12px;
   border-bottom: 2px solid var(--accent);
