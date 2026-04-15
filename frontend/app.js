@@ -109,7 +109,7 @@ const viewState = {
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
-  eden: { loading: false, error: '', data: { queue: [], exceptions: [], counters: {} }, filters: { workflow: '', origin: '', instructor: '', authority: '', school: '', search: '' }, activeTab: 'queue', courseFilters: { authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: '' } },
+  eden: { loading: false, error: '', data: { queue: [], exceptions: [], counters: {} }, filters: { workflow: '', origin: '', instructor: '', authority: '', school: '', search: '' }, activeTab: 'all', courseFilters: { authority: '', school: '', courseManager: '', employee: '', courseMonth: '', activityType: '' } },
   week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null, instructorPanel: null },
   month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '', program: '' }, selectedDate: '' },
   instructors: { loading: false, error: '', filters: { authority: '', courseManager: '', program: '' }, selectedInstructor: '' },
@@ -1508,7 +1508,10 @@ function renderScreen() {
 
   if (currentRoute === 'eden-view') {
     const queue = viewState.eden.data.queue || [];
-    const queueMap = Object.fromEntries(queue.map(q => [String(q.CourseID || ''), q]));
+    const activeStatuses = ['pending_eden', 'eden_saved'];
+    const queueMap = Object.fromEntries(
+      queue.filter(q => activeStatuses.includes(String(q.ApprovalStatus || ''))).map(q => [String(q.CourseID || ''), q])
+    );
     const activeTab = viewState.eden.activeTab || 'all';
     const cf = viewState.eden.courseFilters;
     const allCourses = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
