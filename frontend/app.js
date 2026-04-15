@@ -4298,6 +4298,10 @@ async function onLogin(event) {
   button.classList.add('is-loading');
   button.textContent = 'מתחבר...';
 
+  clearUserState();
+  resetClientDataStore();
+  api.clearCache?.();
+
   const res = await api.login({ userId, code });
   if (!res?.authenticated) {
     logUi('login_failed', { hasUserId: Boolean(userId), message: res?.message || '' });
