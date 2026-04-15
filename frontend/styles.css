@@ -366,7 +366,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   font-size: 13px;
   color: var(--text-secondary);
 }
-.btn-back-home {
+.btn-back-home,
+.btn-back-history {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -380,7 +381,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   width: fit-content;
   transition: background 0.15s, color 0.15s;
 }
-.btn-back-home:hover {
+.btn-back-home:hover,
+.btn-back-history:hover {
   background: var(--accent-soft);
   color: var(--accent);
   border-color: var(--accent);

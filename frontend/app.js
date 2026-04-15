@@ -40,6 +40,7 @@ const APP_NAME = 'Dashboard Taasiyeda';
 let currentRoute = 'login';
 let mobileNavOpen = false;
 let sidebarOpen = true;
+const routeHistory = [];
 const recentlyResolvedExceptions = new Set();
 let initEnginePromise = null;
 const SEARCH_RENDER_DEBOUNCE_MS = 180;
@@ -513,25 +514,36 @@ function resetCoursesNavFromMenu() {
   };
 }
 
-function setRoute(route) {
+function setRoute(route, { skipHistory = false } = {}) {
   const nextRoute = normalizeRouteAlias(route);
   if (!isAuth() && nextRoute !== 'login') {
     logUi('route_redirect_to_login', { reason: 'not_authenticated', from: nextRoute });
     currentRoute = 'login';
   } else if (nextRoute === 'login') {
     currentRoute = 'login';
+    routeHistory.length = 0;
   } else {
     const allowedRoutes = getAllowedRoutes();
     if (!allowedRoutes.includes(nextRoute)) {
       logUi('route_fallback_unauthorized', { requested: nextRoute, fallback: getFirstAllowedRoute() });
     }
-    currentRoute = allowedRoutes.includes(nextRoute) ? nextRoute : getFirstAllowedRoute();
+    const resolved = allowedRoutes.includes(nextRoute) ? nextRoute : getFirstAllowedRoute();
+    if (!skipHistory && currentRoute && currentRoute !== 'login' && currentRoute !== resolved) {
+      routeHistory.push(currentRoute);
+      if (routeHistory.length > 30) routeHistory.shift();
+    }
+    currentRoute = resolved;
   }
   mobileNavOpen = false;
   document.body.classList.remove('nav-open');
   render();
   triggerPageEnter();
   loadRouteData();
+}
+
+function goBack() {
+  const prev = routeHistory.pop();
+  if (prev) setRoute(prev, { skipHistory: true });
 }
 
 function render() {
@@ -759,8 +771,12 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
   const backBtn = (homeRoute && HIDDEN_IN_HOME_ROUTES.has(route))
     ? `<button class="btn-back-home" type="button" data-back-home="${escAttr(homeRoute)}">&#x2192; חזור</button>`
     : '';
+  const historyBackBtn = routeHistory.length > 0
+    ? `<button class="btn-back-history" type="button" id="historyBackBtn">&#x2192; חזור</button>`
+    : '';
   return `<section class="screen-top-unified">
     <div class="screen-top-main">
+      ${historyBackBtn}
       ${backBtn}
       <h1>${esc(routeLabels[route] || routeLabels.dashboard)}</h1>
       ${subtitle ? `<p>${esc(subtitle)}</p>` : ''}
@@ -778,6 +794,7 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
 }
 
 function bindUnifiedScreenHeader(route = currentRoute) {
+  document.getElementById('historyBackBtn')?.addEventListener('click', () => goBack());
   document.querySelectorAll('[data-back-home]').forEach((btn) => {
     btn.addEventListener('click', () => setRoute(btn.dataset.backHome));
   });
