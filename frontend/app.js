@@ -1791,16 +1791,19 @@ function getFinanceGroupingMeta(item = {}) {
 }
 
 function renderFinanceMeetingsRow(item, colSpan) {
-  const dates = (COURSE_DATE_FIELDS || []).map((field, idx) => {
+  const now = startOfDay(new Date());
+  const chips = (COURSE_DATE_FIELDS || []).map((field, idx) => {
     const raw = financeRowDateRaw(item, field);
     if (!String(raw || '').trim()) return null;
-    return { num: idx + 1, date: formatDate(parseDateLike(raw)) || String(raw) };
-  }).filter(Boolean);
-  if (!dates.length) return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><em>אין תאריכי ביצוע ברשומה זו.</em></td></tr>`;
-  const chips = dates.map(({ num, date }) =>
-    `<span class="finance-meeting-chip"><span class="finance-meeting-num">${num}</span><span class="finance-meeting-date">${esc(date)}</span></span>`
-  ).join('');
-  return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><div class="finance-meetings-grid">${chips}</div></td></tr>`;
+    const parsed = parseDateLike(raw);
+    const dateStr = parsed ? formatDate(parsed) : String(raw);
+    const dayStr = parsed ? parsed.toLocaleDateString('he-IL', { weekday: 'short' }) : '';
+    const isPast = parsed ? endOfDay(parsed) < now : false;
+    const cls = !parsed ? 'ci-chip--pending' : isPast ? 'ci-chip--done' : 'ci-chip--future';
+    return `<span class="ci-chip ${cls}"><span class="ci-chip-num">${idx + 1}</span><span class="ci-chip-date">${esc(dateStr)}</span>${dayStr ? `<span class="ci-chip-day">${esc(dayStr)}</span>` : ''}</span>`;
+  }).filter(Boolean).join('');
+  if (!chips) return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><em>אין תאריכי ביצוע ברשומה זו.</em></td></tr>`;
+  return `<tr><td colspan="${colSpan}" class="finance-meetings-inline"><div class="ci-meetings">${chips}</div></td></tr>`;
 }
 
 function renderFinanceTable(rows, options = {}) {
