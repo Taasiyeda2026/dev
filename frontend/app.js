@@ -91,7 +91,7 @@ async function ensureRuntimeRulesLoaded(force = false) {
 }
 
 const viewState = {
-  dashboard: { loading: false, error: '', data: null, timeframe: 'day' },
+  dashboard: { loading: false, error: '', data: null, timeframe: 'day', dashboardMonth: '' },
   courses: {
     loading: false,
     error: '',
@@ -981,6 +981,10 @@ function renderScreen() {
   if (currentRoute === 'dashboard') {
     const d = viewState.dashboard.data || {};
     const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
+    const dashMonth = viewState.dashboard.dashboardMonth || formatMonthInputLocal(new Date());
+    const dashMonthDate = parseMonthValue(dashMonth) || new Date();
+    const isCurrentMonth = dashMonth === formatMonthInputLocal(new Date());
+    const dashMonthLabel = dashMonthDate.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' });
     const allTopKpis = [
       { title: 'סך קורסים', value: d.totalCoursesCount || 0, filter: 'all_courses' },
       { title: 'סך סדנאות', value: d.workshopsCount || 0, filter: 'workshops_only' },
@@ -996,7 +1000,12 @@ function renderScreen() {
       })
       : allTopKpis;
     main.innerHTML = renderUnifiedScreenHeader('dashboard', '', { dashboard: d }) + `<div class="dashboard-home">` + panel(viewState.dashboard, 'אין נתונים.',
-      `<section class="kpi-section dashboard-kpi-top-section">
+      `<div class="dashboard-month-nav">
+        <button class="dash-month-btn" id="dashMonthPrev" type="button" aria-label="חודש קודם">&#x25C4;</button>
+        <span class="dash-month-label${isCurrentMonth ? ' dash-month-current' : ''}">${esc(dashMonthLabel)}${isCurrentMonth ? ' <small>החודש</small>' : ''}</span>
+        <button class="dash-month-btn" id="dashMonthNext" type="button" aria-label="חודש הבא">&#x25BA;</button>
+      </div>
+      <section class="kpi-section dashboard-kpi-top-section">
         <div class="dashboard-kpi-row-centered">
           <div class="kpi-grid dashboard-kpi-grid dashboard-kpi-grid-top">
             ${topKpis.map((item) => kpiCard(item.title, item.value, item.filter)).join('')}
@@ -1020,6 +1029,14 @@ function renderScreen() {
       </section>
       `) + `</div>`;
     document.querySelectorAll('[data-kpi-filter]').forEach((button) => button.addEventListener('click', () => onKpiClick(button.dataset.kpiFilter, button.dataset.kpiContext || '')));
+    document.getElementById('dashMonthPrev')?.addEventListener('click', () => {
+      viewState.dashboard.dashboardMonth = addMonthsToMonthString(viewState.dashboard.dashboardMonth || formatMonthInputLocal(new Date()), -1);
+      recomputeDashboardForMonth();
+    });
+    document.getElementById('dashMonthNext')?.addEventListener('click', () => {
+      viewState.dashboard.dashboardMonth = addMonthsToMonthString(viewState.dashboard.dashboardMonth || formatMonthInputLocal(new Date()), 1);
+      recomputeDashboardForMonth();
+    });
     bindUnifiedScreenHeader('dashboard');
     return;
   }
@@ -4540,7 +4557,24 @@ async function loadRouteData(loadToken = routeLoadToken) {
   if (currentRoute === 'eden-view') return loadEdenView();
 }
 
+function recomputeDashboardForMonth() {
+  if (!viewState.dashboard.data) return;
+  const snap = getStoreSnapshot();
+  if (!snap.courses.length) { renderScreen(); return; }
+  const allActivities = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
+  const allActivityCourses = allActivities.filter(isCourseActivity);
+  const courses = allActivityCourses.filter((row) => !isCourseCompleted(row));
+  const refDate = parseMonthValue(viewState.dashboard.dashboardMonth) || new Date();
+  viewState.dashboard.data = withOperationalMetrics(
+    viewState.dashboard.data,
+    courses,
+    { endingCourses: allActivityCourses, allActivities, refDate }
+  );
+  renderScreen();
+}
+
 async function loadDashboard() {
+  if (!viewState.dashboard.dashboardMonth) viewState.dashboard.dashboardMonth = formatMonthInputLocal(new Date());
   await withLoad('dashboard', async () => {
     const dashboardRes = await api.getDashboard();
     if (!dashboardRes?.success) return dashboardRes;
@@ -4551,6 +4585,7 @@ async function loadDashboard() {
       : [];
     const allActivityCourses = allActivities.filter(isCourseActivity);
     const courses = allActivityCourses.filter((row) => !isCourseCompleted(row));
+    const refDate = parseMonthValue(viewState.dashboard.dashboardMonth) || new Date();
     if (!hasCachedCourses && !dashboardCourseHydrationPromise) {
       dashboardCourseHydrationPromise = ensureCoursesLoaded()
         .then(() => {
@@ -4558,10 +4593,11 @@ async function loadDashboard() {
           const hydratedActivities = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
           const hydratedActivityCourses = hydratedActivities.filter(isCourseActivity);
           const hydratedCourses = hydratedActivityCourses.filter((row) => !isCourseCompleted(row));
+          const refDate2 = parseMonthValue(viewState.dashboard.dashboardMonth) || new Date();
           viewState.dashboard.data = withOperationalMetrics(
             viewState.dashboard.data,
             hydratedCourses,
-            { endingCourses: hydratedActivityCourses, allActivities: hydratedActivities }
+            { endingCourses: hydratedActivityCourses, allActivities: hydratedActivities, refDate: refDate2 }
           );
           renderScreen();
         })
@@ -4572,7 +4608,7 @@ async function loadDashboard() {
     }
     return {
       success: true,
-      data: withOperationalMetrics(dashboardRes.data || {}, courses, { endingCourses: allActivityCourses, allActivities })
+      data: withOperationalMetrics(dashboardRes.data || {}, courses, { endingCourses: allActivityCourses, allActivities, refDate })
     };
   }, null, 'לא ניתן לטעון דשבורד.');
 }
@@ -4964,9 +5000,9 @@ function escAttr(v) { return esc(v).replace(/"/g, '&quot;'); }
 function withOperationalMetrics(baseData, courses, options = {}) {
   const allActivities = Array.isArray(options.allActivities) ? options.allActivities : courses;
   const endingCourses = Array.isArray(options.endingCourses) ? options.endingCourses : courses;
-  const now = new Date();
-  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const refDate = options.refDate instanceof Date ? options.refDate : new Date();
+  const currentMonthStart = new Date(refDate.getFullYear(), refDate.getMonth(), 1);
+  const currentMonthEnd = new Date(refDate.getFullYear(), refDate.getMonth() + 1, 0, 23, 59, 59, 999);
   const activeThisMonth = allActivities.filter((row) => isActiveInMonthByStatusAndDates(row, currentMonthStart, currentMonthEnd));
   const managers = ['גיל נאמן', 'לינוי שמואל מזרחי'];
   const activeByManager = {};
