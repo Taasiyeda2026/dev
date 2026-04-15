@@ -1,4 +1,4 @@
-const SW_VERSION = 'dashboard2026-v5';
+const SW_VERSION = 'dashboard2026-v6';
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const RUNTIME_CACHE = `${SW_VERSION}-runtime`;
 const IMAGE_CACHE = `${SW_VERSION}-images`;
@@ -67,6 +67,11 @@ self.addEventListener('activate', (event) => {
           .map((key) => caches.delete(key))
       ))
       .then(() => self.clients.claim())
+      .then(async () => {
+        if (self.registration.navigationPreload) {
+          await self.registration.navigationPreload.enable();
+        }
+      })
   );
 });
 
@@ -78,10 +83,19 @@ function isNavigationRequest(request) {
   return request.mode === 'navigate' || request.destination === 'document';
 }
 
-async function networkFirstWithShellFallback(request) {
+async function networkFirstWithShellFallback(event) {
+  const request = event.request;
   const runtimeCache = await caches.open(RUNTIME_CACHE);
+  const networkAttempt = (async () => {
+    const preloaded = await event.preloadResponse;
+    if (preloaded) return preloaded;
+    return fetch(request);
+  })();
   try {
-    const networkResponse = await fetch(request);
+    const networkResponse = await Promise.race([
+      networkAttempt,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('navigation_timeout')), 1800))
+    ]);
     if (networkResponse && networkResponse.ok) {
       runtimeCache.put(request, networkResponse.clone());
     }
@@ -136,7 +150,7 @@ self.addEventListener('fetch', (event) => {
   if (isApiRequest(url)) return;
 
   if (isNavigationRequest(request)) {
-    event.respondWith(networkFirstWithShellFallback(request));
+    event.respondWith(networkFirstWithShellFallback(event));
     return;
   }
 

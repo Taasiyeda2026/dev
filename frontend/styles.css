@@ -2893,9 +2893,12 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   }
   .table-wrap {
     margin-inline: -2px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .table-wrap table {
     font-size: 12px;
+    min-width: 680px;
   }
   .table-wrap th,
   .table-wrap td {
@@ -2904,6 +2907,26 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   .month-nav-label {
     min-width: 0;
     width: 100%;
+  }
+  .filters-wrap {
+    grid-template-columns: 1fr;
+  }
+  .filter-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .filter-actions .btn {
+    flex: 1 1 auto;
+  }
+  .card-actions {
+    flex-wrap: wrap;
+  }
+  .card-actions .btn {
+    flex: 1 1 calc(50% - 6px);
+  }
+  .btn-xxs {
+    min-height: 40px;
+    padding-inline: 10px;
   }
   .month-side-panel,
   .week-side-panel {
@@ -2969,6 +2992,12 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   .week-grid {
     grid-template-columns: 1fr;
     overflow-x: visible;
+  }
+  .main,
+  .panel-block,
+  .panel-block-head,
+  .table-shell {
+    min-width: 0;
   }
 }
 
