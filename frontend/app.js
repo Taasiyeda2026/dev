@@ -229,7 +229,8 @@ const ROUTE_CAPABILITY_MAP = {
   approvals: 'view_operations_data',
   'eden-view': 'view_operations_data',
   'final-approvals': 'view_operations_data',
-  'instructor-view': 'view_my_data'
+  'instructor-view': 'view_my_data',
+  'operations-home': 'view_operations_data'
 };
 
 const MENU_ROUTE_ORDER = [
@@ -323,7 +324,6 @@ function isOperationsUser() {
 }
 function canAccessRoute(route) {
   if (route === 'admin-home') return isAdminUser();
-  if (route === 'operations-home') return !isAdminUser() && getAllowedBusinessRoutes().length > 0;
   return hasCapability(ROUTE_CAPABILITY_MAP[route]);
 }
 function getAllowedRoutes() {
