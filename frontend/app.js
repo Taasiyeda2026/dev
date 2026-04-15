@@ -4579,12 +4579,11 @@ function withOperationalMetrics(baseData, courses, options = {}) {
     activeByManager[managerName] = managerActiveCourses.length;
   });
   const missing = courses.map((row) => getExceptionsPageIssues(row));
-  const activeCoursesNow = endingCourses.filter((row) => isActiveByStatusAndDates(row, now));
-  const activeWorkshopsNow = allActivities.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה') && isActiveByStatusAndDates(row, now));
-  const activeToursNow = allActivities.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סיור') && isActiveByStatusAndDates(row, now));
+  const activeWorkshopsNow = courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סדנה'));
+  const activeToursNow = courses.filter((row) => String(getCourseField(row, COURSE_FIELDS.ACTIVITY) || '').includes('סיור'));
   return {
     ...baseData,
-    totalCoursesCount: activeCoursesNow.length,
+    totalCoursesCount: courses.length,
     workshopsCount: activeWorkshopsNow.length,
     toursCount: activeToursNow.length,
     endingCurrentMonthCount: endingCourses.filter((row) => {
