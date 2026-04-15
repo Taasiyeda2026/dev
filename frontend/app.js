@@ -3081,7 +3081,9 @@ function openCourseActionForm(course, mode) {
     const formTitle = isDirectEdit ? 'עריכה ישירה' : 'בקשת שינוי';
     const formSubmitLabel = isDirectEdit ? 'שמירה ישירה' : 'שליחה לעדן';
     const isWorkshop = String(getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
-    const planned = isWorkshop ? 1 : Math.max(1, Math.min(MAX_DATES, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
+    const sessionCount = Number(getCourseField(course, COURSE_FIELDS.PLANNED_MEETINGS) || 0);
+    const filledDatesCount = (COURSE_DATE_FIELDS || []).filter((f) => Boolean(String(courseMeetingDateRaw(course, f) || '').trim())).length;
+    const planned = isWorkshop ? 1 : Math.max(1, Math.min(MAX_DATES, sessionCount || filledDatesCount || 1));
     const getDateField = (n) => {
       const fieldName = (COURSE_DATE_FIELDS && COURSE_DATE_FIELDS[n - 1]) || (n === 1 ? 'start_date' : `date${n}`);
       return courseMeetingDateRaw(course, fieldName) || '';
@@ -3161,11 +3163,35 @@ function openCourseActionForm(course, mode) {
       grid.appendChild(makeDateRow(i, isoVal));
     }
 
+    const syncPlannedInput = () => {
+      const inp = root.querySelector('#courseFormPlanned');
+      if (inp) inp.value = String(totalDates);
+    };
+
     root.querySelector('#cafAddDateBtn')?.addEventListener('click', () => {
       if (totalDates >= MAX_DATES) { showToast(`מקסימום ${MAX_DATES} תאריכים.`, 'warning'); return; }
       totalDates += 1;
       grid.appendChild(makeDateRow(totalDates, ''));
       grid.lastElementChild?.querySelector('input')?.focus();
+      syncPlannedInput();
+    });
+
+    root.querySelector('#courseFormPlanned')?.addEventListener('change', () => {
+      const inp = root.querySelector('#courseFormPlanned');
+      const newVal = Math.max(0, Math.min(MAX_DATES, Number(inp?.value || 0)));
+      if (!Number.isFinite(newVal) || newVal === totalDates) return;
+      if (newVal > totalDates) {
+        for (let i = totalDates + 1; i <= newVal; i++) {
+          const rawVal = getDateField(i);
+          const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? formatIsoDateLocal(d) : ''; })() : '';
+          grid.appendChild(makeDateRow(i, isoVal));
+        }
+      } else {
+        for (let i = totalDates; i > newVal; i--) {
+          grid.querySelector(`[data-meeting-num="${i}"]`)?.remove();
+        }
+      }
+      totalDates = newVal;
     });
 
     const close = (result = null) => { root.remove(); resolve(result); };
