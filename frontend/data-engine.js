@@ -172,8 +172,12 @@ async function fetchSheet(sheetName) {
     return [];
   }
   const headers = Array.isArray(res?.data?.headerRow) ? res.data.headerRow : [];
-  const dataRows = Array.isArray(res?.data?.dataRows) ? res.data.dataRows : [];
-  const rowNumbers = Array.isArray(res?.data?.rowNumbers) ? res.data.rowNumbers : [];
+  let dataRows = Array.isArray(res?.data?.dataRows) ? res.data.dataRows : [];
+  let rowNumbers = Array.isArray(res?.data?.rowNumbers) ? res.data.rowNumbers : [];
+  if (rowNumbers.length && Number(rowNumbers[0]) <= 2) {
+    dataRows = dataRows.slice(1);
+    rowNumbers = rowNumbers.slice(1);
+  }
   if (sheetName === SHEET_NAMES.DATA_MASTER && !headers.includes('RowID')) {
     throw new Error('DATA_MASTER missing required RowID header');
   }
