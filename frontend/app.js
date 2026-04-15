@@ -4303,9 +4303,7 @@ async function loadContactsView() {
 async function loadFinanceView(options = {}) {
   const { silent = false, force = false } = options;
   if (!viewState.finance.displayMonth) {
-    const prev = new Date();
-    prev.setMonth(prev.getMonth() - 1);
-    viewState.finance.displayMonth = formatMonthInputLocal(prev);
+    viewState.finance.displayMonth = formatMonthInputLocal(new Date());
   }
   if (!silent) {
     viewState.finance.loading = true;
