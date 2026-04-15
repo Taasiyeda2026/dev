@@ -628,9 +628,11 @@ function render() {
   renderScreen();
 }
 
+const EDEN_HIDDEN_ROUTES = new Set(['end-dates', 'exceptions', 'finance', 'instructor-view', 'my-requests']);
+function isEdenHiddenRoute(route) { return !isAdminUser() && isEden() && EDEN_HIDDEN_ROUTES.has(route); }
 function buildMenuNavigation() {
   const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions', 'finance', 'exceptions', 'end-dates', 'contacts']) : null;
-  const hiddenForOperations = (!isAdminUser() && isEden()) ? new Set(['instructors', 'end-dates', 'exceptions', 'contacts', 'finance', 'instructor-view', 'my-requests']) : null;
+  const hiddenForOperations = (!isAdminUser() && isEden()) ? EDEN_HIDDEN_ROUTES : null;
   const hasHome = Boolean(getHomeRoute());
   return getAllowedRoutes()
     .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
@@ -872,7 +874,7 @@ function renderScreen() {
     const isAdminHome = currentRoute === 'admin-home';
     const targets = isAdminHome
       ? resolveAdminLandingTargets()
-      : getAllowedBusinessRoutes().map((route) => ({ key: route, label: routeLabels[route] || route, route }));
+      : getAllowedBusinessRoutes().filter((route) => !isEdenHiddenRoute(route)).map((route) => ({ key: route, label: routeLabels[route] || route, route }));
     const landingTargets = targets.length
       ? targets
       : (isAdminHome && canAccessRoute('dashboard')
