@@ -2743,7 +2743,11 @@ var Logic = (function () {
     var r = Utils.toKey(user.SystemRole);
     return r === 'admin' || r === 'idan_main_admin';
   }
-  function isEden_(user) { return Utils.toKey(user.SystemRole) === 'admin-ops'; }
+  function isEden_(user) {
+    return Utils.toKey(user.SystemRole) === 'admin-ops'
+      || hasCapability_(user, 'view_operations_data')
+      || hasCapability_(user, 'edit_operations_data');
+  }
   function isManager_(user) { return Utils.toKey(user.SystemRole) === 'manager'; }
   function isManagerLead_(user) { return Utils.toKey(user.SystemRole) === 'manager-lead'; }
   function isInstructor_(user) { return Utils.toKey(user.SystemRole) === 'instructor'; }
