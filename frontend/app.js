@@ -748,11 +748,11 @@ function renderUnifiedScreenHeader(route = currentRoute, subtitle = '', context 
   const searchTerm = getRouteSearchTerm(route);
   const kpis = getHeaderKpis(route, context).slice(0, 3);
   const homeRoute = getHomeRoute();
-  const backBtn = (homeRoute && HIDDEN_IN_HOME_ROUTES.has(route))
-    ? `<button class="btn-back-home" type="button" data-back-home="${escAttr(homeRoute)}">&#x2192; חזור</button>`
-    : '';
   const historyBackBtn = routeHistory.length > 0
     ? `<button class="btn-back-history" type="button" id="historyBackBtn">&#x2192; חזור</button>`
+    : '';
+  const backBtn = (!historyBackBtn && homeRoute && HIDDEN_IN_HOME_ROUTES.has(route))
+    ? `<button class="btn-back-home" type="button" data-back-home="${escAttr(homeRoute)}">&#x2192; חזור</button>`
     : '';
   return `<section class="screen-top-unified">
     <div class="screen-top-main">
