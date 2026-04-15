@@ -489,22 +489,6 @@ function toggleMobileNav(force) {
   render();
 }
 
-function toggleSidebar() {
-  sidebarOpen = !sidebarOpen;
-  if (!sidebarOpen) {
-    mobileNavOpen = false;
-    document.body.classList.remove('nav-open');
-  }
-  render();
-}
-
-function toggleHeaderSidebarControl() {
-  if (isMobileViewport()) {
-    toggleMobileNav();
-    return;
-  }
-  toggleSidebar();
-}
 
 function resetCoursesNavFromMenu() {
   viewState.uiContext.coursesSubtitle = '';
@@ -602,11 +586,7 @@ function render() {
             <div class="app-top-header-brand-wrap">
               <div class="app-top-header-page-title">${esc(routeLabels[currentRoute] || routeLabels.dashboard)}</div>
             </div>
-            <div class="app-top-header-user">
-              <button class="app-top-header-toggle" id="topSubbarToggle" type="button" aria-expanded="${isMobileViewport() ? (mobileNavOpen ? 'true' : 'false') : (sidebarOpen ? 'true' : 'false')}" aria-label="${isMobileViewport() ? (mobileNavOpen ? 'סגור סרגל צד' : 'פתח סרגל צד') : (sidebarOpen ? 'סגור סרגל צד' : 'פתח סרגל צד')}">
-                <span class="app-top-header-arrow" aria-hidden="true">${isMobileViewport() ? (mobileNavOpen ? '✕' : '☰') : (sidebarOpen ? '⇥' : '⇤')}</span>
-              </button>
-            </div>
+            <div class="app-top-header-user"></div>
           </header>
           <main class="main" id="main"></main>
         </section>
@@ -633,7 +613,6 @@ function render() {
 
   document.getElementById('mobileNavToggle')?.addEventListener('click', () => toggleMobileNav());
   document.getElementById('mobileNavBackdrop')?.addEventListener('click', () => toggleMobileNav(false));
-  document.getElementById('topSubbarToggle')?.addEventListener('click', toggleHeaderSidebarControl);
 
   renderScreen();
 }
