@@ -624,9 +624,11 @@ function render() {
 
 function buildMenuNavigation() {
   const hiddenForAdmin = isAdminUser() ? new Set(['admin-settings', 'admin-lists', 'admin-permissions', 'finance', 'exceptions', 'end-dates', 'contacts']) : null;
+  const hiddenForOperations = (!isAdminUser() && isEden()) ? new Set(['dashboard', 'courses', 'week', 'month', 'instructors', 'end-dates', 'exceptions', 'contacts', 'finance', 'instructor-view']) : null;
   const hasHome = Boolean(getHomeRoute());
   return getAllowedRoutes()
     .filter((route) => !(hiddenForAdmin && hiddenForAdmin.has(route)))
+    .filter((route) => !(hiddenForOperations && hiddenForOperations.has(route)))
     .filter((route) => !(hasHome && HIDDEN_IN_HOME_ROUTES.has(route)))
     .map((route) => nav(route, routeLabels[route] || route))
     .join('');
