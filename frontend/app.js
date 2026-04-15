@@ -2701,7 +2701,9 @@ function collectCourseDates(row) {
   });
   dates.sort((a, b) => a.value - b.value);
   const endDate = parseDateLike(row?.[COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField]);
-  if (endDate) dates.push({ label: COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField, value: endDate, index: dates.length + 1, isEndDate: true });
+  const endIso = endDate ? formatIsoDateLocal(endDate) : null;
+  const alreadyListed = endIso && dates.some((d) => formatIsoDateLocal(d.value) === endIso);
+  if (endDate && !alreadyListed) dates.push({ label: COURSES_SCREEN_CONFIG.meetingFields.fallbackEndField, value: endDate, index: dates.length + 1, isEndDate: true });
   return dates;
 }
 
