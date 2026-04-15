@@ -2504,7 +2504,7 @@ function parseDateLike(value) {
       Number(isoUtc[5]),
       Number(isoUtc[6] || '0')
     ));
-    return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds());
+    return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
   if (typeof value === 'number' && value > 20000 && value < 60000) {
     const utc = new Date((value - 25569) * 86400000);
@@ -2518,7 +2518,7 @@ function parseDateLike(value) {
     }
   }
   const direct = new Date(normalized);
-  if (!Number.isNaN(direct.getTime())) return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate(), direct.getHours(), direct.getMinutes(), direct.getSeconds(), direct.getMilliseconds());
+  if (!Number.isNaN(direct.getTime())) return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate());
   const m = normalized.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
   if (!m) return null;
   const y = Number(m[3].length === 2 ? `20${m[3]}` : m[3]);

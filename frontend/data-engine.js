@@ -554,8 +554,15 @@ function parseDateLike(value) {
     const d = new Date(y, Number(dmy[2]) - 1, Number(dmy[1]));
     return Number.isNaN(d.getTime()) ? null : d;
   }
+  const isoOffset = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?([+-]\d{2}:?\d{2})$/);
+  if (isoOffset) {
+    const direct = new Date(raw);
+    if (Number.isNaN(direct.getTime())) return null;
+    return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate());
+  }
   const direct = new Date(raw);
-  return Number.isNaN(direct.getTime()) ? null : direct;
+  if (Number.isNaN(direct.getTime())) return null;
+  return new Date(direct.getFullYear(), direct.getMonth(), direct.getDate());
 }
 
 function financeMeetingDateRaw(row, field) {
