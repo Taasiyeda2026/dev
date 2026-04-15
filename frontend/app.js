@@ -2123,7 +2123,11 @@ function renderCourseCards(rows, options = {}) {
     const hierarchy = buildCourseHierarchyDetails(row);
     const issueFlag = hasException(row) || isMissingReport(row) || !hasInstructor(row);
     const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
-    const summary = `<header class="card-head"><div><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3><p class="card-subtitle">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</p></div><div class="card-status">${renderIssueBadge(row)}</div></header>`;
+    const issueBadge = renderIssueBadge(row);
+    const statusChip = issueBadge || (hierarchy.isCompleted
+      ? '<span class="status-chip status-closed">הסתיים</span>'
+      : '<span class="status-chip status-active">פעיל</span>');
+    const summary = `<header class="card-head"><div><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3><p class="card-subtitle">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</p></div><div class="card-status">${statusChip}</div></header>`;
     const instructorDayPanel = renderInstructorDayPanel(row, courseId);
     const details = `${renderCourseHierarchyStrip(row)}
       <div class="course-core-grid">
