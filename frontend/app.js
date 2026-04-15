@@ -1753,7 +1753,7 @@ function renderFinanceTable(rows, options = {}) {
     const labels = { open: 'פתוח', completed: 'סגור' };
     return Object.entries(counts).map(([k, v]) => `<span class="finance-status-mini finance-${escAttr(k)}">${v} ${esc(labels[k] || k)}</span>`).join('');
   }
-  const COL_COUNT = 12;
+  const COL_COUNT = 9;
   function renderRow(item) {
     const financeRowId = String(item?.FinanceRowID || '');
     const status = String(item?.FinanceStatus || 'open');
@@ -1761,10 +1761,7 @@ function renderFinanceTable(rows, options = {}) {
     const bucket = getFinanceStatusBucket(status);
     const schoolLine = String(item?.School || item?.SchoolsList || '').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
     const programLine = String(item?.Course || item?.Program || item?.CourseID || item?.ProgramsList || 'פריט כספי').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || 'פריט כספי';
-    const eventTypeLine = String(item?.EventType || item?.activity_type || '').trim() || '-';
     const authLine = String(item?.Authority || '').trim() || '-';
-    const instructorLine = String(item?.Instructor || item?.Employee || '-').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
-    const meetings = `${item?.DatesListedCount ?? '-'}`;
     const notes = String(item?.FinanceNotes || '').trim();
     const fundingLabel = hebrifyValue(item?.Funding) || String(item?.Funding || '-');
     const managerLine = String(item?.CourseManager || '-').split(/[,\n|]+/).map((s) => s.trim()).filter(Boolean)[0] || '-';
@@ -1773,12 +1770,9 @@ function renderFinanceTable(rows, options = {}) {
     const isOpen = selectedMeetingsRowId === financeRowId;
     return `<tr class="finance-tr finance-tr-${escAttr(bucket.key)}${isOpen ? ' finance-tr--open' : ''}">
       <td><span class="cell-ellipsis" title="${escAttr(programLine)}">${esc(programLine)}</span></td>
-      <td><span class="cell-ellipsis" title="${escAttr(eventTypeLine)}">${esc(eventTypeLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(schoolLine)}">${esc(schoolLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(authLine)}">${esc(authLine)}</span></td>
-      <td><span class="cell-ellipsis" title="${escAttr(instructorLine)}">${esc(instructorLine)}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(managerLine)}">${esc(managerLine)}</span></td>
-      <td style="text-align:center;white-space:nowrap">${esc(meetings)}</td>
       <td class="finance-payment-cell">${paymentLabel !== '-' ? `<strong>${esc(paymentLabel)}</strong>` : '<span style="color:var(--text-muted)">-</span>'}</td>
       <td style="white-space:nowrap" title="${escAttr(fundingLabel)}">${esc(fundingLabel)}</td>
       <td>
@@ -1826,8 +1820,8 @@ function renderFinanceTable(rows, options = {}) {
         <div class="table-wrap finance-table-wrap">
           <table class="finance-table-styled">
             <thead><tr>
-              <th>קורס / פעילות</th><th>סוג פעילות</th><th>בית ספר</th><th>רשות</th><th>מדריך</th><th>מנהל קורס</th>
-              <th>מפגשים</th><th>גבייה</th><th>מימון</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
+              <th>קורס / פעילות</th><th>בית ספר</th><th>רשות</th><th>מנהל קורס</th>
+              <th>גבייה</th><th>מימון</th><th>סטטוס</th><th>הערות</th><th>פעולות</th>
             </tr></thead>
             <tbody>${group.items.map(renderRow).join('')}</tbody>
           </table>
@@ -1880,11 +1874,9 @@ function renderFinanceCards(rows, options = {}) {
       <details class="finance-card-details">
         <summary class="finance-card-summary">פרטים ועדכון ▾</summary>
         <div class="card-meta">
-          <span><strong>מדריך</strong>${esc(String(item?.Instructor || '-'))}</span>
           <span><strong>מנהל קורס</strong>${esc(String(item?.CourseManager || '-'))}</span>
           ${fundingHeb ? `<span><strong>גורם מימון</strong>${esc(fundingHeb)}</span>` : ''}
           ${payerHeb ? `<span><strong>גורם משלם</strong>${esc(payerHeb)}</span>` : ''}
-          <span><strong>מפגשים</strong>${esc(String(item?.DatesListedCount || '-'))}/${esc(String(item?.PlannedMeetings || '-'))}</span>
           ${item?.Payment ? `<span><strong>עלות / תשלום</strong>${esc(String(item.Payment))}</span>` : ''}
           ${datesLine ? `<span style="grid-column:1/-1"><strong>תאריכים</strong>${esc(datesLine)}</span>` : ''}
         </div>
