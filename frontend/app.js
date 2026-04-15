@@ -2192,7 +2192,7 @@ function renderCourseTable(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
   const canEdit = Boolean(options.canEdit);
   const openId = String(options.openDetailsId || '');
-  const COL_COUNT = 9;
+  const COL_COUNT = 10;
   const body = rows.map((row, idx) => {
     const h = buildCourseHierarchyDetails(row);
     const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
@@ -2201,11 +2201,14 @@ function renderCourseTable(rows, options = {}) {
     const statusCell = h.isCompleted
       ? '<span class="status-chip status-closed">הסתיים</span>'
       : (statusBadge || '<span class="status-chip status-active">פעיל</span>');
+    const firstDateRaw = courseMeetingDateRaw(row, (COURSE_DATE_FIELDS || [])[0] || 'start_date');
+    const firstDateFmt = formatDate(parseDateLike(firstDateRaw)) || '-';
     const rowHtml = `<tr class="course-tr${isOpen ? ' course-tr--open' : ''}">
       <td class="ct-num">${idx + 1}</td>
       <td><span class="cell-ellipsis" title="${escAttr(h.programActivity || '')}">${esc(h.programActivity || 'לא זמין')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(h.school || '')}">${esc(h.school || '-')}</span></td>
       <td><span class="cell-ellipsis" title="${escAttr(h.instructor || '')}">${esc(h.instructor || 'לא משויך')}</span></td>
+      <td style="white-space:nowrap">${esc(firstDateFmt)}</td>
       <td style="white-space:nowrap">${esc(h.dayName || '-')}</td>
       <td style="white-space:nowrap">${esc(h.timeLabel || '-')}</td>
       <td style="text-align:center">${esc(String(row[COURSE_FIELDS.PLANNED_MEETINGS] || '-'))}</td>
@@ -2224,6 +2227,7 @@ function renderCourseTable(rows, options = {}) {
         <th>שם פעילות</th>
         <th>בית ספר</th>
         <th>מדריך</th>
+        <th>תאריך</th>
         <th>יום</th>
         <th>שעות</th>
         <th>מ"מ</th>
