@@ -3031,11 +3031,13 @@ function openCourseActionForm(course, mode) {
     const formSubmitLabel = isDirectEdit ? 'שמירה ישירה' : 'שליחה לעדן';
     const isWorkshop = String(getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '').trim().toLowerCase() === 'workshop';
     const planned = isWorkshop ? 1 : Math.max(1, Math.min(35, Number(course.PlannedMeetings || course.DatesListedCount || 10)));
-    const rawDate1 = course[`Date1`] || course[`start_date`] || '';
-    const isoDate1 = rawDate1 ? (() => { const d = parseDateLike(rawDate1); return d ? formatIsoDateLocal(d) : ''; })() : '';
+    const getDateField = (n) => {
+      const fieldName = (COURSE_DATE_FIELDS && COURSE_DATE_FIELDS[n - 1]) || (n === 1 ? 'start_date' : `date${n}`);
+      return courseMeetingDateRaw(course, fieldName) || '';
+    };
     const dateInputsHtml = Array.from({ length: planned }, (_, i) => {
       const n = i + 1;
-      const rawVal = n === 1 ? rawDate1 : (course[`Date${n}`] || '');
+      const rawVal = getDateField(n);
       const isoVal = rawVal ? (() => { const d = parseDateLike(rawVal); return d ? formatIsoDateLocal(d) : ''; })() : '';
       return `<div class="caf-date-row">
         ${isWorkshop ? '' : `<span class="caf-date-label">מפגש ${n}</span>`}
@@ -3076,7 +3078,7 @@ function openCourseActionForm(course, mode) {
       };
       Array.from({ length: planned }, (_, i) => i + 1).forEach((n) => {
         const val = root.querySelector(`#courseFormDate${n}`)?.value.trim() || '';
-        const rawOrig = n === 1 ? rawDate1 : (course[`Date${n}`] || '');
+        const rawOrig = getDateField(n);
         const origIso = rawOrig ? (() => { const d = parseDateLike(rawOrig); return d ? formatIsoDateLocal(d) : ''; })() : '';
         if (val !== origIso) changes[`Date${n}`] = val;
       });
