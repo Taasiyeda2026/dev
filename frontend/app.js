@@ -2526,8 +2526,12 @@ function parseDateLike(value) {
     const date = new Date(Number(isoDay[1]), Number(isoDay[2]) - 1, Number(isoDay[3]));
     return Number.isNaN(date.getTime()) ? null : date;
   }
-  const isoDateTime = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  const isoDateTime = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(?:Z)?$/i);
   if (isoDateTime) {
+    if (normalized.toUpperCase().endsWith('Z')) {
+      const utc = new Date(normalized);
+      return Number.isNaN(utc.getTime()) ? null : new Date(utc.getFullYear(), utc.getMonth(), utc.getDate());
+    }
     const date = new Date(
       Number(isoDateTime[1]),
       Number(isoDateTime[2]) - 1,
@@ -2537,18 +2541,6 @@ function parseDateLike(value) {
       Number(isoDateTime[6] || '0')
     );
     return Number.isNaN(date.getTime()) ? null : date;
-  }
-  const isoUtc = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2})(?::(\d{2}))?(\.\d+)?Z$/i);
-  if (isoUtc) {
-    const date = new Date(Date.UTC(
-      Number(isoUtc[1]),
-      Number(isoUtc[2]) - 1,
-      Number(isoUtc[3]),
-      Number(isoUtc[4]),
-      Number(isoUtc[5]),
-      Number(isoUtc[6] || '0')
-    ));
-    return Number.isNaN(date.getTime()) ? null : new Date(date.getFullYear(), date.getMonth(), date.getDate());
   }
   if (typeof value === 'number' && value > 20000 && value < 60000) {
     const utc = new Date((value - 25569) * 86400000);
