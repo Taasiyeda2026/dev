@@ -1984,14 +1984,36 @@ a { color: var(--accent); text-decoration: none; }
   min-height: 0;
   min-width: 0;
   cursor: pointer;
-  transition: box-shadow 0.15s, border-color 0.15s;
+  transition: box-shadow 0.15s, transform 0.12s;
   align-self: start;
 }
 .instructor-card-tile:hover,
 .instructor-card-tile:focus-visible {
   box-shadow: var(--shadow-md);
-  border-color: #c7d2fe;
+  transform: translateY(-1px);
   outline: none;
+}
+.instructor-card-tile-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.instructor-avatar {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+.instructor-card-tile-name-wrap {
+  min-width: 0;
+  flex: 1;
 }
 .instructor-card-tile-head h3 {
   font-size: 13px;
@@ -2000,10 +2022,32 @@ a { color: var(--accent); text-decoration: none; }
   margin: 0;
   word-break: break-word;
 }
+.instructor-badges {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+.instructor-badge {
+  font-size: 11px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.instructor-badge--issues {
+  background: #fef3c7;
+  color: #92400e;
+}
+.instructor-badge--gap {
+  background: #ede9fe;
+  color: #5b21b6;
+}
 .instructor-card-tile-meta {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 8px;
+}
+.instructor-card-tile-meta strong {
+  color: var(--accent);
 }
 .instructor-course-grid { grid-template-columns: 1fr; gap: 10px; }
 .instructor-card .card-head h3 { font-size: 16px; }

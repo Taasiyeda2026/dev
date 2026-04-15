@@ -3744,12 +3744,39 @@ function buildInstructorsViewData(courses) {
   return { items, coursesByInstructor };
 }
 
+const INSTRUCTOR_PALETTE = [
+  '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981',
+  '#f59e0b', '#ef4444', '#ec4899', '#6366f1'
+];
+function instructorColor(name) {
+  let h = 0;
+  for (let i = 0; i < (name || '').length; i++) h = (h * 31 + (name || '').charCodeAt(i)) & 0xffff;
+  return INSTRUCTOR_PALETTE[h % INSTRUCTOR_PALETTE.length];
+}
+
 function renderInstructorsCards(items) {
-  return `<section class="cards-grid instructor-grid instructor-grid-compact">${items.map((item) => `
-    <article class="management-card instructor-card-tile" role="button" tabindex="0" data-instructor-card="${escAttr(item.name)}" aria-label="פתח פרטי מדריך ${escAttr(item.name)}">
-      <div class="instructor-card-tile-head"><h3>${esc(item.name)}</h3></div>
+  return `<section class="cards-grid instructor-grid instructor-grid-compact">${items.map((item) => {
+    const color = instructorColor(item.name);
+    const initial = String(item.name || '?')[0].toUpperCase();
+    const badges = [
+      item.hasIssues ? `<span class="instructor-badge instructor-badge--issues" title="חריגות פתוחות">⚠</span>` : '',
+      item.hasGap ? `<span class="instructor-badge instructor-badge--gap" title="פער">⏱</span>` : ''
+    ].join('');
+    return `
+    <article class="management-card instructor-card-tile" role="button" tabindex="0"
+      data-instructor-card="${escAttr(item.name)}"
+      aria-label="פתח פרטי מדריך ${escAttr(item.name)}"
+      style="border-right: 4px solid ${color}">
+      <div class="instructor-card-tile-head">
+        <span class="instructor-avatar" style="background:${color}">${esc(initial)}</span>
+        <div class="instructor-card-tile-name-wrap">
+          <h3>${esc(item.name)}</h3>
+          ${badges ? `<div class="instructor-badges">${badges}</div>` : ''}
+        </div>
+      </div>
       <div class="instructor-card-tile-meta"><strong>${esc(String(item.coursesCount))}</strong> קורסים</div>
-    </article>`).join('')}</section>`;
+    </article>`;
+  }).join('')}</section>`;
 }
 
 function renderInstructorCoursesDetails(instructorName, coursesByInstructor) {
