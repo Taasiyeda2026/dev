@@ -2746,7 +2746,9 @@ function recommendedAction(row) {
 }
 
 function findCourseById(courseId) {
-  return (viewState.courses.data || []).find((row) => String(row?.CourseID || '') === String(courseId || ''));
+  const id = String(courseId || '');
+  return (viewState.courses.data || []).find((row) => String(row?.CourseID || '') === id) ||
+    (getStoreSnapshot().courses || []).find((row) => String(row?.CourseID || '') === id) || null;
 }
 
 function getCourseDisplayNameById(courseId) {
