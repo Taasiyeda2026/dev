@@ -2687,9 +2687,9 @@ a { color: var(--accent); text-decoration: none; }
   .screen-mini-kpis {
     justify-content: flex-start;
   }
-  .kpi-grid, .dashboard-kpi-grid { grid-template-columns: 1fr; }
+  .kpi-grid, .dashboard-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .finance-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .control-board-grid { grid-template-columns: 1fr; }
+  .control-board-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .permission-details-grid {
     grid-template-columns: 1fr;
   }
@@ -2702,7 +2702,7 @@ a { color: var(--accent); text-decoration: none; }
   .course-cards-grid.cards-grid-compact,
   .instructor-grid,
   .finance-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .week-grid {
     grid-template-columns: 1fr;
