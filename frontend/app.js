@@ -3711,12 +3711,16 @@ function buildWeeklyBuckets(courses, weekStartValue) {
   const baseDate = parseDateLike(weekStartValue) || new Date();
   const start = startOfDay(new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - baseDate.getDay()));
   const reviewItems = getStoreSnapshot().reviewItems || [];
+  const WEEK_DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   const days = TAASIYEDA_CONFIG.weekdays.map((weekday, idx) => {
     const current = new Date(start.getTime() + (idx * 24 * 60 * 60 * 1000));
+    const dd = String(current.getDate()).padStart(2, '0');
+    const mm = String(current.getMonth() + 1).padStart(2, '0');
+    const dayName = WEEK_DAY_NAMES[idx] || weekday;
     return {
-      weekdayLabel: idx === 6 ? 'ש' : current.toLocaleDateString('he-IL', { weekday: 'long' }),
-      dateLabel: current.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }),
-      label: current.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit' }),
+      weekdayLabel: dayName,
+      dateLabel: `${dd}/${mm}`,
+      label: `${dayName} ${dd}/${mm}`,
       isShabbat: idx === 6,
       isoDate: formatIsoDateLocal(current),
       items: []
