@@ -2776,7 +2776,7 @@ function renderCourseDetailsPanel(course, options = {}) {
 }
 
 function renderIssueBadge(row) {
-  if (hasException(row)) return '<span class="status-chip status-declined">חריג</span>';
+  if (hasException(row)) return '<span class="status-chip status-declined">⚠️</span>';
   if (isMissingReport(row)) return '<span class="status-chip status-pending">חסר דיווח</span>';
   if (!hasInstructor(row)) return '<span class="status-chip status-pending-final">חסר מדריך</span>';
   return '';
