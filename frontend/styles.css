@@ -3283,7 +3283,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .eden-old { color: var(--text-muted); text-decoration: line-through; margin-inline-end: 2px; }
 .eden-new { color: var(--status-active, #16a34a); font-weight: 600; }
 
-.eden-notes-row { margin-top: 10px; }
+.eden-notes-row { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.eden-notes-save-btn { align-self: flex-end; margin-top: 2px; }
 .eden-notes-label {
   display: flex;
   flex-direction: column;
