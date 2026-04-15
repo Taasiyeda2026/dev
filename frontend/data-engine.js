@@ -88,7 +88,7 @@ function extractCapabilities(raw = {}) {
   }, {});
 }
 
-function listEnabledCapabilities(capabilities = {}, prefix = 'view_') {
+export function listEnabledCapabilities(capabilities = {}, prefix = 'view_') {
   return Object.keys(capabilities).filter((key) => key.startsWith(prefix) && capabilities[key]);
 }
 

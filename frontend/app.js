@@ -21,7 +21,8 @@ import {
   loadFinanceItems,
   loadFinanceArchiveItems,
   updateFinanceStatus,
-  syncFinance
+  syncFinance,
+  listEnabledCapabilities
 } from './data-engine.js';
 import {
   COURSE_FIELDS,
