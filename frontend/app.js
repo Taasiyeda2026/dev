@@ -935,7 +935,7 @@ function renderScreen() {
       { title: 'סך קורסים', value: d.totalCoursesCount || 0, filter: 'all_courses' },
       { title: 'סך סדנאות', value: d.workshopsCount || 0, filter: 'workshops_only' },
       { title: 'סך סיורים', value: d.toursCount || 0, filter: 'tours_only' },
-      { title: 'מסתיימים החודש', value: d.endingCurrentMonthCount || 0, filter: 'ending_this_month' },
+      { title: 'סיומי קורסים', value: d.endingCurrentMonthCount || 0, filter: 'ending_this_month' },
       { title: 'פעילים החודש', value: d.activeThisMonthCount || 0, filter: 'active_this_month' },
       { title: 'חריגים', value: d.totalExceptionsCount || 0, filter: 'exceptions' }
     ];
@@ -961,7 +961,7 @@ function renderScreen() {
             ${[
               { title: 'מדריכים', value: d.instructorsByManager?.[managerName] || 0, filter: 'all_courses', context: `manager:${managerName}|subtitle:מדריכים` },
               { title: 'פעילים החודש', value: d.activeByManager?.[managerName] || 0, filter: 'active_this_month', context: `manager:${managerName}|subtitle:פעילים החודש - ${managerName}` },
-              { title: 'מסתיימים החודש', value: d.endingByManager?.[managerName] || 0, filter: 'ending_this_month', context: `manager:${managerName}|subtitle:מסתיימים החודש - ${managerName}` },
+              { title: 'סיומי קורסים', value: d.endingByManager?.[managerName] || 0, filter: 'ending_this_month', context: `manager:${managerName}|subtitle:סיומי קורסים - ${managerName}` },
               { title: 'דורשים טיפול', value: d.requiresTreatmentByManager?.[managerName] || 0, filter: 'requires_treatment', context: `manager:${managerName}|subtitle:דורשים טיפול - ${managerName}` }
             ].filter((item) => Number(item.value || 0) !== 0).map((item) => kpiCard(item.title, item.value, item.filter, '', item.context)).join('')}
           </div>
