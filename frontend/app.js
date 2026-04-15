@@ -3880,8 +3880,8 @@ function buildInstructorsViewData(courses) {
 }
 
 const INSTRUCTOR_PALETTE = [
-  '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981',
-  '#f59e0b', '#ef4444', '#ec4899', '#6366f1'
+  '#93c5fd', '#c4b5fd', '#67e8f9', '#6ee7b7',
+  '#fcd34d', '#fca5a5', '#f9a8d4', '#a5b4fc'
 ];
 function instructorColor(name) {
   let h = 0;
