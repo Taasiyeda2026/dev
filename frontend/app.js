@@ -3294,16 +3294,27 @@ function openCourseActionForm(course, mode) {
     const curEventType = getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '';
     const curInstructor = resolveInstructorName(course) || '';
     const eventTypeOpts = uniqSorted(courses.map((row) => String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim()));
-    const programOpts = uniqSorted(
-      courses
-        .filter((row) => !curEventType || String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim() === curEventType)
-        .map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || String(row?.[COURSE_FIELDS.EVENT_TYPE] || '').trim())
-    );
+    const programsByType = {};
+    eventTypeOpts.forEach(type => {
+      programsByType[type] = uniqSorted(
+        courses
+          .filter((row) => String(getCourseField(row, COURSE_FIELDS.EVENT_TYPE) || '').trim() === type)
+          .map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || '')
+      );
+    });
+    const programOpts = programsByType[curEventType] || uniqSorted(courses.map((row) => getCourseField(row, COURSE_FIELDS.PROGRAM) || ''));
     const buildSelect = (id, opts, currentVal) => {
       const cur = String(currentVal || '').trim();
       const hasMatch = opts.includes(cur);
       const allOpts = hasMatch ? opts : (cur ? [cur, ...opts] : opts);
       return `<select id="${id}"><option value=""></option>${allOpts.map((v) => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select>`;
+    };
+    const buildProgramSelectHtml = (forType, selectedVal) => {
+      const opts = programsByType[forType] || [];
+      const cur = String(selectedVal || '').trim();
+      const hasMatch = opts.includes(cur);
+      const allOpts = hasMatch ? opts : (cur ? [cur, ...opts] : opts);
+      return `<option value=""></option>${allOpts.map(v => `<option value="${escAttr(v)}"${v === cur ? ' selected' : ''}>${esc(v)}</option>`).join('')}`;
     };
 
     const root = document.createElement('div');
@@ -3361,6 +3372,12 @@ function openCourseActionForm(course, mode) {
       const inp = root.querySelector('#courseFormPlanned');
       if (inp) inp.value = String(totalDates);
     };
+
+    // Cascade: when EventType changes, update Program dropdown
+    root.querySelector('#courseFormEventType')?.addEventListener('change', (e) => {
+      const sel = root.querySelector('#courseFormProgram');
+      if (sel) sel.innerHTML = buildProgramSelectHtml(e.target.value, '');
+    });
 
     root.querySelector('#cafAddDateBtn')?.addEventListener('click', () => {
       if (totalDates >= MAX_DATES) { showToast(`מקסימום ${MAX_DATES} תאריכים.`, 'warning'); return; }
@@ -3489,6 +3506,11 @@ function openAddRecordForm(options = {}) {
       const eventType = root.querySelector('#newActivity')?.value.trim() || '';
       if (!eventType) {
         showToast('יש לבחור סוג פעילות.', 'warning');
+        return;
+      }
+      const selectedProgram = root.querySelector('#newProgram')?.value.trim() || '';
+      if (selectedProgram && programsByType[eventType]?.length && !programsByType[eventType].includes(selectedProgram)) {
+        showToast('התוכנית שנבחרה לא שייכת לסוג הפעילות הזה.', 'warning');
         return;
       }
       const out = {
