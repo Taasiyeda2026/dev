@@ -7,6 +7,7 @@ import {
   getPermissionForUser,
   refreshCourse,
   createEditRequest,
+  updateCourse,
   createDataMasterRecord,
   buildFilterOptions,
   loadEditRequests,
@@ -2124,9 +2125,7 @@ function renderCourseCards(rows, options = {}) {
     const issueFlag = hasException(row) || isMissingReport(row) || !hasInstructor(row);
     const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
     const issueBadge = renderIssueBadge(row);
-    const statusChip = issueBadge || (hierarchy.isCompleted
-      ? '<span class="status-chip status-closed">הסתיים</span>'
-      : '<span class="status-chip status-active">פעיל</span>');
+    const statusChip = issueBadge || renderCourseStatusCell(row, courseId, canEdit);
     const summary = `<header class="card-head"><div><h3>${esc(hierarchy.programActivity || 'שם קורס לא זמין')}</h3><p class="card-subtitle">${esc(hierarchy.school || '-')} · ${esc(hierarchy.authority || '-')}</p></div><div class="card-status">${statusChip}</div></header>`;
     const instructorDayPanel = renderInstructorDayPanel(row, courseId);
     const details = `${renderCourseHierarchyStrip(row)}
@@ -2198,9 +2197,7 @@ function renderCourseTable(rows, options = {}) {
     const courseId = String(row[COURSE_FIELDS.COURSE_ID] || '');
     const isOpen = openId === courseId;
     const statusBadge = renderIssueBadge(row);
-    const statusCell = h.isCompleted
-      ? '<span class="status-chip status-closed">הסתיים</span>'
-      : (statusBadge || '<span class="status-chip status-active">פעיל</span>');
+    const statusCell = statusBadge || renderCourseStatusCell(row, courseId, canEdit);
     const firstDateRaw = courseMeetingDateRaw(row, (COURSE_DATE_FIELDS || [])[0] || 'start_date');
     const firstDateFmt = formatDate(parseDateLike(firstDateRaw)) || '-';
     const rowHtml = `<tr class="course-tr${isOpen ? ' course-tr--open' : ''}">
@@ -2481,10 +2478,27 @@ function getScheduleDates(row) {
   return dates;
 }
 
+function getCourseExplicitStatus(row = {}) {
+  return String(getCourseField(row, COURSE_FIELDS.REVIEW_STATUS) || '').trim();
+}
+
+function renderCourseStatusCell(row, courseId, canEdit) {
+  const explicit = getCourseExplicitStatus(row);
+  const isCompleted = isCourseCompleted(row);
+  const display = explicit || (isCompleted ? 'הסתיים' : 'פעיל');
+  const isEnd = display === 'הסתיים';
+  if (!canEdit) {
+    const cls = isEnd ? 'status-closed' : 'status-active';
+    return `<span class="status-chip ${cls}">${esc(display)}</span>`;
+  }
+  return `<select class="status-select-inline" data-status-course="${escAttr(courseId)}"><option value="פעיל"${!isEnd ? ' selected' : ''}>פעיל</option><option value="הסתיים"${isEnd ? ' selected' : ''}>הסתיים</option></select>`;
+}
+
 function isCourseCompleted(row = {}) {
+  const explicit = getCourseExplicitStatus(row);
+  if (explicit === 'הסתיים') return true;
   const statusText = String(
-    getCourseField(row, COURSE_FIELDS.STATUS)
-    || getCourseField(row, COURSE_FIELDS.EVENT_TYPE)
+    getCourseField(row, COURSE_FIELDS.EVENT_TYPE)
     || row?.WorkflowStatus
     || ''
   ).toLowerCase();
@@ -2885,8 +2899,28 @@ function getCourseDisplayNameById(courseId) {
   return row?.Program || row?.EventType || 'שם קורס לא זמין';
 }
 
+function bindStatusSelects() {
+  document.querySelectorAll('[data-status-course]').forEach((sel) => {
+    sel.addEventListener('change', async () => {
+      const courseId = sel.dataset.statusCourse;
+      const newStatus = sel.value;
+      const row = findCourseById(courseId);
+      sel.disabled = true;
+      const res = await updateCourse(courseId, { [COURSE_FIELDS.REVIEW_STATUS]: newStatus }, userState);
+      sel.disabled = false;
+      if (!res?.success) {
+        showToast(res?.message || 'שינוי הסטטוס נכשל.', 'error');
+        sel.value = getCourseExplicitStatus(row) || (isCourseCompleted(row) ? 'הסתיים' : 'פעיל');
+      } else {
+        showToast('הסטטוס עודכן.', 'success');
+      }
+    });
+  });
+}
+
 function bindCourseActions() {
   bindEditButtons();
+  bindStatusSelects();
   bindMeetingEditButtons();
   document.querySelectorAll('[data-course-inline]').forEach((button) => button.addEventListener('click', () => {
     const id = button.dataset.courseInline || '';

@@ -1239,6 +1239,21 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 
 .status-chip.compact-badge { height: 18px; padding: 0 6px; font-size: 10px; }
 .status-alert { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.status-active { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+.status-closed { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+.status-select-inline {
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  outline: none;
+}
+.status-select-inline:focus { border-color: var(--accent); }
 .card-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 
 /* ============================================================
