@@ -3094,12 +3094,28 @@ function openCourseActionForm(course, mode) {
       return row;
     };
 
+    const infoItem = (label, value) => {
+      const v = String(value || '').trim() || '—';
+      return `<div class="caf-info-item"><span class="caf-info-label">${esc(label)}</span><span class="caf-info-value" title="${escAttr(v)}">${esc(v)}</span></div>`;
+    };
+    const endDateDisplay = (() => { const d = parseDateLike(getCourseField(course, COURSE_FIELDS.END)); return d ? formatDate(d) : ''; })();
+
     const root = document.createElement('div');
     root.className = 'course-form-modal';
     root.innerHTML = `
       <div class="course-form-backdrop" data-form-close="1"></div>
       <div class="course-form-card course-form-card--wide">
-        <h3>${esc(formTitle)} — ${esc(getBusinessCourseName(course))}</h3>
+        <h3>${esc(formTitle)}</h3>
+        <div class="caf-info-grid">
+          ${infoItem('תוכנית', getCourseField(course, COURSE_FIELDS.PROGRAM) || getCourseField(course, COURSE_FIELDS.ACTIVITY))}
+          ${infoItem('סוג פעילות', getCourseField(course, COURSE_FIELDS.EVENT_TYPE))}
+          ${infoItem('בית ספר', getCourseField(course, COURSE_FIELDS.SCHOOL))}
+          ${infoItem('רשות', getCourseField(course, COURSE_FIELDS.AUTHORITY))}
+          ${infoItem('מדריך', resolveInstructorName(course))}
+          ${infoItem('מנהל קורס', getCourseField(course, COURSE_FIELDS.COURSE_MANAGER))}
+          ${infoItem('מ"מ', getCourseField(course, COURSE_FIELDS.PLANNED_MEETINGS))}
+          ${endDateDisplay ? infoItem('סיום מחזור', endDateDisplay) : ''}
+        </div>
         <div class="caf-meta-row">
           <label>שעת התחלה<input id="courseFormStartTime" value="${escAttr(formatTimeValue(course.StartTime))}" placeholder="hh:mm" /></label>
           <label>שעת סיום<input id="courseFormEndTime" value="${escAttr(formatTimeValue(course.EndTime))}" placeholder="hh:mm" /></label>

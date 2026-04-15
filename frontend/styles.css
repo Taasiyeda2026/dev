@@ -2599,6 +2599,35 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   padding-bottom: 4px;
   background: var(--surface);
 }
+.caf-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+}
+.caf-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.caf-info-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.caf-info-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .caf-meta-row {
   display: flex;
   flex-wrap: wrap;
