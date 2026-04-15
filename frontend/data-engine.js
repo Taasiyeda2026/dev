@@ -43,6 +43,7 @@ let apiRef = null;
 /** מטמון לניווט בין מסכים — מפחית קריאות כבדות ל-Sheets */
 const COURSES_CACHE_TTL_MS = 3 * 60 * 1000;
 const REVIEW_CACHE_TTL_MS = 2 * 60 * 1000;
+const SETTINGS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 
 function logEngine(level, event, meta = {}) {
@@ -274,10 +275,7 @@ export function resetClientDataStore() {
 
 export async function initDataEngine(api, options = {}) {
   apiRef = api;
-  const permissions = await loadPermissions(options.userState);
-  void ensureCoursesLoaded().catch((error) => {
-    logEngine('warn', 'courses_bootstrap_failed', { message: error?.message || String(error || '') });
-  });
+  const permissions = await loadPermissions(options.userState, { preferSessionProfile: true });
   return {
     courses: dataStore.courses,
     permissions,
@@ -285,37 +283,58 @@ export async function initDataEngine(api, options = {}) {
   };
 }
 
-export async function loadPermissions(userState = {}) {
+function hasRichSessionProfile(userState = {}) {
+  const hasCapabilities = userState?.Capabilities && typeof userState.Capabilities === 'object'
+    && Object.keys(userState.Capabilities || {}).length > 0;
+  const hasDefaultView = String(userState?.default_view || userState?.DefaultView || userState?.UiProfile || '').trim() !== '';
+  const hasAllowedViews = Array.isArray(userState?.AllowedViews) && userState.AllowedViews.length > 0;
+  return hasCapabilities || hasDefaultView || hasAllowedViews;
+}
+
+function mapSessionPermissionRow(userState = {}) {
+  return {
+    employeeName: String(userState.displayName || userState.name || userState.EmployeeName || '').trim(),
+    employeeId: String(userState.EmployeeID || userState.userId || userState.emp_id || '').trim(),
+    entryCode: '',
+    systemRole: String(userState.role || userState.SystemRole || '').trim(),
+    displayRole: String(userState.DisplayRole || userState.role || userState.SystemRole || '').trim(),
+    viewScope: String(userState.ViewScope || '').trim(),
+    editScope: String(userState.EditScope || '').trim(),
+    approvalScope: String(userState.ApprovalScope || '').trim(),
+    uiProfile: String(userState.default_view || userState.DefaultView || userState.UiProfile || '').trim(),
+    defaultView: String(userState.default_view || userState.DefaultView || userState.UiProfile || '').trim(),
+    teamScope: String(userState.TeamScope || '').trim(),
+    instructorManager: String(userState.InstructorManager || '').trim(),
+    activeFlag: toBool(userState.active || userState.ActiveFlag),
+    canAccessFinance: Boolean(userState?.Capabilities?.view_finance || userState?.CanAccessFinance),
+    canEditFinance: Boolean(userState?.Capabilities?.edit_finance || userState?.CanEditFinance),
+    canAccessFinanceArchive: Boolean(userState?.CanAccessFinanceArchive),
+    canEditFinanceArchive: Boolean(userState?.CanEditFinanceArchive),
+    capabilities: (userState?.Capabilities && typeof userState.Capabilities === 'object') ? { ...userState.Capabilities } : {},
+    allowedViews: Array.isArray(userState?.AllowedViews) ? [...userState.AllowedViews] : [],
+    raw: userState
+  };
+}
+
+export async function loadPermissions(userState = {}, options = {}) {
+  const { preferSessionProfile = false, forceRemote = false } = options || {};
   let mapped = [];
-  const rows = await fetchSheet(SHEET_NAMES.PERMISSIONS);
-  if (rows.length) {
-    mapped = rows.map(mapPermissionRow);
+  if (!forceRemote && preferSessionProfile && hasRichSessionProfile(userState)) {
+    mapped = [mapSessionPermissionRow(userState)];
   } else {
-    mapped = [{
-      employeeName: String(userState.displayName || userState.name || userState.EmployeeName || '').trim(),
-      employeeId: String(userState.EmployeeID || userState.userId || userState.emp_id || '').trim(),
-      entryCode: '',
-      systemRole: String(userState.role || userState.SystemRole || '').trim(),
-      displayRole: String(userState.DisplayRole || userState.role || userState.SystemRole || '').trim(),
-      viewScope: String(userState.ViewScope || '').trim(),
-      editScope: String(userState.EditScope || '').trim(),
-      approvalScope: String(userState.ApprovalScope || '').trim(),
-      uiProfile: String(userState.default_view || userState.DefaultView || userState.UiProfile || '').trim(),
-      defaultView: String(userState.default_view || userState.DefaultView || userState.UiProfile || '').trim(),
-      teamScope: String(userState.TeamScope || '').trim(),
-      instructorManager: String(userState.InstructorManager || '').trim(),
-      canAccessFinance: Boolean(userState?.Capabilities?.view_finance),
-      canEditFinance: Boolean(userState?.Capabilities?.edit_finance),
-      canAccessFinanceArchive: false,
-      canEditFinanceArchive: false,
-      capabilities: (userState?.Capabilities && typeof userState.Capabilities === 'object') ? { ...userState.Capabilities } : {},
-      allowedViews: Array.isArray(userState?.AllowedViews) ? [...userState.AllowedViews] : [],
-      raw: userState
-    }];
+    const rows = await fetchSheet(SHEET_NAMES.PERMISSIONS);
+    if (rows.length) mapped = rows.map(mapPermissionRow);
+    else mapped = [mapSessionPermissionRow(userState)];
   }
   dataStore.permissions = mapped;
   dataStore.loadedAt.permissions = now();
   return mapped;
+}
+
+export async function ensurePermissionsLoaded(userState = {}, options = {}) {
+  const { forceRemote = false } = options || {};
+  if (!forceRemote && dataStore.permissions.length) return dataStore.permissions;
+  return loadPermissions(userState, { forceRemote, preferSessionProfile: !forceRemote });
 }
 
 export async function loadLists() {
@@ -329,7 +348,11 @@ export async function loadLists() {
   return dataStore.lists;
 }
 
-export async function loadSettings() {
+export async function loadSettings(force = false) {
+  const settingsLoadedAt = dataStore.loadedAt.settings || 0;
+  if (!force && dataStore.settings.length && settingsLoadedAt && (now() - settingsLoadedAt) < SETTINGS_CACHE_TTL_MS) {
+    return dataStore.settings;
+  }
   dataStore.settings = await fetchSheet(SHEET_NAMES.SETTINGS);
   if (dataStore.settings.length) {
     const sample = dataStore.settings[0] || {};

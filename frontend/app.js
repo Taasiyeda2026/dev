@@ -14,6 +14,7 @@ import {
   loadSettings,
   reloadCourses,
   ensureCoursesLoaded,
+  ensurePermissionsLoaded,
   resetClientDataStore,
   isCoursesCacheFresh,
   isReviewCacheFresh,
@@ -51,6 +52,7 @@ const runtimeRules = {
   useStatusWithDates: false
 };
 let runtimeRulesLoaded = false;
+let dashboardCourseHydrationPromise = null;
 
 function toSettingBool(value, fallback = false) {
   if (value === null || typeof value === 'undefined' || value === '') return fallback;
@@ -69,21 +71,15 @@ function getSettingValueFromStore(key, fallback) {
 async function ensureRuntimeRulesLoaded(force = false) {
   if (runtimeRulesLoaded && !force) return runtimeRules;
   await loadSettings();
-  const resolveRule = async (key, fallback = false) => {
+  const resolveRule = (key, fallback = false) => {
     const fromStore = getSettingValueFromStore(key, '');
-    if (String(fromStore ?? '').trim() !== '') return toSettingBool(fromStore, fallback);
-    const fromApi = await api.getSetting?.(key, '');
-    if (fromApi?.success) {
-      const value = fromApi?.data?.value ?? fromApi?.value ?? '';
-      if (String(value ?? '').trim() !== '') return toSettingBool(value, fallback);
-    }
-    return fallback;
+    return String(fromStore ?? '').trim() !== '' ? toSettingBool(fromStore, fallback) : fallback;
   };
-  const [r1, r2, r3] = await Promise.all([
+  const [r1, r2, r3] = [
     resolveRule('allow_admin_direct_data_edit', false),
     resolveRule('show_only_nonzero_kpis', false),
     resolveRule('use_status_with_dates', false)
-  ]);
+  ];
   runtimeRules.allowAdminDirectDataEdit = r1;
   runtimeRules.showOnlyNonZeroKpis = r2;
   runtimeRules.useStatusWithDates = r3;
@@ -4252,6 +4248,7 @@ async function loadAdminPermissionsView() {
         logUi('admin_permissions_engine_wait_failed', { message: e?.message || String(e || '') });
       }
     }
+    await ensurePermissionsLoaded(userState, { forceRemote: true });
     const snap = getStoreSnapshot();
     const items = (snap.permissions || []).map((row) => ({
       employeeId: row.employeeId,
@@ -4305,11 +4302,6 @@ async function onLogin(event) {
   setRoute(getStartupRoute());
 }
 
-const ROUTES_NEEDING_COURSES = new Set([
-  'dashboard', 'courses', 'instructor-view', 'week', 'month', 'instructors', 'end-dates', 'exceptions',
-  'my-requests', 'approvals', 'eden-view', 'final-approvals'
-]);
-
 const ROUTES_NEEDING_RUNTIME_RULES = new Set([
   'dashboard', 'courses', 'instructor-view', 'week', 'month', 'instructors', 'end-dates', 'exceptions'
 ]);
@@ -4322,14 +4314,10 @@ async function loadRouteData() {
     return;
   }
   const needsRules = ROUTES_NEEDING_RUNTIME_RULES.has(currentRoute);
-  const needsCourses = ROUTES_NEEDING_COURSES.has(currentRoute);
-  if (needsRules || needsCourses) {
-    const parallelLoads = [];
-    if (needsRules) parallelLoads.push(ensureRuntimeRulesLoaded());
-    if (needsCourses) parallelLoads.push(ensureCoursesLoaded());
-    await Promise.all(parallelLoads);
-  } else if (!runtimeRulesLoaded) {
-    void ensureRuntimeRulesLoaded().catch(() => {});
+  if (needsRules && !runtimeRulesLoaded) {
+    void ensureRuntimeRulesLoaded().then(() => {
+      if (ROUTES_NEEDING_RUNTIME_RULES.has(currentRoute)) renderScreen();
+    }).catch(() => {});
   }
   if (currentRoute === 'admin-home' || currentRoute === 'operations-home') return null;
   if (currentRoute === 'admin-settings') return loadAdminSettingsView();
@@ -4354,14 +4342,34 @@ async function loadRouteData() {
 
 async function loadDashboard() {
   await withLoad('dashboard', async () => {
-    const [dashboardRes] = await Promise.all([
-      api.getDashboard(),
-      ensureCoursesLoaded()
-    ]);
+    const dashboardRes = await api.getDashboard();
     if (!dashboardRes?.success) return dashboardRes;
-    const allActivities = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
+    const cachedCourses = getStoreSnapshot().courses || [];
+    const hasCachedCourses = cachedCourses.length > 0;
+    const allActivities = hasCachedCourses
+      ? getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen)
+      : [];
     const allActivityCourses = allActivities.filter(isCourseActivity);
     const courses = allActivityCourses.filter((row) => !isCourseCompleted(row));
+    if (!hasCachedCourses && !dashboardCourseHydrationPromise) {
+      dashboardCourseHydrationPromise = ensureCoursesLoaded()
+        .then(() => {
+          if (currentRoute !== 'dashboard' || !viewState.dashboard.data) return;
+          const hydratedActivities = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
+          const hydratedActivityCourses = hydratedActivities.filter(isCourseActivity);
+          const hydratedCourses = hydratedActivityCourses.filter((row) => !isCourseCompleted(row));
+          viewState.dashboard.data = withOperationalMetrics(
+            viewState.dashboard.data,
+            hydratedCourses,
+            { endingCourses: hydratedActivityCourses, allActivities: hydratedActivities }
+          );
+          renderScreen();
+        })
+        .catch(() => {})
+        .finally(() => {
+          dashboardCourseHydrationPromise = null;
+        });
+    }
     return {
       success: true,
       data: withOperationalMetrics(dashboardRes.data || {}, courses, { endingCourses: allActivityCourses, allActivities })
@@ -4370,12 +4378,12 @@ async function loadDashboard() {
 }
 async function loadCourses(options = {}) {
   const { silent = false, forceRefreshCourseId = '' } = options;
-  await ensureCoursesLoaded();
   if (!silent) {
     viewState.courses.loading = true;
     viewState.courses.error = '';
     renderScreen();
   }
+  await ensureCoursesLoaded();
   if (forceRefreshCourseId) {
     await refreshCourse(forceRefreshCourseId);
   }

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   initDataEngine,
   getStoreSnapshot,
+  ensureCoursesLoaded,
   createEditRequest,
   createDataMasterRecord,
   loadEditRequests,
@@ -73,14 +74,17 @@ const api = {
 };
 
 await initDataEngine(api, { userState: { displayName: 'QA', userId: '1' } });
+let snap = getStoreSnapshot();
+assert.equal(snap.courses.length, 0, 'courses should stay lazy until explicitly requested');
+await ensureCoursesLoaded();
 await loadDataMaster(true);
 await loadReviewItems(true);
-let snap = getStoreSnapshot();
+snap = getStoreSnapshot();
 assert.equal(snap.courses.length, 1, 'courses should load from data');
 assert.equal(snap.reviewItems.length, 1, 'review items should be derived from data');
 assert.equal(snap.courses[0].RowID, 'R-1', 'RowID should be primary identifier');
 assert.equal(String(snap.courses[0].date35 || '').trim(), '2026-06-01', 'date35 should be preserved');
-assert.equal(snap.permissions.length, 1, 'permissions should load from permissions sheet');
+assert.equal(snap.permissions.length, 1, 'permissions should initialize from session profile');
 
 const reqRes = await createEditRequest('R-1', { notes: 'changed' }, { displayName: 'qa-user' });
 assert.equal(reqRes.success, true, 'createEditRequest should succeed');
