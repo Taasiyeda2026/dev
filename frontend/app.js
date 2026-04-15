@@ -1818,9 +1818,7 @@ function renderEdenAllData(courses = [], queueMap = {}) {
         <button class="btn btn-secondary btn-xxs eden-notes-save-btn" data-eden-save-notes="${escAttr(courseId)}">שמור הערות</button>
       </div>
       <footer class="card-actions">
-        ${hasEdit
-          ? `<button class="btn btn-secondary" data-eden-edit="${escAttr(queueItem.RequestID || '')}">ערכי את ההצעה</button><button class="btn btn-primary" data-eden-submit="${escAttr(queueItem.RequestID || '')}">שלחי לאדמין</button>`
-          : `<button class="btn btn-primary" data-eden-open-existing="${escAttr(courseId)}">הצע שינוי</button>`}
+        <button class="btn btn-primary" data-eden-open-existing="${escAttr(courseId)}">עריכה</button>
       </footer>`;
     return renderExpandableCard({ summary, details, classes: 'management-card expandable-card eden-data-card', activityRow: course });
   }).join('')}</section>`;
@@ -3168,19 +3166,20 @@ function bindEditButtons() {
     const formResult = await openCourseActionForm(row, mode);
     if (!formResult) return;
     if (canEdenEditCourses()) {
-      const originalData = { ...row };
-      const requestedData = { ...originalData, ...formResult.changes };
-      const res = await api.createEditRequest({
-        CourseID: row[COURSE_FIELDS.COURSE_ID],
-        ApprovalStatus: 'pending_eden',
+      const courseId = row[COURSE_FIELDS.COURSE_ID];
+      const res = await updateCourse(courseId, formResult.changes, userState);
+      if (!res?.success) { showToast(res?.message || 'עדכון נכשל', 'error'); return; }
+      api.createEditRequest({
+        CourseID: courseId,
+        ApprovalStatus: 'final_approved',
         Origin: 'EDEN_INITIATED',
         ChangeType: 'UPDATE_EXISTING',
-        RequestedData: requestedData,
-        OriginalData: originalData,
-        ChangeSummary: 'יוזמת עדן - עריכה ממסך קורסים'
+        RequestedData: { ...row, ...formResult.changes },
+        OriginalData: { ...row },
+        ChangeSummary: 'עדכון ישיר עדן'
       });
-      if (!res?.success) showToast(res?.message || 'הפעולה נכשלה', 'error');
-      else { await loadEdenView(); showToast('נשמר במסך עדן — ממתין לשליחה לאדמין.', 'success'); }
+      await loadCourses();
+      showToast('הרשומה עודכנה ישירות. האדמין יראה את השינוי.', 'success');
       return;
     }
     const res = canEditMasterCourses()
@@ -3723,21 +3722,21 @@ function bindEdenActions() {
     const courses = getStoreSnapshot().courses || [];
     const course = courses.find(c => String(c[COURSE_FIELDS.COURSE_ID] || c.CourseID || '').trim() === courseId);
     if (!course) { showToast('לא נמצאה פעילות עם המזהה הזה.', 'error'); return; }
-    const requestedData = { ...course };
-    const res = await api.createEditRequest({
+    const formResult = await openCourseActionForm(course, 'edit');
+    if (!formResult) return;
+    const res = await updateCourse(courseId, formResult.changes, userState);
+    if (!res?.success) { showToast(res?.message || 'עדכון נכשל.', 'error'); return; }
+    api.createEditRequest({
       CourseID: courseId,
-      ApprovalStatus: 'pending_eden',
+      ApprovalStatus: 'final_approved',
       Origin: 'EDEN_INITIATED',
       ChangeType: 'UPDATE_EXISTING',
-      RequestedData: requestedData,
-      OriginalData: requestedData,
-      ChangeSummary: 'יוזמת עדן - עדכון רשומה קיימת'
+      RequestedData: { ...course, ...formResult.changes },
+      OriginalData: { ...course },
+      ChangeSummary: 'עדכון ישיר עדן'
     });
-    if (!res?.success) return showToast(res?.message || 'פתיחת שינוי נכשלה.', 'error');
-    await loadEdenView();
-    showToast('נפתח שינוי — עוברת לתור שלי.', 'success');
-    viewState.eden.activeTab = 'queue';
-    renderScreen();
+    await Promise.all([loadCourses(), loadEdenView()]);
+    showToast('הרשומה עודכנה ישירות. האדמין יראה את השינוי.', 'success');
   }));
 
   document.querySelectorAll('[data-eden-save-notes]').forEach((button) => button.addEventListener('click', async () => {
