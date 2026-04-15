@@ -884,11 +884,11 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, #7fb2f8 0%, #adcffc 100%); border-color: #7fb2f8; }
 
 .btn-secondary {
-  background: var(--pastel-peach);
-  color: #7c3a06;
-  border-color: #ffd6b0;
+  background: #e0f9ff;
+  color: #0e7490;
+  border-color: #a5f3fc;
 }
-.btn-secondary:hover:not(:disabled) { background: #ffe2c4; border-color: #ffc997; color: #8a4308; }
+.btn-secondary:hover:not(:disabled) { background: #cffafe; border-color: #67e8f9; color: #0c4a6e; }
 
 .btn-tertiary {
   background: transparent;
