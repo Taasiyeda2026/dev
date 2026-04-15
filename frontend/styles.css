@@ -1344,6 +1344,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .ci-chip--pending .ci-chip-num { background: var(--text-muted); color: #fff; }
 .ci-chip--pending .ci-chip-date { color: var(--text-muted); font-style: italic; }
 .btn-xs { padding: 3px 8px; font-size: 11px; }
+.btn-xxs { padding: 2px 6px; font-size: 10px; }
 .cell-wrap { max-width: 280px; white-space: normal; line-height: 1.4; }
 .cell-details summary { font-size: 12px; color: var(--accent); cursor: pointer; }
 .cell-details pre { font-size: 11px; background: var(--surface-2); padding: 8px; border-radius: var(--radius-sm); margin-top: 6px; white-space: pre-wrap; color: var(--text-secondary); }
@@ -2493,6 +2494,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   gap: 12px;
 }
 
+.perm-active-label { display: flex; align-items: center; gap: 8px; flex-direction: row; font-size: 14px; cursor: pointer; }
+.perm-active-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
 .contact-form-card .card-actions {
   position: sticky;
   bottom: 0;

@@ -322,6 +322,9 @@ function hasCapability(capabilityKey) {
 function isAdminUser() {
   return hasCapability('view_admin') || hasCapability('edit_admin');
 }
+function canEditPermissions() {
+  return hasCapability('edit_admin');
+}
 function isOperationsUser() {
   return !isAdminUser() && getAllowedBusinessRoutes().length > 0;
 }
@@ -911,25 +914,26 @@ function renderScreen() {
       ],
       'admin-permissions'
     );
+    const canEditPerms = canEditPermissions();
     main.innerHTML = renderUnifiedScreenHeader('admin-permissions', 'סיכום הרשאות משתמשים', { itemsCount: perms.length })
       + panel(viewState.adminPermissions, 'אין נתוני הרשאות.',
-        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3><span class="status-chip status-none">תצוגה בלבד</span></div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד</th><th>ברירת מחדל</th><th>פעיל</th><th>פירוט</th></tr></thead><tbody>
-          ${perms.map((row) => {
+        `<section class="panel-block admin-screen-shell"><div class="panel-block-head"><h3 class="section-title">הרשאות משתמשים</h3>${canEditPerms ? '' : '<span class="status-chip status-none">תצוגה בלבד</span>'}</div><div class="table-shell admin-table-shell"><table><thead><tr><th>שם</th><th>תפקיד</th><th>ברירת מחדל</th><th>פעיל</th><th>פירוט</th>${canEditPerms ? '<th>עריכה</th>' : ''}</tr></thead><tbody>
+          ${perms.map((row, idx) => {
       const summaryId = `perm-summary-${cssEscape(row.employeeId || row.employeeName || '')}`;
       const detailsId = `perm-details-${cssEscape(row.employeeId || row.employeeName || '')}`;
       const viewPermissions = mapCapabilityLabels(row.allowedViews || row.viewScope, 'view');
       const editPermissions = mapCapabilityLabels(row.allowedEdits || row.editScope, 'edit');
-      const viewPermsText = viewPermissions.length ? viewPermissions.join(', ') : 'ללא הרשאות צפייה פעילות';
-      const editPermsText = editPermissions.length ? editPermissions.join(', ') : 'ללא הרשאות עריכה פעילות';
-      return `<tr class="permissions-summary-row" id="${summaryId}"><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole || row.systemRole || '-')}</td><td>${esc(row.defaultView || '-')}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td><td><button class="btn btn-secondary btn-xs permissions-toggle-btn" type="button" data-perm-toggle="${escAttr(detailsId)}" aria-expanded="false" aria-controls="${detailsId}">הצג פירוט</button></td></tr>
-      <tr class="permissions-details-row" id="${detailsId}" hidden><td colspan="5"><div class="permission-details-grid">
+      const viewPermsText = viewPermissions.length ? viewPermissions.join(', ') : 'ללא הרשאות צפייה';
+      const editPermsText = editPermissions.length ? editPermissions.join(', ') : 'ללא הרשאות עריכה';
+      return `<tr class="permissions-summary-row" id="${summaryId}"><td>${esc(row.employeeName)}</td><td>${esc(row.displayRole || row.systemRole || '-')}</td><td>${esc(row.defaultView || '-')}</td><td>${row.activeFlag ? 'כן' : 'לא'}</td><td><button class="btn btn-secondary btn-xxs permissions-toggle-btn" type="button" data-perm-toggle="${escAttr(detailsId)}" aria-expanded="false" aria-controls="${detailsId}">פירוט</button></td>${canEditPerms ? `<td><button class="btn btn-secondary btn-xxs" type="button" data-edit-perm="${idx}">עריכה</button></td>` : ''}</tr>
+      <tr class="permissions-details-row" id="${detailsId}" hidden><td colspan="${canEditPerms ? 6 : 5}"><div class="permission-details-grid">
       <article><span>מספר עובד</span><strong>${esc(row.employeeId || '-')}</strong></article>
       <article><span>קוד כניסה</span><strong>${esc(row.entryCode || '-')}</strong></article>
       <article><span>תפקיד</span><strong>${esc(row.displayRole || row.systemRole || '-')}</strong></article>
       <article><span>פעיל</span><strong>${row.activeFlag ? 'כן' : 'לא'}</strong></article>
       <article><span>מסך ברירת מחדל</span><strong>${esc(row.defaultView || '-')}</strong></article>
-      <article class="permission-details-full"><span>הרשאות צפייה פעילות</span><strong>${esc(viewPermsText)}</strong></article>
-      <article class="permission-details-full"><span>הרשאות עריכה פעילות</span><strong>${esc(editPermsText)}</strong></article>
+      <article class="permission-details-full"><span>הרשאות צפייה</span><strong>${esc(viewPermsText)}</strong></article>
+      <article class="permission-details-full"><span>הרשאות עריכה</span><strong>${esc(editPermsText)}</strong></article>
       </div></td></tr>`;
     }).join('')}
         </tbody></table></div></section>`);
@@ -941,7 +945,20 @@ function renderScreen() {
         const isExpanded = !detailsRow.hasAttribute('hidden');
         detailsRow.toggleAttribute('hidden', isExpanded);
         button.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
-        button.textContent = isExpanded ? 'הצג פירוט' : 'הסתר פירוט';
+        button.textContent = isExpanded ? 'פירוט' : 'סגור';
+      });
+    });
+    document.querySelectorAll('[data-edit-perm]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const idx = Number(button.dataset.editPerm);
+        const row = perms[idx];
+        if (!row) return;
+        const updated = await openPermissionEditForm(row);
+        if (!updated) return;
+        const res = await api.updatePermission(updated);
+        if (!res?.success) return showToast(res?.message || 'עדכון הרשאה נכשל.', 'error');
+        await loadAdminPermissionsView();
+        showToast('ההרשאה עודכנה בהצלחה.', 'success');
       });
     });
     bindUnifiedScreenHeader('admin-permissions');
@@ -3085,6 +3102,44 @@ function openAddRecordForm(options = {}) {
         return;
       }
       close(out);
+    });
+  });
+}
+
+function openPermissionEditForm(perm = {}) {
+  return new Promise((resolve) => {
+    const root = document.createElement('div');
+    root.className = 'course-form-modal';
+    root.innerHTML = `
+      <div class="course-form-backdrop" data-form-close="1"></div>
+      <div class="course-form-card contact-form-card">
+        <h3>עריכת הרשאה — ${escAttr(perm.employeeName || '')}</h3>
+        <label>תפקיד (תצוגה)<input id="permDisplayRole" value="${escAttr(perm.displayRole || perm.systemRole || '')}" /></label>
+        <label>מסך ברירת מחדל<input id="permDefaultView" value="${escAttr(perm.defaultView || '')}" /></label>
+        <label>קוד כניסה<input id="permEntryCode" value="${escAttr(perm.entryCode || '')}" /></label>
+        <label>היקף צפייה<input id="permViewScope" value="${escAttr(perm.viewScope || '')}" /></label>
+        <label>היקף עריכה<input id="permEditScope" value="${escAttr(perm.editScope || '')}" /></label>
+        <label class="perm-active-label"><input type="checkbox" id="permActive" ${perm.activeFlag ? 'checked' : ''} /> פעיל</label>
+        <div class="card-actions">
+          <button class="btn btn-secondary" data-form-close="1">ביטול</button>
+          <button class="btn btn-primary" id="permSaveBtn">שמירה</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(root);
+    const close = (value = null) => { root.remove(); resolve(value); };
+    root.querySelectorAll('[data-form-close]').forEach((b) => b.addEventListener('click', () => close(null)));
+    root.querySelector('#permSaveBtn')?.addEventListener('click', () => {
+      close({
+        _rowNumber: perm._rowNumber || perm.raw?._rowNumber,
+        emp_id: perm.employeeId || '',
+        DisplayRole: root.querySelector('#permDisplayRole')?.value.trim() || '',
+        default_view: root.querySelector('#permDefaultView')?.value.trim() || '',
+        code: root.querySelector('#permEntryCode')?.value.trim() || '',
+        ViewScope: root.querySelector('#permViewScope')?.value.trim() || '',
+        EditScope: root.querySelector('#permEditScope')?.value.trim() || '',
+        active: root.querySelector('#permActive')?.checked ? 'yes' : 'no'
+      });
     });
   });
 }

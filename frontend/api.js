@@ -122,6 +122,7 @@ export const api = {
   updateContact: (payload) => callAction('updateContactAction', payload),
   getAllLists: () => callAction('getAllListsAction', {}),
   getListByName: (listName) => callAction('getListByNameAction', { listName }),
+  updatePermission: (payload) => callAction('updatePermissionAction', payload),
   getAllSettings: () => callAction('getAllSettingsAction', {}),
   getSetting: (key, fallback) => callAction('getSettingAction', { key, fallback }),
   createDataMasterRecord: (payload) => callAction('createDataMasterRecordAction', payload),
