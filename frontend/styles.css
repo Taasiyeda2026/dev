@@ -3212,6 +3212,43 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 }
 
 /* ============================================================
+   EDEN TABS
+   ============================================================ */
+.eden-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 0 12px;
+  border-bottom: 2px solid var(--border-light, #e5e7eb);
+  margin-bottom: 8px;
+}
+.eden-tab-btn {
+  padding: 7px 18px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--border-light, #e5e7eb);
+  border-bottom: none;
+  background: var(--bg-subtle, #f9fafb);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.eden-tab-btn:hover { background: var(--bg-hover, #f3f4f6); color: var(--text-main); }
+.eden-tab-active {
+  background: var(--bg-card, #fff) !important;
+  color: var(--accent, #4f46e5) !important;
+  font-weight: 700;
+  border-color: var(--border-light, #e5e7eb);
+  border-bottom-color: var(--bg-card, #fff);
+  margin-bottom: -2px;
+}
+.eden-no-edit-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ============================================================
    EDEN DATA CARDS
    ============================================================ */
 .eden-data-card .course-core-grid { margin-top: 8px; }

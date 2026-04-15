@@ -109,7 +109,7 @@ const viewState = {
   },
   requests: { loading: false, error: '', data: [] },
   approvals: { loading: false, error: '', data: [] },
-  eden: { loading: false, error: '', data: { queue: [], exceptions: [], counters: {} }, filters: { workflow: '', origin: '', instructor: '', authority: '', school: '', search: '' } },
+  eden: { loading: false, error: '', data: { queue: [], exceptions: [], counters: {} }, filters: { workflow: '', origin: '', instructor: '', authority: '', school: '', search: '' }, activeTab: 'queue' },
   week: { loading: false, error: '', rangeStart: '', rangeEnd: '', filters: { authority: '', employee: '', courseManager: '' }, selected: null, instructorPanel: null },
   month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '', program: '' }, selectedDate: '' },
   instructors: { loading: false, error: '', filters: { authority: '', courseManager: '', program: '' }, selectedInstructor: '' },
@@ -1508,46 +1508,67 @@ function renderScreen() {
   if (currentRoute === 'eden-view') {
     const queue = viewState.eden.data.queue || [];
     const counters = viewState.eden.data.counters || {};
+    const activeTab = viewState.eden.activeTab || 'queue';
     const searchFilteredQueue = filterBySearch(queue, ['CourseID', 'Origin', 'Authority', 'School', 'Instructor', 'ApprovalStatus', 'ChangeType'], 'eden-view');
     const filteredQueue = applyEdenQueueFilters(searchFilteredQueue);
-    main.innerHTML = renderUnifiedScreenHeader('eden-view', 'תור בקשות ויוזמות בקרה ותפעול', {
-      itemsCount: filteredQueue.length,
-      totalCount: queue.length
+    const queueMap = Object.fromEntries(queue.map(q => [String(q.CourseID || ''), q]));
+    const allCourses = getCoursesForUser(userState, {}).filter(isCourseShownOnCoursesScreen);
+    const allSearchTerm = (viewState.eden.filters.search || '').toLowerCase();
+    const filteredCourses = allSearchTerm
+      ? allCourses.filter(c => {
+          const hay = `${c[COURSE_FIELDS.PROGRAM]||''} ${c[COURSE_FIELDS.SCHOOL]||''} ${c[COURSE_FIELDS.AUTHORITY]||''} ${c[COURSE_FIELDS.EMPLOYEE]||''} ${c[COURSE_FIELDS.COURSE_ID]||''}`.toLowerCase();
+          return hay.includes(allSearchTerm);
+        })
+      : allCourses;
+    main.innerHTML = renderUnifiedScreenHeader('eden-view', 'ניהול בקרה ותפעול', {
+      itemsCount: activeTab === 'queue' ? filteredQueue.length : filteredCourses.length,
+      totalCount: activeTab === 'queue' ? queue.length : allCourses.length
     }) +
     `<section class="kpi-grid kpi-grid--compact">
       <article class="kpi-card"><span class="kpi-title">ממתין עדן</span><span class="kpi-value">${counters.pending_eden || 0}</span></article>
       <article class="kpi-card"><span class="kpi-title">נשמר אצל עדן</span><span class="kpi-value">${counters.eden_saved || 0}</span></article>
       <article class="kpi-card"><span class="kpi-title">נשלח לאדמין</span><span class="kpi-value">${counters.pending_final || 0}</span></article>
-      <article class="kpi-card"><span class="kpi-title">התראת שינוי מאסטר</span><span class="kpi-value">${counters.master_changed_warning || 0}</span></article>
-      <article class="kpi-card"><span class="kpi-title">מקור: בקשה</span><span class="kpi-value">${counters.request_origin || 0}</span></article>
-      <article class="kpi-card"><span class="kpi-title">מקור: יוזמת עדן</span><span class="kpi-value">${counters.eden_initiated_origin || 0}</span></article>
+      <article class="kpi-card"><span class="kpi-title">סה"כ פעילויות</span><span class="kpi-value">${allCourses.length}</span></article>
     </section>
+    <nav class="eden-tabs">
+      <button class="eden-tab-btn${activeTab === 'queue' ? ' eden-tab-active' : ''}" data-eden-tab="queue">תור שלי (${queue.length})</button>
+      <button class="eden-tab-btn${activeTab === 'all' ? ' eden-tab-active' : ''}" data-eden-tab="all">כל הנתונים (${allCourses.length})</button>
+    </nav>` +
+    (activeTab === 'queue' ? `
     <section class="filters-wrap">
       <button class="btn btn-secondary" id="edenStartExisting">פתיחת שינוי על רשומה קיימת</button>
-      <button class="btn btn-primary" id="edenStartNew">יצירת רשומה חדשה (יוזמת עדן)</button>
-      <span class="status-chip">רשומה חדשה = מילוי טופס ידני</span>
+      <button class="btn btn-primary" id="edenStartNew">רשומה חדשה</button>
     </section>
     <section class="filters-wrap">
-      <label>סטטוס<select id="edenWorkflowFilter"><option value="">הכל</option>${[['pending_eden','ממתין לבדיקת בקרה ותפעול'],['eden_saved','נשמר אצל עדן'],['pending_final','ממתין לאישור סופי'],['final_approved','אושר לדאטה הראשית'],['final_rejected','נדחה סופית'],['closed','נסגר']].map(([v,l])=>`<option value="${escAttr(v)}" ${v===viewState.eden.filters.workflow?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
+      <label>סטטוס<select id="edenWorkflowFilter"><option value="">הכל</option>${[['pending_eden','ממתין'],['eden_saved','נשמר'],['pending_final','ממתין לאישור סופי'],['final_approved','אושר'],['final_rejected','נדחה'],['closed','נסגר']].map(([v,l])=>`<option value="${escAttr(v)}" ${v===viewState.eden.filters.workflow?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
       <label>מקור<select id="edenOriginFilter"><option value="">הכל</option>${[['REQUEST','בקשת מנהל'],['EDEN_INITIATED','יוזמת עדן']].map(([v,l])=>`<option value="${escAttr(v)}" ${v===viewState.eden.filters.origin?'selected':''}>${esc(l)}</option>`).join('')}</select></label>
-      <label>חיפוש<select id="edenAuthorityFilter">${renderSelectOptions(uniqueValues(queue, 'Authority'), viewState.eden.filters.authority)}</select></label>
-      <label>בית ספר<select id="edenSchoolFilter">${renderSelectOptions(uniqueValues(queue, 'School'), viewState.eden.filters.school)}</select></label>
-      <label>מדריך<select id="edenInstructorFilter">${renderSelectOptions(uniqueValues(queue, 'Instructor'), viewState.eden.filters.instructor)}</select></label>
-      <label>חופשי<input id="edenSearchFilter" value="${escAttr(viewState.eden.filters.search || '')}" /></label>
+      <label>חיפוש<input id="edenSearchFilter" value="${escAttr(viewState.eden.filters.search || '')}" /></label>
       <button class="btn btn-secondary" id="filterIssues">סינון</button>
     </section>` +
-    panel(viewState.eden, 'אין רשומות בתור עדן.', `${renderEdenQueue(filteredQueue)}`);
+    panel(viewState.eden, 'אין רשומות בתור עדן.', renderEdenQueue(filteredQueue))
+    : `
+    <section class="filters-wrap">
+      <label>חיפוש חופשי<input id="edenAllSearch" value="${escAttr(viewState.eden.filters.search || '')}" placeholder="שם תוכנית / בית ספר / רשות..." /></label>
+      <button class="btn btn-secondary" id="edenAllFilter">סינון</button>
+    </section>` +
+    panel(viewState.eden, 'אין נתונים.', renderEdenAllData(filteredCourses, queueMap)));
     document.getElementById('filterIssues')?.addEventListener('click', () => {
       viewState.eden.filters = {
+        ...viewState.eden.filters,
         workflow: document.getElementById('edenWorkflowFilter')?.value.trim() || '',
         origin: document.getElementById('edenOriginFilter')?.value.trim() || '',
-        instructor: document.getElementById('edenInstructorFilter')?.value.trim() || '',
-        authority: document.getElementById('edenAuthorityFilter')?.value.trim() || '',
-        school: document.getElementById('edenSchoolFilter')?.value.trim() || '',
         search: document.getElementById('edenSearchFilter')?.value.trim() || ''
       };
       renderScreen();
     });
+    document.getElementById('edenAllFilter')?.addEventListener('click', () => {
+      viewState.eden.filters = { ...viewState.eden.filters, search: document.getElementById('edenAllSearch')?.value.trim() || '' };
+      renderScreen();
+    });
+    document.querySelectorAll('[data-eden-tab]').forEach(btn => btn.addEventListener('click', () => {
+      viewState.eden.activeTab = btn.dataset.edenTab;
+      renderScreen();
+    }));
     bindEdenActions();
     bindUnifiedScreenHeader('eden-view');
   }
@@ -1728,6 +1749,73 @@ function buildEdenComparedRows(source = {}, eden = {}) {
       const edenText = String(eden?.[field] ?? '');
       return { field: edenFieldLabel(field), source: sourceText || '-', eden: edenText || '-', changed: sourceText !== edenText };
     });
+}
+
+function renderEdenAllData(courses = [], queueMap = {}) {
+  if (!courses.length) return '<section class="panel-empty">אין פעילויות להצגה.</section>';
+  return `<section class="cards-grid course-cards-grid">${courses.map(course => {
+    const courseId = String(course[COURSE_FIELDS.COURSE_ID] || '');
+    const queueItem = queueMap[courseId];
+    const edenData = queueItem ? safeParseJson(queueItem.RequestedData) : null;
+    const program = esc(String(course[COURSE_FIELDS.PROGRAM] || course[COURSE_FIELDS.EVENT_TYPE] || '-'));
+    const school = esc(String(course[COURSE_FIELDS.SCHOOL] || '-'));
+    const authority = esc(String(course[COURSE_FIELDS.AUTHORITY] || '-'));
+    const instructor = esc(String(getCourseField(course, COURSE_FIELDS.EMPLOYEE) || '-'));
+    const courseManager = esc(String(getCourseField(course, COURSE_FIELDS.COURSE_MANAGER) || ''));
+    const startDate = esc(formatDate(parseDateLike(course[COURSE_FIELDS.DATE_FIELDS?.[0]] || '')) || '-');
+    const endDate = esc(formatDate(parseDateLike(course[COURSE_FIELDS.END] || '')) || '-');
+    const startTime = formatTimeValue(getCourseField(course, COURSE_FIELDS.START_TIME));
+    const endTime = formatTimeValue(getCourseField(course, COURSE_FIELDS.END_TIME));
+    const timeLabel = (startTime && startTime !== '--:--') ? `${startTime}–${endTime}` : '';
+    const sessions = esc(String(getCourseField(course, COURSE_FIELDS.PLANNED_MEETINGS) || ''));
+    const notes = esc(String(course[COURSE_FIELDS.NOTES] || '').trim());
+    const edenNotes = String(queueItem?.EdenNotes || '').trim();
+    const hasEdit = Boolean(queueItem);
+    const editStatus = hasEdit ? statusLabel(queueItem.ApprovalStatus) : '';
+    const editClass = hasEdit ? statusClass(queueItem.ApprovalStatus) : '';
+    return `<article class="management-card expandable-card eden-data-card">
+      <header class="card-head">
+        <div>
+          <h3>${program}</h3>
+          <p class="card-subtitle">${school} · ${authority}</p>
+        </div>
+        <div class="card-status">
+          ${hasEdit ? `<span class="status-chip ${editClass}">${editStatus}</span>` : '<span class="status-chip status-none">ללא עריכה</span>'}
+        </div>
+      </header>
+      <div class="course-core-grid">
+        <div class="course-core-col">
+          <span><strong>מדריך:</strong> ${instructor}</span>
+          ${courseManager ? `<span><strong>מנהל:</strong> ${courseManager}</span>` : ''}
+        </div>
+        <div class="course-core-col">
+          <span><strong>תאריך התחלה:</strong> ${startDate}</span>
+          <span><strong>תאריך סיום:</strong> ${endDate}</span>
+        </div>
+        <div class="course-core-col">
+          ${timeLabel ? `<span><strong>שעות:</strong> ${esc(timeLabel)}</span>` : ''}
+          ${sessions ? `<span><strong>מפגשים:</strong> ${sessions}</span>` : ''}
+        </div>
+      </div>
+      ${notes ? `<div class="card-issue"><strong>הערות:</strong> ${notes}</div>` : ''}
+      ${hasEdit && edenData ? (() => {
+        const changedFields = buildEdenComparedRows(course, edenData).filter(i => i.changed);
+        return changedFields.length ? `<details class="eden-changes-details"><summary>התוספות שלי (${changedFields.length})</summary><ul class="eden-changes-list">${changedFields.map(i => `<li><strong>${esc(i.field)}:</strong> <span class="eden-old">${esc(i.source)}</span> → <span class="eden-new">${esc(i.eden)}</span></li>`).join('')}</ul></details>` : '';
+      })() : ''}
+      <div class="eden-notes-row">
+        <label class="eden-notes-label">הערות שלי
+          ${hasEdit
+            ? `<textarea class="eden-notes-textarea" data-eden-notes="${escAttr(queueItem.RequestID || '')}" rows="2" placeholder="הערות פנימיות...">${esc(edenNotes)}</textarea>`
+            : `<span class="eden-no-edit-note">${edenNotes || 'אין הערות — פתחי שינוי כדי להוסיף'}</span>`}
+        </label>
+      </div>
+      <footer class="card-actions">
+        ${hasEdit
+          ? `<button class="btn btn-secondary" data-eden-edit="${escAttr(queueItem.RequestID || '')}">עריכה ושמירה</button><button class="btn btn-primary" data-eden-submit="${escAttr(queueItem.RequestID || '')}">שליחה לאדמין</button>`
+          : `<button class="btn btn-secondary" data-eden-open-existing="${escAttr(courseId)}">פתיחת שינוי</button>`}
+      </footer>
+    </article>`;
+  }).join('')}</section>`;
 }
 
 function uniqueValues(rows = [], field) {
@@ -3590,6 +3678,29 @@ function bindEdenActions() {
     }
     await loadEdenView();
     showToast('מקור DATA_MASTER רוענן בהצלחה.', 'success');
+  }));
+
+  document.querySelectorAll('[data-eden-open-existing]').forEach((button) => button.addEventListener('click', async () => {
+    const courseId = button.dataset.edenOpenExisting || '';
+    if (!courseId) return;
+    const courses = getStoreSnapshot().courses || [];
+    const course = courses.find(c => String(c[COURSE_FIELDS.COURSE_ID] || c.CourseID || '').trim() === courseId);
+    if (!course) { showToast('לא נמצאה פעילות עם המזהה הזה.', 'error'); return; }
+    const requestedData = { ...course };
+    const res = await api.createEditRequest({
+      CourseID: courseId,
+      ApprovalStatus: 'pending_eden',
+      Origin: 'EDEN_INITIATED',
+      ChangeType: 'UPDATE_EXISTING',
+      RequestedData: requestedData,
+      OriginalData: requestedData,
+      ChangeSummary: 'יוזמת עדן - עדכון רשומה קיימת'
+    });
+    if (!res?.success) return showToast(res?.message || 'פתיחת שינוי נכשלה.', 'error');
+    await loadEdenView();
+    showToast('נפתח שינוי — עוברת לתור שלי.', 'success');
+    viewState.eden.activeTab = 'queue';
+    renderScreen();
   }));
 }
 
