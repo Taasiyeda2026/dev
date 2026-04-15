@@ -113,7 +113,7 @@ const viewState = {
   month: { loading: false, error: '', monthDate: '', filters: { authority: '', employee: '', courseManager: '', program: '' }, selectedDate: '' },
   instructors: { loading: false, error: '', filters: { authority: '', courseManager: '', program: '' }, selectedInstructor: '' },
   endDates: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', month: '' } },
-  exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '' } }
+  exceptions: { loading: false, error: '', filters: { authority: '', employee: '', courseManager: '', treatmentStatus: '', issueType: '' } }
   ,
   contacts: { loading: false, error: '', data: [], expandedRowKey: '' },
   adminSettings: { loading: false, error: '', data: [] },
@@ -4091,7 +4091,8 @@ function bindEndDatesActions() {
 
 function renderExceptionsFilters() {
   const options = getUiFilterOptions();
-  return `<section class="filters-wrap"><label>מדריך<select id="exceptionsEmployee">${renderSelectOptions(options.employee, viewState.exceptions.filters.employee)}</select></label><label>רשות<select id="exceptionsAuthority">${renderSelectOptions(options.authority, viewState.exceptions.filters.authority)}</select></label><label>מנהל קורס<select id="exceptionsManager">${renderSelectOptions(options.courseManager, viewState.exceptions.filters.courseManager)}</select></label><label>סטטוס טיפול<select id="exceptionsTreatment">${renderSelectOptions(['open', 'resolved'], viewState.exceptions.filters.treatmentStatus)}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="exceptionsApply">סינון</button><button class="btn btn-secondary" id="exceptionsReset">נקה סינון</button></div></section>`;
+  const issueTypes = ['ללא מדריך', 'ללא שעות', EXCEPTION_MISSING_START_DATE, 'סיום ביוני 2026'];
+  return `<section class="filters-wrap"><label>מדריך<select id="exceptionsEmployee">${renderSelectOptions(options.employee, viewState.exceptions.filters.employee)}</select></label><label>רשות<select id="exceptionsAuthority">${renderSelectOptions(options.authority, viewState.exceptions.filters.authority)}</select></label><label>מנהל קורס<select id="exceptionsManager">${renderSelectOptions(options.courseManager, viewState.exceptions.filters.courseManager)}</select></label><label>סטטוס טיפול<select id="exceptionsTreatment">${renderSelectOptions(['open', 'resolved'], viewState.exceptions.filters.treatmentStatus)}</select></label><label>סוג בעיה<select id="exceptionsIssueType"><option value="">הכל</option>${issueTypes.map((t) => `<option value="${escAttr(t)}"${viewState.exceptions.filters.issueType === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label><div class="filter-actions"><button class="btn btn-secondary" id="exceptionsApply">סינון</button><button class="btn btn-secondary" id="exceptionsReset">נקה סינון</button></div></section>`;
 }
 
 function buildExceptionsRows(reviewRows, courses, filters) {
@@ -4118,6 +4119,7 @@ function buildExceptionsRows(reviewRows, courses, filters) {
     if (clean.authority && !String(row.Authority || '').toLowerCase().includes(clean.authority)) return false;
     if (clean.courseManager && !String(row.CourseManager || '').toLowerCase().includes(clean.courseManager)) return false;
     if (clean.treatmentStatus && !String(row.TreatmentStatus || '').toLowerCase().includes(clean.treatmentStatus)) return false;
+    if (clean.issueType && !row.MissingTypes.some((t) => t.toLowerCase().includes(clean.issueType))) return false;
     return true;
   });
 }
@@ -4137,12 +4139,13 @@ function bindExceptionsActions() {
       employee: document.getElementById('exceptionsEmployee')?.value.trim() || '',
       authority: document.getElementById('exceptionsAuthority')?.value.trim() || '',
       courseManager: document.getElementById('exceptionsManager')?.value.trim() || '',
-      treatmentStatus: document.getElementById('exceptionsTreatment')?.value.trim() || ''
+      treatmentStatus: document.getElementById('exceptionsTreatment')?.value.trim() || '',
+      issueType: document.getElementById('exceptionsIssueType')?.value.trim() || ''
     };
     renderScreen();
   });
   document.getElementById('exceptionsReset')?.addEventListener('click', () => {
-    viewState.exceptions.filters = { authority: '', employee: '', courseManager: '', treatmentStatus: '' };
+    viewState.exceptions.filters = { authority: '', employee: '', courseManager: '', treatmentStatus: '', issueType: '' };
     renderScreen();
   });
   bindCourseActions();
