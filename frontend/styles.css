@@ -1543,9 +1543,16 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   align-items: center;
 }
 .admin-table-shell { border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--surface); overflow: hidden; }
-.admin-table-shell table { width: 100%; border-collapse: collapse; }
+.admin-table-shell table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .admin-table-shell thead th { background: var(--surface-2); font-weight: 700; }
 .admin-table-shell tbody tr + tr td { border-top: 1px solid var(--border-soft); }
+.admin-table-shell thead th:nth-child(1) { width: 140px; }
+.admin-table-shell thead th:nth-child(2) { width: 110px; }
+.admin-table-shell thead th:nth-child(3) { width: 80px; }
+.admin-table-shell thead th:nth-child(4) { width: 50px; }
+.admin-table-shell thead th:nth-child(5) { width: auto; }
+.admin-table-shell thead th:nth-child(6) { width: 60px; }
+.admin-table-shell td, .admin-table-shell th { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-details-actions { margin-top: 4px; }
 .activities-table-wrap { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; overflow-x: hidden; }
 .activities-table-wrap tbody tr + tr td { border-top: 1px solid #dbe2f1; }
