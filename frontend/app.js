@@ -4015,7 +4015,8 @@ function renderExceptionsFilters() {
 
 function buildExceptionsRows(reviewRows, courses, filters) {
   const clean = Object.fromEntries(Object.entries(filters || {}).map(([key, value]) => [key, String(value || '').trim().toLowerCase()]));
-  return (courses || []).map((course) => {
+  const coursesOnly = (courses || []).filter((course) => String(getCourseField(course, COURSE_FIELDS.EVENT_TYPE) || '').toLowerCase() === 'course');
+  return coursesOnly.map((course) => {
     const missingTypes = getExceptionsPageIssues(course);
     return {
       CourseID: getCourseField(course, COURSE_FIELDS.COURSE_ID) || '',
