@@ -1387,7 +1387,7 @@ function renderScreen() {
       await loadFinanceView({ silent: true, force: true });
     });
     document.getElementById('financeExportBtn')?.addEventListener('click', () => {
-      const fileName = `מסך_כספים_${formatIsoDateLocal(new Date())}.xlsx`;
+      const fileName = `מסך_כספים_${formatIsoDateLocal(new Date())}.xls`;
       exportFinanceToExcel(filteredFinance, fileName);
     });
 
@@ -4158,7 +4158,7 @@ function exportFinanceRowDatesToExcel(item) {
   const dataRows = dates.map(({ num, date, past }) => [num, date, past ? 'בוצע' : 'מתוכנן']);
   const tableHtml = `<table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${dataRows.map((cells) => `<tr>${cells.map((c) => `<td>${esc(String(c))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
   const safeProgram = programLine.replace(/[^\u05D0-\u05EAa-zA-Z0-9]/g, '_').slice(0, 30);
-  const filename = `תאריכים_${safeProgram}_${formatIsoDateLocal(new Date())}.xlsx`;
+  const filename = `תאריכים_${safeProgram}_${formatIsoDateLocal(new Date())}.xls`;
   const blob = new Blob([`\uFEFF${tableHtml}`], { type: 'application/vnd.ms-excel;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
