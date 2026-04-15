@@ -2075,7 +2075,6 @@ function renderCourseHierarchyStrip(row = {}) {
   const hierarchy = buildCourseHierarchyDetails(row);
   const segments = [
     hierarchy.meetingsTotal ? `<span><strong>מפגשים שבוצעו:</strong> ${esc(String(hierarchy.meetingsCompleted))} / ${esc(String(hierarchy.meetingsTotal))}</span>` : '',
-    (!hierarchy.isCompleted && hierarchy.meetingsRemaining > 0) ? `<span><strong>מפגשים שנותרו:</strong> ${esc(String(hierarchy.meetingsRemaining))}</span>` : '',
     (!hierarchy.isCompleted && hierarchy.nextMeetingDate) ? `<span><strong>מפגש קרוב:</strong> ${esc(hierarchy.nextMeetingDate)}</span>` : '',
     hierarchy.endDate && `<span><strong>סיום:</strong> ${esc(hierarchy.endDate)}</span>`
   ].filter(Boolean);
@@ -2115,7 +2114,7 @@ function renderInstructorDayPanel(row = {}, courseId = '') {
 
 function renderCourseCards(rows, options = {}) {
   if (!rows.length) return '<section class="panel-empty">לא נמצאו קורסים לפי הסינון.</section>';
-  const managerLabel = options.showInstructorManager ? 'מנהל מדריכים' : 'מנהל קורס';
+  const managerLabel = options.showInstructorManager ? 'מנהל מדריכים' : 'מנהל פעילויות';
   const managerValue = (row) => options.showInstructorManager ? row.InstructorManager : row.CourseManager;
   const canEdit = Boolean(options.canEdit);
   return `<section class="cards-grid course-cards-grid ${options.compact ? 'cards-grid-compact' : ''}">${rows.map((row) => {
@@ -2135,9 +2134,9 @@ function renderCourseCards(rows, options = {}) {
         </div>
         <div class="course-core-col">
           ${renderInfoRow('יום', hierarchy.dayName)}
-          ${renderInfoRow('שעות', hierarchy.timeLabel)}
         </div>
         <div class="course-core-col">
+          ${renderInfoRow('שעות', hierarchy.timeLabel)}
           ${renderInfoRow('מ"מ', String(getCourseField(row, COURSE_FIELDS.PLANNED_MEETINGS) || '-'))}
         </div>
       </div>
