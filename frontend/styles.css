@@ -1402,38 +1402,38 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 }
 .control-board-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 220px));
-  gap: 16px;
-  margin-top: 32px;
+  grid-template-columns: repeat(4, minmax(0, 160px));
+  gap: 12px;
+  margin-top: 24px;
   justify-content: center;
   align-items: stretch;
-  max-width: 740px;
+  max-width: 720px;
   margin-inline: auto;
 }
 .control-board-card {
   border: 1px solid #d9e0ef;
-  border-bottom: 4px solid #f9a8d4;
+  border-bottom: 3px solid #f9a8d4;
   background: linear-gradient(160deg, #fff 0%, #f5f8ff 100%);
-  border-radius: 14px;
+  border-radius: 12px;
   text-align: center;
-  padding: 22px 14px 18px;
+  padding: 14px 10px 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   cursor: pointer;
-  min-height: 90px;
-  box-shadow: 0 2px 8px rgba(22, 35, 70, 0.09);
+  min-height: 64px;
+  box-shadow: 0 2px 6px rgba(22, 35, 70, 0.08);
   transform: translateY(0);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .control-board-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 20px rgba(22, 35, 70, 0.16);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 16px rgba(22, 35, 70, 0.15);
 }
 .control-board-card:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 6px rgba(22, 35, 70, 0.12);
+  box-shadow: 0 2px 4px rgba(22, 35, 70, 0.10);
 }
 .control-board-card:focus-visible {
   outline: 2px solid #7c9cff;
@@ -1445,8 +1445,8 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
 .control-board-card:nth-child(6n + 4) { border-bottom-color: #fdba74; }
 .control-board-card:nth-child(6n + 5) { border-bottom-color: #c4b5fd; }
 .control-board-card:nth-child(6n + 6) { border-bottom-color: #6ee7b7; }
-.control-board-card strong { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.control-board-card span { color: var(--text-muted); font-size: 12px; }
+.control-board-card strong { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.control-board-card span { color: var(--text-muted); font-size: 11px; }
 .permissions-summary-row td { vertical-align: middle; }
 .permissions-details-row td {
   background: #f8fafc;
@@ -2847,7 +2847,7 @@ img, svg, video, canvas { max-width: 100%; height: auto; }
   }
 
   .control-board-grid {
-    grid-template-columns: repeat(3, minmax(0, 200px));
+    grid-template-columns: repeat(4, minmax(0, 150px));
   }
 }
 

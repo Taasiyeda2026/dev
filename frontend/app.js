@@ -243,18 +243,18 @@ const MENU_ROUTE_ORDER = [
 const HIDDEN_IN_HOME_ROUTES = new Set(['week', 'month', 'end-dates', 'exceptions']);
 
 const ADMIN_LANDING_LINKS = [
-  { key: 'settings', label: 'הגדרות', route: 'admin-settings' },
-  { key: 'lists', label: 'רשימות', route: 'admin-lists' },
-  { key: 'permissions', label: 'הרשאות', route: 'admin-permissions' },
   { key: 'dashboard', label: 'דשבורד', route: 'dashboard' },
   { key: 'activities', label: 'פעילויות', route: 'courses' },
-  { key: 'finance', label: 'כספים', route: 'finance' },
+  { key: 'month', label: 'חודש', route: 'month' },
+  { key: 'week', label: 'שבוע', route: 'week' },
+  { key: 'instructors', label: 'מדריכים', route: 'instructors' },
+  { key: 'contacts', label: 'אנשי קשר', route: 'contacts' },
   { key: 'exceptions', label: 'חריגות', route: 'exceptions' },
   { key: 'endDates', label: 'תאריכי סיום', route: 'end-dates' },
-  { key: 'contacts', label: 'אנשי קשר', route: 'contacts' },
-  { key: 'week', label: 'שבוע', route: 'week' },
-  { key: 'month', label: 'חודש', route: 'month' },
-  { key: 'instructors', label: 'מדריכים', route: 'instructors' }
+  { key: 'finance', label: 'כספים', route: 'finance' },
+  { key: 'permissions', label: 'הרשאות', route: 'admin-permissions' },
+  { key: 'settings', label: 'הגדרות', route: 'admin-settings' },
+  { key: 'lists', label: 'רשימות', route: 'admin-lists' }
 ];
 
 const COURSES_SCREEN_CONFIG = {
