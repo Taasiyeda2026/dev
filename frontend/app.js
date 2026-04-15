@@ -1215,7 +1215,7 @@ function renderScreen() {
       if (!updated) return;
       const res = await api.updateContact(updated);
       if (!res?.success) return showToast(res?.message || 'עדכון איש קשר נכשל.', 'error');
-      await loadContactsView();
+      await loadContactsView({ force: true });
       showToast('איש הקשר עודכן בהצלחה.', 'success');
     }));
     bindUnifiedScreenHeader('contacts');
@@ -3416,8 +3416,7 @@ async function doDecision(button, approved) {
   }
   const res = await fn({ RequestID: row.RequestID, ApprovalNotes: notes });
   if (!res?.success) return showToast(res?.message || 'הפעולה נכשלה', 'error');
-  await loadApprovals();
-  await loadEdenView();
+  await Promise.all([loadApprovals(), loadEdenView()]);
   const approveText = currentRoute === 'final-approvals' ? 'האישור הסופי הושלם — הנתונים עודכנו' : 'הבקשה נשלחה לאדמין בהצלחה';
   showToast(approved ? approveText : 'הבקשה נדחתה', approved ? 'success' : 'error');
 }
@@ -4629,9 +4628,10 @@ async function loadMyRequests() {
   }, [], 'לא ניתן לטעון בקשות.');
 }
 
-async function loadContactsView() {
+async function loadContactsView(options = {}) {
+  const { force = false } = options;
   await withLoad('contacts', async () => {
-    const rows = await loadContacts();
+    const rows = await loadContacts(force);
     return { success: true, data: { items: Array.isArray(rows) ? rows : [] } };
   }, [], 'לא ניתן לטעון אנשי קשר.');
 }
@@ -4744,7 +4744,7 @@ async function loadEdenView() {
 
 async function loadApprovals() {
   viewState.approvals.loading = true; viewState.approvals.error = ''; renderScreen();
-  const res = await api.getApprovals();
+  const [res] = await Promise.all([api.getApprovals(), ensureCoursesLoaded().catch(() => {})]);
   viewState.approvals.loading = false;
   if (!res?.success) { viewState.approvals.error = res?.message || 'לא ניתן לטעון אישורים.'; viewState.approvals.data = []; renderScreen(); return; }
   viewState.approvals.data = (res?.data?.items || []).map((item) => ({

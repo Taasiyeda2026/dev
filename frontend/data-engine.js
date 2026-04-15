@@ -417,7 +417,15 @@ export function getStoreSnapshot() {
   };
 }
 
-export async function loadContacts() {
+const CONTACTS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+export function isContactsCacheFresh(ttlMs = CONTACTS_CACHE_TTL_MS) {
+  const t = dataStore.loadedAt.contacts || 0;
+  return t > 0 && (now() - t) < ttlMs;
+}
+
+export async function loadContacts(force = false) {
+  if (!force && isContactsCacheFresh() && dataStore.contacts.length) return dataStore.contacts;
   dataStore.contacts = await fetchSheet(SHEET_NAMES.CONTACTS);
   dataStore.contacts.forEach((row) => {
     if (!String(row?.emp_id || '').trim() && !String(row?.name || '').trim()) {
