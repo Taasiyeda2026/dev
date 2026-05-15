@@ -27,6 +27,9 @@
     top: 0;
     z-index: 200;
     box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+    user-select: none;
+    flex-wrap: wrap;
+    direction: rtl;
   }
   .lang-btn {
     background: rgba(255,255,255,0.08);
@@ -43,6 +46,8 @@
     align-items: center;
     gap: 7px;
     letter-spacing: 0.3px;
+    user-select: none;
+    white-space: nowrap;
   }
   .lang-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
   .lang-btn.active {
@@ -51,7 +56,7 @@
     color: #fff;
     box-shadow: 0 0 16px rgba(45,166,94,0.4);
   }
-  .lang-flag { font-size: 18px; }
+  .lang-flag { font-size: 18px; line-height: 1; }
 
   /* ── Header ── */
   .header {
@@ -81,14 +86,35 @@
   /* ── Progress ── */
   .progress-wrap {
     background: var(--white); border-bottom: 1px solid var(--border);
-    padding: 12px 24px; box-shadow: 0 2px 8px var(--shadow);
+    padding: 10px 24px; box-shadow: 0 2px 8px var(--shadow);
+    position: sticky; top: 58px; z-index: 150; user-select: none;
   }
-  .progress-bar-bg { background: var(--green-mid); border-radius: 10px; height: 6px; overflow: hidden; max-width: 700px; margin: 0 auto; }
+  .progress-inner { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+  .progress-bar-bg { background: var(--green-mid); border-radius: 10px; height: 7px; overflow: hidden; width: 100%; min-width: 120px; }
   .progress-bar-fill { background: linear-gradient(90deg,var(--green),var(--green-light)); height: 100%; border-radius: 10px; transition: width 0.4s ease; width: 0%; }
-  .progress-label { text-align: center; font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 500; }
+  .progress-label { text-align: center; font-size: 12px; color: var(--muted); font-weight: 700; user-select: none; white-space: nowrap; }
+  .btn-clear-form { background: #fff; border: 1.5px solid var(--border); color: var(--green); font-family: 'Heebo', sans-serif; font-size: 13px; font-weight: 800; padding: 8px 16px; border-radius: 999px; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; user-select: none; white-space: nowrap; }
+  .btn-clear-form:hover { background: var(--green-pale); border-color: var(--green-light); }
 
   /* ── Container ── */
   .container { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
+
+  /* ── Language choice card ── */
+  .language-choice-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 16px; margin-bottom: 20px; overflow: hidden;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .language-choice-body { padding: 18px 22px; }
+  .language-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .language-option {
+    border: 1.5px solid var(--border); border-radius: 12px; padding: 12px 14px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 15px; font-weight: 800; color: var(--text); cursor: pointer;
+    background: var(--white); user-select: none; min-height: 48px;
+  }
+  .language-option input { width: auto; min-height: auto; accent-color: var(--green); cursor: pointer; }
+  .language-option:has(input:checked) { border-color: var(--green); background: var(--green-pale); color: var(--green); }
 
   /* ── School block ── */
   .school-block {
@@ -164,6 +190,7 @@
     display: inline-flex; align-items: center; gap: 9px;
   }
   .btn-translate:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(168,219,190,0.5); }
+  .btn-translate, .btn-copy, .ai-link, .btn-final, .slot-btn { user-select: none; }
   .btn-translate:disabled { opacity: 0.6; cursor: not-allowed; }
   .status-box { margin-top: 18px; padding: 13px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; display: none; }
   .status-box.info { background: rgba(45,166,94,0.12); border: 1px solid rgba(45,166,94,0.3); color: #1a5e35; display: block; }
@@ -254,6 +281,17 @@
   .btn-final:disabled { opacity:0.5; cursor:not-allowed; }
   .photo-stage-footer { padding:0 20px 24px; text-align:center; }
   @media(max-width:520px) {
+    body { overflow-x: hidden; }
+    .lang-bar { padding: 8px 10px; gap: 6px; }
+    .lang-btn { flex: 1 1 110px; justify-content: center; padding: 8px 12px; min-height: 40px; }
+    .progress-wrap { top: 56px; padding: 8px 10px; }
+    .progress-inner { grid-template-columns: 1fr; gap: 6px; }
+    .btn-clear-form { width: 100%; min-height: 40px; }
+    .progress-label { font-size: 12px; }
+    .container { padding-left: 10px; padding-right: 10px; }
+    .language-choice-body { padding: 14px; }
+    .language-options { grid-template-columns: 1fr; }
+    #studentsGrid { grid-template-columns: 1fr !important; }
     .action-section { padding:24px 14px; }
     .flow-step-header { justify-content:flex-start; }
     .btn-translate, .btn-final { width:100%; padding-left:18px; padding-right:18px; }
@@ -303,11 +341,34 @@
 </div>
 
 <div class="progress-wrap">
-  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
-  <div class="progress-label" id="progressLabel">0%</div>
+  <div class="progress-inner">
+    <button type="button" class="btn-clear-form" id="clearFormBtn" onclick="clearForm()">🗑 ניקוי טופס</button>
+    <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+    <div class="progress-label" id="progressLabel">0% הושלם</div>
+  </div>
 </div>
 
 <div class="container">
+
+  <!-- Question 0: language choice -->
+  <div class="language-choice-card section-card open" id="languageQuestionCard">
+    <div class="section-header">
+      <span class="section-num">0</span>
+      <span class="section-title">בחירת שפה / اختيار اللغة</span>
+    </div>
+    <div class="language-choice-body">
+      <div class="language-options" role="radiogroup" aria-label="בחירת שפה / اختيار اللغة">
+        <label class="language-option" for="langChoiceHe">
+          <input type="radio" name="languageChoice" id="langChoiceHe" value="he" checked onchange="setLang('he')">
+          <span>עברית</span>
+        </label>
+        <label class="language-option" for="langChoiceAr">
+          <input type="radio" name="languageChoice" id="langChoiceAr" value="ar" onchange="setLang('ar')">
+          <span>العربية</span>
+        </label>
+      </div>
+    </div>
+  </div>
 
   <!-- School info -->
   <div class="school-block">
@@ -348,11 +409,11 @@
       <div class="field-group" style="grid-column: 1 / -1;">
         <label class="field-label" id="lbl_students">שמות התלמידים (עד 5)</label>
         <div id="studentsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-          <input type="text" class="student-input" id="student1" id="student1" placeholder="">
-          <input type="text" class="student-input" id="student2" id="student2" placeholder="">
-          <input type="text" class="student-input" id="student3" id="student3" placeholder="">
-          <input type="text" class="student-input" id="student4" id="student4" placeholder="">
-          <input type="text" class="student-input" id="student5" id="student5" placeholder="">
+          <input type="text" class="student-input" id="student1" placeholder="">
+          <input type="text" class="student-input" id="student2" placeholder="">
+          <input type="text" class="student-input" id="student3" placeholder="">
+          <input type="text" class="student-input" id="student4" placeholder="">
+          <input type="text" class="student-input" id="student5" placeholder="">
         </div>
       </div>
     </div>
@@ -401,12 +462,12 @@
     <div class="flow-step" id="flowStep3" style="display:none">
       <div class="flow-step-header">
         <span class="flow-num">3</span>
-        <span id="flowLabel3">הדבק את תשובת ה-AI וצור Word</span>
+        <span id="flowLabel3">הדבק את תשובת ה-AI והמשך לשלב התמונות</span>
       </div>
       <div class="paste-hint" id="pasteHint">הדבק כאן את תשובת ה-AI (JSON) ↓</div>
       <textarea class="paste-textarea" id="pasteTextarea" placeholder='{ "school_name": "...", "sections": [...] }'></textarea>
       <button class="btn-translate btn-word" onclick="buildWord()" style="margin-top:14px;">
-        <span>✓</span> <span id="btnWord">בדוק JSON והמשך לתמונות</span>
+        <span>✓</span> <span id="btnWord">המשך לשלב הוספת תמונות</span>
       </button>
       <div class="status-box" id="statusBox"></div>
     </div>
@@ -415,7 +476,7 @@
   <!-- ══ PHOTO UPLOAD STAGE ══ -->
   <div class="photo-stage" id="photoStage">
     <div class="photo-stage-header">
-      <h2 id="photoStageTitle">📸 שלב הוספת תמונות לספר הפרויקט</h2>
+      <h2 id="photoStageTitle">יצירת ספר פרויקט עם תמונות</h2>
       <p id="photoStageDesc">העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות</p>
     </div>
     <div class="photo-stage-body" id="photoSlotsBody">
@@ -496,7 +557,7 @@ const STRINGS = {
     actionDesc: '3 שלבים פשוטים — ללא צורך בחשבון AI',
     btnText: 'תרגם לערבית וצור קובץ Word',
     steps: ['1. אוסף נתונים','2. מתרגם','3. יוצר Word','4. מוריד'],
-    photoStageTitle: '📸 שלב הוספת תמונות לספר הפרויקט',
+    photoStageTitle: 'יצירת ספר פרויקט עם תמונות',
     photoStageDesc: 'העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות',
     btnFinalText: 'יצירת ספר פרויקט עם תמונות',
     btnFinalNoPhotosText: 'יצירת ספר פרויקט ללא תמונות',
@@ -600,9 +661,9 @@ const STRINGS = {
     actionDesc: '3 خطوات بسيطة — بدون الحاجة لحساب AI',
     btnText: 'ترجم إلى العبرية وأنشئ ملف Word',
     steps: ['1. جمع البيانات','2. الترجمة','3. إنشاء Word','4. التنزيل'],
-    photoStageTitle: '📸 مرحلة إضافة الصور لكتاب المشروع',
+    photoStageTitle: 'إنشاء كتاب المشروع مع الصور',
     photoStageDesc: 'ارفع الصور لكل قسم — ثم اختاروا إنشاء كتاب مع صور أو بدون صور',
-    btnFinalText: 'إنشاء كتاب المشروع مع صور',
+    btnFinalText: 'إنشاء كتاب المشروع مع الصور',
     btnFinalNoPhotosText: 'إنشاء كتاب المشروع بدون صور',
     photoSections: [
       {
@@ -730,7 +791,10 @@ function populateSchoolDropdown(lang, cityVal) {
 function syncSchoolDropdown() {
   const cityVal = document.getElementById('school_city').value;
   answers[currentLang]['school_city'] = cityVal;
+  answers[currentLang]['school_name'] = '';
   populateSchoolDropdown(currentLang, cityVal);
+  saveCurrentAnswers();
+  updateProgress();
 }
 // collect students from 5 inputs → comma-separated string
 function getStudentsValue() {
@@ -800,14 +864,18 @@ function renderSections(lang) {
         </div>
       </div>`;
 
-    // Save on input
-    const inp = document.getElementById(fieldId);
-    if (inp) inp.addEventListener('input', () => {
-      answers[currentLang][fieldId] = inp.value;
-      updateProgress();
-    });
-
     container.appendChild(card);
+
+    // Save on input/change after the card exists in the DOM
+    const inp = document.getElementById(fieldId);
+    if (inp) {
+      const handleSectionChange = () => {
+        answers[currentLang][fieldId] = inp.value;
+        updateProgress();
+      };
+      inp.addEventListener('input', handleSectionChange);
+      inp.addEventListener('change', handleSectionChange);
+    }
   });
 }
 
@@ -815,7 +883,7 @@ function renderSections(lang) {
 // LANGUAGE SWITCH
 // ═══════════════════════════════════════════════════════
 function setLang(lang) {
-  if (lang === currentLang) return;
+  if (!STRINGS[lang]) return;
 
   // Save current answers before switching
   saveCurrentAnswers();
@@ -853,8 +921,7 @@ function setLang(lang) {
   if (_ad) _ad.textContent = S.actionDesc || '';
 
   // Lang buttons
-  document.getElementById('btnHe').className = 'lang-btn' + (lang==='he' ? ' active' : '');
-  document.getElementById('btnAr').className = 'lang-btn' + (lang==='ar' ? ' active' : '');
+  syncLanguageControls(lang);
 
   // Re-render sections with saved answers
   renderSections(lang);
@@ -868,6 +935,19 @@ function setLang(lang) {
   // Re-render photo stage if visible
   const _ps = document.getElementById('photoStage');
   if (_ps && _ps.classList.contains('visible')) renderPhotoStage(lang);
+}
+
+function syncLanguageControls(lang) {
+  const btnHe = document.getElementById('btnHe');
+  const btnAr = document.getElementById('btnAr');
+  if (btnHe) btnHe.className = 'lang-btn' + (lang==='he' ? ' active' : '');
+  if (btnAr) btnAr.className = 'lang-btn' + (lang==='ar' ? ' active' : '');
+  const choiceHe = document.getElementById('langChoiceHe');
+  const choiceAr = document.getElementById('langChoiceAr');
+  if (choiceHe) choiceHe.checked = lang === 'he';
+  if (choiceAr) choiceAr.checked = lang === 'ar';
+  const clearBtn = document.getElementById('clearFormBtn');
+  if (clearBtn) clearBtn.textContent = lang === 'he' ? '🗑 ניקוי טופס' : '🗑 مسح النموذج';
 }
 
 function saveCurrentAnswers() {
@@ -894,14 +974,29 @@ function toggleSection(header) {
 // ═══════════════════════════════════════════════════════
 // PROGRESS
 // ═══════════════════════════════════════════════════════
+function getStoredOrLiveValue(id) {
+  const el = document.getElementById(id);
+  if (el && typeof el.value === 'string' && el.value.trim()) return el.value.trim();
+  const saved = answers[currentLang] && answers[currentLang][id];
+  return typeof saved === 'string' ? saved.trim() : '';
+}
+
 function updateProgress() {
   const S = STRINGS[currentLang];
-  const ids = S.sections.map(s=>`s${s.num}`);
-  const filled = ids.filter(id => {
-    const el = document.getElementById(id);
-    return el && el.value.trim().length > 5;
+  const sectionIds = S.sections.map(s=>`s${s.num}`);
+  const schoolIds = ['school_city','school_name','principal','science_coord','tech_coord','classroom','student1','student2','student3','student4','student5'];
+  const filled = [...schoolIds, ...sectionIds].filter(id => {
+    if (id.startsWith('student')) {
+      const el = document.getElementById(id);
+      if (el && el.value.trim()) return true;
+      const idx = Number(id.replace('student','')) - 1;
+      const savedStudents = (answers[currentLang]['students'] || '').split(/،|,/).map(v => v.trim()).filter(Boolean);
+      return Boolean(savedStudents[idx]);
+    }
+    return getStoredOrLiveValue(id).length > 0;
   }).length;
-  const pct = Math.round((filled / ids.length) * 100);
+  const total = schoolIds.length + sectionIds.length;
+  const pct = total ? Math.round((filled / total) * 100) : 0;
   document.getElementById('progressBar').style.width = pct + '%';
   document.getElementById('progressLabel').textContent = pct + S.progressSuffix;
 }
@@ -934,9 +1029,9 @@ const ACTION_STRINGS = {
   he: {
     flowLabel1: '✨ צור פרומפט לתרגום',
     flowLabel2: 'העתק → הדבק בכל AI → קבל תשובה',
-    flowLabel3: 'הדבק את תשובת ה-AI והמשך לתמונות',
+    flowLabel3: 'הדבק את תשובת ה-AI והמשך לשלב התמונות',
     btnGenerate: 'צור פרומפט',
-    btnWord: 'בדוק JSON והמשך לתמונות',
+    btnWord: 'המשך לשלב הוספת תמונות',
     copyBtnText: 'העתק',
     copied: '✓ הועתק!',
     pasteHint: '↓ הדבק כאן את תגובת ה-AI (JSON בלבד):',
@@ -949,9 +1044,9 @@ const ACTION_STRINGS = {
   ar: {
     flowLabel1: '✨ أنشئ بروميبت للترجمة',
     flowLabel2: 'انسخ → الصق في أي AI → احصل على الإجابة',
-    flowLabel3: 'الصق إجابة الـ AI وانتقل إلى الصور',
+    flowLabel3: 'الصق إجابة الـ AI وتابع إلى مرحلة الصور',
     btnGenerate: 'أنشئ البروميبت',
-    btnWord: 'افحص JSON وانتقل إلى الصور',
+    btnWord: 'المتابعة إلى مرحلة إضافة الصور',
     copyBtnText: 'نسخ',
     copied: '✓ تم النسخ!',
     pasteHint: '↓ الصق هنا رد الـ AI (JSON فقط):',
@@ -1836,6 +1931,52 @@ async function dataURLtoImageRun(dataURL, maxWidthEmu, docxLib) {
 }
 
 // ═══════════════════════════════════════════════════════
+// CLEAR FORM
+// ═══════════════════════════════════════════════════════
+function clearForm() {
+  answers[currentLang] = {};
+  savedTranslation = null;
+
+  STRINGS[currentLang].sections.forEach(sec => {
+    const el = document.getElementById('s' + sec.num);
+    if (el) el.value = '';
+  });
+
+  ['principal','science_coord','tech_coord','classroom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  [1,2,3,4,5].forEach(n => {
+    const el = document.getElementById('student' + n);
+    if (el) el.value = '';
+  });
+
+  populateCityDropdown(currentLang);
+  setStudentsValue(currentLang, '');
+  renderSections(currentLang);
+
+  ['flowStep2','flowStep3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  ['promptTextarea','pasteTextarea'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['statusBox','statusBoxFinal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = ''; el.className = 'status-box'; }
+  });
+  const photoStage = document.getElementById('photoStage');
+  if (photoStage) photoStage.classList.remove('visible');
+  Object.keys(photoData).forEach(sec => { photoData[sec] = {}; });
+
+  syncLanguageControls(currentLang);
+  updateActionLabels();
+  updateProgress();
+}
+
+// ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
 populateCityDropdown('he');
@@ -1845,16 +1986,19 @@ updateProgress();
 updateActionLabels();
 
 // Live save on school fields
-['school_name','school_city','principal','mentor','science_coord','tech_coord','classroom'].forEach(id => {
+['school_name','school_city','principal','science_coord','tech_coord','classroom','student1','student2','student3','student4','student5'].forEach(id => {
   const el = document.getElementById(id);
-  if (el) el.addEventListener('change', () => { answers[currentLang][id] = el.value; });
-  if (el) el.addEventListener('input', () => { answers[currentLang][id] = el.value; });
+  if (!el) return;
+  const handleFieldChange = () => {
+    if (id.startsWith('student')) answers[currentLang]['students'] = getStudentsValue();
+    else answers[currentLang][id] = el.value;
+    saveCurrentAnswers();
+    updateProgress();
+  };
+  el.addEventListener('change', handleFieldChange);
+  el.addEventListener('input', handleFieldChange);
 });
-// Live save student inputs
-[1,2,3,4,5].forEach(n => {
-  const el = document.getElementById('student'+n);
-  if (el) el.addEventListener('input', () => { answers[currentLang]['students'] = getStudentsValue(); });
-});
+syncLanguageControls('he');
 
 </script>
 </body>
