@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl" id="htmlRoot">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ביומימיקרי STEM | بيومحاكاة STEM</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green: #1a7a4a; --green-light: #2da65e; --green-pale: #e8f7ee;
+    --green-mid: #c2e8d0; --gold: #a8dbbe; --gold-light: #d4f0e2;
+    --dark: #0d1f14; --text: #1c3326; --muted: #5a7a65;
+    --bg: #f4faf6; --white: #fff; --border: #b5d9c3;
+    --shadow: rgba(26,122,74,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── Language switcher bar ── */
+  .lang-bar {
+    background: var(--dark);
+    padding: 10px 20px;
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  .lang-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.55);
+    font-family: 'Heebo', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 7px 22px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    letter-spacing: 0.3px;
+  }
+  .lang-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
+  .lang-btn.active {
+    background: var(--green);
+    border-color: var(--green-light);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(45,166,94,0.4);
+  }
+  .lang-flag { font-size: 18px; }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, var(--dark) 0%, #0f3320 50%, #1a4d2e 100%);
+    padding: 36px 24px 28px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .header::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%232da65e' fill-opacity='0.06'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3Ccircle cx='0' cy='0' r='4'/%3E%3Ccircle cx='60' cy='0' r='4'/%3E%3Ccircle cx='0' cy='60' r='4'/%3E%3Ccircle cx='60' cy='60' r='4'/%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+  }
+  .leaf-icon { font-size: 44px; margin-bottom: 10px; display: block; filter: drop-shadow(0 0 20px rgba(45,166,94,0.4)); }
+  .header-badge {
+    display: inline-block;
+    background: rgba(168,219,190,0.2); border: 1px solid rgba(168,219,190,0.4);
+    color: var(--gold-light); font-size: 12px; font-weight: 600; letter-spacing: 1.5px;
+    padding: 4px 14px; border-radius: 20px; margin-bottom: 14px;
+  }
+  .header h1 { font-size: clamp(20px,4vw,32px); font-weight: 800; color: #fff; line-height: 1.3; margin-bottom: 8px; }
+  .header h1 span { color: var(--gold-light); }
+  .header p { color: rgba(255,255,255,0.55); font-size: 13px; font-weight: 300; }
+
+  /* ── Progress ── */
+  .progress-wrap {
+    background: var(--white); border-bottom: 1px solid var(--border);
+    padding: 12px 24px; box-shadow: 0 2px 8px var(--shadow);
+  }
+  .progress-bar-bg { background: var(--green-mid); border-radius: 10px; height: 6px; overflow: hidden; max-width: 700px; margin: 0 auto; }
+  .progress-bar-fill { background: linear-gradient(90deg,var(--green),var(--green-light)); height: 100%; border-radius: 10px; transition: width 0.4s ease; width: 0%; }
+  .progress-label { text-align: center; font-size: 12px; color: var(--muted); margin-top: 5px; font-weight: 500; }
+
+  /* ── Container ── */
+  .container { max-width: 760px; margin: 0 auto; padding: 28px 16px 80px; }
+
+  /* ── School block ── */
+  .school-block {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 16px; padding: 26px; margin-bottom: 20px;
+    box-shadow: 0 2px 12px var(--shadow);
+  }
+  .school-block h2 { font-size: 15px; font-weight: 700; color: var(--green); margin-bottom: 18px; display: flex; align-items: center; gap: 8px; }
+  .school-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+  @media(max-width:520px) { .school-grid { grid-template-columns: 1fr; } }
+
+  /* ── Section cards ── */
+  .section-card {
+    background: var(--white); border: 1px solid var(--border);
+    border-radius: 16px; margin-bottom: 16px; overflow: hidden;
+    box-shadow: 0 2px 12px var(--shadow); transition: box-shadow 0.2s;
+  }
+  .section-card:focus-within { box-shadow: 0 4px 24px rgba(26,122,74,0.18); border-color: var(--green-light); }
+  .section-header {
+    background: linear-gradient(135deg,var(--green) 0%,var(--green-light) 100%);
+    padding: 15px 22px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer; user-select: none;
+  }
+  .section-num {
+    background: rgba(255,255,255,0.2); color: #fff; font-size: 12px; font-weight: 700;
+    width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .section-title { color: #fff; font-size: 14px; font-weight: 700; flex: 1; }
+  .section-chevron { color: rgba(255,255,255,0.7); transition: transform 0.25s; font-size: 17px; flex-shrink: 0; }
+  .section-card.open .section-chevron { transform: rotate(180deg); }
+  .section-body { display: none; padding: 22px; }
+  .section-card.open .section-body { display: block; }
+
+  /* ── Sub-questions ── */
+  .sub-questions { background: var(--green-pale); border: 1px solid var(--green-mid); border-radius: 10px; padding: 12px 15px; margin-bottom: 14px; }
+  .sub-q { font-size: 13px; color: var(--muted); line-height: 1.75; font-weight: 400; display: block; }
+  .sub-q::before { content: '› '; color: var(--green); font-weight: 700; }
+
+  /* ── Fields ── */
+  .field-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 7px; display: block; }
+  input[type="text"], textarea {
+    width: 100%; font-family: 'Heebo', sans-serif; font-size: 14px; color: var(--text);
+    background: var(--white); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 10px 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input[type="text"]:focus, textarea:focus { border-color: var(--green-light); box-shadow: 0 0 0 3px rgba(45,166,94,0.12); }
+  textarea { min-height: 135px; resize: vertical; line-height: 1.7; }
+  .field-group { margin-bottom: 14px; }
+  .field-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  select {
+    width: 100%; font-family: 'Heebo', sans-serif; font-size: 14px; color: var(--text);
+    background: var(--white); border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 10px 13px 10px 36px; outline: none; cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%231a7a4a' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: left 12px center;
+  }
+  select:focus { border-color: var(--green-light); box-shadow: 0 0 0 3px rgba(45,166,94,0.12); }
+
+  /* ── Action section ── */
+  .action-section {
+    background: linear-gradient(135deg,var(--dark) 0%,#0f3320 100%);
+    border-radius: 20px; padding: 30px 26px; text-align: center;
+    margin-top: 28px; box-shadow: 0 8px 32px rgba(13,31,20,0.3);
+  }
+  .action-section h3 { color: #fff; font-size: 17px; font-weight: 700; margin-bottom: 7px; }
+  .action-section p { color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 22px; }
+  .btn-translate {
+    background: linear-gradient(135deg,var(--gold) 0%,#a8dbbe 100%);
+    color: var(--dark); font-family: 'Heebo',sans-serif; font-size: 15px; font-weight: 800;
+    border: none; padding: 15px 36px; border-radius: 14px; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(168,219,190,0.4); transition: transform 0.15s, box-shadow 0.15s;
+    display: inline-flex; align-items: center; gap: 9px;
+  }
+  .btn-translate:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(168,219,190,0.5); }
+  .btn-translate:disabled { opacity: 0.6; cursor: not-allowed; }
+  .status-box { margin-top: 18px; padding: 13px 16px; border-radius: 12px; font-size: 14px; font-weight: 500; display: none; }
+  .status-box.info { background: rgba(45,166,94,0.12); border: 1px solid rgba(45,166,94,0.3); color: #1a5e35; display: block; }
+  .status-box.error { background: rgba(220,50,50,0.08); border: 1px solid rgba(220,50,50,0.25); color: #8b1a1a; display: block; }
+  .status-box.success { background: rgba(45,166,94,0.15); border: 1px solid rgba(45,166,94,0.4); color: #0d4422; display: block; }
+  .steps-row { display: flex; gap: 7px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .step-badge { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.45); font-size: 11px; padding: 4px 10px; border-radius: 20px; transition: all 0.3s; }
+  .step-badge.active { background: rgba(45,166,94,0.3); border-color: rgba(45,166,94,0.5); color: #a8edc2; }
+  .step-badge.done { background: rgba(45,166,94,0.2); border-color: rgba(45,166,94,0.4); color: #6dd9a0; }
+  .spinner { width: 16px; height: 16px; border: 2.5px solid rgba(13,31,20,0.2); border-top-color: var(--dark); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── 3-step flow ── */
+  .flow-step { margin-bottom: 20px; text-align: right; }
+  .flow-step-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; justify-content: flex-end; }
+  .flow-num {
+    width: 28px; height: 28px; border-radius: 50%; background: var(--green);
+    color: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; box-shadow: 0 0 10px rgba(45,166,94,0.4);
+  }
+  .flow-step-header span:last-child { color: rgba(255,255,255,0.85); font-size: 14px; font-weight: 600; }
+
+  .prompt-box-wrap { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; }
+  .prompt-ai-links { display: flex; gap: 8px; padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; }
+  .ai-link {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.75); font-size: 12px; font-weight: 700; padding: 4px 12px;
+    border-radius: 20px; text-decoration: none; transition: all 0.15s;
+  }
+  .ai-link:hover { background: rgba(45,166,94,0.3); color: #fff; border-color: var(--green-light); }
+  .prompt-header-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 4px; }
+  .btn-copy {
+    background: rgba(168,219,190,0.2); border: 1px solid rgba(168,219,190,0.4);
+    color: var(--gold-light); font-family: 'Heebo',sans-serif; font-size: 12px; font-weight: 700;
+    padding: 5px 14px; border-radius: 20px; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-copy:hover { background: rgba(168,219,190,0.35); }
+  .btn-copy.copied { background: rgba(45,166,94,0.3); border-color: rgba(45,166,94,0.5); color: #a8edc2; }
+  .prompt-textarea {
+    width: 100%; min-height: 180px; max-height: 260px; background: transparent;
+    border: none; outline: none; resize: vertical; padding: 8px 14px 14px;
+    font-family: monospace; font-size: 11px; color: rgba(255,255,255,0.65);
+    line-height: 1.6; direction: ltr; text-align: left;
+  }
+  .paste-hint { font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 8px; }
+  .paste-textarea {
+    width: 100%; min-height: 130px; background: rgba(0,0,0,0.25);
+    border: 1.5px solid rgba(255,255,255,0.12); border-radius: 10px; outline: none;
+    padding: 10px 13px; font-family: monospace; font-size: 12px;
+    color: rgba(255,255,255,0.8); resize: vertical; direction: ltr; text-align: left;
+    transition: border-color 0.2s;
+  }
+  .paste-textarea:focus { border-color: rgba(45,166,94,0.5); }
+  .btn-word { background: linear-gradient(135deg, #1a7a4a 0%, #2da65e 100%) !important; color: #fff !important; box-shadow: 0 4px 20px rgba(26,122,74,0.4) !important; }
+  .btn-word:hover:not(:disabled) { box-shadow: 0 8px 28px rgba(26,122,74,0.5) !important; }
+  .flow-divider { border: none; border-top: 1px dashed rgba(255,255,255,0.1); margin: 16px 0; }
+
+  /* ── Photo upload stage ── */
+  .photo-stage { display:none; background:var(--white); border:1px solid var(--border); border-radius:16px; margin-bottom:20px; overflow:hidden; box-shadow:0 2px 12px var(--shadow); }
+  .photo-stage.visible { display:block; }
+  .photo-stage-header { background:linear-gradient(135deg,#0B3D1E 0%,#1A7A4A 100%); padding:18px 24px; }
+  .photo-stage-header h2 { color:#fff; font-size:17px; font-weight:800; margin:0; }
+  .photo-stage-header p  { color:rgba(255,255,255,0.6); font-size:12px; margin:4px 0 0; }
+  .photo-stage-body { padding:20px; }
+  .photo-section-block { margin-bottom:24px; border:1.5px solid var(--border); border-radius:12px; overflow:hidden; }
+  .photo-section-title { background:var(--green-pale); border-bottom:1.5px solid var(--border); padding:11px 16px; display:flex; align-items:center; gap:10px; }
+  .photo-section-title .sec-num { background:var(--green); color:#fff; font-size:12px; font-weight:800; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .photo-section-title .sec-info strong { font-size:14px; color:var(--text); display:block; }
+  .photo-section-title .sec-info span   { font-size:12px; color:var(--muted); }
+  .photo-slots { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; padding:14px; }
+  .photo-slot { border:2px dashed var(--border); border-radius:10px; aspect-ratio:4/3; position:relative; overflow:hidden; background:var(--bg); cursor:pointer; transition:all 0.2s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; }
+  .photo-slot:hover { border-color:var(--green-light); background:var(--green-pale); }
+  .photo-slot.filled { border-style:solid; border-color:var(--green); }
+  .photo-slot img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:8px; }
+  .photo-slot .slot-label { font-size:11px; font-weight:600; color:var(--muted); text-align:center; padding:0 6px; z-index:1; pointer-events:none; line-height:1.3; }
+  .photo-slot .slot-icon { font-size:22px; pointer-events:none; z-index:1; }
+  .photo-slot .slot-overlay { display:none; position:absolute; inset:0; background:rgba(13,31,20,0.68); align-items:center; justify-content:center; gap:8px; border-radius:8px; flex-direction:column; }
+  .photo-slot.filled:hover .slot-overlay { display:flex; }
+  .slot-btn { background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; font-size:11px; font-weight:700; padding:5px 12px; border-radius:20px; cursor:pointer; font-family:'Heebo',sans-serif; }
+  .slot-btn.remove { background:rgba(200,50,50,0.35); border-color:rgba(200,50,50,0.5); }
+  .photo-slot input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .photo-slot.filled input[type=file] { display:none; }
+  .btn-final { background:linear-gradient(135deg,#0B3D1E 0%,#1A7A4A 100%); color:#fff; font-family:'Heebo',sans-serif; font-size:16px; font-weight:800; border:none; padding:17px 40px; border-radius:16px; cursor:pointer; box-shadow:0 6px 24px rgba(11,61,30,0.4); transition:transform 0.15s,box-shadow 0.15s; display:inline-flex; align-items:center; gap:11px; }
+  .btn-final:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 10px 32px rgba(11,61,30,0.5); }
+  .btn-final:disabled { opacity:0.5; cursor:not-allowed; }
+  .photo-stage-footer { padding:0 20px 24px; text-align:center; }
+  .photo-skip { font-size:12px; color:var(--muted); margin-top:12px; cursor:pointer; text-decoration:underline; display:inline-block; }
+
+
+  /* ── Photo stage enhancements ── */
+  .sec-meta { display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
+  .status-badge { font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .status-badge.required    { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
+  .status-badge.recommended { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; }
+  .sec-count { font-size:12px; color:var(--muted); font-weight:500; }
+  .sec-desc { font-size:12px; color:var(--muted); margin-top:5px; line-height:1.5; }
+  .slot-caption {
+    position:absolute; bottom:0; left:0; right:0;
+    background:rgba(13,31,20,0.72); color:#fff;
+    font-size:10px; font-weight:600; text-align:center;
+    padding:4px 6px; line-height:1.3;
+    border-radius:0 0 8px 8px;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- Language switcher -->
+<div class="lang-bar">
+  <button class="lang-btn active" id="btnHe" onclick="setLang('he')">
+    <span class="lang-flag">🇮🇱</span> עברית
+  </button>
+  <button class="lang-btn" id="btnAr" onclick="setLang('ar')">
+    <span class="lang-flag">🇵🇸</span> العربية
+  </button>
+</div>
+
+<div class="header">
+  <span class="leaf-icon">🌿</span>
+  <div class="header-badge" id="hdrBadge">STEM · ביומימיקרי · תשפ״ו</div>
+  <h1 id="hdrTitle">אליפות <span>מדעני המחר</span><br>בהשראת הטבע</h1>
+  <p id="hdrSub">מלאו את ספר הפרויקט ושלחו לתרגום</p>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressBar"></div></div>
+  <div class="progress-label" id="progressLabel">0%</div>
+</div>
+
+<div class="container">
+
+  <!-- School info -->
+  <div class="school-block">
+    <h2 id="schoolTitle">🏫 פרטי בית הספר</h2>
+    <div class="school-grid">
+      <div class="field-group">
+        <label class="field-label" id="lbl_city">רשות</label>
+        <select id="school_city" onchange="syncSchoolDropdown()">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="lbl_school_name">בית ספר</label>
+        <select id="school_name" onchange="saveCurrentAnswers()">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="lbl_principal">שם המנהל/ת</label>
+        <input type="text" id="principal" placeholder="—">
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="lbl_mentor">שם המנחה</label>
+        <input type="text" id="mentor" value="הילה רוזן" readonly style="background:var(--green-pale);color:var(--green);font-weight:700;cursor:default;">
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="lbl_sci">שם רכז המדעים</label>
+        <input type="text" id="science_coord" placeholder="—">
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="lbl_tech">שם רכז התקשוב / חינוך טכנולוגי</label>
+        <input type="text" id="tech_coord" placeholder="—">
+      </div>
+      <div class="field-group">
+        <label class="field-label" id="lbl_class">כיתה / קבוצת תלמידים</label>
+        <input type="text" id="classroom" placeholder="—">
+      </div>
+      <div class="field-group" style="grid-column: 1 / -1;">
+        <label class="field-label" id="lbl_students">שמות התלמידים (עד 5)</label>
+        <div id="studentsGrid" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <input type="text" class="student-input" id="student1" id="student1" placeholder="">
+          <input type="text" class="student-input" id="student2" id="student2" placeholder="">
+          <input type="text" class="student-input" id="student3" id="student3" placeholder="">
+          <input type="text" class="student-input" id="student4" id="student4" placeholder="">
+          <input type="text" class="student-input" id="student5" id="student5" placeholder="">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sections injected by JS -->
+  <div id="sectionsContainer"></div>
+
+  <!-- Action -->
+  <div class="action-section">
+    <h3 id="actionTitle">🌍 תרגום וייצוא לוורד</h3>
+    <p id="actionDesc">3 שלבים פשוטים — ללא צורך בחשבון AI</p>
+
+    <!-- STEP 1 -->
+    <div class="flow-step" id="flowStep1">
+      <div class="flow-step-header">
+        <span class="flow-num">1</span>
+        <span id="flowLabel1">צור פרומפט לתרגום</span>
+      </div>
+      <button class="btn-translate" onclick="generatePrompt()">
+        <span>✨</span> <span id="btnGenerate">צור פרומפט</span>
+      </button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div class="flow-step" id="flowStep2" style="display:none">
+      <div class="flow-step-header">
+        <span class="flow-num">2</span>
+        <span id="flowLabel2">העתק → הדבק בכל AI → קבל תשובה</span>
+      </div>
+      <div class="prompt-box-wrap">
+        <div class="prompt-ai-links" id="aiLinks">
+          <a href="https://claude.ai" target="_blank" class="ai-link">Claude</a>
+          <a href="https://chat.openai.com" target="_blank" class="ai-link">ChatGPT</a>
+          <a href="https://gemini.google.com" target="_blank" class="ai-link">Gemini</a>
+        </div>
+        <div class="prompt-header-row">
+          <span id="promptBoxLabel" style="font-size:12px;color:rgba(255,255,255,0.5);">הפרומפט המוכן:</span>
+          <button class="btn-copy" onclick="copyPrompt()" id="copyBtn">📋 <span id="copyBtnText">העתק</span></button>
+        </div>
+        <textarea class="prompt-textarea" id="promptTextarea" readonly></textarea>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div class="flow-step" id="flowStep3" style="display:none">
+      <div class="flow-step-header">
+        <span class="flow-num">3</span>
+        <span id="flowLabel3">הדבק את תשובת ה-AI וצור Word</span>
+      </div>
+      <div class="paste-hint" id="pasteHint">הדבק כאן את תשובת ה-AI (JSON) ↓</div>
+      <textarea class="paste-textarea" id="pasteTextarea" placeholder='{ "school_name": "...", "sections": [...] }'></textarea>
+      <button class="btn-translate btn-word" onclick="buildWord()" style="margin-top:14px;">
+        <span>📄</span> <span id="btnWord">צור קובץ Word ↓</span>
+      </button>
+      <div class="status-box" id="statusBox"></div>
+    </div>
+  </div>
+
+  <!-- ══ PHOTO UPLOAD STAGE ══ -->
+  <div class="photo-stage" id="photoStage">
+    <div class="photo-stage-header">
+      <h2 id="photoStageTitle">📸 שלב הוספת תמונות לספר הפרויקט</h2>
+      <p id="photoStageDesc">העלה תמונות לכל סעיף — לאחר מכן לחץ על "יצירת ספר פרויקט מלא"</p>
+    </div>
+    <div class="photo-stage-body" id="photoSlotsBody">
+      <!-- Injected by JS -->
+    </div>
+    <div class="photo-stage-footer">
+      <button class="btn-final" id="btnFinal" onclick="buildFinalWord()">
+        <span>📚</span>
+        <span id="btnFinalText">יצירת ספר פרויקט מלא</span>
+      </button>
+      <div class="status-box" id="statusBoxFinal"></div>
+      <div class="photo-skip" id="photoSkip" onclick="buildFinalWord()"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function loadScript(urls, cb) {
+  let i = 0;
+  function tryNext() {
+    if (i >= urls.length) { cb(new Error('failed')); return; }
+    const s = document.createElement('script');
+    s.src = urls[i++];
+    s.onload = () => cb(null);
+    s.onerror = tryNext;
+    document.head.appendChild(s);
+  }
+  tryNext();
+}
+window._libsReady = false;
+loadScript([
+  'https://unpkg.com/docx@8.5.0/build/index.umd.js',
+  'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js'
+], function(e1) {
+  if (e1) { console.error('docx CDN failed'); return; }
+  loadScript([
+    'https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js',
+    'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'
+  ], function(e2) {
+    if (e2) { console.error('FileSaver CDN failed'); return; }
+    window._libsReady = true;
+    console.log('✅ docx + FileSaver loaded');
+  });
+});
+</script>
+<script>
+
+// ═══════════════════════════════════════════════════════
+// STRINGS
+// ═══════════════════════════════════════════════════════
+const STRINGS = {
+  he: {
+    dir: 'rtl', lang: 'he',
+    badge: 'STEM · ביומימיקרי · תשפ״ו',
+    title: 'אליפות <span>מדעני המחר</span><br>בהשראת הטבע',
+    sub: 'מלאו את ספר הפרויקט ושלחו לתרגום לערבית',
+    progressSuffix: '% הושלם',
+    schoolTitle: '🏫 פרטי בית הספר',
+    lbl_school_name: 'בית ספר',
+    lbl_city: 'רשות',
+    lbl_principal: 'שם המנהל/ת',
+    lbl_mentor: 'שם המנחה',
+    lbl_sci: 'שם רכז המדעים',
+    lbl_tech: 'שם רכז התקשוב / חינוך טכנולוגי',
+    lbl_class: 'כיתה / קבוצת תלמידים',
+    lbl_students: 'שמות התלמידים (עד 5)',
+    student_placeholders: ['תלמיד/ה 1','תלמיד/ה 2','תלמיד/ה 3','תלמיד/ה 4','תלמיד/ה 5'],
+    city_placeholder: '— בחר —',
+    school_placeholder: '— בחר רשות תחילה —',
+    actionTitle: '🌍 תרגום לערבית וייצוא לוורד',
+    actionDesc: '3 שלבים פשוטים — ללא צורך בחשבון AI',
+    btnText: 'תרגם לערבית וצור קובץ Word',
+    steps: ['1. אוסף נתונים','2. מתרגם','3. יוצר Word','4. מוריד'],
+    photoStageTitle: '📸 שלב הוספת תמונות לספר הפרויקט',
+    photoStageDesc: 'העלה תמונות לכל סעיף — לאחר מכן לחץ על "יצירת ספר פרויקט מלא"',
+    btnFinalText: '📚 יצירת ספר פרויקט מלא',
+    photoSkipText: 'דלג על תמונות וצור מסמך ללא תמונות',
+    photoSections: [
+      {
+        secNum:'4',
+        title:'סעיף 4 – ההשראה מהטבע – ביומימיקרי',
+        status:'required',
+        statusLabel:'נדרשות תמונות',
+        desc:'תמונות שמסבירות את ההשראה מהטבע ואת הקשר לפתרון שפיתחתם',
+        max:3,
+        slots:[
+          'תמונה 1 – האורגניזם / התופעה בטבע',
+          'תמונה 2 – תרשים / תמונה של המנגנון הטבעי',
+          'תמונה 3 – השוואה בין הפתרון בטבע לפתרון שפיתחתם',
+        ]
+      },
+      {
+        secNum:'6',
+        title:'סעיף 6 – תהליך פיתוח הפתרון',
+        status:'required',
+        statusLabel:'נדרשות תמונות',
+        desc:'תיעוד שלבי העבודה: סקיצות, שרטוטים, אב-טיפוס, ניסוי ושיפור',
+        max:5,
+        slots:[
+          'תמונה 1 – סקיצה / תכנון ראשוני',
+          'תמונה 2 – שרטוט / תרשים זרימה',
+          'תמונה 3 – בניית האב-טיפוס',
+          'תמונה 4 – ניסוי, בדיקה או שיפור',
+          'תמונה 5 – גרסה מתקדמת / שיפור נוסף',
+        ]
+      },
+      {
+        secNum:'7',
+        title:'סעיף 7 – הפתרון הסופי והישימות',
+        status:'recommended',
+        statusLabel:'לא חובה – מומלץ מאוד',
+        desc:'תמונות ברורות של הדגם הסופי והדגמת השימוש',
+        max:2,
+        slots:[
+          'תמונה 1 – הדגם / המוצר הסופי',
+          'תמונה 2 – הדגמת אופן השימוש בפתרון',
+        ]
+      },
+      {
+        secNum:'11',
+        title:'סעיף 11 – נספחים',
+        status:'required',
+        statusLabel:'נדרשות תמונות / קבצים חזותיים',
+        desc:'כל חומר חזותי נוסף: תמונות תהליך, טבלאות מדידה, שרטוטים, קוד, הדמיות',
+        max:6,
+        slots:[
+          'נספח 1 – תמונה / חומר חזותי נוסף',
+          'נספח 2 – תמונה / חומר חזותי נוסף',
+          'נספח 3 – טבלת מדידה / שרטוט',
+          'נספח 4 – תרשים זרימה / הדמיה',
+          'נספח 5 – קוד תכנות / תוצר גרפי',
+          'נספח 6 – חומר חזותי נוסף',
+        ]
+      },
+    ],
+    targetLang: 'ar',
+    targetLangName: 'ערבית',
+    filename: 'biomimicry_arabic.docx',
+    docTitle: 'بطولة علماء الغد بإلهام من الطبيعة – البيومحاكاة',
+    sections: [
+      { num:'1', title:'שם המיזם', subs:[], fieldLabel:'שם הפרויקט', hint:'שם קצר, יצירתי ובעל משמעות הקשור לפתרון או לתופעה מהטבע', textarea:false },
+      { num:'1.1', title:'הסבר על שם המיזם', subs:[], fieldLabel:'✎ הסבירו בקצרה מדוע בחרתם בשם זה (משפט וחצי)', hint:'הקשר בין שם המיזם לתופעה הטבעית או לפתרון', textarea:false },
+      { num:'2', title:'מבוא והצגת הנושא', subs:['מהו התחום הכללי שבו עוסק הפרויקט (מדעי, סביבתי, טכנולוגי וכו׳)?','מדוע בחרתם בנושא זה?','מהו הקשר לחיי היום-יום או לאתגר קהילתי / עולמי?','מהי חשיבות הנושא בעידן החדשנות וה-STEM?'], fieldLabel:'✎ כתבו כאן (10–15 שורות)', hint:'', textarea:true },
+      { num:'3', title:'הגדרת הבעיה ושאלת החקר', subs:['מהו הצורך או האתגר שהפרויקט מבקש לתת לו מענה?','מי מושפע מהבעיה (אנשים, קהילה, סביבה)?','מהי שאלת החקר / הפיתוח המרכזית?','אילו הנחות יסוד או השערות העליתם בתחילת התהליך?'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'4', title:'ההשראה מהטבע – ביומימיקרי', subs:['איזו תופעה, מערכת או אורגניזם בטבע נתנו לכם השראה?','תארו את המנגנון הביולוגי או הפיזיקלי של התופעה.','כיצד עקרון זה עזר לכם לגבש רעיון לפתרון הנדסי / טכנולוגי?','השוו בין הפתרון הטבעי לפתרון שיצרתם.'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'5', title:'רקע תאורטי מדעי-טכנולוגי', subs:['אילו עקרונות מדעיים או חוקי טבע קשורים לנושא?','באילו תחומי ידע (פיזיקה, ביולוגיה, כימיה, מדעי המחשב וכו׳) השתמשתם?','ציינו מקורות מידע מדעיים, מאמרים או אתרים שנעזרתם בהם.'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'6', title:'תהליך פיתוח הפתרון', subs:['שלב סיעור המוחות וגיבוש רעיון ראשוני.','תכנון ראשוני ושרטוטים.','פיתוח אבטיפוס / דגם בסיסי.','בדיקה, ניסוי, תיעוד תוצאות ושיפורים.','פיתוח גרסה סופית.'], fieldLabel:'✎ תיעדו כאן את תהליך העבודה', hint:'', textarea:true },
+      { num:'7', title:'הפתרון הסופי והישימות', subs:['תארו את הדגם הסופי או המוצר שיצרתם.','באיזה אופן הוא נותן מענה לבעיה שהוגדרה?','כיצד הוא מבוסס על העקרונות המדעיים שלמדתם?','האם ניתן להרחיב או ליישם את הפתרון בעולם האמיתי?'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'8', title:'חדשנות, יצירתיות וערך מוסף', subs:['במה המיזם שלכם שונה וייחודי?','אילו רעיונות מקוריים או פתרונות חדשים פיתחתם?','כיצד המיזם תורם לסביבה, לחברה או לקהילה?','אילו טכנולוגיות חדשות שולבו בו (Micro:bit, חיישנים, בינה מלאכותית וכו׳)?'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'9', title:'מסקנות, תובנות והמלצות', subs:['אילו מסקנות הסקתם מתהליך העבודה?','מה למדתם על מדע, הנדסה, עבודת צוות ויצירתיות?','אילו שיפורים הייתם מבצעים בעתיד?','באילו תחומים הייתם רוצים להעמיק בהמשך?'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'10', title:'מקורות מידע', subs:['רשמו את כל המקורות שבהם נעזרתם (אתרים, ספרים, מאמרים, סרטונים וכו׳).','דוגמה: שם הכותב (שנה). שם המאמר / הספר. מקור / URL.'], fieldLabel:'✎ כתבו כאן', hint:'', textarea:true },
+      { num:'11', title:'נספחים', subs:['תמונות של תהליך העבודה או הדגם.','טבלאות מדידות או נתונים.','קוד תכנות (אם קיים).','שרטוטים, תרשימי זרימה או הדמיות.'], fieldLabel:'✎ תיאור הנספחים', hint:'', textarea:true },
+    ]
+  },
+
+  ar: {
+    dir: 'rtl', lang: 'ar',
+    badge: 'STEM · بيومحاكاة · 2025–2026',
+    title: 'بطولة <span>علماء الغد</span><br>بإلهام من الطبيعة',
+    sub: 'أكملوا كتاب المشروع وأرسلوه للترجمة إلى العبرية',
+    progressSuffix: '% مكتمل',
+    schoolTitle: '🏫 تفاصيل المدرسة',
+    lbl_school_name: 'اسم المدرسة',
+    lbl_city: 'السلطة / البلدة',
+    lbl_principal: 'اسم المدير/ة',
+    lbl_mentor: 'اسم المشرف/ة',
+    lbl_sci: 'اسم منسق العلوم',
+    lbl_tech: 'اسم منسق التكنولوجيا / التعليم التقني',
+    lbl_class: 'الصف / مجموعة الطلاب المشاركة',
+    lbl_students: 'أسماء الطلاب (حتى 5)',
+    student_placeholders: ['الطالب/ة 1','الطالب/ة 2','الطالب/ة 3','الطالب/ة 4','الطالب/ة 5'],
+    city_placeholder: '— اختر —',
+    school_placeholder: '— اختر السلطة أولاً —',
+    actionTitle: '🌍 الترجمة إلى العبرية والتصدير إلى Word',
+    actionDesc: '3 خطوات بسيطة — بدون الحاجة لحساب AI',
+    btnText: 'ترجم إلى العبرية وأنشئ ملف Word',
+    steps: ['1. جمع البيانات','2. الترجمة','3. إنشاء Word','4. التنزيل'],
+    photoStageTitle: '📸 مرحلة إضافة الصور لكتاب المشروع',
+    photoStageDesc: 'ارفع الصور لكل قسم — ثم انقر على "إنشاء كتاب المشروع الكامل"',
+    btnFinalText: '📚 إنشاء كتاب المشروع الكامل',
+    photoSkipText: 'تخطي الصور وإنشاء المستند بدون صور',
+    photoSections: [
+      {
+        secNum:'4',
+        title:'القسم 4 – الإلهام من الطبيعة – البيومحاكاة',
+        status:'required',
+        statusLabel:'صور مطلوبة',
+        desc:'صور توضح الإلهام من الطبيعة والعلاقة بالحل الذي طورتموه',
+        max:3,
+        slots:[
+          'صورة 1 – الكائن الحي / الظاهرة الطبيعية',
+          'صورة 2 – مخطط / صورة توضح الآلية الطبيعية',
+          'صورة 3 – مقارنة بين الحل الطبيعي والحل الذي طورتموه',
+        ]
+      },
+      {
+        secNum:'6',
+        title:'القسم 6 – عملية تطوير الحل',
+        status:'required',
+        statusLabel:'صور مطلوبة',
+        desc:'توثيق مراحل العمل: رسومات، مخططات، نموذج أولي، تجربة وتحسين',
+        max:5,
+        slots:[
+          'صورة 1 – رسم / تخطيط أولي',
+          'صورة 2 – مخطط / مخطط انسيابي',
+          'صورة 3 – بناء النموذج الأولي',
+          'صورة 4 – تجربة، اختبار أو تحسين',
+          'صورة 5 – نسخة متطورة / تحسين إضافي',
+        ]
+      },
+      {
+        secNum:'7',
+        title:'القسم 7 – الحل النهائي وقابلية التطبيق',
+        status:'recommended',
+        statusLabel:'ليس إلزامياً – يُنصح به جداً',
+        desc:'صور واضحة للنموذج النهائي وعرض طريقة الاستخدام',
+        max:2,
+        slots:[
+          'صورة 1 – النموذج / المنتج النهائي',
+          'صورة 2 – عرض طريقة استخدام الحل',
+        ]
+      },
+      {
+        secNum:'11',
+        title:'القسم 11 – الملاحق',
+        status:'required',
+        statusLabel:'صور / ملفات بصرية مطلوبة',
+        desc:'أي مواد بصرية إضافية: صور العملية، جداول القياس، رسومات، كود، محاكاة',
+        max:6,
+        slots:[
+          'ملحق 1 – صورة / مادة بصرية إضافية',
+          'ملحق 2 – صورة / مادة بصرية إضافية',
+          'ملحق 3 – جدول قياس / رسم',
+          'ملحق 4 – مخطط انسيابي / محاكاة',
+          'ملحق 5 – كود برمجي / ناتج رسومي',
+          'ملحق 6 – مادة بصرية إضافية',
+        ]
+      },
+    ],
+    targetLang: 'he',
+    targetLangName: 'عبري',
+    filename: 'biomimicry_hebrew.docx',
+    docTitle: 'אליפות מדעני המחר בהשראת הטבע – ביומימיקרי',
+    sections: [
+      { num:'1', title:'اسم المشروع', subs:[], fieldLabel:'اسم المشروع', hint:'اسم قصير وإبداعي وذو معنى مرتبط بالحل أو بظاهرة من الطبيعة', textarea:false },
+      { num:'1.1', title:'شرح اسم المشروع', subs:[], fieldLabel:'✎ اشرحوا باختصار سبب اختياركم لهذا الاسم (جملة ونصف)', hint:'العلاقة بين اسم المشروع والظاهرة الطبيعية أو الحل', textarea:false },
+      { num:'2', title:'مقدمة وعرض الموضوع', subs:['ما هو المجال العام الذي يتناوله المشروع (علمي، بيئي، تقني، إلخ)؟','لماذا اخترتم هذا الموضوع؟','ما العلاقة بالحياة اليومية أو بتحدٍّ مجتمعي / عالمي؟','ما أهمية الموضوع في عصر الابتكار والـ STEM؟'], fieldLabel:'✎ اكتبوا هنا (10–15 سطراً)', hint:'', textarea:true },
+      { num:'3', title:'تحديد المشكلة وسؤال البحث', subs:['ما الحاجة أو التحدي الذي يسعى المشروع إلى معالجته؟','من يتأثر بالمشكلة (أشخاص، مجتمع، بيئة)؟','ما سؤال البحث / التطوير المحوري؟','ما الافتراضات أو الفرضيات التي طرحتموها في البداية؟'], fieldLabel:'✎ اكتبوا هنا', hint:'', textarea:true },
+      { num:'4', title:'الإلهام من الطبيعة – البيومحاكاة', subs:['أي ظاهرة أو نظام أو كائن في الطبيعة ألهمكم؟','صِفوا الآلية البيولوجية أو الفيزيائية للظاهرة.','كيف ساعدكم هذا المبدأ في صياغة فكرة لحل هندسي / تقني؟','قارنوا بين الحل الطبيعي والحل الذي ابتكرتموه.'], fieldLabel:'✎ اكتبوا هنا، وأضيفوا صوراً / مخططات', hint:'', textarea:true },
+      { num:'5', title:'الخلفية النظرية العلمية-التقنية', subs:['ما المبادئ العلمية أو قوانين الطبيعة المرتبطة بالموضوع؟','ما مجالات المعرفة التي استخدمتموها (فيزياء، أحياء، كيمياء، علوم الحاسوب، إلخ)؟','اذكروا مصادر المعلومات العلمية والمقالات والمواقع التي استعنتم بها.'], fieldLabel:'✎ اكتبوا هنا', hint:'', textarea:true },
+      { num:'6', title:'عملية تطوير الحل', subs:['مرحلة العصف الذهني وصياغة الفكرة الأولية.','التخطيط الأولي والرسومات.','تطوير النموذج الأولي / الأساسي.','الاختبار، التجريب، توثيق النتائج والتحسينات.','تطوير النسخة النهائية.'], fieldLabel:'✎ وثّقوا هنا عملية العمل', hint:'', textarea:true },
+      { num:'7', title:'الحل النهائي وقابلية التطبيق', subs:['صِفوا النموذج النهائي أو المنتج الذي ابتكرتموه.','كيف يستجيب للمشكلة المحددة؟','كيف يستند إلى المبادئ العلمية التي تعلمتموها؟','هل يمكن توسيع الحل أو تطبيقه في العالم الحقيقي؟'], fieldLabel:'✎ اكتبوا هنا', hint:'', textarea:true },
+      { num:'8', title:'الابتكار والإبداع والقيمة المضافة', subs:['ما الذي يجعل مشروعكم مختلفاً وفريداً؟','ما الأفكار الأصيلة أو الحلول الجديدة التي طوّرتموها؟','كيف يُسهم المشروع في حماية البيئة أو المجتمع؟','ما التقنيات الحديثة التي دُمجت فيه (Micro:bit، مستشعرات، ذكاء اصطناعي، إلخ)؟'], fieldLabel:'✎ اكتبوا هنا', hint:'', textarea:true },
+      { num:'9', title:'الاستنتاجات والرؤى والتوصيات', subs:['ما الاستنتاجات التي خلصتم إليها من عملية العمل؟','ماذا تعلمتم عن العلوم والهندسة والعمل الجماعي والإبداع؟','ما التحسينات التي ستجرونها مستقبلاً؟','في أي مجالات تودّون التعمق لاحقاً؟'], fieldLabel:'✎ اكتبوا هنا', hint:'', textarea:true },
+      { num:'10', title:'مصادر المعلومات', subs:['اذكروا جميع المصادر (مواقع، كتب، مقالات، مقاطع فيديو، إلخ).','مثال: اسم المؤلف (السنة). عنوان المقال / الكتاب. المصدر / URL.'], fieldLabel:'✎ اكتبوا هنا', hint:'', textarea:true },
+      { num:'11', title:'الملاحق', subs:['صور عملية العمل أو النموذج.','جداول القياسات أو البيانات.','كود البرمجة (إن وُجد).','رسومات، مخططات انسيابية أو محاكاة.'], fieldLabel:'✎ وصف الملاحق', hint:'', textarea:true },
+    ]
+  }
+};
+
+// ═══════════════════════════════════════════════════════
+// SCHOOL DATA
+// ═══════════════════════════════════════════════════════
+const SCHOOLS = [
+  { city_he: 'ירכא', city_ar: 'يركا', school_he: 'מדרסת אל אמין אל תווחידיה', school_ar: 'مدرسة الأمين التوحيدية' },
+  { city_he: 'ירכא', city_ar: 'يركا', school_he: 'חט״ב אלרואיא', school_ar: 'الرؤيا للتعليم المتوسط' },
+  { city_he: 'כסרא-סמיע', city_ar: 'كسرى-سميع', school_he: 'הרב תחומי עמל וג׳דאן', school_ar: 'الشامل عمل وجدان' },
+];
+
+function getUniqueCities(lang) {
+  const key = lang === 'he' ? 'city_he' : 'city_ar';
+  return [...new Set(SCHOOLS.map(s => s[key]))];
+}
+function getSchoolsForCity(cityVal, lang) {
+  const cityKey = lang === 'he' ? 'city_he' : 'city_ar';
+  const schoolKey = lang === 'he' ? 'school_he' : 'school_ar';
+  return SCHOOLS.filter(s => s[cityKey] === cityVal).map(s => s[schoolKey]);
+}
+function populateCityDropdown(lang) {
+  const S = STRINGS[lang];
+  const sel = document.getElementById('school_city');
+  const saved = answers[lang]['school_city'] || '';
+  sel.innerHTML = `<option value="">${S.city_placeholder}</option>`;
+  getUniqueCities(lang).forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    if (c === saved) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  populateSchoolDropdown(lang, saved);
+}
+function populateSchoolDropdown(lang, cityVal) {
+  const S = STRINGS[lang];
+  const sel = document.getElementById('school_name');
+  const savedSchool = answers[lang]['school_name'] || '';
+  if (!cityVal) { sel.innerHTML = `<option value="">${S.school_placeholder}</option>`; return; }
+  sel.innerHTML = `<option value="">${S.city_placeholder}</option>`;
+  getSchoolsForCity(cityVal, lang).forEach(sc => {
+    const opt = document.createElement('option');
+    opt.value = sc; opt.textContent = sc;
+    if (sc === savedSchool) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+function syncSchoolDropdown() {
+  const cityVal = document.getElementById('school_city').value;
+  answers[currentLang]['school_city'] = cityVal;
+  populateSchoolDropdown(currentLang, cityVal);
+}
+// collect students from 5 inputs → comma-separated string
+function getStudentsValue() {
+  return [1,2,3,4,5].map(i => {
+    const el = document.getElementById('student'+i);
+    return el ? el.value.trim() : '';
+  }).filter(Boolean).join('، ');
+}
+function setStudentsValue(lang, val) {
+  const S = STRINGS[lang];
+  const parts = val ? val.split(/،|,/).map(s=>s.trim()) : [];
+  [1,2,3,4,5].forEach((n,i) => {
+    const el = document.getElementById('student'+n);
+    if (el) {
+      el.value = parts[i] || '';
+      el.placeholder = S.student_placeholders[i];
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let currentLang = 'he';
+const answers = { he: {}, ar: {} };
+
+// ═══════════════════════════════════════════════════════
+// RENDER SECTIONS
+// ═══════════════════════════════════════════════════════
+function renderSections(lang) {
+  const S = STRINGS[lang];
+  const container = document.getElementById('sectionsContainer');
+  container.innerHTML = '';
+
+  S.sections.forEach((sec, idx) => {
+    const card = document.createElement('div');
+    card.className = 'section-card' + (idx === 0 ? ' open' : '');
+    card.dataset.section = sec.num;
+
+    let subsHTML = '';
+    if (sec.subs.length > 0) {
+      subsHTML = `<div class="sub-questions">${sec.subs.map(q=>`<span class="sub-q">${q}</span>`).join('')}</div>`;
+    }
+
+    const fieldId = `s${sec.num}`;
+    const savedVal = answers[lang][fieldId] || '';
+
+    const fieldHTML = sec.textarea
+      ? `<textarea id="${fieldId}" placeholder="…">${savedVal}</textarea>`
+      : `<input type="text" id="${fieldId}" value="${savedVal.replace(/"/g,'&quot;')}" placeholder="…">`;
+
+    const hintHTML = sec.hint ? `<div class="field-hint">${sec.hint}</div>` : '';
+
+    card.innerHTML = `
+      <div class="section-header" onclick="toggleSection(this)">
+        <span class="section-num">${sec.num}</span>
+        <span class="section-title">${sec.title}</span>
+        <span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        ${subsHTML}
+        <div class="field-group">
+          <label class="field-label">${sec.fieldLabel}</label>
+          ${fieldHTML}
+          ${hintHTML}
+        </div>
+      </div>`;
+
+    // Save on input
+    const inp = document.getElementById(fieldId);
+    if (inp) inp.addEventListener('input', () => {
+      answers[currentLang][fieldId] = inp.value;
+      updateProgress();
+    });
+
+    container.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// LANGUAGE SWITCH
+// ═══════════════════════════════════════════════════════
+function setLang(lang) {
+  if (lang === currentLang) return;
+
+  // Save current answers before switching
+  saveCurrentAnswers();
+
+  currentLang = lang;
+  const S = STRINGS[lang];
+
+  // HTML dir/lang
+  document.getElementById('htmlRoot').setAttribute('dir', S.dir);
+  document.getElementById('htmlRoot').setAttribute('lang', S.lang);
+
+  // Update all text inputs' dir
+  document.querySelectorAll('input[type="text"], textarea').forEach(el => el.style.direction = S.dir);
+
+  // Header
+  document.getElementById('hdrBadge').textContent = S.badge;
+  document.getElementById('hdrTitle').innerHTML = S.title;
+  document.getElementById('hdrSub').textContent = S.sub;
+
+  // School labels
+  document.getElementById('schoolTitle').textContent = S.schoolTitle;
+  ['school_name','city','principal','mentor','sci','tech','class','students'].forEach(k => {
+    const el = document.getElementById('lbl_' + k);
+    if (el) el.textContent = S['lbl_' + k];
+  });
+  // Re-populate dropdowns for new language
+  populateCityDropdown(lang);
+  // Re-set student placeholders & values
+  setStudentsValue(lang, answers[lang]['students'] || '');
+
+  // Action section
+  const _at = document.getElementById('actionTitle');
+  const _ad = document.getElementById('actionDesc');
+  if (_at) _at.textContent = S.actionTitle || '';
+  if (_ad) _ad.textContent = S.actionDesc || '';
+
+  // Lang buttons
+  document.getElementById('btnHe').className = 'lang-btn' + (lang==='he' ? ' active' : '');
+  document.getElementById('btnAr').className = 'lang-btn' + (lang==='ar' ? ' active' : '');
+
+  // Re-render sections with saved answers
+  renderSections(lang);
+  updateProgress();
+  updateActionLabels();
+  // Reset steps on lang switch
+  const _fs2 = document.getElementById('flowStep2');
+  const _fs3 = document.getElementById('flowStep3');
+  if (_fs2) _fs2.style.display = 'none';
+  if (_fs3) _fs3.style.display = 'none';
+  // Re-render photo stage if visible
+  const _ps = document.getElementById('photoStage');
+  if (_ps && _ps.classList.contains('visible')) renderPhotoStage(lang);
+}
+
+function saveCurrentAnswers() {
+  const S = STRINGS[currentLang];
+  S.sections.forEach(sec => {
+    const el = document.getElementById(`s${sec.num}`);
+    if (el) answers[currentLang][`s${sec.num}`] = el.value;
+  });
+  // School fields
+  ['school_name','school_city','principal','mentor','science_coord','tech_coord','classroom'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) answers[currentLang][id] = el.value;
+  });
+  answers[currentLang]['students'] = getStudentsValue();
+}
+
+// ═══════════════════════════════════════════════════════
+// TOGGLE SECTION
+// ═══════════════════════════════════════════════════════
+function toggleSection(header) {
+  header.closest('.section-card').classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// PROGRESS
+// ═══════════════════════════════════════════════════════
+function updateProgress() {
+  const S = STRINGS[currentLang];
+  const ids = S.sections.map(s=>`s${s.num}`);
+  const filled = ids.filter(id => {
+    const el = document.getElementById(id);
+    return el && el.value.trim().length > 5;
+  }).length;
+  const pct = Math.round((filled / ids.length) * 100);
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = pct + S.progressSuffix;
+}
+
+// ═══════════════════════════════════════════════════════
+// COLLECT
+// ═══════════════════════════════════════════════════════
+function collectData() {
+  saveCurrentAnswers();
+  const S = STRINGS[currentLang];
+  const obj = {
+    school_name: document.getElementById('school_name').value,
+    school_city: document.getElementById('school_city').value,
+    principal: document.getElementById('principal').value,
+    mentor: 'הילה רוזן',
+    science_coord: document.getElementById('science_coord').value,
+    tech_coord: document.getElementById('tech_coord').value,
+    classroom: document.getElementById('classroom').value,
+    students: getStudentsValue(),
+  };
+  S.sections.forEach(sec => { obj[`s${sec.num}`] = answers[currentLang][`s${sec.num}`] || ''; });
+  return obj;
+}
+
+// ═══════════════════════════════════════════════════════
+// STRINGS update — action labels
+// ═══════════════════════════════════════════════════════
+// Add to he/ar STRINGS at runtime
+const ACTION_STRINGS = {
+  he: {
+    flowLabel1: '✨ צור פרומפט לתרגום',
+    flowLabel2: 'העתק → הדבק בכל AI → קבל תשובה',
+    flowLabel3: 'הדבק את תשובת ה-AI וצור Word',
+    btnGenerate: 'צור פרומפט',
+    btnWord: '📄 צור קובץ Word והורד',
+    copyBtnText: 'העתק',
+    copied: '✓ הועתק!',
+    pasteHint: '↓ הדבק כאן את תגובת ה-AI (JSON בלבד):',
+    promptBoxLabel: 'הפרומפט המוכן — העתק והדבק בכל AI:',
+    aiLinksLabel: 'פתח AI:',
+    errNoData: 'אנא מלא לפחות חלק מהשאלות לפני יצירת הפרומפט.',
+    errBadJSON: 'התגובה אינה JSON תקין. ודא שהעתקת את כל התשובה מה-AI.',
+    successWord: '✅ קובץ Word נוצר בהצלחה!',
+  },
+  ar: {
+    flowLabel1: '✨ أنشئ بروميبت للترجمة',
+    flowLabel2: 'انسخ → الصق في أي AI → احصل على الإجابة',
+    flowLabel3: 'الصق إجابة الـ AI وأنشئ ملف Word',
+    btnGenerate: 'أنشئ البروميبت',
+    btnWord: '📄 أنشئ ملف Word وحمّله',
+    copyBtnText: 'نسخ',
+    copied: '✓ تم النسخ!',
+    pasteHint: '↓ الصق هنا رد الـ AI (JSON فقط):',
+    promptBoxLabel: 'البروميبت الجاهز — انسخه والصقه في أي AI:',
+    aiLinksLabel: 'افتح AI:',
+    errNoData: 'يرجى ملء بعض الأسئلة على الأقل قبل إنشاء البروميبت.',
+    errBadJSON: 'الرد ليس JSON صالحاً. تأكد من نسخ الرد كاملاً من الـ AI.',
+    successWord: '✅ تم إنشاء ملف Word بنجاح!',
+  }
+};
+
+function showStatus(msg, type) {
+  const box = document.getElementById('statusBox');
+  if (!box) return;
+  box.textContent = msg;
+  box.className = 'status-box ' + type;
+}
+
+// ═══════════════════════════════════════════════════════
+// STEP 1 — Generate prompt
+// ═══════════════════════════════════════════════════════
+function generatePrompt() {
+  const data = collectData();
+  const S = STRINGS[currentLang];
+  const A = ACTION_STRINGS[currentLang];
+  const toLang = S.targetLang;
+  const fromName = currentLang === 'he' ? 'Hebrew' : 'Arabic';
+  const toName = toLang === 'he' ? 'Hebrew' : 'Arabic';
+
+  const secAnswers = S.sections.map(sec => ({
+    num: sec.num, title: sec.title, answer: data['s'+sec.num] || ''
+  }));
+
+  const hasContent = secAnswers.some(s => s.answer.trim().length > 3) ||
+    Object.values(data).some(v => v && v.trim && v.trim().length > 2);
+
+  if (!hasContent) {
+    showStatus(A.errNoData, 'error');
+    return;
+  }
+
+  const prompt = buildPrompt(data, secAnswers, fromName, toName);
+
+  document.getElementById('promptTextarea').value = prompt;
+  document.getElementById('promptBoxLabel').textContent = A.promptBoxLabel;
+  document.getElementById('pasteHint').textContent = A.pasteHint;
+
+  // Show step 2 and 3
+  document.getElementById('flowStep2').style.display = '';
+  document.getElementById('flowStep3').style.display = '';
+
+  // Scroll to prompt
+  document.getElementById('flowStep2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Update labels
+  updateActionLabels();
+}
+
+function buildPrompt(data, secAnswers, fromName, toName) {
+  const secs = secAnswers.map(s =>
+    `Section ${s.num} "${s.title}":\n${s.answer || '(empty)'}`
+  ).join('\n\n');
+
+  return `You are a professional ${toName} translator specializing in STEM education for schools.
+Translate ALL the following ${fromName} content to ${toName}.
+This is a student biomimicry STEM project book.
+
+RULES:
+1. Translate every field faithfully and completely.
+2. Keep technical STEM/science terms accurate.
+3. Return ONLY a valid JSON object — no explanation, no markdown, no backticks.
+4. If a field is empty, keep it as an empty string "".
+
+SOURCE DATA:
+School: ${data.school_name || ''}
+Authority/City: ${data.school_city || ''}
+Principal: ${data.principal || ''}
+Mentor/Guide: ${data.mentor || ''}
+Science Coordinator: ${data.science_coord || ''}
+Tech Coordinator: ${data.tech_coord || ''}
+Classroom: ${data.classroom || ''}
+Students: ${data.students || ''}
+
+SECTIONS:
+${secs}
+
+REQUIRED JSON OUTPUT FORMAT:
+{
+  "school_name": "<translated school name>",
+  "school_city": "<translated city>",
+  "principal": "<translated>",
+  "mentor": "<translated>",
+  "science_coord": "<translated>",
+  "tech_coord": "<translated>",
+  "classroom": "<translated>",
+  "students": "<translated>",
+  "sections": [
+    {"num":"1","answer":"<translated answer>"},
+    {"num":"1.1","answer":"<translated answer>"},
+    {"num":"2","answer":"<translated answer>"},
+    {"num":"3","answer":"<translated answer>"},
+    {"num":"4","answer":"<translated answer>"},
+    {"num":"5","answer":"<translated answer>"},
+    {"num":"6","answer":"<translated answer>"},
+    {"num":"7","answer":"<translated answer>"},
+    {"num":"8","answer":"<translated answer>"},
+    {"num":"9","answer":"<translated answer>"},
+    {"num":"10","answer":"<translated answer>"},
+    {"num":"11","answer":"<translated answer>"}
+  ]
+}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// STEP 2 — Copy prompt
+// ═══════════════════════════════════════════════════════
+function copyPrompt() {
+  const A = ACTION_STRINGS[currentLang];
+  const text = document.getElementById('promptTextarea').value;
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    const lbl = document.getElementById('copyBtnText');
+    btn.classList.add('copied');
+    lbl.textContent = A.copied;
+    setTimeout(() => { btn.classList.remove('copied'); lbl.textContent = A.copyBtnText; }, 2500);
+  }).catch(() => {
+    // fallback
+    document.getElementById('promptTextarea').select();
+    document.execCommand('copy');
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// STEP 3 — Parse pasted JSON and build Word
+// ═══════════════════════════════════════════════════════
+async function buildWord() {
+  const A = ACTION_STRINGS[currentLang];
+  if (!window._libsReady || typeof window.docx === 'undefined') {
+    showStatus(currentLang === 'he'
+      ? '⚠️ הספריות עדיין נטענות — המתן שנייה ונסה שוב'
+      : '⚠️ المكتبات لا تزال تُحمَّل — انتظر ثانية وحاول مجدداً', 'error');
+    return;
+  }
+  const raw = document.getElementById('pasteTextarea').value.trim();
+  if (!raw) { showStatus(A.errBadJSON, 'error'); return; }
+
+  const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
+  let translated;
+  try { translated = JSON.parse(clean); }
+  catch(e) { showStatus(A.errBadJSON, 'error'); return; }
+
+  const data = collectData();
+  const S = STRINGS[currentLang];
+  const T = STRINGS[S.targetLang];
+
+  try {
+    await createWordDoc(data, translated, currentLang, S.targetLang, T);
+    showStatus(A.successWord, 'success');
+    // Show photo stage
+    setTimeout(showPhotoStage, 600);
+  } catch(e) {
+    showStatus('❌ ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// Update action UI labels on lang switch
+// ═══════════════════════════════════════════════════════
+function updateActionLabels() {
+  const A = ACTION_STRINGS[currentLang];
+  const S = STRINGS[currentLang];
+  const el = (id) => document.getElementById(id);
+  if (el('actionTitle')) el('actionTitle').textContent = S.actionTitle || '🌍 תרגום וייצוא לוורד';
+  if (el('actionDesc')) el('actionDesc').textContent = S.actionDesc || '';
+  if (el('flowLabel1')) el('flowLabel1').textContent = A.flowLabel1;
+  if (el('flowLabel2')) el('flowLabel2').textContent = A.flowLabel2;
+  if (el('flowLabel3')) el('flowLabel3').textContent = A.flowLabel3;
+  if (el('btnGenerate')) el('btnGenerate').textContent = A.btnGenerate;
+  if (el('btnWord')) el('btnWord').textContent = A.btnWord;
+  if (el('copyBtnText')) el('copyBtnText').textContent = A.copyBtnText;
+  if (el('pasteHint')) el('pasteHint').textContent = A.pasteHint;
+  if (el('promptBoxLabel')) el('promptBoxLabel').textContent = A.promptBoxLabel;
+}
+
+// ═══════════════════════════════════════════════════════
+// WORD DOC  — bilingual side-by-side
+// ═══════════════════════════════════════════════════════
+async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
+  if (!window._libsReady || typeof window.docx === 'undefined') {
+    throw new Error(fromLang === 'he'
+      ? 'ספריות לא נטענו — רענן את הדף ונסה שוב'
+      : 'لم تُحمَّل المكتبات — أعد تحميل الصفحة وحاول مجدداً');
+  }
+
+  const {
+    Document, Packer, Paragraph, TextRun, AlignmentType,
+    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, PageBreak
+  } = window.docx;
+
+  const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER, L: AlignmentType.LEFT };
+
+  // ── Palette ───────────────────────────────────────────
+  const C = {
+    darkGreen:'0B3D1E', green:'1A7A4A', midGreen:'2DA65E',
+    paleGreen:'E8F7EE', paleGreen2:'F0FAF5',
+    mint:'A8DBBE', mintLight:'D4F0E2',
+    white:'FFFFFF', offWhite:'F9FDF9',
+    textDark:'1C3326', textMid:'3A5A45', textLight:'6B8F78',
+    border:'B5D9C3', colHe:'E8F7EE', colAr:'EBF5FF',
+    headHe:'1A7A4A', headAr:'1A4A7A',
+  };
+
+  // ── Border helpers ────────────────────────────────────
+  const bs  = (color,sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
+  const bn  = ()           => ({ style:BorderStyle.NONE,   size:0,  color:'FFFFFF' });
+  const bAll= (col,sz=4)   => ({ top:bs(col,sz),bottom:bs(col,sz),left:bs(col,sz),right:bs(col,sz) });
+  const bNone = ()         => ({ top:bn(),bottom:bn(),left:bn(),right:bn() });
+
+  // ── Text run helpers ──────────────────────────────────
+  const run = (text, opts={}) => new TextRun({
+    text, font:'Arial', rtl:true,
+    size: opts.size||22, bold:opts.bold||false,
+    color: opts.color||C.textDark, italics:opts.italics||false,
+  });
+
+  // ── Single-column paragraph ───────────────────────────
+  const para = (text, align, opts={}) => new Paragraph({
+    alignment: align,
+    spacing: opts.spacing||{ before:60, after:60 },
+    shading: opts.shading||undefined,
+    border:  opts.border||undefined,
+    indent:  opts.indent||undefined,
+    children: Array.isArray(text)
+      ? text
+      : [run(text, opts)]
+  });
+
+  const sp = (pt=120) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
+
+  const rule = (color, thick=8) => new Paragraph({
+    spacing:{before:0,after:0},
+    border:{ bottom:bs(color,thick) },
+    children:[new TextRun('')]
+  });
+
+  // ── TWO-COLUMN TABLE ROW ──────────────────────────────
+  // leftContent / rightContent = array of Paragraph
+  // leftBg / rightBg = fill color hex
+  const twoCol = (leftParas, rightParas, leftBg, rightBg, borderColor) => {
+    const brd = bAll(borderColor||C.border, 3);
+    return new TableRow({ children:[
+      new TableCell({
+        width:{ size:4680, type:WidthType.DXA },
+        borders: brd,
+        shading:{ fill:leftBg||C.white, type:ShadingType.CLEAR },
+        margins:{ top:80, bottom:80, left:140, right:140 },
+        children: leftParas,
+      }),
+      new TableCell({
+        width:{ size:4680, type:WidthType.DXA },
+        borders: brd,
+        shading:{ fill:rightBg||C.white, type:ShadingType.CLEAR },
+        margins:{ top:80, bottom:80, left:140, right:140 },
+        children: rightParas,
+      }),
+    ]});
+  };
+
+  const twoColTable = (rows) => new Table({
+    width:{ size:9360, type:WidthType.DXA },
+    columnWidths:[4680,4680],
+    rows,
+  });
+
+  // ── Language assignment ───────────────────────────────
+  // fromLang = interface language (what user filled in)
+  // toLang   = translation language
+  // LEFT col  = fromLang (original)
+  // RIGHT col = toLang   (translated)
+  const SRC  = STRINGS[fromLang];
+  const TRGT = STRINGS[toLang];
+
+  const srcLabel  = fromLang==='he' ? 'עברית' : 'عربي';
+  const trgLabel  = toLang  ==='he' ? 'עברית' : 'عربي';
+  const srcBg     = fromLang==='he' ? C.colHe  : C.colAr;
+  const trgBg     = toLang  ==='he' ? C.colHe  : C.colAr;
+  const srcHead   = fromLang==='he' ? C.headHe : C.headAr;
+  const trgHead   = toLang  ==='he' ? C.headHe : C.headAr;
+
+  // ── Helper: lines from answer string ─────────────────
+  const answerParas = (text, align) => {
+    if (!text || !text.trim()) return [para('—', align, {color:C.textLight, size:20})];
+    return text.split('\n')
+      .filter(l=>l.trim())
+      .map(l => para(l, align, { size:21 }));
+  };
+
+  const guideParas = (subs, align) => subs.map(q => new Paragraph({
+    alignment: align,
+    spacing:{ before:30, after:30 },
+    indent: align===AL.R ? {right:160} : {left:160},
+    children:[
+      run('◈  ', { size:18, color:C.midGreen, bold:true }),
+      run(q,      { size:18, color:C.textMid }),
+    ]
+  }));
+
+  // ══════════════════════════════════════════════════════
+  // BUILD DOCUMENT
+  // ══════════════════════════════════════════════════════
+  const children = [];
+
+  // ── COVER ─────────────────────────────────────────────
+  children.push(sp(400));
+  children.push(rule(C.green, 20));
+  children.push(sp(160));
+
+  // Bilingual cover title table
+  const coverTitleRow = twoCol(
+    [para('אליפות מדעני המחר בהשראת הטבע', AL.R,
+          { bold:true, size:36, color:C.darkGreen, spacing:{before:40,after:20} }),
+     para('ביומימיקרי בגישת ה-STEM', AL.R,
+          { size:24, color:C.green, spacing:{before:0,after:40} })],
+    [para('بطولة علماء الغد بإلهام من الطبيعة', AL.R,
+          { bold:true, size:36, color:C.darkGreen, spacing:{before:40,after:20} }),
+     para('البيومحاكاة بمنهج الـ STEM', AL.R,
+          { size:24, color:C.headAr, spacing:{before:0,after:40} })],
+    C.paleGreen, C.colAr, C.border
+  );
+  children.push(twoColTable([coverTitleRow]));
+  children.push(sp(80));
+
+  // Book label row
+  const bookRow = twoCol(
+    [para('ספר הפרויקט', AL.C, { size:26, color:C.green }),
+     para('שנת לימודים: תשפ״ו — 2025–2026', AL.C, { size:18, color:C.textLight, italics:true })],
+    [para('كتاب المشروع', AL.C, { size:26, color:C.headAr }),
+     para('السنة الدراسية: تشب"ו — 2025–2026', AL.C, { size:18, color:C.textLight, italics:true })],
+    C.offWhite, C.offWhite, C.border
+  );
+  children.push(twoColTable([bookRow]));
+  children.push(sp(160));
+  children.push(rule(C.mint, 8));
+
+  // ── SCHOOL INFO ───────────────────────────────────────
+  children.push(sp(160));
+
+  // School section heading row
+  const schoolHdr = twoCol(
+    [para('  ' + STRINGS['he'].schoolTitle.replace('🏫 ','🏫 '), AL.R,
+          { bold:true, size:24, color:C.white,
+            spacing:{before:100,after:100},
+            shading:{ fill:C.headHe, type:ShadingType.CLEAR } })],
+    [para('  ' + STRINGS['ar'].schoolTitle.replace('🏫 ','🏫 '), AL.R,
+          { bold:true, size:24, color:C.white,
+            spacing:{before:100,after:100},
+            shading:{ fill:C.headAr, type:ShadingType.CLEAR } })],
+    C.headHe, C.headAr, C.border
+  );
+  children.push(twoColTable([schoolHdr]));
+
+  const LH = STRINGS['he'];
+  const LA = STRINGS['ar'];
+
+  const schoolFieldsHe = [
+    [LH.lbl_city,      srcData.school_city   || ''],
+    [LH.lbl_school_name,srcData.school_name  || ''],
+    [LH.lbl_principal, srcData.principal     || ''],
+    [LH.lbl_mentor,    srcData.mentor        || ''],
+    [LH.lbl_sci,       srcData.science_coord || ''],
+    [LH.lbl_tech,      srcData.tech_coord    || ''],
+    [LH.lbl_class,     srcData.classroom     || ''],
+    [LH.lbl_students,  srcData.students      || ''],
+  ];
+  const schoolFieldsAr = [
+    [LA.lbl_city,       translated.school_city   || srcData.school_city   || ''],
+    [LA.lbl_school_name,translated.school_name   || srcData.school_name   || ''],
+    [LA.lbl_principal,  translated.principal     || srcData.principal     || ''],
+    [LA.lbl_mentor,    translated.mentor        || srcData.mentor        || ''],
+    [LA.lbl_sci,        translated.science_coord || srcData.science_coord || ''],
+    [LA.lbl_tech,       translated.tech_coord    || srcData.tech_coord    || ''],
+    [LA.lbl_class,      translated.classroom     || srcData.classroom     || ''],
+    [LA.lbl_students,   translated.students      || srcData.students      || ''],
+  ];
+
+  const schoolRows = schoolFieldsHe.map(([lbl,val], i) => {
+    const [lblA, valA] = schoolFieldsAr[i];
+    const shade = i%2===0;
+    return twoCol(
+      [new Paragraph({ alignment:AL.R, children:[
+         run(lbl+':  ', {bold:true, size:19, color:C.green}),
+         run(val||'—',  {size:19, color:C.textDark}),
+       ]}),],
+      [new Paragraph({ alignment:AL.R, children:[
+         run(lblA+':  ', {bold:true, size:19, color:C.headAr}),
+         run(valA||'—', {size:19, color:C.textDark}),
+       ]}),],
+      shade ? C.paleGreen : C.white,
+      shade ? C.colAr     : C.offWhite,
+      C.border
+    );
+  });
+  children.push(twoColTable(schoolRows));
+  children.push(sp(120));
+  children.push(rule(C.green, 6));
+
+  // ── SECTIONS ──────────────────────────────────────────
+  const secsSrc  = STRINGS[fromLang].sections;
+  const secsTrgt = STRINGS[toLang].sections;
+  const transSecs = translated.sections || [];
+
+  secsSrc.forEach((secSrc, idx) => {
+    const secTrgt = secsTrgt[idx];
+    const tSec    = transSecs.find(s => s.num === secSrc.num);
+
+    if (idx > 0 && idx % 3 === 0) {
+      children.push(new Paragraph({ children:[new PageBreak()] }));
+    }
+
+    // ── Section heading row ──
+    const secHdrRow = twoCol(
+      [new Paragraph({
+        alignment:AL.R, spacing:{before:0,after:0},
+        shading:{ fill:C.headHe, type:ShadingType.CLEAR },
+        children:[
+          run('  '+secSrc.num+'.  ', {bold:true, size:28, color:C.mintLight}),
+          run(secSrc.title,          {bold:true, size:28, color:C.white}),
+        ]
+      })],
+      [new Paragraph({
+        alignment:AL.R, spacing:{before:0,after:0},
+        shading:{ fill:C.headAr, type:ShadingType.CLEAR },
+        children:[
+          run('  '+secTrgt.num+'.  ', {bold:true, size:28, color:C.mintLight}),
+          run(secTrgt.title,          {bold:true, size:28, color:C.white}),
+        ]
+      })],
+      C.headHe, C.headAr, C.border
+    );
+    children.push(twoColTable([secHdrRow]));
+
+    // ── Guiding questions row ──
+    if ((secSrc.subs && secSrc.subs.length) || (secTrgt.subs && secTrgt.subs.length)) {
+      const qRow = twoCol(
+        guideParas(secSrc.subs||[], AL.R),
+        guideParas(secTrgt.subs||[], AL.R),
+        C.paleGreen, C.colAr, C.border
+      );
+      children.push(twoColTable([qRow]));
+    }
+
+    // ── Write-label row ──
+    const lblRow = twoCol(
+      [new Paragraph({
+        alignment:AL.R, spacing:{before:40,after:40},
+        border:{ right:bs(C.midGreen,8) },
+        children:[run('  '+secSrc.fieldLabel, {bold:true, size:20, color:C.midGreen})]
+      })],
+      [new Paragraph({
+        alignment:AL.R, spacing:{before:40,after:40},
+        border:{ right:bs(C.headAr,8) },
+        children:[run('  '+secTrgt.fieldLabel, {bold:true, size:20, color:C.headAr})]
+      })],
+      C.offWhite, C.offWhite, C.border
+    );
+    children.push(twoColTable([lblRow]));
+
+    // ── Answer row ──
+    const srcAns  = (srcData['s'+secSrc.num]||'').trim();
+    const trgAns  = (tSec?.answer||'').trim();
+
+    const srcParas = srcAns
+      ? srcAns.split('\n').filter(l=>l.trim()).map(l=>para(l,AL.R,{size:21}))
+      : Array(4).fill(null).map(()=>new Paragraph({
+          spacing:{before:180,after:0},
+          border:{bottom:bs(C.border,2)},
+          children:[new TextRun('')]
+        }));
+
+    const trgParas = trgAns
+      ? trgAns.split('\n').filter(l=>l.trim()).map(l=>para(l,AL.R,{size:21}))
+      : Array(4).fill(null).map(()=>new Paragraph({
+          spacing:{before:180,after:0},
+          border:{bottom:bs(C.border,2)},
+          children:[new TextRun('')]
+        }));
+
+    const ansRow = twoCol(srcParas, trgParas, C.white, C.offWhite, C.border);
+    children.push(twoColTable([ansRow]));
+    children.push(sp(60));
+  });
+
+  // ── FOOTER ────────────────────────────────────────────
+  children.push(sp(160));
+  children.push(rule(C.mint, 6));
+  children.push(sp(60));
+  children.push(new Paragraph({
+    alignment:AL.C,
+    children:[
+      run('אליפות מדעני המחר בהשראת הטבע  |  بطولة علماء الغد بإلهام من الطبيعة  |  2025–2026',
+          { size:16, color:C.textLight, italics:true })
+    ]
+  }));
+
+  // ── ASSEMBLE ──────────────────────────────────────────
+  const doc = new Document({
+    styles:{
+      default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } }
+    },
+    sections:[{
+      properties:{
+        page:{
+          size:{ width:16838, height:11906 },        // A4 Landscape
+          margin:{ top:720, right:720, bottom:720, left:720 }
+        }
+      },
+      children
+    }]
+  });
+
+  const blob = await Packer.toBlob(doc);
+  const filename = 'biomimicry_bilingual_' + fromLang + '_' + toLang + '.docx';
+  saveAs(blob, filename);
+}
+
+
+// ═══════════════════════════════════════════════════════
+// BUILD FINAL WORD WITH PHOTOS
+// ═══════════════════════════════════════════════════════
+async function buildFinalWord() {
+  const btn = document.getElementById('btnFinal');
+  const statusEl = document.getElementById('statusBoxFinal');
+  const showFinalStatus = (msg, type) => {
+    if (!statusEl) return;
+    statusEl.textContent = msg;
+    statusEl.className = 'status-box ' + type;
+  };
+
+  if (!window._libsReady || typeof window.docx === 'undefined') {
+    showFinalStatus(currentLang==='he'
+      ? '⚠️ ספריות לא נטענו — רענן את הדף'
+      : '⚠️ المكتبات لم تُحمَّل — أعد التحميل', 'error');
+    return;
+  }
+
+  btn.disabled = true;
+  showFinalStatus(currentLang==='he' ? '⏳ יוצר קובץ Word מלא...' : '⏳ جارٍ إنشاء ملف Word الكامل...', 'info');
+
+  const {
+    Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
+    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, PageBreak
+  } = window.docx;
+
+  // Re-use palette + helpers from createWordDoc by duplicating key elements
+  const C = {
+    darkGreen:'0B3D1E', green:'1A7A4A', midGreen:'2DA65E',
+    paleGreen:'E8F7EE', paleGreen2:'F0FAF5',
+    mint:'A8DBBE', mintLight:'D4F0E2',
+    white:'FFFFFF', offWhite:'F9FDF9',
+    textDark:'1C3326', textMid:'3A5A45', textLight:'6B8F78',
+    border:'B5D9C3', colHe:'E8F7EE', colAr:'EBF5FF',
+    headHe:'1A7A4A', headAr:'1A4A7A',
+  };
+  const AL  = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
+  const bs  = (color,sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
+  const bAll= (col,sz=4)   => ({ top:bs(col,sz),bottom:bs(col,sz),left:bs(col,sz),right:bs(col,sz) });
+
+  const run = (text, opts={}) => new TextRun({
+    text, font:'Arial', rtl:true,
+    size:opts.size||22, bold:opts.bold||false,
+    color:opts.color||C.textDark, italics:opts.italics||false,
+  });
+  const para = (text, align, opts={}) => new Paragraph({
+    alignment:align, spacing:opts.spacing||{before:60,after:60},
+    shading:opts.shading||undefined, border:opts.border||undefined,
+    children: Array.isArray(text) ? text : [run(text,opts)]
+  });
+  const sp = (pt=100) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
+  const rule = (color,thick=8) => new Paragraph({
+    spacing:{before:0,after:0}, border:{bottom:bs(color,thick)}, children:[new TextRun('')]
+  });
+
+  const twoCol = (leftParas, rightParas, leftBg, rightBg, borderColor) => {
+    const brd = bAll(borderColor||C.border, 3);
+    return new TableRow({ children:[
+      new TableCell({ width:{size:4680,type:WidthType.DXA}, borders:brd, shading:{fill:leftBg||C.white,type:ShadingType.CLEAR}, margins:{top:80,bottom:80,left:140,right:140}, children:leftParas }),
+      new TableCell({ width:{size:4680,type:WidthType.DXA}, borders:brd, shading:{fill:rightBg||C.white,type:ShadingType.CLEAR}, margins:{top:80,bottom:80,left:140,right:140}, children:rightParas }),
+    ]});
+  };
+  const twoColTable = rows => new Table({ width:{size:9360,type:WidthType.DXA}, columnWidths:[4680,4680], rows });
+
+  // ── Get translated data from paste area ──────────────
+  const raw = document.getElementById('pasteTextarea')?.value?.trim() || '{}';
+  let translated = {};
+  try { translated = JSON.parse(raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim()); }
+  catch(e) { translated = {}; }
+
+  const srcData   = collectData();
+  const fromLang  = currentLang;
+  const toLang    = STRINGS[fromLang].targetLang;
+  const SRC       = STRINGS[fromLang];
+  const TRGT      = STRINGS[toLang];
+  const transSecs = translated.sections || [];
+
+  // ── Photo caption maps ────────────────────────────────
+  const secCaptions = {};
+  SRC.photoSections.forEach(ps => { secCaptions[ps.secNum] = ps.slots; });
+
+  // ── Helper: build image block ─────────────────────────
+  async function imgBlock(dataURL, captionText) {
+    const base64 = dataURL.split(',')[1];
+    const mime   = dataURL.split(';')[0].split(':')[1];
+    const type   = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : 'jpg';
+    const dims   = await new Promise(res => {
+      const img = new Image(); img.onload = ()=>res({w:img.naturalWidth,h:img.naturalHeight}); img.onerror=()=>res({w:400,h:300}); img.src=dataURL;
+    });
+    const maxW = 200; // points
+    const maxH = Math.round(maxW * (dims.h/dims.w));
+    const binary = atob(base64);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
+
+    const imgRun = new ImageRun({ data:bytes, transformation:{width:maxW,height:maxH>160?160:maxH}, type });
+    const imgPara = new Paragraph({ alignment:AL.C, spacing:{before:60,after:20}, children:[imgRun] });
+    const capPara = new Paragraph({ alignment:AL.C, spacing:{before:0,after:60},
+      children:[run(captionText,{size:16,italics:true,color:C.textLight})] });
+    return [imgPara, capPara];
+  }
+
+  // ── Helper: photos for section (returns [] if no photos) ──
+  async function photosForSec(secNum) {
+    const slots = photoData[secNum] || {};
+    const entries = Object.entries(slots);
+    if (entries.length === 0) return [];
+    const captions = secCaptions[secNum] || [];
+    const blocks = [];
+    for (const [idxStr, ph] of entries) {
+      if (!ph || !ph.dataURL) continue;
+      const idx = parseInt(idxStr);
+      const cap = captions[idx] || (fromLang==='he'?'תמונה '+(idx+1):'صورة '+(idx+1));
+      try {
+        const b = await imgBlock(ph.dataURL, cap);
+        blocks.push(...b);
+      } catch(e) { console.warn('Image load failed for sec', secNum, idx, e); }
+    }
+    return blocks;
+  }
+
+  // ── Build doc ─────────────────────────────────────────
+  const children = [];
+
+  // Cover
+  children.push(sp(400));
+  children.push(rule(C.green, 20));
+  children.push(sp(160));
+  const coverRow = twoCol(
+    [para('אליפות מדעני המחר בהשראת הטבע',AL.R,{bold:true,size:34,color:C.darkGreen,spacing:{before:40,after:16}}),
+     para('ביומימיקרי בגישת ה-STEM',AL.R,{size:22,color:C.green,spacing:{before:0,after:40}})],
+    [para('بطولة علماء الغد بإلهام من الطبيعة',AL.R,{bold:true,size:34,color:C.darkGreen,spacing:{before:40,after:16}}),
+     para('البيومحاكاة بمنهج الـ STEM',AL.R,{size:22,color:C.headAr,spacing:{before:0,after:40}})],
+    C.paleGreen, C.colAr, C.border
+  );
+  children.push(twoColTable([coverRow]));
+  children.push(sp(80));
+  const bookRow = twoCol(
+    [para('ספר הפרויקט המלא',AL.C,{size:24,color:C.green}),
+     para('שנת לימודים: תשפ״ו — 2025–2026',AL.C,{size:16,color:C.textLight,italics:true})],
+    [para('كتاب المشروع الكامل',AL.C,{size:24,color:C.headAr}),
+     para('السنة الدراسية: تشب"ו — 2025–2026',AL.C,{size:16,color:C.textLight,italics:true})],
+    C.offWhite, C.offWhite, C.border
+  );
+  children.push(twoColTable([bookRow]));
+  children.push(sp(120));
+  children.push(rule(C.mint, 8));
+
+  // School info
+  children.push(sp(140));
+  const LH = STRINGS['he'], LA = STRINGS['ar'];
+  const schoolHdr = twoCol(
+    [para('  🏫 ' + LH.schoolTitle.replace('🏫 ',''), AL.R, {bold:true,size:22,color:C.white,spacing:{before:80,after:80},shading:{fill:C.headHe,type:ShadingType.CLEAR}})],
+    [para('  🏫 ' + LA.schoolTitle.replace('🏫 ',''), AL.R, {bold:true,size:22,color:C.white,spacing:{before:80,after:80},shading:{fill:C.headAr,type:ShadingType.CLEAR}})],
+    C.headHe, C.headAr, C.border
+  );
+  children.push(twoColTable([schoolHdr]));
+
+  const sfH = [[LH.lbl_city,srcData.school_city],[LH.lbl_school_name,srcData.school_name],[LH.lbl_principal,srcData.principal],[LH.lbl_mentor,srcData.mentor||''],[LH.lbl_sci,srcData.science_coord],[LH.lbl_tech,srcData.tech_coord],[LH.lbl_class,srcData.classroom],[LH.lbl_students,srcData.students]];
+  const sfA = [[LA.lbl_city,translated.school_city||srcData.school_city],[LA.lbl_school_name,translated.school_name||srcData.school_name],[LA.lbl_principal,translated.principal||srcData.principal],[LA.lbl_mentor,translated.mentor||srcData.mentor||''],[LA.lbl_sci,translated.science_coord||srcData.science_coord],[LA.lbl_tech,translated.tech_coord||srcData.tech_coord],[LA.lbl_class,translated.classroom||srcData.classroom],[LA.lbl_students,translated.students||srcData.students]];
+
+  const schoolRows = sfH.map(([lH,vH],i) => {
+    const [lA,vA] = sfA[i];
+    const shade = i%2===0;
+    return twoCol(
+      [new Paragraph({alignment:AL.R,children:[run(lH+':  ',{bold:true,size:18,color:C.green}),run(vH||'—',{size:18})]})],
+      [new Paragraph({alignment:AL.R,children:[run(lA+':  ',{bold:true,size:18,color:C.headAr}),run(vA||'—',{size:18})]})],
+      shade?C.paleGreen:C.white, shade?C.colAr:C.offWhite, C.border
+    );
+  });
+  children.push(twoColTable(schoolRows));
+  children.push(sp(100));
+  children.push(rule(C.green, 5));
+
+  // Sections
+  const secsSrc  = STRINGS[fromLang].sections;
+  const secsTrgt = STRINGS[toLang].sections;
+
+  for (let idx = 0; idx < secsSrc.length; idx++) {
+    const secSrc  = secsSrc[idx];
+    const secTrgt = secsTrgt[idx];
+    const tSec    = transSecs.find(s => s.num === secSrc.num);
+
+    if (idx > 0 && idx % 3 === 0) children.push(new Paragraph({children:[new PageBreak()]}));
+
+    // Heading
+    const secHdr = twoCol(
+      [new Paragraph({alignment:AL.R,spacing:{before:0,after:0},shading:{fill:C.headHe,type:ShadingType.CLEAR},children:[run('  '+secSrc.num+'.  ',{bold:true,size:26,color:C.mintLight}),run(secSrc.title,{bold:true,size:26,color:C.white})]})],
+      [new Paragraph({alignment:AL.R,spacing:{before:0,after:0},shading:{fill:C.headAr,type:ShadingType.CLEAR},children:[run('  '+secTrgt.num+'.  ',{bold:true,size:26,color:C.mintLight}),run(secTrgt.title,{bold:true,size:26,color:C.white})]})],
+      C.headHe, C.headAr, C.border
+    );
+    children.push(twoColTable([secHdr]));
+
+    // Sub-questions
+    if (secSrc.subs?.length) {
+      const qRow = twoCol(
+        secSrc.subs.map(q=>new Paragraph({alignment:AL.R,spacing:{before:28,after:28},indent:{right:140},children:[run('◈  ',{size:17,color:C.midGreen,bold:true}),run(q,{size:17,color:C.textMid})]})),
+        secTrgt.subs.map(q=>new Paragraph({alignment:AL.R,spacing:{before:28,after:28},indent:{right:140},children:[run('◈  ',{size:17,color:C.headAr,bold:true}),run(q,{size:17,color:C.textMid})]})),
+        C.paleGreen, C.colAr, C.border
+      );
+      children.push(twoColTable([qRow]));
+    }
+
+    // Write label
+    const lblRow = twoCol(
+      [new Paragraph({alignment:AL.R,spacing:{before:40,after:40},border:{right:bs(C.midGreen,8)},children:[run('  '+secSrc.fieldLabel,{bold:true,size:19,color:C.midGreen})]})],
+      [new Paragraph({alignment:AL.R,spacing:{before:40,after:40},border:{right:bs(C.headAr,8)},children:[run('  '+secTrgt.fieldLabel,{bold:true,size:19,color:C.headAr})]})],
+      C.offWhite, C.offWhite, C.border
+    );
+    children.push(twoColTable([lblRow]));
+
+    // Answers
+    const srcAns = (srcData['s'+secSrc.num]||'').trim();
+    const trgAns = (tSec?.answer||'').trim();
+    const makeAnsParas = (txt) => txt
+      ? txt.split('\n').filter(l=>l.trim()).map(l=>new Paragraph({alignment:AL.R,spacing:{before:50,after:50},indent:{right:160},children:[run(l,{size:20})]}))
+      : Array(4).fill(null).map(()=>new Paragraph({spacing:{before:160,after:0},border:{bottom:bs(C.border,2)},children:[new TextRun('')]}));
+
+    const ansRow = twoCol(makeAnsParas(srcAns), makeAnsParas(trgAns), C.white, C.offWhite, C.border);
+    children.push(twoColTable([ansRow]));
+
+    // Photos for this section (safe — no error if empty)
+    const secEntries = Object.entries(photoData[secSrc.num]||{}).filter(([,ph])=>ph&&ph.dataURL);
+    if (secEntries.length > 0) {
+      const photoLabel = fromLang==='he' ? '📸 תמונות' : '📸 الصور';
+      children.push(sp(60));
+      children.push(new Paragraph({alignment:AL.C,spacing:{before:40,after:20},
+        children:[run(photoLabel,{bold:true,size:20,color:C.green})]}));
+      // Pairs in two-column layout
+      for (let pi=0; pi<secEntries.length; pi+=2) {
+        const [idx0, ph0] = secEntries[pi];
+        const cap0 = (secCaptions[secSrc.num]||[])[parseInt(idx0)] || (fromLang==='he'?'תמונה '+(parseInt(idx0)+1):'صورة '+(parseInt(idx0)+1));
+        let b0=[new Paragraph({children:[new TextRun('')]})], b1=[new Paragraph({children:[new TextRun('')]})];
+        try { b0 = await imgBlock(ph0.dataURL, cap0); } catch(e){}
+        if (pi+1 < secEntries.length) {
+          const [idx1, ph1] = secEntries[pi+1];
+          const cap1 = (secCaptions[secSrc.num]||[])[parseInt(idx1)] || (fromLang==='he'?'תמונה '+(parseInt(idx1)+1):'صورة '+(parseInt(idx1)+1));
+          try { b1 = await imgBlock(ph1.dataURL, cap1); } catch(e){}
+        }
+        children.push(twoColTable([twoCol(b0, b1, C.offWhite, C.offWhite, C.border)]));
+      }
+      children.push(sp(60));
+    }
+
+    children.push(sp(60));
+  }
+
+  // Footer
+  children.push(sp(160));
+  children.push(rule(C.mint,6));
+  children.push(sp(40));
+  children.push(new Paragraph({alignment:AL.C,children:[run(
+    'אליפות מדעני המחר בהשראת הטבע  |  بطولة علماء الغد بإلهام من الطبيعة  |  2025–2026',
+    {size:15,color:C.textLight,italics:true}
+  )]}));
+
+  // Assemble
+  const doc = new Document({
+    styles:{ default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } } },
+    sections:[{
+      properties:{
+        page:{
+          size:{ width:16838, height:11906 },
+          margin:{ top:720, right:720, bottom:720, left:720 }
+        }
+      },
+      children
+    }]
+  });
+
+  try {
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, 'biomimicry_full_project_book.docx');
+    showFinalStatus(currentLang==='he' ? '✅ ספר הפרויקט המלא הורד בהצלחה!' : '✅ تم تنزيل كتاب المشروع الكامل بنجاح!', 'success');
+  } catch(e) {
+    showFinalStatus('❌ ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════
+// PHOTO UPLOAD
+// ═══════════════════════════════════════════════════════
+
+// photoData[secNum][slotIdx] = { dataURL, name }
+const photoData = { '4':{}, '6':{}, '7':{}, '11':{} };
+
+function renderPhotoStage(lang) {
+  const S = STRINGS[lang];
+  const body = document.getElementById('photoSlotsBody');
+  body.innerHTML = '';
+  const isHe = lang === 'he';
+
+  S.photoSections.forEach(sec => {
+    const isRequired = sec.status === 'required';
+    const badgeClass = isRequired ? 'status-badge required' : 'status-badge recommended';
+    const countLabel = isHe
+      ? `עד ${sec.max} תמונות`
+      : `حتى ${sec.max} صور`;
+
+    const block = document.createElement('div');
+    block.className = 'photo-section-block';
+    block.innerHTML = `
+      <div class="photo-section-title">
+        <div class="sec-num">${sec.secNum}</div>
+        <div class="sec-info">
+          <strong>${sec.title}</strong>
+          <div class="sec-meta">
+            <span class="${badgeClass}">${sec.statusLabel}</span>
+            <span class="sec-count">${countLabel}</span>
+          </div>
+          <p class="sec-desc">${sec.desc}</p>
+        </div>
+      </div>
+      <div class="photo-slots" id="slots_${sec.secNum}"></div>`;
+    body.appendChild(block);
+
+    const slotsDiv = document.getElementById('slots_' + sec.secNum);
+    for (let i = 0; i < sec.max; i++) {
+      slotsDiv.appendChild(makeSlot(sec.secNum, i, sec.slots[i] || (isHe?'תמונה '+(i+1):'صورة '+(i+1))));
+    }
+  });
+
+  // Update labels
+  const el = id => document.getElementById(id);
+  if (el('photoStageTitle')) el('photoStageTitle').textContent = S.photoStageTitle;
+  if (el('photoStageDesc'))  el('photoStageDesc').textContent  = S.photoStageDesc;
+  if (el('btnFinalText'))    el('btnFinalText').textContent    = S.btnFinalText;
+  if (el('photoSkip'))       el('photoSkip').textContent       = S.photoSkipText;
+}
+
+function makeSlot(secNum, idx, label) {
+  const slot = document.createElement('div');
+  const existing = photoData[secNum] && photoData[secNum][idx];
+  slot.className = 'photo-slot' + (existing ? ' filled' : '');
+  slot.id = `slot_${secNum}_${idx}`;
+  const isHe = currentLang === 'he';
+
+  if (existing) {
+    slot.innerHTML = `
+      <img src="${existing.dataURL}" alt="">
+      <div class="slot-caption">${label}</div>
+      <div class="slot-overlay">
+        <button class="slot-btn" onclick="replaceSlot('${secNum}',${idx})">${isHe?'החלף':'استبدل'}</button>
+        <button class="slot-btn remove" onclick="removeSlot('${secNum}',${idx})">${isHe?'הסר':'حذف'}</button>
+      </div>`;
+  } else {
+    slot.dataset.label = label;
+    slot.innerHTML = `
+      <span class="slot-icon">📷</span>
+      <span class="slot-label">${label}</span>
+      <input type="file" accept="image/*" onchange="handleFile(this,'${secNum}',${idx})">`;
+  }
+  return slot;
+}
+
+function handleFile(input, secNum, idx) {
+  const file = input.files[0];
+  if (!file) return;
+  const label = input.closest('.photo-slot')?.dataset?.label || '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    photoData[secNum][idx] = { dataURL: e.target.result, name: label, fileName: file.name };
+    refreshSlot(secNum, idx, label);
+  };
+  reader.readAsDataURL(file);
+}
+
+function refreshSlot(secNum, idx, label) {
+  const S = STRINGS[currentLang];
+  const sec = S.photoSections.find(s => s.secNum === secNum);
+  const lbl = (sec && sec.slots[idx]) || label;
+  const old = document.getElementById(`slot_${secNum}_${idx}`);
+  if (!old) return;
+  const newSlot = makeSlot(secNum, idx, lbl);
+  old.parentNode.replaceChild(newSlot, old);
+}
+
+function removeSlot(secNum, idx) {
+  delete photoData[secNum][idx];
+  const S = STRINGS[currentLang];
+  const sec = S.photoSections.find(s => s.secNum === secNum);
+  const lbl = (sec && sec.slots[idx]) || ('תמונה '+(idx+1));
+  refreshSlot(secNum, idx, lbl);
+}
+
+function replaceSlot(secNum, idx) {
+  delete photoData[secNum][idx];
+  const S = STRINGS[currentLang];
+  const sec = S.photoSections.find(s => s.secNum === secNum);
+  const lbl = (sec && sec.slots[idx]) || ('תמונה '+(idx+1));
+  refreshSlot(secNum, idx, lbl);
+  // trigger file picker on next tick
+  setTimeout(() => {
+    const slot = document.getElementById(`slot_${secNum}_${idx}`);
+    if (slot) { const inp = slot.querySelector('input[type=file]'); if (inp) inp.click(); }
+  }, 50);
+}
+
+// Show photo stage after step 3 paste
+function showPhotoStage() {
+  const stage = document.getElementById('photoStage');
+  if (stage) {
+    renderPhotoStage(currentLang);
+    stage.classList.add('visible');
+    stage.scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+}
+
+// ── Helper: load image as ImageRun ────────────────────
+async function dataURLtoImageRun(dataURL, maxWidthEmu, docxLib) {
+  const { ImageRun } = docxLib;
+  // Strip prefix
+  const base64 = dataURL.split(',')[1];
+  const mime   = dataURL.split(';')[0].split(':')[1]; // e.g. image/jpeg
+  const type   = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : 'jpg';
+
+  // Fetch dimensions via Image
+  const dims = await new Promise(res => {
+    const img = new Image();
+    img.onload = () => res({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => res({ w: 400, h: 300 });
+    img.src = dataURL;
+  });
+
+  // Scale to fit maxWidthEmu keeping ratio (1 inch = 914400 EMU)
+  const ratio = dims.h / dims.w;
+  const widthEmu  = maxWidthEmu;
+  const heightEmu = Math.round(widthEmu * ratio);
+
+  // Convert base64 → Uint8Array
+  const binary = atob(base64);
+  const bytes  = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  return new ImageRun({
+    data: bytes,
+    transformation: { width: Math.round(widthEmu / 9144), height: Math.round(heightEmu / 9144) },
+    type,
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+populateCityDropdown('he');
+renderSections('he');
+setStudentsValue('he', '');
+updateProgress();
+updateActionLabels();
+
+// Live save on school fields
+['school_name','school_city','principal','mentor','science_coord','tech_coord','classroom'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('change', () => { answers[currentLang][id] = el.value; });
+  if (el) el.addEventListener('input', () => { answers[currentLang][id] = el.value; });
+});
+// Live save student inputs
+[1,2,3,4,5].forEach(n => {
+  const el = document.getElementById('student'+n);
+  if (el) el.addEventListener('input', () => { answers[currentLang]['students'] = getStudentsValue(); });
+});
+
+</script>
+</body>
+</html>
