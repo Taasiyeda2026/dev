@@ -16,48 +16,6 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-  /* ── Language switcher bar ── */
-  .lang-bar {
-    background: var(--dark);
-    padding: 10px 20px;
-    display: flex;
-    justify-content: center;
-    gap: 8px;
-    position: sticky;
-    top: 0;
-    z-index: 200;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-    user-select: none;
-    flex-wrap: wrap;
-    direction: rtl;
-  }
-  .lang-btn {
-    background: rgba(255,255,255,0.08);
-    border: 1.5px solid rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.55);
-    font-family: 'Heebo', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    padding: 7px 22px;
-    border-radius: 30px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    letter-spacing: 0.3px;
-    user-select: none;
-    white-space: nowrap;
-  }
-  .lang-btn:hover { background: rgba(255,255,255,0.13); color: #fff; }
-  .lang-btn.active {
-    background: var(--green);
-    border-color: var(--green-light);
-    color: #fff;
-    box-shadow: 0 0 16px rgba(45,166,94,0.4);
-  }
-  .lang-flag { font-size: 18px; line-height: 1; }
-
   /* ── Header ── */
   .header {
     background: linear-gradient(135deg, var(--dark) 0%, #0f3320 50%, #1a4d2e 100%);
@@ -87,7 +45,7 @@
   .progress-wrap {
     background: var(--white); border-bottom: 1px solid var(--border);
     padding: 10px 24px; box-shadow: 0 2px 8px var(--shadow);
-    position: sticky; top: 58px; z-index: 150; user-select: none;
+    position: sticky; top: 0; z-index: 150; user-select: none;
   }
   .progress-inner { max-width: 760px; margin: 0 auto; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
   .progress-bar-bg { background: var(--green-mid); border-radius: 10px; height: 7px; overflow: hidden; width: 100%; min-width: 120px; }
@@ -282,9 +240,7 @@
   .photo-stage-footer { padding:0 20px 24px; text-align:center; }
   @media(max-width:520px) {
     body { overflow-x: hidden; }
-    .lang-bar { padding: 8px 10px; gap: 6px; }
-    .lang-btn { flex: 1 1 110px; justify-content: center; padding: 8px 12px; min-height: 40px; }
-    .progress-wrap { top: 56px; padding: 8px 10px; }
+    .progress-wrap { top: 0; padding: 8px 10px; }
     .progress-inner { grid-template-columns: 1fr; gap: 6px; }
     .btn-clear-form { width: 100%; min-height: 40px; }
     .progress-label { font-size: 12px; }
@@ -322,16 +278,6 @@
 </style>
 </head>
 <body>
-
-<!-- Language switcher -->
-<div class="lang-bar">
-  <button class="lang-btn active" id="btnHe" onclick="setLang('he')">
-    <span class="lang-flag">🇮🇱</span> עברית
-  </button>
-  <button class="lang-btn" id="btnAr" onclick="setLang('ar')">
-    <span class="lang-flag">🇵🇸</span> العربية
-  </button>
-</div>
 
 <div class="header">
   <span class="leaf-icon">🌿</span>
