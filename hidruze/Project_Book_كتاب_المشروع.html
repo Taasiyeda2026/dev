@@ -247,11 +247,23 @@
   .slot-btn.remove { background:rgba(200,50,50,0.35); border-color:rgba(200,50,50,0.5); }
   .photo-slot input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
   .photo-slot.filled input[type=file] { display:none; }
-  .btn-final { background:linear-gradient(135deg,#0B3D1E 0%,#1A7A4A 100%); color:#fff; font-family:'Heebo',sans-serif; font-size:16px; font-weight:800; border:none; padding:17px 40px; border-radius:16px; cursor:pointer; box-shadow:0 6px 24px rgba(11,61,30,0.4); transition:transform 0.15s,box-shadow 0.15s; display:inline-flex; align-items:center; gap:11px; }
+  .photo-export-actions { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
+  .btn-final { background:linear-gradient(135deg,#0B3D1E 0%,#1A7A4A 100%); color:#fff; font-family:'Heebo',sans-serif; font-size:16px; font-weight:800; border:none; padding:17px 28px; border-radius:16px; cursor:pointer; box-shadow:0 6px 24px rgba(11,61,30,0.4); transition:transform 0.15s,box-shadow 0.15s; display:inline-flex; align-items:center; justify-content:center; gap:11px; min-height:54px; max-width:100%; white-space:normal; text-align:center; }
+  .btn-final-secondary { background:linear-gradient(135deg,#2F5D45 0%,#4D8463 100%); }
   .btn-final:hover:not(:disabled) { transform:translateY(-3px); box-shadow:0 10px 32px rgba(11,61,30,0.5); }
   .btn-final:disabled { opacity:0.5; cursor:not-allowed; }
   .photo-stage-footer { padding:0 20px 24px; text-align:center; }
-  .photo-skip { font-size:12px; color:var(--muted); margin-top:12px; cursor:pointer; text-decoration:underline; display:inline-block; }
+  @media(max-width:520px) {
+    .action-section { padding:24px 14px; }
+    .flow-step-header { justify-content:flex-start; }
+    .btn-translate, .btn-final { width:100%; padding-left:18px; padding-right:18px; }
+    .photo-stage-header { padding:16px 14px; }
+    .photo-stage-body { padding:14px 10px; }
+    .photo-stage-footer { padding:0 10px 20px; }
+    .photo-section-title { align-items:flex-start; padding:10px 12px; }
+    .photo-slots { grid-template-columns:repeat(auto-fill,minmax(128px,1fr)); padding:10px; }
+    .paste-textarea, .prompt-textarea { max-width:100%; }
+  }
 
 
   /* ── Photo stage enhancements ── */
@@ -394,7 +406,7 @@
       <div class="paste-hint" id="pasteHint">הדבק כאן את תשובת ה-AI (JSON) ↓</div>
       <textarea class="paste-textarea" id="pasteTextarea" placeholder='{ "school_name": "...", "sections": [...] }'></textarea>
       <button class="btn-translate btn-word" onclick="buildWord()" style="margin-top:14px;">
-        <span>📄</span> <span id="btnWord">צור קובץ Word ↓</span>
+        <span>✓</span> <span id="btnWord">בדוק JSON והמשך לתמונות</span>
       </button>
       <div class="status-box" id="statusBox"></div>
     </div>
@@ -404,18 +416,23 @@
   <div class="photo-stage" id="photoStage">
     <div class="photo-stage-header">
       <h2 id="photoStageTitle">📸 שלב הוספת תמונות לספר הפרויקט</h2>
-      <p id="photoStageDesc">העלה תמונות לכל סעיף — לאחר מכן לחץ על "יצירת ספר פרויקט מלא"</p>
+      <p id="photoStageDesc">העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות</p>
     </div>
     <div class="photo-stage-body" id="photoSlotsBody">
       <!-- Injected by JS -->
     </div>
     <div class="photo-stage-footer">
-      <button class="btn-final" id="btnFinal" onclick="buildFinalWord()">
-        <span>📚</span>
-        <span id="btnFinalText">יצירת ספר פרויקט מלא</span>
-      </button>
+      <div class="photo-export-actions">
+        <button class="btn-final" id="btnFinal" onclick="buildFinalWord(true)">
+          <span>📚</span>
+          <span id="btnFinalText">יצירת ספר פרויקט עם תמונות</span>
+        </button>
+        <button class="btn-final btn-final-secondary" id="btnFinalNoPhotos" onclick="buildFinalWord(false)">
+          <span>📄</span>
+          <span id="btnFinalNoPhotosText">יצירת ספר פרויקט ללא תמונות</span>
+        </button>
+      </div>
       <div class="status-box" id="statusBoxFinal"></div>
-      <div class="photo-skip" id="photoSkip" onclick="buildFinalWord()"></div>
     </div>
   </div>
 </div>
@@ -480,9 +497,9 @@ const STRINGS = {
     btnText: 'תרגם לערבית וצור קובץ Word',
     steps: ['1. אוסף נתונים','2. מתרגם','3. יוצר Word','4. מוריד'],
     photoStageTitle: '📸 שלב הוספת תמונות לספר הפרויקט',
-    photoStageDesc: 'העלה תמונות לכל סעיף — לאחר מכן לחץ על "יצירת ספר פרויקט מלא"',
-    btnFinalText: '📚 יצירת ספר פרויקט מלא',
-    photoSkipText: 'דלג על תמונות וצור מסמך ללא תמונות',
+    photoStageDesc: 'העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות',
+    btnFinalText: 'יצירת ספר פרויקט עם תמונות',
+    btnFinalNoPhotosText: 'יצירת ספר פרויקט ללא תמונות',
     photoSections: [
       {
         secNum:'4',
@@ -584,9 +601,9 @@ const STRINGS = {
     btnText: 'ترجم إلى العبرية وأنشئ ملف Word',
     steps: ['1. جمع البيانات','2. الترجمة','3. إنشاء Word','4. التنزيل'],
     photoStageTitle: '📸 مرحلة إضافة الصور لكتاب المشروع',
-    photoStageDesc: 'ارفع الصور لكل قسم — ثم انقر على "إنشاء كتاب المشروع الكامل"',
-    btnFinalText: '📚 إنشاء كتاب المشروع الكامل',
-    photoSkipText: 'تخطي الصور وإنشاء المستند بدون صور',
+    photoStageDesc: 'ارفع الصور لكل قسم — ثم اختاروا إنشاء كتاب مع صور أو بدون صور',
+    btnFinalText: 'إنشاء كتاب المشروع مع صور',
+    btnFinalNoPhotosText: 'إنشاء كتاب المشروع بدون صور',
     photoSections: [
       {
         secNum:'4',
@@ -739,6 +756,7 @@ function setStudentsValue(lang, val) {
 // ═══════════════════════════════════════════════════════
 let currentLang = 'he';
 const answers = { he: {}, ar: {} };
+let savedTranslation = null;
 
 // ═══════════════════════════════════════════════════════
 // RENDER SECTIONS
@@ -916,9 +934,9 @@ const ACTION_STRINGS = {
   he: {
     flowLabel1: '✨ צור פרומפט לתרגום',
     flowLabel2: 'העתק → הדבק בכל AI → קבל תשובה',
-    flowLabel3: 'הדבק את תשובת ה-AI וצור Word',
+    flowLabel3: 'הדבק את תשובת ה-AI והמשך לתמונות',
     btnGenerate: 'צור פרומפט',
-    btnWord: '📄 צור קובץ Word והורד',
+    btnWord: 'בדוק JSON והמשך לתמונות',
     copyBtnText: 'העתק',
     copied: '✓ הועתק!',
     pasteHint: '↓ הדבק כאן את תגובת ה-AI (JSON בלבד):',
@@ -926,14 +944,14 @@ const ACTION_STRINGS = {
     aiLinksLabel: 'פתח AI:',
     errNoData: 'אנא מלא לפחות חלק מהשאלות לפני יצירת הפרומפט.',
     errBadJSON: 'התגובה אינה JSON תקין. ודא שהעתקת את כל התשובה מה-AI.',
-    successWord: '✅ קובץ Word נוצר בהצלחה!',
+    successWord: '✅ התרגום נשמר. אפשר לעבור לשלב התמונות.',
   },
   ar: {
     flowLabel1: '✨ أنشئ بروميبت للترجمة',
     flowLabel2: 'انسخ → الصق في أي AI → احصل على الإجابة',
-    flowLabel3: 'الصق إجابة الـ AI وأنشئ ملف Word',
+    flowLabel3: 'الصق إجابة الـ AI وانتقل إلى الصور',
     btnGenerate: 'أنشئ البروميبت',
-    btnWord: '📄 أنشئ ملف Word وحمّله',
+    btnWord: 'افحص JSON وانتقل إلى الصور',
     copyBtnText: 'نسخ',
     copied: '✓ تم النسخ!',
     pasteHint: '↓ الصق هنا رد الـ AI (JSON فقط):',
@@ -941,7 +959,7 @@ const ACTION_STRINGS = {
     aiLinksLabel: 'افتح AI:',
     errNoData: 'يرجى ملء بعض الأسئلة على الأقل قبل إنشاء البروميبت.',
     errBadJSON: 'الرد ليس JSON صالحاً. تأكد من نسخ الرد كاملاً من الـ AI.',
-    successWord: '✅ تم إنشاء ملف Word بنجاح!',
+    successWord: '✅ تم حفظ الترجمة. يمكن الانتقال إلى مرحلة الصور!',
   }
 };
 
@@ -1068,16 +1086,10 @@ function copyPrompt() {
 }
 
 // ═══════════════════════════════════════════════════════
-// STEP 3 — Parse pasted JSON and build Word
+// STEP 3 — Parse pasted JSON and open photo stage
 // ═══════════════════════════════════════════════════════
 async function buildWord() {
   const A = ACTION_STRINGS[currentLang];
-  if (!window._libsReady || typeof window.docx === 'undefined') {
-    showStatus(currentLang === 'he'
-      ? '⚠️ הספריות עדיין נטענות — המתן שנייה ונסה שוב'
-      : '⚠️ المكتبات لا تزال تُحمَّل — انتظر ثانية وحاول مجدداً', 'error');
-    return;
-  }
   const raw = document.getElementById('pasteTextarea').value.trim();
   if (!raw) { showStatus(A.errBadJSON, 'error'); return; }
 
@@ -1086,18 +1098,14 @@ async function buildWord() {
   try { translated = JSON.parse(clean); }
   catch(e) { showStatus(A.errBadJSON, 'error'); return; }
 
-  const data = collectData();
-  const S = STRINGS[currentLang];
-  const T = STRINGS[S.targetLang];
-
-  try {
-    await createWordDoc(data, translated, currentLang, S.targetLang, T);
-    showStatus(A.successWord, 'success');
-    // Show photo stage
-    setTimeout(showPhotoStage, 600);
-  } catch(e) {
-    showStatus('❌ ' + e.message, 'error');
-  }
+  savedTranslation = {
+    fromLang: currentLang,
+    toLang: STRINGS[currentLang].targetLang,
+    data: translated,
+    savedAt: Date.now()
+  };
+  showStatus(A.successWord, 'success');
+  setTimeout(showPhotoStage, 300);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1462,10 +1470,10 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
 
 
 // ═══════════════════════════════════════════════════════
-// BUILD FINAL WORD WITH PHOTOS
+// BUILD FINAL WORD FROM PHOTO STAGE
 // ═══════════════════════════════════════════════════════
-async function buildFinalWord() {
-  const btn = document.getElementById('btnFinal');
+async function buildFinalWord(includePhotos = true) {
+  const buttons = [document.getElementById('btnFinal'), document.getElementById('btnFinalNoPhotos')].filter(Boolean);
   const statusEl = document.getElementById('statusBoxFinal');
   const showFinalStatus = (msg, type) => {
     if (!statusEl) return;
@@ -1480,266 +1488,189 @@ async function buildFinalWord() {
     return;
   }
 
-  btn.disabled = true;
-  showFinalStatus(currentLang==='he' ? '⏳ יוצר קובץ Word מלא...' : '⏳ جارٍ إنشاء ملف Word الكامل...', 'info');
+  const raw = document.getElementById('pasteTextarea')?.value?.trim() || '';
+  let translated = (savedTranslation && savedTranslation.fromLang === currentLang) ? savedTranslation.data : null;
+  if (!translated) {
+    try {
+      translated = JSON.parse(raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
+    } catch(e) {
+      showFinalStatus(ACTION_STRINGS[currentLang].errBadJSON, 'error');
+      return;
+    }
+  }
+
+  buttons.forEach(btn => { btn.disabled = true; });
+  showFinalStatus(currentLang==='he' ? '⏳ יוצר קובץ Word...' : '⏳ جارٍ إنشاء ملف Word...', 'info');
 
   const {
     Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
     BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, PageBreak
   } = window.docx;
 
-  // Re-use palette + helpers from createWordDoc by duplicating key elements
   const C = {
     darkGreen:'0B3D1E', green:'1A7A4A', midGreen:'2DA65E',
-    paleGreen:'E8F7EE', paleGreen2:'F0FAF5',
-    mint:'A8DBBE', mintLight:'D4F0E2',
-    white:'FFFFFF', offWhite:'F9FDF9',
-    textDark:'1C3326', textMid:'3A5A45', textLight:'6B8F78',
-    border:'B5D9C3', colHe:'E8F7EE', colAr:'EBF5FF',
-    headHe:'1A7A4A', headAr:'1A4A7A',
+    paleGreen:'E8F7EE', colAr:'EBF5FF', mint:'A8DBBE', mintLight:'D4F0E2',
+    white:'FFFFFF', offWhite:'F9FDF9', textDark:'1C3326', textLight:'6B8F78',
+    border:'B5D9C3', headHe:'1A7A4A', headAr:'1A4A7A'
   };
-  const AL  = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
-  const bs  = (color,sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
-  const bAll= (col,sz=4)   => ({ top:bs(col,sz),bottom:bs(col,sz),left:bs(col,sz),right:bs(col,sz) });
-
+  const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
+  const bs = (color, sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
+  const bAll = (col, sz=4) => ({ top:bs(col,sz), bottom:bs(col,sz), left:bs(col,sz), right:bs(col,sz) });
   const run = (text, opts={}) => new TextRun({
-    text, font:'Arial', rtl:true,
-    size:opts.size||22, bold:opts.bold||false,
-    color:opts.color||C.textDark, italics:opts.italics||false,
+    text: String(text ?? ''), font:'Arial', rtl:true, size:opts.size||22,
+    bold:opts.bold||false, color:opts.color||C.textDark, italics:opts.italics||false
   });
-  const para = (text, align, opts={}) => new Paragraph({
-    alignment:align, spacing:opts.spacing||{before:60,after:60},
-    shading:opts.shading||undefined, border:opts.border||undefined,
-    children: Array.isArray(text) ? text : [run(text,opts)]
+  const para = (text, opts={}) => new Paragraph({
+    alignment: opts.alignment || AL.R,
+    spacing: opts.spacing || { before:50, after:50 },
+    border: opts.border || undefined,
+    shading: opts.shading || undefined,
+    children: Array.isArray(text) ? text : [run(text, opts)]
   });
   const sp = (pt=100) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
-  const rule = (color,thick=8) => new Paragraph({
+  const rule = (color, thick=8) => new Paragraph({
     spacing:{before:0,after:0}, border:{bottom:bs(color,thick)}, children:[new TextRun('')]
   });
+  const oneColTable = (rows, fill=C.white) => new Table({
+    width:{ size:9360, type:WidthType.DXA },
+    rows: rows.map(cells => new TableRow({ children: cells.map(cell => new TableCell({
+      width:{ size:9360 / cells.length, type:WidthType.DXA },
+      borders:bAll(C.border, 3),
+      shading:{ fill, type:ShadingType.CLEAR },
+      margins:{ top:90, bottom:90, left:160, right:160 },
+      children: Array.isArray(cell) ? cell : [cell]
+    })) }))
+  });
 
-  const twoCol = (leftParas, rightParas, leftBg, rightBg, borderColor) => {
-    const brd = bAll(borderColor||C.border, 3);
-    return new TableRow({ children:[
-      new TableCell({ width:{size:4680,type:WidthType.DXA}, borders:brd, shading:{fill:leftBg||C.white,type:ShadingType.CLEAR}, margins:{top:80,bottom:80,left:140,right:140}, children:leftParas }),
-      new TableCell({ width:{size:4680,type:WidthType.DXA}, borders:brd, shading:{fill:rightBg||C.white,type:ShadingType.CLEAR}, margins:{top:80,bottom:80,left:140,right:140}, children:rightParas }),
-    ]});
+  const cleanLines = text => String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const sectionAnswer = (text) => {
+    const lines = cleanLines(text);
+    return lines.length
+      ? lines.map(line => para(line, { size:21 }))
+      : [para('', { size:21, color:C.textLight })];
   };
-  const twoColTable = rows => new Table({ width:{size:9360,type:WidthType.DXA}, columnWidths:[4680,4680], rows });
+  const translatedSection = num => (translated.sections || []).find(s => String(s.num) === String(num));
+  const srcData = collectData();
+  const firstLang = currentLang;
+  const secondLang = STRINGS[firstLang].targetLang;
 
-  // ── Get translated data from paste area ──────────────
-  const raw = document.getElementById('pasteTextarea')?.value?.trim() || '{}';
-  let translated = {};
-  try { translated = JSON.parse(raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim()); }
-  catch(e) { translated = {}; }
-
-  const srcData   = collectData();
-  const fromLang  = currentLang;
-  const toLang    = STRINGS[fromLang].targetLang;
-  const SRC       = STRINGS[fromLang];
-  const TRGT      = STRINGS[toLang];
-  const transSecs = translated.sections || [];
-
-  // ── Photo caption maps ────────────────────────────────
-  const secCaptions = {};
-  SRC.photoSections.forEach(ps => { secCaptions[ps.secNum] = ps.slots; });
-
-  // ── Helper: build image block ─────────────────────────
-  async function imgBlock(dataURL, captionText) {
+  async function imgParas(dataURL) {
     const base64 = dataURL.split(',')[1];
-    const mime   = dataURL.split(';')[0].split(':')[1];
-    const type   = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : 'jpg';
-    const dims   = await new Promise(res => {
-      const img = new Image(); img.onload = ()=>res({w:img.naturalWidth,h:img.naturalHeight}); img.onerror=()=>res({w:400,h:300}); img.src=dataURL;
+    const mime = dataURL.split(';')[0].split(':')[1] || '';
+    const type = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : 'jpg';
+    const dims = await new Promise(res => {
+      const img = new Image();
+      img.onload = () => res({ w:img.naturalWidth || 400, h:img.naturalHeight || 300 });
+      img.onerror = () => res({ w:400, h:300 });
+      img.src = dataURL;
     });
-    const maxW = 200; // points
-    const maxH = Math.round(maxW * (dims.h/dims.w));
+    const maxW = 360;
+    const maxH = 230;
+    const scale = Math.min(maxW / dims.w, maxH / dims.h, 1);
     const binary = atob(base64);
-    const bytes  = new Uint8Array(binary.length);
-    for (let i=0;i<binary.length;i++) bytes[i]=binary.charCodeAt(i);
-
-    const imgRun = new ImageRun({ data:bytes, transformation:{width:maxW,height:maxH>160?160:maxH}, type });
-    const imgPara = new Paragraph({ alignment:AL.C, spacing:{before:60,after:20}, children:[imgRun] });
-    const capPara = new Paragraph({ alignment:AL.C, spacing:{before:0,after:60},
-      children:[run(captionText,{size:16,italics:true,color:C.textLight})] });
-    return [imgPara, capPara];
+    const bytes = new Uint8Array(binary.length);
+    for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Paragraph({
+      alignment:AL.C,
+      spacing:{ before:80, after:80 },
+      children:[new ImageRun({ data:bytes, transformation:{ width:Math.round(dims.w * scale), height:Math.round(dims.h * scale) }, type })]
+    });
   }
 
-  // ── Helper: photos for section (returns [] if no photos) ──
-  async function photosForSec(secNum) {
-    const slots = photoData[secNum] || {};
-    const entries = Object.entries(slots);
-    if (entries.length === 0) return [];
-    const captions = secCaptions[secNum] || [];
+  async function imageBlocksForSection(secNum) {
+    if (!includePhotos) return [];
+    const entries = Object.entries(photoData[secNum] || {}).filter(([,ph]) => ph && ph.dataURL);
     const blocks = [];
-    for (const [idxStr, ph] of entries) {
-      if (!ph || !ph.dataURL) continue;
-      const idx = parseInt(idxStr);
-      const cap = captions[idx] || (fromLang==='he'?'תמונה '+(idx+1):'صورة '+(idx+1));
-      try {
-        const b = await imgBlock(ph.dataURL, cap);
-        blocks.push(...b);
-      } catch(e) { console.warn('Image load failed for sec', secNum, idx, e); }
+    for (const [, ph] of entries) {
+      try { blocks.push(await imgParas(ph.dataURL)); }
+      catch(e) { console.warn('Image load failed for sec', secNum, e); }
     }
     return blocks;
   }
 
-  // ── Build doc ─────────────────────────────────────────
-  const children = [];
+  const schoolRowsForLang = (lang) => {
+    const S = STRINGS[lang];
+    const isFirst = lang === firstLang;
+    const values = isFirst ? srcData : translated;
+    return [
+      [S.lbl_city, values.school_city || ''],
+      [S.lbl_school_name, values.school_name || ''],
+      [S.lbl_principal, values.principal || ''],
+      [S.lbl_mentor, values.mentor || srcData.mentor || ''],
+      [S.lbl_sci, values.science_coord || ''],
+      [S.lbl_tech, values.tech_coord || ''],
+      [S.lbl_class, values.classroom || ''],
+      [S.lbl_students, values.students || '']
+    ];
+  };
 
-  // Cover
-  children.push(sp(400));
-  children.push(rule(C.green, 20));
-  children.push(sp(160));
-  const coverRow = twoCol(
-    [para('אליפות מדעני המחר בהשראת הטבע',AL.R,{bold:true,size:34,color:C.darkGreen,spacing:{before:40,after:16}}),
-     para('ביומימיקרי בגישת ה-STEM',AL.R,{size:22,color:C.green,spacing:{before:0,after:40}})],
-    [para('بطولة علماء الغد بإلهام من الطبيعة',AL.R,{bold:true,size:34,color:C.darkGreen,spacing:{before:40,after:16}}),
-     para('البيومحاكاة بمنهج الـ STEM',AL.R,{size:22,color:C.headAr,spacing:{before:0,after:40}})],
-    C.paleGreen, C.colAr, C.border
-  );
-  children.push(twoColTable([coverRow]));
-  children.push(sp(80));
-  const bookRow = twoCol(
-    [para('ספר הפרויקט המלא',AL.C,{size:24,color:C.green}),
-     para('שנת לימודים: תשפ״ו — 2025–2026',AL.C,{size:16,color:C.textLight,italics:true})],
-    [para('كتاب المشروع الكامل',AL.C,{size:24,color:C.headAr}),
-     para('السنة الدراسية: تشب"ו — 2025–2026',AL.C,{size:16,color:C.textLight,italics:true})],
-    C.offWhite, C.offWhite, C.border
-  );
-  children.push(twoColTable([bookRow]));
-  children.push(sp(120));
-  children.push(rule(C.mint, 8));
+  async function appendBook(lang, isFirstBook, children) {
+    const S = STRINGS[lang];
+    const head = lang === 'he' ? C.headHe : C.headAr;
+    const bg = lang === 'he' ? C.paleGreen : C.colAr;
+    const title = lang === 'he'
+      ? 'אליפות מדעני המחר בהשראת הטבע'
+      : 'بطولة علماء الغد بإلهام من الطبيعة';
+    const subtitle = lang === 'he' ? 'ספר הפרויקט' : 'كتاب المشروع';
 
-  // School info
-  children.push(sp(140));
-  const LH = STRINGS['he'], LA = STRINGS['ar'];
-  const schoolHdr = twoCol(
-    [para('  🏫 ' + LH.schoolTitle.replace('🏫 ',''), AL.R, {bold:true,size:22,color:C.white,spacing:{before:80,after:80},shading:{fill:C.headHe,type:ShadingType.CLEAR}})],
-    [para('  🏫 ' + LA.schoolTitle.replace('🏫 ',''), AL.R, {bold:true,size:22,color:C.white,spacing:{before:80,after:80},shading:{fill:C.headAr,type:ShadingType.CLEAR}})],
-    C.headHe, C.headAr, C.border
-  );
-  children.push(twoColTable([schoolHdr]));
+    if (!isFirstBook) children.push(new Paragraph({ children:[new PageBreak()] }));
+    children.push(sp(260));
+    children.push(rule(head, 18));
+    children.push(sp(100));
+    children.push(para(title, { alignment:AL.C, bold:true, size:34, color:C.darkGreen, spacing:{ before:40, after:20 } }));
+    children.push(para(subtitle, { alignment:AL.C, bold:true, size:26, color:head, spacing:{ before:0, after:80 } }));
+    children.push(rule(C.mint, 7));
+    children.push(sp(90));
 
-  const sfH = [[LH.lbl_city,srcData.school_city],[LH.lbl_school_name,srcData.school_name],[LH.lbl_principal,srcData.principal],[LH.lbl_mentor,srcData.mentor||''],[LH.lbl_sci,srcData.science_coord],[LH.lbl_tech,srcData.tech_coord],[LH.lbl_class,srcData.classroom],[LH.lbl_students,srcData.students]];
-  const sfA = [[LA.lbl_city,translated.school_city||srcData.school_city],[LA.lbl_school_name,translated.school_name||srcData.school_name],[LA.lbl_principal,translated.principal||srcData.principal],[LA.lbl_mentor,translated.mentor||srcData.mentor||''],[LA.lbl_sci,translated.science_coord||srcData.science_coord],[LA.lbl_tech,translated.tech_coord||srcData.tech_coord],[LA.lbl_class,translated.classroom||srcData.classroom],[LA.lbl_students,translated.students||srcData.students]];
+    children.push(para(S.schoolTitle, {
+      bold:true, size:23, color:C.white,
+      shading:{ fill:head, type:ShadingType.CLEAR },
+      spacing:{ before:80, after:80 }
+    }));
+    schoolRowsForLang(lang).forEach(([label, value], idx) => {
+      children.push(oneColTable([[new Paragraph({ alignment:AL.R, children:[
+        run(label + ':  ', { bold:true, size:19, color:head }),
+        run(value || '', { size:19 })
+      ]})]], idx % 2 === 0 ? bg : C.offWhite));
+    });
+    children.push(sp(100));
 
-  const schoolRows = sfH.map(([lH,vH],i) => {
-    const [lA,vA] = sfA[i];
-    const shade = i%2===0;
-    return twoCol(
-      [new Paragraph({alignment:AL.R,children:[run(lH+':  ',{bold:true,size:18,color:C.green}),run(vH||'—',{size:18})]})],
-      [new Paragraph({alignment:AL.R,children:[run(lA+':  ',{bold:true,size:18,color:C.headAr}),run(vA||'—',{size:18})]})],
-      shade?C.paleGreen:C.white, shade?C.colAr:C.offWhite, C.border
-    );
-  });
-  children.push(twoColTable(schoolRows));
-  children.push(sp(100));
-  children.push(rule(C.green, 5));
-
-  // Sections
-  const secsSrc  = STRINGS[fromLang].sections;
-  const secsTrgt = STRINGS[toLang].sections;
-
-  for (let idx = 0; idx < secsSrc.length; idx++) {
-    const secSrc  = secsSrc[idx];
-    const secTrgt = secsTrgt[idx];
-    const tSec    = transSecs.find(s => s.num === secSrc.num);
-
-    if (idx > 0 && idx % 3 === 0) children.push(new Paragraph({children:[new PageBreak()]}));
-
-    // Heading
-    const secHdr = twoCol(
-      [new Paragraph({alignment:AL.R,spacing:{before:0,after:0},shading:{fill:C.headHe,type:ShadingType.CLEAR},children:[run('  '+secSrc.num+'.  ',{bold:true,size:26,color:C.mintLight}),run(secSrc.title,{bold:true,size:26,color:C.white})]})],
-      [new Paragraph({alignment:AL.R,spacing:{before:0,after:0},shading:{fill:C.headAr,type:ShadingType.CLEAR},children:[run('  '+secTrgt.num+'.  ',{bold:true,size:26,color:C.mintLight}),run(secTrgt.title,{bold:true,size:26,color:C.white})]})],
-      C.headHe, C.headAr, C.border
-    );
-    children.push(twoColTable([secHdr]));
-
-    // Sub-questions
-    if (secSrc.subs?.length) {
-      const qRow = twoCol(
-        secSrc.subs.map(q=>new Paragraph({alignment:AL.R,spacing:{before:28,after:28},indent:{right:140},children:[run('◈  ',{size:17,color:C.midGreen,bold:true}),run(q,{size:17,color:C.textMid})]})),
-        secTrgt.subs.map(q=>new Paragraph({alignment:AL.R,spacing:{before:28,after:28},indent:{right:140},children:[run('◈  ',{size:17,color:C.headAr,bold:true}),run(q,{size:17,color:C.textMid})]})),
-        C.paleGreen, C.colAr, C.border
-      );
-      children.push(twoColTable([qRow]));
+    for (const sec of S.sections) {
+      const answer = lang === firstLang
+        ? (srcData['s' + sec.num] || '')
+        : (translatedSection(sec.num)?.answer || '');
+      children.push(para(sec.num + '. ' + sec.title, {
+        bold:true, size:25, color:C.white,
+        shading:{ fill:head, type:ShadingType.CLEAR },
+        spacing:{ before:130, after:70 }
+      }));
+      children.push(...sectionAnswer(answer));
+      children.push(...await imageBlocksForSection(sec.num));
+      children.push(sp(40));
     }
-
-    // Write label
-    const lblRow = twoCol(
-      [new Paragraph({alignment:AL.R,spacing:{before:40,after:40},border:{right:bs(C.midGreen,8)},children:[run('  '+secSrc.fieldLabel,{bold:true,size:19,color:C.midGreen})]})],
-      [new Paragraph({alignment:AL.R,spacing:{before:40,after:40},border:{right:bs(C.headAr,8)},children:[run('  '+secTrgt.fieldLabel,{bold:true,size:19,color:C.headAr})]})],
-      C.offWhite, C.offWhite, C.border
-    );
-    children.push(twoColTable([lblRow]));
-
-    // Answers
-    const srcAns = (srcData['s'+secSrc.num]||'').trim();
-    const trgAns = (tSec?.answer||'').trim();
-    const makeAnsParas = (txt) => txt
-      ? txt.split('\n').filter(l=>l.trim()).map(l=>new Paragraph({alignment:AL.R,spacing:{before:50,after:50},indent:{right:160},children:[run(l,{size:20})]}))
-      : Array(4).fill(null).map(()=>new Paragraph({spacing:{before:160,after:0},border:{bottom:bs(C.border,2)},children:[new TextRun('')]}));
-
-    const ansRow = twoCol(makeAnsParas(srcAns), makeAnsParas(trgAns), C.white, C.offWhite, C.border);
-    children.push(twoColTable([ansRow]));
-
-    // Photos for this section (safe — no error if empty)
-    const secEntries = Object.entries(photoData[secSrc.num]||{}).filter(([,ph])=>ph&&ph.dataURL);
-    if (secEntries.length > 0) {
-      const photoLabel = fromLang==='he' ? '📸 תמונות' : '📸 الصور';
-      children.push(sp(60));
-      children.push(new Paragraph({alignment:AL.C,spacing:{before:40,after:20},
-        children:[run(photoLabel,{bold:true,size:20,color:C.green})]}));
-      // Pairs in two-column layout
-      for (let pi=0; pi<secEntries.length; pi+=2) {
-        const [idx0, ph0] = secEntries[pi];
-        const cap0 = (secCaptions[secSrc.num]||[])[parseInt(idx0)] || (fromLang==='he'?'תמונה '+(parseInt(idx0)+1):'صورة '+(parseInt(idx0)+1));
-        let b0=[new Paragraph({children:[new TextRun('')]})], b1=[new Paragraph({children:[new TextRun('')]})];
-        try { b0 = await imgBlock(ph0.dataURL, cap0); } catch(e){}
-        if (pi+1 < secEntries.length) {
-          const [idx1, ph1] = secEntries[pi+1];
-          const cap1 = (secCaptions[secSrc.num]||[])[parseInt(idx1)] || (fromLang==='he'?'תמונה '+(parseInt(idx1)+1):'صورة '+(parseInt(idx1)+1));
-          try { b1 = await imgBlock(ph1.dataURL, cap1); } catch(e){}
-        }
-        children.push(twoColTable([twoCol(b0, b1, C.offWhite, C.offWhite, C.border)]));
-      }
-      children.push(sp(60));
-    }
-
-    children.push(sp(60));
   }
 
-  // Footer
-  children.push(sp(160));
-  children.push(rule(C.mint,6));
-  children.push(sp(40));
-  children.push(new Paragraph({alignment:AL.C,children:[run(
-    'אליפות מדעני המחר בהשראת הטבע  |  بطولة علماء الغد بإلهام من الطبيعة  |  2025–2026',
-    {size:15,color:C.textLight,italics:true}
-  )]}));
-
-  // Assemble
-  const doc = new Document({
-    styles:{ default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } } },
-    sections:[{
-      properties:{
-        page:{
-          size:{ width:16838, height:11906 },
-          margin:{ top:720, right:720, bottom:720, left:720 }
-        }
-      },
-      children
-    }]
-  });
-
+  const children = [];
   try {
+    await appendBook(firstLang, true, children);
+    await appendBook(secondLang, false, children);
+
+    const doc = new Document({
+      styles:{ default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } } },
+      sections:[{
+        properties:{ page:{ size:{ width:11906, height:16838 }, margin:{ top:720, right:720, bottom:720, left:720 } } },
+        children
+      }]
+    });
+
     const blob = await Packer.toBlob(doc);
-    saveAs(blob, 'biomimicry_full_project_book.docx');
-    showFinalStatus(currentLang==='he' ? '✅ ספר הפרויקט המלא הורד בהצלחה!' : '✅ تم تنزيل كتاب المشروع الكامل بنجاح!', 'success');
+    const suffix = includePhotos ? 'with_photos' : 'no_photos';
+    saveAs(blob, 'biomimicry_project_book_' + firstLang + '_' + secondLang + '_' + suffix + '.docx');
+    showFinalStatus(currentLang==='he' ? '✅ ספר הפרויקט הורד בהצלחה!' : '✅ تم تنزيل كتاب المشروع بنجاح!', 'success');
   } catch(e) {
     showFinalStatus('❌ ' + e.message, 'error');
   }
-  btn.disabled = false;
+  buttons.forEach(btn => { btn.disabled = false; });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1790,7 +1721,7 @@ function renderPhotoStage(lang) {
   if (el('photoStageTitle')) el('photoStageTitle').textContent = S.photoStageTitle;
   if (el('photoStageDesc'))  el('photoStageDesc').textContent  = S.photoStageDesc;
   if (el('btnFinalText'))    el('btnFinalText').textContent    = S.btnFinalText;
-  if (el('photoSkip'))       el('photoSkip').textContent       = S.photoSkipText;
+  if (el('btnFinalNoPhotosText')) el('btnFinalNoPhotosText').textContent = S.btnFinalNoPhotosText;
 }
 
 function makeSlot(secNum, idx, label) {
