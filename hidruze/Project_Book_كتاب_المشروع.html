@@ -275,15 +275,65 @@
     border-radius:0 0 8px 8px;
   }
 
+
+  /* ── Hidden Excel import modal ── */
+  .excel-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(13,31,20,0.55);
+    display: none; align-items: center; justify-content: center;
+    z-index: 5000; padding: 18px; overflow-x: hidden;
+  }
+  .excel-modal-backdrop.visible { display: flex; }
+  .excel-modal {
+    width: min(520px, 92vw); max-height: 92vh; overflow-y: auto; overflow-x: hidden;
+    background: var(--white); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: 0 18px 60px rgba(13,31,20,0.28); padding: 24px; direction: rtl;
+  }
+  .excel-modal h2 { color: var(--green); font-size: 21px; line-height: 1.35; margin-bottom: 10px; font-weight: 900; }
+  .excel-modal p { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 18px; }
+  .excel-actions { display: grid; gap: 12px; }
+  .excel-btn, .excel-file-label {
+    width: 100%; min-height: 46px; border-radius: 12px; border: 1.5px solid var(--green-light);
+    background: var(--green); color: #fff; font-family: 'Heebo', sans-serif; font-size: 15px;
+    font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+    text-align: center; padding: 11px 16px; transition: all 0.15s; user-select: none;
+  }
+  .excel-btn:hover, .excel-file-label:hover { background: var(--green-light); }
+  .excel-btn.secondary { background: #fff; color: var(--green); border-color: var(--border); }
+  .excel-btn.secondary:hover { background: var(--green-pale); border-color: var(--green-light); }
+  .excel-file-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
+  .excel-file-name { font-size: 13px; color: var(--muted); text-align: center; overflow-wrap: anywhere; min-height: 20px; }
+  .excel-modal .status-box { margin-top: 12px; }
+  @media(max-width:520px) {
+    .excel-modal { width: 92vw; padding: 20px 16px; border-radius: 16px; }
+    .excel-modal h2 { font-size: 18px; }
+    .excel-btn, .excel-file-label { min-height: 48px; font-size: 14px; }
+  }
+
 </style>
 </head>
 <body>
 
 <div class="header">
-  <span class="leaf-icon">🌿</span>
+  <span class="leaf-icon" id="leafIcon" onclick="handleLeafSecretClick()">🌿</span>
   <div class="header-badge" id="hdrBadge">STEM · ביומימיקרי · תשפ״ו</div>
   <h1 id="hdrTitle">אליפות <span>מדעני המחר</span><br>בהשראת הטבע</h1>
   <p id="hdrSub">מלאו את ספר הפרויקט ושלחו לתרגום</p>
+</div>
+
+<div class="excel-modal-backdrop" id="excelImportModal" aria-hidden="true" onclick="handleExcelBackdropClick(event)">
+  <div class="excel-modal" role="dialog" aria-modal="true" aria-labelledby="excelImportTitle" onclick="event.stopPropagation()">
+    <h2 id="excelImportTitle">ייבוא תשובות מקובץ Excel / استيراد الإجابات من ملف Excel</h2>
+    <p id="excelImportDesc">הורידו תחילה את תבנית האקסל, מלאו את התשובות, ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.</p>
+    <div class="excel-actions">
+      <button type="button" class="excel-btn secondary" id="downloadExcelTemplateBtn" onclick="downloadExcelTemplate()">הורדת תבנית Excel</button>
+      <label class="excel-file-label" id="excelFileLabel" for="excelImportFile">בחירת קובץ Excel</label>
+      <input type="file" class="excel-file-input" id="excelImportFile" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onchange="handleExcelFileSelection()">
+      <div class="excel-file-name" id="excelFileName"></div>
+      <button type="button" class="excel-btn" id="importExcelBtn" onclick="importExcelAnswers()">ייבוא ומילוי הטופס</button>
+      <button type="button" class="excel-btn secondary" id="closeExcelModalBtn" onclick="closeExcelImportModal()">סגירה</button>
+    </div>
+    <div class="status-box" id="excelImportStatus"></div>
+  </div>
 </div>
 
 <div class="progress-wrap">
@@ -458,6 +508,17 @@ function loadScript(urls, cb) {
   tryNext();
 }
 window._libsReady = false;
+
+window._xlsxReady = false;
+loadScript([
+  'https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js',
+  'https://unpkg.com/xlsx/dist/xlsx.full.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+], function(excelErr) {
+  if (excelErr) { console.warn('XLSX CDN failed'); return; }
+  window._xlsxReady = true;
+  console.log('✅ XLSX loaded');
+});
 loadScript([
   'https://unpkg.com/docx@8.5.0/build/index.umd.js',
   'https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js',
@@ -768,6 +829,272 @@ let currentLang = 'he';
 const answers = { he: {}, ar: {} };
 let savedTranslation = null;
 
+
+
+// ═══════════════════════════════════════════════════════
+// HIDDEN EXCEL IMPORT
+// ═══════════════════════════════════════════════════════
+let leafClickCount = 0;
+let leafClickTimer = null;
+let selectedExcelFile = null;
+
+const EXCEL_TEMPLATE_ROWS = [
+  { field_key:'language', label_he:'בחירת שפה', label_ar:'اختيار اللغة', value:'he/ar' },
+  { field_key:'school_city', label_he:'רשות', label_ar:'السلطة / البلدة', value:'' },
+  { field_key:'school_name', label_he:'בית ספר', label_ar:'اسم المدرسة', value:'' },
+  { field_key:'principal', label_he:'שם המנהל/ת', label_ar:'اسم المدير/ة', value:'' },
+  { field_key:'science_coord', label_he:'שם רכז המדעים', label_ar:'اسم منسق العلوم', value:'' },
+  { field_key:'tech_coord', label_he:'שם רכז התקשוב / חינוך טכנולוגי', label_ar:'اسم منسق التكنولوجيا / التعليم التقني', value:'' },
+  { field_key:'classroom', label_he:'כיתה / קבוצת תלמידים', label_ar:'الصف / مجموعة الطلاب المشاركة', value:'' },
+  { field_key:'student1', label_he:'תלמיד/ה 1', label_ar:'الطالب/ة 1', value:'' },
+  { field_key:'student2', label_he:'תלמיד/ה 2', label_ar:'الطالب/ة 2', value:'' },
+  { field_key:'student3', label_he:'תלמיד/ה 3', label_ar:'الطالب/ة 3', value:'' },
+  { field_key:'student4', label_he:'תלמיד/ה 4', label_ar:'الطالب/ة 4', value:'' },
+  { field_key:'student5', label_he:'תלמיד/ה 5', label_ar:'الطالب/ة 5', value:'' },
+  { field_key:'s1', label_he:'שם המיזם', label_ar:'اسم المشروع', value:'' },
+  { field_key:'s1.1', label_he:'הסבר על שם המיזם', label_ar:'شرح اسم المشروع', value:'' },
+  { field_key:'s2', label_he:'מבוא והצגת הנושא', label_ar:'مقدمة وعرض الموضوع', value:'' },
+  { field_key:'s3', label_he:'הגדרת הבעיה ושאלת החקר', label_ar:'تحديد المشكلة وسؤال البحث', value:'' },
+  { field_key:'s4', label_he:'ההשראה מהטבע – ביומימיקרי', label_ar:'الإلهام من الطبيعة – البيومحاكاة', value:'' },
+  { field_key:'s5', label_he:'רקע תאורטי מדעי-טכנולוגי', label_ar:'الخلفية النظرية العلمية-التقنية', value:'' },
+  { field_key:'s6', label_he:'תהליך פיתוח הפתרון', label_ar:'عملية تطوير الحل', value:'' },
+  { field_key:'s7', label_he:'הפתרון הסופי והישימות', label_ar:'الحل النهائي وقابلية التطبيق', value:'' },
+  { field_key:'s8', label_he:'חדשנות, יצירתיות וערך מוסף', label_ar:'الابتكار والإبداع والقيمة المضافة', value:'' },
+  { field_key:'s9', label_he:'מסקנות, תובנות והמלצות', label_ar:'الاستنتاجات والرؤى والتوصيات', value:'' },
+  { field_key:'s10', label_he:'מקורות מידע', label_ar:'مصادر المعلومات', value:'' },
+  { field_key:'s11', label_he:'נספחים', label_ar:'الملاحق', value:'' },
+];
+
+const EXCEL_IMPORT_TEXTS = {
+  he: {
+    title: 'ייבוא תשובות מקובץ Excel / استيراد الإجابات من ملف Excel',
+    desc: 'הורידו תחילה את תבנית האקסל, מלאו את התשובות, ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.',
+    download: 'הורדת תבנית Excel', choose: 'בחירת קובץ Excel', import: 'ייבוא ומילוי הטופס', close: 'סגירה',
+    noLib: 'ספריית Excel לא נטענה. בדקו חיבור אינטרנט ונסו שוב.',
+    noFile: 'יש לבחור קובץ Excel לפני הייבוא.',
+    success: 'הקובץ יובא בהצלחה והטופס מולא.',
+    invalidFile: 'לא ניתן לקרוא את קובץ ה־Excel. ודאו שהקובץ מבוסס על התבנית.',
+    missingColumns: 'קובץ ה־Excel אינו כולל את העמודות הנדרשות: field_key ו־value.',
+    schoolNotFound: 'שם בית הספר לא נמצא ברשימת הבחירה. נא לבדוק את הערך בקובץ.',
+    fileSelected: 'נבחר קובץ: '
+  },
+  ar: {
+    title: 'استيراد الإجابات من ملف Excel / ייבוא תשובות מקובץ Excel',
+    desc: 'قم أولاً بتنزيل قالب Excel، ثم املأ الإجابات وارفع الملف ليتم تعبئة النموذج تلقائياً.',
+    download: 'تنزيل قالب Excel', choose: 'اختيار ملف Excel', import: 'استيراد وتعبئة النموذج', close: 'إغلاق',
+    noLib: 'لم يتم تحميل مكتبة Excel. تحققوا من الاتصال بالإنترنت وحاولوا مرة أخرى.',
+    noFile: 'يرجى اختيار ملف Excel قبل الاستيراد.',
+    success: 'تم استيراد الملف بنجاح وتمت تعبئة النموذج.',
+    invalidFile: 'تعذر قراءة ملف Excel. تأكدوا أن الملف مبني على القالب.',
+    missingColumns: 'ملف Excel لا يحتوي على الأعمدة المطلوبة: field_key و value.',
+    schoolNotFound: 'اسم المدرسة غير موجود في قائمة الاختيار. يرجى التحقق من القيمة في الملف.',
+    fileSelected: 'تم اختيار الملف: '
+  }
+};
+
+function getExcelText() {
+  return EXCEL_IMPORT_TEXTS[currentLang] || EXCEL_IMPORT_TEXTS.he;
+}
+
+function handleLeafSecretClick() {
+  leafClickCount += 1;
+  if (leafClickTimer) clearTimeout(leafClickTimer);
+  leafClickTimer = setTimeout(() => { leafClickCount = 0; leafClickTimer = null; }, 2000);
+  if (leafClickCount >= 3) {
+    leafClickCount = 0;
+    clearTimeout(leafClickTimer);
+    leafClickTimer = null;
+    openExcelImportModal();
+  }
+}
+
+function updateExcelModalLanguage() {
+  const T = getExcelText();
+  const modal = document.getElementById('excelImportModal');
+  if (modal) modal.dir = STRINGS[currentLang].dir;
+  const title = document.getElementById('excelImportTitle');
+  const desc = document.getElementById('excelImportDesc');
+  const downloadBtn = document.getElementById('downloadExcelTemplateBtn');
+  const fileLabel = document.getElementById('excelFileLabel');
+  const importBtn = document.getElementById('importExcelBtn');
+  const closeBtn = document.getElementById('closeExcelModalBtn');
+  if (title) title.textContent = T.title;
+  if (desc) desc.textContent = T.desc;
+  if (downloadBtn) downloadBtn.textContent = T.download;
+  if (fileLabel) fileLabel.textContent = T.choose;
+  if (importBtn) importBtn.textContent = T.import;
+  if (closeBtn) closeBtn.textContent = T.close;
+}
+
+function setExcelStatus(type, message) {
+  const box = document.getElementById('excelImportStatus');
+  if (!box) return;
+  box.textContent = message || '';
+  box.className = message ? 'status-box ' + type : 'status-box';
+}
+
+function openExcelImportModal() {
+  updateExcelModalLanguage();
+  setExcelStatus('', '');
+  const modal = document.getElementById('excelImportModal');
+  if (modal) {
+    modal.classList.add('visible');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeExcelImportModal() {
+  const modal = document.getElementById('excelImportModal');
+  if (modal) {
+    modal.classList.remove('visible');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function handleExcelBackdropClick(event) {
+  if (event.target && event.target.id === 'excelImportModal') closeExcelImportModal();
+}
+
+function handleExcelFileSelection() {
+  const input = document.getElementById('excelImportFile');
+  selectedExcelFile = input && input.files && input.files[0] ? input.files[0] : null;
+  const nameBox = document.getElementById('excelFileName');
+  if (nameBox) nameBox.textContent = selectedExcelFile ? getExcelText().fileSelected + selectedExcelFile.name : '';
+  setExcelStatus('', '');
+}
+
+function ensureXlsxReady() {
+  return Boolean(window.XLSX && window._xlsxReady !== false);
+}
+
+function downloadExcelTemplate() {
+  const T = getExcelText();
+  if (!ensureXlsxReady()) { setExcelStatus('error', T.noLib); return; }
+  const worksheet = XLSX.utils.json_to_sheet(EXCEL_TEMPLATE_ROWS, { header: ['field_key','label_he','label_ar','value'] });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Project Book');
+  XLSX.writeFile(workbook, 'Project_Book_Excel_Template.xlsx');
+}
+
+function normalizeExcelLang(value) {
+  const v = String(value || '').trim().toLowerCase();
+  if (['he', 'heb', 'hebrew', 'עברית'].includes(v)) return 'he';
+  if (['ar', 'ara', 'arabic', 'العربية', 'عربي'].includes(v)) return 'ar';
+  return '';
+}
+
+function addTemporaryOptionIfMissing(selectEl, value) {
+  if (!selectEl || !value) return false;
+  const exists = Array.from(selectEl.options).some(opt => opt.value === value);
+  if (exists) return true;
+  const opt = document.createElement('option');
+  opt.value = value;
+  opt.textContent = value;
+  opt.dataset.excelTemporary = 'true';
+  selectEl.appendChild(opt);
+  return false;
+}
+
+function setFieldValueFromExcel(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = value;
+  answers[currentLang][id] = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function applyExcelRowsToForm(values) {
+  const T = getExcelText();
+  const cityValue = values.school_city;
+  const schoolValue = values.school_name;
+  if (cityValue) {
+    const citySelect = document.getElementById('school_city');
+    addTemporaryOptionIfMissing(citySelect, cityValue);
+    citySelect.value = cityValue;
+    answers[currentLang]['school_city'] = cityValue;
+    populateSchoolDropdown(currentLang, cityValue);
+  }
+
+  const directFields = ['principal','science_coord','tech_coord','classroom'];
+  directFields.forEach(id => { if (values[id]) setFieldValueFromExcel(id, values[id]); });
+
+  [1,2,3,4,5].forEach(n => {
+    const key = 'student' + n;
+    if (values[key]) setFieldValueFromExcel(key, values[key]);
+  });
+  answers[currentLang]['students'] = getStudentsValue();
+
+  if (schoolValue) {
+    const schoolSelect = document.getElementById('school_name');
+    const found = addTemporaryOptionIfMissing(schoolSelect, schoolValue);
+    schoolSelect.value = schoolValue;
+    answers[currentLang]['school_name'] = schoolValue;
+    if (!found) setExcelStatus('error', T.schoolNotFound);
+  }
+
+  STRINGS[currentLang].sections.forEach(sec => {
+    const key = 's' + sec.num;
+    if (!values[key]) return;
+    answers[currentLang][key] = values[key];
+    const el = document.getElementById(key);
+    if (el) el.value = values[key];
+  });
+}
+
+async function importExcelAnswers() {
+  const T = getExcelText();
+  if (!ensureXlsxReady()) { setExcelStatus('error', T.noLib); return; }
+  if (!selectedExcelFile) { setExcelStatus('error', T.noFile); return; }
+
+  try {
+    const buffer = await selectedExcelFile.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) throw new Error('missing sheet');
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '', raw: false });
+    const headers = rows[0] ? Object.keys(rows[0]).map(h => h.trim()) : [];
+    if (!headers.includes('field_key') || !headers.includes('value')) {
+      setExcelStatus('error', T.missingColumns);
+      return;
+    }
+
+    const values = {};
+    rows.forEach(row => {
+      const key = String(row.field_key || '').trim();
+      const value = String(row.value || '').trim();
+      if (!key || !value) return;
+      values[key] = value;
+    });
+
+    const importedLang = normalizeExcelLang(values.language);
+    if (importedLang && importedLang !== currentLang) {
+      setLang(importedLang);
+      await new Promise(resolve => setTimeout(resolve, 80));
+    }
+
+    applyExcelRowsToForm(values);
+    saveCurrentAnswers();
+    updateProgress();
+
+    ['flowStep2','flowStep3'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const photoStage = document.getElementById('photoStage');
+    if (photoStage) photoStage.classList.remove('visible');
+    savedTranslation = null;
+
+    const currentTexts = getExcelText();
+    const existingMessage = document.getElementById('excelImportStatus').textContent;
+    const hasSchoolWarning = Object.values(EXCEL_IMPORT_TEXTS).some(texts => existingMessage.includes(texts.schoolNotFound));
+    if (!hasSchoolWarning) setExcelStatus('success', currentTexts.success);
+  } catch (err) {
+    console.error('Excel import failed', err);
+    setExcelStatus('error', T.invalidFile);
+  }
+}
+
 // ═══════════════════════════════════════════════════════
 // RENDER SECTIONS
 // ═══════════════════════════════════════════════════════
@@ -881,6 +1208,8 @@ function setLang(lang) {
   // Re-render photo stage if visible
   const _ps = document.getElementById('photoStage');
   if (_ps && _ps.classList.contains('visible')) renderPhotoStage(lang);
+  const _excelModal = document.getElementById('excelImportModal');
+  if (_excelModal && _excelModal.classList.contains('visible')) updateExcelModalLanguage();
 }
 
 function syncLanguageControls(lang) {
