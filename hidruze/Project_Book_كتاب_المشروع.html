@@ -1538,17 +1538,22 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
     color: opts.color||C.textDark, italics:opts.italics||false,
   });
 
-  // ── Single-column paragraph ───────────────────────────
-  const para = (text, align, opts={}) => new Paragraph({
-    alignment: align,
-    spacing: opts.spacing||{ before:60, after:60 },
-    shading: opts.shading||undefined,
-    border:  opts.border||undefined,
-    indent:  opts.indent||undefined,
-    children: Array.isArray(text)
-      ? text
-      : [run(text, opts)]
+  // ── RTL paragraph helper ───────────────────────────────
+  const rtlParagraph = (children, opts={}) => new Paragraph({
+    bidirectional: true,
+    alignment: opts.alignment || AL.R,
+    spacing: opts.spacing || { before:60, after:60 },
+    shading: opts.shading || undefined,
+    border: opts.border || undefined,
+    indent: opts.indent || undefined,
+    children,
   });
+
+  // ── Single-column paragraph ───────────────────────────
+  const para = (text, align=AL.R, opts={}) => rtlParagraph(
+    Array.isArray(text) ? text : [run(text, opts)],
+    { ...opts, alignment: align }
+  );
 
   const sp = (pt=120) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
 
@@ -1610,14 +1615,13 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
       .map(l => para(l, align, { size:21 }));
   };
 
-  const guideParas = (subs, align) => subs.map(q => new Paragraph({
+  const guideParas = (subs, align) => subs.map(q => rtlParagraph([
+    run('◈  ', { size:18, color:C.midGreen, bold:true }),
+    run(q,      { size:18, color:C.textMid }),
+  ], {
     alignment: align,
     spacing:{ before:30, after:30 },
     indent: align===AL.R ? {right:160} : {left:160},
-    children:[
-      run('◈  ', { size:18, color:C.midGreen, bold:true }),
-      run(q,      { size:18, color:C.textMid }),
-    ]
   }));
 
   // ══════════════════════════════════════════════════════
@@ -1702,14 +1706,14 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
     const [lblA, valA] = schoolFieldsAr[i];
     const shade = i%2===0;
     return twoCol(
-      [new Paragraph({ alignment:AL.R, children:[
+      [rtlParagraph([
          run(lbl+':  ', {bold:true, size:19, color:C.green}),
          run(val||'—',  {size:19, color:C.textDark}),
-       ]}),],
-      [new Paragraph({ alignment:AL.R, children:[
+       ]),],
+      [rtlParagraph([
          run(lblA+':  ', {bold:true, size:19, color:C.headAr}),
          run(valA||'—', {size:19, color:C.textDark}),
-       ]}),],
+       ]),],
       shade ? C.paleGreen : C.white,
       shade ? C.colAr     : C.offWhite,
       C.border
@@ -1734,21 +1738,19 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
 
     // ── Section heading row ──
     const secHdrRow = twoCol(
-      [new Paragraph({
+      [rtlParagraph([
+        run('  '+secSrc.num+'.  ', {bold:true, size:28, color:C.mintLight}),
+        run(secSrc.title,          {bold:true, size:28, color:C.white}),
+      ], {
         alignment:AL.R, spacing:{before:0,after:0},
         shading:{ fill:C.headHe, type:ShadingType.CLEAR },
-        children:[
-          run('  '+secSrc.num+'.  ', {bold:true, size:28, color:C.mintLight}),
-          run(secSrc.title,          {bold:true, size:28, color:C.white}),
-        ]
       })],
-      [new Paragraph({
+      [rtlParagraph([
+        run('  '+secTrgt.num+'.  ', {bold:true, size:28, color:C.mintLight}),
+        run(secTrgt.title,          {bold:true, size:28, color:C.white}),
+      ], {
         alignment:AL.R, spacing:{before:0,after:0},
         shading:{ fill:C.headAr, type:ShadingType.CLEAR },
-        children:[
-          run('  '+secTrgt.num+'.  ', {bold:true, size:28, color:C.mintLight}),
-          run(secTrgt.title,          {bold:true, size:28, color:C.white}),
-        ]
       })],
       C.headHe, C.headAr, C.border
     );
@@ -1766,15 +1768,13 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
 
     // ── Write-label row ──
     const lblRow = twoCol(
-      [new Paragraph({
+      [rtlParagraph([run('  '+secSrc.fieldLabel, {bold:true, size:20, color:C.midGreen})], {
         alignment:AL.R, spacing:{before:40,after:40},
         border:{ right:bs(C.midGreen,8) },
-        children:[run('  '+secSrc.fieldLabel, {bold:true, size:20, color:C.midGreen})]
       })],
-      [new Paragraph({
+      [rtlParagraph([run('  '+secTrgt.fieldLabel, {bold:true, size:20, color:C.headAr})], {
         alignment:AL.R, spacing:{before:40,after:40},
         border:{ right:bs(C.headAr,8) },
-        children:[run('  '+secTrgt.fieldLabel, {bold:true, size:20, color:C.headAr})]
       })],
       C.offWhite, C.offWhite, C.border
     );
@@ -1786,18 +1786,16 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
 
     const srcParas = srcAns
       ? srcAns.split('\n').filter(l=>l.trim()).map(l=>para(l,AL.R,{size:21}))
-      : Array(4).fill(null).map(()=>new Paragraph({
+      : Array(4).fill(null).map(()=>rtlParagraph([new TextRun('')], {
           spacing:{before:180,after:0},
           border:{bottom:bs(C.border,2)},
-          children:[new TextRun('')]
         }));
 
     const trgParas = trgAns
       ? trgAns.split('\n').filter(l=>l.trim()).map(l=>para(l,AL.R,{size:21}))
-      : Array(4).fill(null).map(()=>new Paragraph({
+      : Array(4).fill(null).map(()=>rtlParagraph([new TextRun('')], {
           spacing:{before:180,after:0},
           border:{bottom:bs(C.border,2)},
-          children:[new TextRun('')]
         }));
 
     const ansRow = twoCol(srcParas, trgParas, C.white, C.offWhite, C.border);
@@ -1809,13 +1807,10 @@ async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
   children.push(sp(160));
   children.push(rule(C.mint, 6));
   children.push(sp(60));
-  children.push(new Paragraph({
-    alignment:AL.C,
-    children:[
-      run('אליפות מדעני המחר בהשראת הטבע  |  بطولة علماء الغد بإلهام من الطبيعة  |  2025–2026',
-          { size:16, color:C.textLight, italics:true })
-    ]
-  }));
+  children.push(rtlParagraph([
+    run('אליפות מדעני המחר בהשראת הטבע  |  بطولة علماء الغد بإلهام من الطبيعة  |  2025–2026',
+        { size:16, color:C.textLight, italics:true })
+  ], { alignment:AL.C }));
 
   // ── ASSEMBLE ──────────────────────────────────────────
   const doc = new Document({
@@ -1890,13 +1885,19 @@ async function buildFinalWord(includePhotos = true) {
     text: String(text ?? ''), font:'Arial', rtl:true, size:opts.size||22,
     bold:opts.bold||false, color:opts.color||C.textDark, italics:opts.italics||false
   });
-  const para = (text, opts={}) => new Paragraph({
+  const rtlParagraph = (children, opts={}) => new Paragraph({
+    bidirectional: true,
     alignment: opts.alignment || AL.R,
     spacing: opts.spacing || { before:50, after:50 },
     border: opts.border || undefined,
     shading: opts.shading || undefined,
-    children: Array.isArray(text) ? text : [run(text, opts)]
+    indent: opts.indent || undefined,
+    children,
   });
+  const para = (text, opts={}) => rtlParagraph(
+    Array.isArray(text) ? text : [run(text, opts)],
+    opts
+  );
   const sp = (pt=100) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
   const rule = (color, thick=8) => new Paragraph({
     spacing:{before:0,after:0}, border:{bottom:bs(color,thick)}, children:[new TextRun('')]
@@ -1998,10 +1999,10 @@ async function buildFinalWord(includePhotos = true) {
       spacing:{ before:80, after:80 }
     }));
     schoolRowsForLang(lang).forEach(([label, value], idx) => {
-      children.push(oneColTable([[new Paragraph({ alignment:AL.R, children:[
+      children.push(oneColTable([[rtlParagraph([
         run(label + ':  ', { bold:true, size:19, color:head }),
         run(value || '', { size:19 })
-      ]})]], idx % 2 === 0 ? bg : C.offWhite));
+      ])]], idx % 2 === 0 ? bg : C.offWhite));
     });
     children.push(sp(100));
 
