@@ -1368,38 +1368,49 @@ function generatePrompt() {
 
 function buildPrompt(data, secAnswers) {
   const secs = secAnswers.map(s =>
-    `Section ${s.num} "${s.title}":\n${s.answer || '(empty)'}`
+    `סעיף ${s.num} "${s.title}":
+${s.answer || '(ריק)'}`
   ).join('\n\n');
 
-  return `You are a professional Hebrew editor specializing in STEM education for schools.
-The following student project book contains answers written in Hebrew and/or Arabic.
-Your task is to create a polished professional Hebrew version of all answers for a final Word project book.
+  return `אתה עורך לשוני ועורך תוכן מקצועי בעברית, המתמחה במסמכי Word רשמיים ובספרי פרויקטים חינוכיים בתחום STEM.
 
-RULES:
-1. Return ONLY a valid JSON object — no explanation, no markdown, no backticks.
-2. The final output must be Hebrew only.
-3. If an answer is already in Hebrew, polish it professionally in Hebrew.
-4. If an answer is in Arabic, translate it into natural professional Hebrew while preserving the exact meaning.
-5. Preserve all factual details, names, project details, scientific terms, and student intent.
-6. Do not invent, expand, or add new information that does not appear in the source.
-7. Keep the writing suitable for a student STEM project book: clear, respectful, educational, and professional.
-8. If a field is empty, keep it as an empty string "".
-9. Do not change student names, school name, authority/city, role holders, or project details except to transliterate/translate them into Hebrew if they are written in Arabic.
+המשימה שלך:
+לשדרג, ללטש ולנסח מחדש את כל התשובות של ספר הפרויקט כך שיהיו מוכנות לקובץ Word בעברית, ברמה מקצועית, אחידה וברורה.
 
-SOURCE DATA:
-School: ${data.school_name || ''}
-Authority/City: ${data.school_city || ''}
-Principal: ${data.principal || ''}
-Mentor/Guide: ${data.mentor || ''}
-Science Coordinator: ${data.science_coord || ''}
-Tech Coordinator: ${data.tech_coord || ''}
-Classroom: ${data.classroom || ''}
-Students: ${data.students || ''}
+כללים מחייבים:
+1. הפלט חייב להיות JSON תקין בלבד.
+2. אין להחזיר הסברים, הערות, Markdown, כוכביות, קוד או טקסט מחוץ ל-JSON.
+3. ערכי התוכן בתוך ה-JSON יהיו בעברית בלבד.
+4. מפתחות ה-JSON חייבים להישאר בדיוק כפי שהם מופיעים בתבנית, כדי שהמערכת תוכל לקרוא אותם.
+5. אם תשובה כבר כתובה בעברית, יש ללטש אותה בעברית מקצועית.
+6. אם תשובה כתובה בערבית, יש לתרגם אותה לעברית טבעית ומקצועית תוך שמירה מלאה על המשמעות.
+7. יש לשמור על כל הפרטים העובדתיים, שמות התלמידים, שם בית הספר, הרשות, בעלי התפקידים, שם המיזם, פרטי הפרויקט, מונחים מדעיים וכוונת התלמידים.
+8. אין להמציא מידע חדש.
+9. אין למחוק מידע קיים.
+10. אם שדה ריק, יש להשאיר אותו כמחרוזת ריקה "".
+11. יש לכתוב בסגנון רשמי, ברור, חינוכי ומקצועי, המתאים לספר פרויקט של תלמידים.
+12. אין להשתמש בסגנון שיווקי, צ'אטי או מוגזם.
+13. יש ליצור פסקאות קצרות ומובנות עם זרימה לוגית בין המשפטים.
+14. אם יש רשימות בתוך תשובה, יש להציג אותן כרשימה ממוספרת רגילה או באמצעות מקפים פשוטים בלבד.
+15. יש להימנע מערבוב כיווניות בעברית.
+16. אין להשתמש בקו גבוה או מקף עברי. יש להשתמש רק בקו מינוס רגיל: -
+17. אין לשים פסיק לפני האות ו במבנים כמו: א, ב ו-ג.
+18. אין לשנות שמות תלמידים, שם בית ספר, רשות, בעלי תפקידים או פרטי פרויקט, למעט תעתוק/תרגום לעברית כאשר הם כתובים בערבית.
 
-SECTIONS:
+נתוני מקור:
+שם בית הספר: ${data.school_name || ''}
+רשות: ${data.school_city || ''}
+שם המנהל/ת: ${data.principal || ''}
+שם המנחה: ${data.mentor || ''}
+שם רכז המדעים: ${data.science_coord || ''}
+שם רכז התקשוב / חינוך טכנולוגי: ${data.tech_coord || ''}
+כיתה / קבוצת תלמידים: ${data.classroom || ''}
+שמות התלמידים: ${data.students || ''}
+
+סעיפי הפרויקט:
 ${secs}
 
-REQUIRED JSON OUTPUT FORMAT:
+מבנה JSON נדרש להחזרה:
 {
   "school_name": "",
   "school_city": "",
@@ -1425,7 +1436,6 @@ REQUIRED JSON OUTPUT FORMAT:
   ]
 }`;
 }
-
 // ═══════════════════════════════════════════════════════
 // STEP 2 — Copy prompt
 // ═══════════════════════════════════════════════════════
