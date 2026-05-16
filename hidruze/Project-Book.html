@@ -509,13 +509,20 @@ loadScript([
 ], function(e1) {
   if (e1) { console.error('docx CDN failed'); return; }
   loadScript([
-    'https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js',
-    'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
-    'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'
-  ], function(e2) {
-    if (e2) { console.error('FileSaver CDN failed'); return; }
-    window._libsReady = true;
-    console.log('✅ docx + FileSaver loaded');
+    'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js',
+    'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  ], function(eZip) {
+    if (eZip) { console.error('JSZip CDN failed'); return; }
+    loadScript([
+      'https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js',
+      'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js'
+    ], function(e2) {
+      if (e2) { console.error('FileSaver CDN failed'); return; }
+      window._libsReady = true;
+      console.log('✅ docx + JSZip + FileSaver loaded');
+    });
   });
 });
 </script>
@@ -1534,7 +1541,7 @@ async function buildFinalWord(includePhotos = true) {
 
   const {
     Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
-    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell
+    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, VerticalAlign
   } = window.docx;
 
   const C = {
@@ -1543,40 +1550,137 @@ async function buildFinalWord(includePhotos = true) {
     white:'FFFFFF', offWhite:'F9FDF9', textDark:'1C3326', textLight:'6B8F78',
     border:'B5D9C3', headHe:'1A7A4A'
   };
+  const RLM = '\u200F';
   const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
+  const rtl = text => {
+    const value = String(text ?? '');
+    return value.startsWith(RLM) ? value : RLM + value;
+  };
   const bs = (color, sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
   const bAll = (col, sz=4) => ({ top:bs(col,sz), bottom:bs(col,sz), left:bs(col,sz), right:bs(col,sz) });
-  const run = (text, opts={}) => new TextRun({
-    text: String(text ?? ''), font:'Arial', rtl:true, size:opts.size||22,
-    bold:opts.bold||false, color:opts.color||C.textDark, italics:opts.italics||false
-  });
-  const rtlParagraph = (children, opts={}) => new Paragraph({
-    bidirectional: true,
-    alignment: opts.alignment || AL.R,
-    spacing: opts.spacing || { before:50, after:50 },
-    border: opts.border || undefined,
-    shading: opts.shading || undefined,
-    indent: opts.indent || undefined,
-    children,
-  });
-  const para = (text, opts={}) => rtlParagraph(
-    Array.isArray(text) ? text : [run(text, opts)],
-    opts
-  );
-  const sp = (pt=100) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
-  const rule = (color, thick=8) => new Paragraph({
-    spacing:{before:0,after:0}, border:{bottom:bs(color,thick)}, children:[new TextRun('')]
+
+  function rtlTextRun(text, options = {}) {
+    const { size=22, bold=false, color=C.textDark, italics=false, ...rest } = options;
+    return new TextRun({
+      text: rtl(text),
+      font:'Arial',
+      rtl:true,
+      rightToLeft:true,
+      size,
+      bold,
+      color,
+      italics,
+      ...rest
+    });
+  }
+
+  function rtlParagraph(textOrChildren, options = {}) {
+    const {
+      alignment = AL.R,
+      spacing = { before:50, after:50 },
+      border,
+      shading,
+      indent,
+      paragraph = {},
+      run: runOptions = {},
+      ...textRunOptions
+    } = options;
+    const children = Array.isArray(textOrChildren)
+      ? textOrChildren
+      : [rtlTextRun(textOrChildren, { ...textRunOptions, ...runOptions })];
+    return new Paragraph({
+      bidirectional:true,
+      alignment,
+      spacing,
+      border,
+      shading,
+      indent,
+      children,
+      ...paragraph
+    });
+  }
+
+  function rtlCell(textOrChildren, options = {}) {
+    const {
+      width,
+      borders,
+      shading,
+      margins = { top:120, bottom:120, left:180, right:180 },
+      cell = {},
+      paragraph: paragraphOptions = {},
+      ...paragraphTextOptions
+    } = options;
+    return new TableCell({
+      width,
+      borders,
+      shading,
+      verticalAlign: VerticalAlign ? VerticalAlign.CENTER : undefined,
+      margins,
+      children: [rtlParagraph(textOrChildren, { ...paragraphTextOptions, ...paragraphOptions })],
+      ...cell
+    });
+  }
+
+  const run = rtlTextRun;
+  const para = rtlParagraph;
+  const sp = (pt=100) => rtlParagraph('', { spacing:{before:pt,after:0} });
+  const rule = (color, thick=8) => rtlParagraph('', {
+    spacing:{before:0,after:0}, border:{bottom:bs(color,thick)}
   });
   const oneColTable = (rows, fill=C.white) => new Table({
-    width:{ size:9360, type:WidthType.DXA },
-    rows: rows.map(cells => new TableRow({ children: cells.map(cell => new TableCell({
-      width:{ size:9360 / cells.length, type:WidthType.DXA },
-      borders:bAll(C.border, 3),
-      shading:{ fill, type:ShadingType.CLEAR },
-      margins:{ top:90, bottom:90, left:160, right:160 },
-      children: Array.isArray(cell) ? cell : [cell]
-    })) }))
+    alignment: AL.R,
+    bidirectional: true,
+    width:{ size:100, type:WidthType.PERCENTAGE },
+    rows: rows.map(cells => new TableRow({ children: cells.map(cell => rtlCell(
+      cell,
+      {
+        width:{ size:9360 / cells.length, type:WidthType.DXA },
+        borders:bAll(C.border, 3),
+        shading:{ fill, type:ShadingType.CLEAR },
+        margins:{ top:120, bottom:120, left:180, right:180 }
+      }
+    )) }))
   });
+
+  const ensurePPr = paragraph => /<w:pPr[\s>]/.test(paragraph)
+    ? paragraph
+    : paragraph.replace(/<w:p([^>]*)>/, '<w:p$1><w:pPr></w:pPr>');
+  const ensureRPr = runXml => /<w:rPr[\s>]/.test(runXml)
+    ? runXml
+    : runXml.replace(/<w:r([^>]*)>/, '<w:r$1><w:rPr></w:rPr>');
+  const ensureTblPr = tableXml => /<w:tblPr[\s>]/.test(tableXml)
+    ? tableXml
+    : tableXml.replace(/<w:tbl([^>]*)>/, '<w:tbl$1><w:tblPr></w:tblPr>');
+
+  function patchDocumentXmlForFullRtl(xml) {
+    return xml
+      .replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, tbl => ensureTblPr(tbl).replace(/<w:tblPr\b[^>]*>[\s\S]*?<\/w:tblPr>/, tblPr => {
+        let patched = tblPr;
+        if (!/<w:bidiVisual\b/.test(patched)) patched = patched.replace(/<w:tblPr([^>]*)>/, '<w:tblPr$1><w:bidiVisual/>');
+        if (!/<w:jc\b/.test(patched)) patched = patched.replace(/<w:tblPr([^>]*)>/, '<w:tblPr$1><w:jc w:val="right"/>');
+        return patched;
+      }))
+      .replace(/<w:p\b[\s\S]*?<\/w:p>/g, pXml => ensurePPr(pXml).replace(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, pPr => {
+        let patched = pPr;
+        if (!/<w:bidi\b/.test(patched)) patched = patched.replace(/<w:pPr([^>]*)>/, '<w:pPr$1><w:bidi/>');
+        if (!/<w:jc\b/.test(patched)) patched = patched.replace(/<w:pPr([^>]*)>/, '<w:pPr$1><w:jc w:val="right"/>');
+        return patched;
+      }))
+      .replace(/<w:r\b[\s\S]*?<\/w:r>/g, rXml => ensureRPr(rXml).replace(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/, rPr => {
+        if (/<w:rtl\b/.test(rPr)) return rPr;
+        return rPr.replace(/<w:rPr([^>]*)>/, '<w:rPr$1><w:rtl/>');
+      }));
+  }
+
+  async function patchDocxBlobForFullRtl(blob) {
+    if (!window.JSZip) return blob;
+    const zip = await window.JSZip.loadAsync(blob);
+    const documentFile = zip.file('word/document.xml');
+    if (!documentFile) return blob;
+    const documentXml = await documentFile.async('string');
+    zip.file('word/document.xml', patchDocumentXmlForFullRtl(documentXml));
+    return zip.generateAsync({ type:'blob' });
+  }
 
   const cleanLines = text => String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
   const sectionAnswer = (text) => {
@@ -1603,11 +1707,9 @@ async function buildFinalWord(includePhotos = true) {
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
     for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return new Paragraph({
-      alignment:AL.C,
-      spacing:{ before:80, after:80 },
-      children:[new ImageRun({ data:bytes, transformation:{ width:Math.round(dims.w * scale), height:Math.round(dims.h * scale) }, type })]
-    });
+    return rtlParagraph([
+      new ImageRun({ data:bytes, transformation:{ width:Math.round(dims.w * scale), height:Math.round(dims.h * scale) }, type })
+    ], { alignment:AL.C, spacing:{ before:80, after:80 } });
   }
 
   async function imageBlocksForSection(secNum) {
@@ -1649,10 +1751,10 @@ async function buildFinalWord(includePhotos = true) {
       spacing:{ before:80, after:80 }
     }));
     schoolRows.forEach(([label, value], idx) => {
-      children.push(oneColTable([[rtlParagraph([
+      children.push(oneColTable([[[
         run(label + ':  ', { bold:true, size:19, color:C.headHe }),
         run(value || '', { size:19 })
-      ])]], idx % 2 === 0 ? C.paleGreen : C.offWhite));
+      ]]], idx % 2 === 0 ? C.paleGreen : C.offWhite));
     });
     children.push(sp(100));
 
@@ -1676,7 +1778,7 @@ async function buildFinalWord(includePhotos = true) {
       }]
     });
 
-    const blob = await Packer.toBlob(doc);
+    const blob = await patchDocxBlobForFullRtl(await Packer.toBlob(doc));
     const filename = includePhotos
       ? 'biomimicry_project_book_hebrew_with_photos.docx'
       : 'biomimicry_project_book_hebrew_no_photos.docx';
