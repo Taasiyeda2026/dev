@@ -1616,7 +1616,6 @@ async function buildFinalWord(includePhotos = true) {
       borders,
       shading,
       verticalAlign: VerticalAlign ? VerticalAlign.CENTER : undefined,
-      textDirection: window.docx.TextDirection?.TOP_TO_BOTTOM_RIGHT_TO_LEFT || 'tbRl',
       margins,
       children: [rtlParagraph(textOrChildren, { ...paragraphTextOptions, ...paragraphOptions })],
       ...cell
@@ -1663,12 +1662,6 @@ async function buildFinalWord(includePhotos = true) {
       ? tableXml
       : tableXml.replace(/<w:tbl([^>]*)>/, '<w:tbl$1><w:tblPr></w:tblPr>');
   };
-  const ensureTcPr = cellXml => {
-    cellXml = expandSelfClosingTag(cellXml, 'w:tcPr');
-    return /<w:tcPr[\s>]/.test(cellXml)
-      ? cellXml
-      : cellXml.replace(/<w:tc([^>]*)>/, '<w:tc$1><w:tcPr></w:tcPr>');
-  };
   const ensureChild = (xmlPart, parentTag, childXml, childPattern) => {
     if (childPattern.test(xmlPart)) return xmlPart;
     return xmlPart.replace(new RegExp(`<${parentTag}([^>]*)>`), `<${parentTag}$1>${childXml}`);
@@ -1685,11 +1678,6 @@ async function buildFinalWord(includePhotos = true) {
           patched = ensureJcRight(patched);
           return patched;
         })
-        .replace(/<w:tc\b[\s\S]*?<\/w:tc>/g, tc => ensureTcPr(tc).replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, tcPr => {
-          let patched = tcPr;
-          patched = ensureChild(patched, 'w:tcPr', '<w:textDirection w:val="tbRl"/>', /<w:textDirection\b/);
-          return patched;
-        }))
       )
       .replace(/<w:p\b[\s\S]*?<\/w:p>/g, pXml => ensurePPr(pXml).replace(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, pPr => {
         let patched = ensureChild(pPr, 'w:pPr', '<w:bidi/>', /<w:bidi\b/);
