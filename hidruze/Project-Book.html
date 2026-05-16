@@ -207,6 +207,12 @@
   .btn-word { background: linear-gradient(135deg, #1a7a4a 0%, #2da65e 100%) !important; color: #fff !important; box-shadow: 0 4px 20px rgba(26,122,74,0.4) !important; }
   .btn-word:hover:not(:disabled) { box-shadow: 0 8px 28px rgba(26,122,74,0.5) !important; }
   .flow-divider { border: none; border-top: 1px dashed rgba(255,255,255,0.1); margin: 16px 0; }
+  .flow-export-actions {
+    display: flex; flex-direction: column; align-items: stretch; gap: 12px; margin-top: 14px;
+  }
+  .flow-export-hint {
+    font-size: 13px; color: rgba(255,255,255,0.55); text-align: right; line-height: 1.6; margin: 0;
+  }
 
   /* ── Photo upload stage ── */
   .photo-stage { display:none; background:var(--white); border:1px solid var(--border); border-radius:16px; margin-bottom:20px; overflow:hidden; box-shadow:0 2px 12px var(--shadow); }
@@ -277,7 +283,7 @@
   }
 
 
-  /* ── Hidden Excel import modal ── */
+  /* ── Hidden Excel import modal (Hebrew RTL only) ── */
   .excel-modal-backdrop {
     position: fixed; inset: 0; background: rgba(13,31,20,0.55);
     display: none; align-items: center; justify-content: center;
@@ -287,27 +293,49 @@
   .excel-modal {
     width: min(520px, 92vw); max-height: 92vh; overflow-y: auto; overflow-x: hidden;
     background: var(--white); border: 1px solid var(--border); border-radius: 18px;
-    box-shadow: 0 18px 60px rgba(13,31,20,0.28); padding: 24px; direction: rtl;
+    box-shadow: 0 18px 60px rgba(13,31,20,0.28); padding: 24px;
+    direction: rtl; text-align: right; unicode-bidi: embed;
   }
-  .excel-modal h2 { color: var(--green); font-size: 21px; line-height: 1.35; margin-bottom: 10px; font-weight: 900; }
-  .excel-modal p { color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 18px; }
+  .excel-modal h2 {
+    color: var(--green); font-size: 21px; line-height: 1.35; margin-bottom: 10px;
+    font-weight: 900; text-align: right;
+  }
+  .excel-modal-intro {
+    color: var(--muted); font-size: 14px; line-height: 1.7; margin-bottom: 14px; text-align: right;
+  }
+  .excel-steps {
+    margin: 0 0 18px 0; padding: 0 20px 0 0; color: var(--text); font-size: 13px; line-height: 1.8;
+    list-style: decimal; text-align: right;
+  }
   .excel-actions { display: grid; gap: 12px; }
   .excel-btn, .excel-file-label {
     width: 100%; min-height: 46px; border-radius: 12px; border: 1.5px solid var(--green-light);
     background: var(--green); color: #fff; font-family: 'Heebo', sans-serif; font-size: 15px;
     font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-    text-align: center; padding: 11px 16px; transition: all 0.15s; user-select: none;
+    gap: 8px; text-align: right; padding: 11px 16px; transition: all 0.15s; user-select: none;
   }
   .excel-btn:hover, .excel-file-label:hover { background: var(--green-light); }
   .excel-btn.secondary { background: #fff; color: var(--green); border-color: var(--border); }
   .excel-btn.secondary:hover { background: var(--green-pale); border-color: var(--green-light); }
-  .excel-file-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; }
-  .excel-file-name { font-size: 13px; color: var(--muted); text-align: center; overflow-wrap: anywhere; min-height: 20px; }
-  .excel-modal .status-box { margin-top: 12px; }
+  .excel-file-wrap { display: grid; gap: 6px; }
+  .excel-file-input {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+  .excel-file-label.has-file {
+    background: var(--green-pale); color: var(--green); border-color: var(--green);
+  }
+  .excel-file-selected {
+    display: none; font-size: 13px; color: var(--green); font-weight: 700;
+    text-align: right; line-height: 1.5; overflow-wrap: anywhere; padding: 0 2px;
+  }
+  .excel-file-selected.visible { display: block; }
+  .excel-modal .status-box { margin-top: 12px; text-align: right; }
   @media(max-width:520px) {
     .excel-modal { width: 92vw; padding: 20px 16px; border-radius: 16px; }
     .excel-modal h2 { font-size: 18px; }
     .excel-btn, .excel-file-label { min-height: 48px; font-size: 14px; }
+    .excel-steps { font-size: 12px; padding-right: 18px; }
   }
 
 </style>
@@ -322,14 +350,24 @@
 </div>
 
 <div class="excel-modal-backdrop" id="excelImportModal" aria-hidden="true" onclick="handleExcelBackdropClick(event)">
-  <div class="excel-modal" role="dialog" aria-modal="true" aria-labelledby="excelImportTitle" onclick="event.stopPropagation()">
+  <div class="excel-modal" dir="rtl" lang="he" role="dialog" aria-modal="true" aria-labelledby="excelImportTitle" onclick="event.stopPropagation()">
     <h2 id="excelImportTitle">ייבוא תשובות מקובץ Excel</h2>
-    <p id="excelImportDesc">הורידו תחילה את תבנית האקסל, מלאו את התשובות, ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.</p>
+    <p class="excel-modal-intro" id="excelImportDesc">הורידו את תבנית Excel, מלאו את העמודות ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.</p>
+    <ol class="excel-steps" id="excelImportSteps">
+      <li id="excelStep1">הורידו את תבנית Excel</li>
+      <li id="excelStep2">מלאו את העמודה value לפי שם השדה בעמודה field_key</li>
+      <li id="excelStep3">העלו את הקובץ ולחצו על ייבוא ומילוי הטופס</li>
+    </ol>
     <div class="excel-actions">
       <button type="button" class="excel-btn secondary" id="downloadExcelTemplateBtn" onclick="downloadExcelTemplate()">הורדת תבנית Excel</button>
-      <label class="excel-file-label" id="excelFileLabel" for="excelImportFile">בחירת קובץ Excel</label>
-      <input type="file" class="excel-file-input" id="excelImportFile" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onchange="handleExcelFileSelection()">
-      <div class="excel-file-name" id="excelFileName"></div>
+      <div class="excel-file-wrap">
+        <label class="excel-file-label" id="excelFileLabel" for="excelImportFile">
+          <span aria-hidden="true">📄</span>
+          <span id="excelFileLabelText">בחירת קובץ Excel</span>
+        </label>
+        <input type="file" class="excel-file-input" id="excelImportFile" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onchange="handleExcelFileSelection()">
+        <div class="excel-file-selected" id="excelFileName" aria-live="polite"></div>
+      </div>
       <button type="button" class="excel-btn" id="importExcelBtn" onclick="importExcelAnswers()">ייבוא ומילוי הטופס</button>
       <button type="button" class="excel-btn secondary" id="closeExcelModalBtn" onclick="closeExcelImportModal()">סגירה</button>
     </div>
@@ -441,13 +479,20 @@
     <div class="flow-step" id="flowStep3" style="display:none">
       <div class="flow-step-header">
         <span class="flow-num">3</span>
-        <span id="flowLabel3">הדבק את תשובת ה-AI והמשך לשלב התמונות</span>
+        <span id="flowLabel3">הדבק את תשובת ה-AI ובחרו איך להמשיך</span>
       </div>
+      <p class="flow-export-hint" id="flowStep3Hint">ניתן ליצור מיד ספר ללא תמונות, או להמשיך להוספת תמונות לפני יצירת ספר מלא.</p>
       <div class="paste-hint" id="pasteHint">הדבק כאן את תשובת ה-AI (JSON) ↓</div>
       <textarea class="paste-textarea" id="pasteTextarea" placeholder='{ "school_name": "...", "sections": [...] }'></textarea>
-      <button class="btn-translate btn-word" onclick="buildWord()" style="margin-top:14px;">
-        <span>✓</span> <span id="btnWord">המשך לשלב הוספת תמונות</span>
-      </button>
+      <div class="flow-export-actions">
+        <button type="button" class="btn-final" id="btnCreateNoPhotos" onclick="createBookWithoutPhotos()">
+          <span>📄</span>
+          <span id="btnCreateNoPhotosText">יצירת ספר פרויקט ללא תמונות</span>
+        </button>
+        <button type="button" class="btn-translate btn-word" id="btnContinuePhotos" onclick="continueToPhotoStage()">
+          <span>📷</span> <span id="btnContinuePhotosText">המשך להוספת תמונות</span>
+        </button>
+      </div>
       <div class="status-box" id="statusBox"></div>
     </div>
   </div>
@@ -455,21 +500,17 @@
   <!-- ══ PHOTO UPLOAD STAGE ══ -->
   <div class="photo-stage" id="photoStage">
     <div class="photo-stage-header">
-      <h2 id="photoStageTitle">יצירת ספר פרויקט עם תמונות</h2>
-      <p id="photoStageDesc">העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות</p>
+      <h2 id="photoStageTitle">הוספת תמונות לספר הפרויקט</h2>
+      <p id="photoStageDesc">העלאת תמונות לפי סעיפים, סקיצות, נספחים ותוצרים חזותיים.</p>
     </div>
     <div class="photo-stage-body" id="photoSlotsBody">
       <!-- Injected by JS -->
     </div>
     <div class="photo-stage-footer">
       <div class="photo-export-actions">
-        <button class="btn-final" id="btnFinal" onclick="buildFinalWord(true)">
+        <button type="button" class="btn-final" id="btnFinal" onclick="buildFinalWord(true)">
           <span>📚</span>
-          <span id="btnFinalText">יצירת ספר פרויקט עם תמונות</span>
-        </button>
-        <button class="btn-final btn-final-secondary" id="btnFinalNoPhotos" onclick="buildFinalWord(false)">
-          <span>📄</span>
-          <span id="btnFinalNoPhotosText">יצירת ספר פרויקט ללא תמונות</span>
+          <span id="btnFinalText">יצירת ספר פרויקט כולל תמונות</span>
         </button>
       </div>
       <div class="status-box" id="statusBoxFinal"></div>
@@ -554,10 +595,10 @@ const STRINGS = {
     actionDesc: '3 שלבים פשוטים — ללא צורך בחשבון AI',
     btnText: 'לטש מקצועית וצור קובץ Word',
     steps: ['1. אוסף נתונים','2. מלטש מקצועית','3. יוצר Word','4. מוריד'],
-    photoStageTitle: 'יצירת ספר פרויקט עם תמונות',
-    photoStageDesc: 'העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות',
-    btnFinalText: 'יצירת ספר פרויקט עם תמונות',
-    btnFinalNoPhotosText: 'יצירת ספר פרויקט ללא תמונות',
+    photoStageTitle: 'הוספת תמונות לספר הפרויקט',
+    photoStageDesc: 'העלאת תמונות לפי סעיפים, סקיצות, נספחים ותוצרים חזותיים.',
+    btnFinalText: 'יצירת ספר פרויקט כולל תמונות',
+    btnCreateNoPhotosText: 'יצירת ספר פרויקט ללא תמונות',
     photoSections: [
       {
         secNum:'4',
@@ -829,60 +870,52 @@ let leafClickTimer = null;
 let selectedExcelFile = null;
 
 const EXCEL_TEMPLATE_ROWS = [
-  { field_key:'school_city', label_he:'רשות', label_ar:'السلطة / البلدة', value:'' },
-  { field_key:'school_name', label_he:'בית ספר', label_ar:'اسم المدرسة', value:'' },
-  { field_key:'principal', label_he:'שם המנהל/ת', label_ar:'اسم المدير/ة', value:'' },
-  { field_key:'science_coord', label_he:'שם רכז המדעים', label_ar:'اسم منسق العلوم', value:'' },
-  { field_key:'tech_coord', label_he:'שם רכז התקשוב / חינוך טכנולוגי', label_ar:'اسم منسق التكنولوجيا / التعليم التقني', value:'' },
-  { field_key:'classroom', label_he:'כיתה / קבוצת תלמידים', label_ar:'الصف / مجموعة الطلاب المشاركة', value:'' },
-  { field_key:'student1', label_he:'תלמיד/ה 1', label_ar:'الطالب/ة 1', value:'' },
-  { field_key:'student2', label_he:'תלמיד/ה 2', label_ar:'الطالب/ة 2', value:'' },
-  { field_key:'student3', label_he:'תלמיד/ה 3', label_ar:'الطالب/ة 3', value:'' },
-  { field_key:'student4', label_he:'תלמיד/ה 4', label_ar:'الطالب/ة 4', value:'' },
-  { field_key:'student5', label_he:'תלמיד/ה 5', label_ar:'الطالب/ة 5', value:'' },
-  { field_key:'s1', label_he:'שם המיזם', label_ar:'اسم المشروع', value:'' },
-  { field_key:'s1.1', label_he:'הסבר על שם המיזם', label_ar:'شرح اسم المشروع', value:'' },
-  { field_key:'s2', label_he:'מבוא והצגת הנושא', label_ar:'مقدمة وعرض الموضوع', value:'' },
-  { field_key:'s3', label_he:'הגדרת הבעיה ושאלת החקר', label_ar:'تحديد المشكلة وسؤال البحث', value:'' },
-  { field_key:'s4', label_he:'ההשראה מהטבע – ביומימיקרי', label_ar:'الإلهام من الطبيعة – البيومحاكاة', value:'' },
-  { field_key:'s5', label_he:'רקע תאורטי מדעי-טכנולוגי', label_ar:'الخلفية النظرية العلمية-التقنية', value:'' },
-  { field_key:'s6', label_he:'תהליך פיתוח הפתרון', label_ar:'عملية تطوير الحل', value:'' },
-  { field_key:'s7', label_he:'הפתרון הסופי והישימות', label_ar:'الحل النهائي وقابلية التطبيق', value:'' },
-  { field_key:'s8', label_he:'חדשנות, יצירתיות וערך מוסף', label_ar:'الابتكار والإبداع والقيمة المضافة', value:'' },
-  { field_key:'s9', label_he:'מסקנות, תובנות והמלצות', label_ar:'الاستنتاجات والرؤى والتوصيات', value:'' },
-  { field_key:'s10', label_he:'מקורות מידע', label_ar:'مصادر المعلومات', value:'' },
-  { field_key:'s11', label_he:'נספחים', label_ar:'الملاحق', value:'' },
+  { field_key:'school_city', label:'רשות', value:'' },
+  { field_key:'school_name', label:'בית ספר', value:'' },
+  { field_key:'principal', label:'שם המנהל/ת', value:'' },
+  { field_key:'mentor', label:'שם המנחה', value:'הילה רוזן' },
+  { field_key:'science_coord', label:'שם רכז המדעים', value:'' },
+  { field_key:'tech_coord', label:'שם רכז התקשוב / חינוך טכנולוגי', value:'' },
+  { field_key:'classroom', label:'כיתה / קבוצת תלמידים', value:'' },
+  { field_key:'student1', label:'תלמיד/ה 1', value:'' },
+  { field_key:'student2', label:'תלמיד/ה 2', value:'' },
+  { field_key:'student3', label:'תלמיד/ה 3', value:'' },
+  { field_key:'student4', label:'תלמיד/ה 4', value:'' },
+  { field_key:'student5', label:'תלמיד/ה 5', value:'' },
+  { field_key:'s1', label:'שם המיזם', value:'' },
+  { field_key:'s1.1', label:'הסבר על שם המיזם', value:'' },
+  { field_key:'s2', label:'מבוא והצגת הנושא', value:'' },
+  { field_key:'s3', label:'הגדרת הבעיה ושאלת החקר', value:'' },
+  { field_key:'s4', label:'ההשראה מהטבע - ביומימיקרי', value:'' },
+  { field_key:'s5', label:'רקע תאורטי מדעי-טכנולוגי', value:'' },
+  { field_key:'s6', label:'תהליך פיתוח הפתרון', value:'' },
+  { field_key:'s7', label:'הפתרון הסופי והישימות', value:'' },
+  { field_key:'s8', label:'חדשנות, יצירתיות וערך מוסף', value:'' },
+  { field_key:'s9', label:'מסקנות, תובנות והמלצות', value:'' },
+  { field_key:'s10', label:'מקורות מידע', value:'' },
+  { field_key:'s11', label:'נספחים', value:'' }
 ];
 
 const EXCEL_IMPORT_TEXTS = {
-  he: {
-    title: 'ייבוא תשובות מקובץ Excel',
-    desc: 'הורידו תחילה את תבנית האקסל, מלאו את התשובות, ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.',
-    download: 'הורדת תבנית Excel', choose: 'בחירת קובץ Excel', import: 'ייבוא ומילוי הטופס', close: 'סגירה',
-    noLib: 'ספריית Excel לא נטענה. בדקו חיבור אינטרנט ונסו שוב.',
-    noFile: 'יש לבחור קובץ Excel לפני הייבוא.',
-    success: 'הקובץ יובא בהצלחה והטופס מולא.',
-    invalidFile: 'לא ניתן לקרוא את קובץ ה־Excel. ודאו שהקובץ מבוסס על התבנית.',
-    missingColumns: 'קובץ ה־Excel אינו כולל את העמודות הנדרשות: field_key ו־value.',
-    schoolNotFound: 'שם בית הספר לא נמצא ברשימת הבחירה. נא לבדוק את הערך בקובץ.',
-    fileSelected: 'נבחר קובץ: '
-  },
-  ar: {
-    title: 'استيراد الإجابات من ملف Excel / ייבוא תשובות מקובץ Excel',
-    desc: 'قم أولاً بتنزيل قالب Excel، ثم املأ الإجابات وارفع الملف ليتم تعبئة النموذج تلقائياً.',
-    download: 'تنزيل قالب Excel', choose: 'اختيار ملف Excel', import: 'استيراد وتعبئة النموذج', close: 'إغلاق',
-    noLib: 'لم يتم تحميل مكتبة Excel. تحققوا من الاتصال بالإنترنت وحاولوا مرة أخرى.',
-    noFile: 'يرجى اختيار ملف Excel قبل الاستيراد.',
-    success: 'تم استيراد الملف بنجاح وتمت تعبئة النموذج.',
-    invalidFile: 'تعذر قراءة ملف Excel. تأكدوا أن الملف مبني على القالب.',
-    missingColumns: 'ملف Excel لا يحتوي على الأعمدة المطلوبة: field_key و value.',
-    schoolNotFound: 'اسم المدرسة غير موجود في قائمة الاختيار. يرجى التحقق من القيمة في الملف.',
-    fileSelected: 'تم اختيار الملف: '
-  }
+  title: 'ייבוא תשובות מקובץ Excel',
+  desc: 'הורידו את תבנית Excel, מלאו את העמודות ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.',
+  step1: 'הורידו את תבנית Excel',
+  step2: 'מלאו את העמודה value לפי שם השדה בעמודה field_key',
+  step3: 'העלו את הקובץ ולחצו על ייבוא ומילוי הטופס',
+  download: 'הורדת תבנית Excel',
+  choose: 'בחירת קובץ Excel',
+  import: 'ייבוא ומילוי הטופס',
+  close: 'סגירה',
+  noLib: 'ספריית Excel לא נטענה. בדקו חיבור אינטרנט ונסו שוב.',
+  noFile: 'יש לבחור קובץ Excel לפני הייבוא.',
+  success: 'הקובץ יובא בהצלחה והטופס מולא.',
+  invalidFile: 'לא ניתן לקרוא את קובץ Excel. ודאו שהקובץ מבוסס על התבנית.',
+  missingColumns: 'קובץ Excel אינו כולל את העמודות הנדרשות: field_key ו-value.',
+  schoolNotFound: 'שם בית הספר לא נמצא ברשימת הבחירה. בדקו את הערך בקובץ.'
 };
 
 function getExcelText() {
-  return EXCEL_IMPORT_TEXTS[currentLang] || EXCEL_IMPORT_TEXTS.he;
+  return EXCEL_IMPORT_TEXTS;
 }
 
 function handleLeafSecretClick() {
@@ -897,22 +930,27 @@ function handleLeafSecretClick() {
   }
 }
 
-function updateExcelModalLanguage() {
+function updateExcelModalUi() {
   const T = getExcelText();
   const modal = document.getElementById('excelImportModal');
-  if (modal) modal.dir = STRINGS[currentLang].dir;
-  const title = document.getElementById('excelImportTitle');
-  const desc = document.getElementById('excelImportDesc');
-  const downloadBtn = document.getElementById('downloadExcelTemplateBtn');
-  const fileLabel = document.getElementById('excelFileLabel');
-  const importBtn = document.getElementById('importExcelBtn');
-  const closeBtn = document.getElementById('closeExcelModalBtn');
-  if (title) title.textContent = T.title;
-  if (desc) desc.textContent = T.desc;
-  if (downloadBtn) downloadBtn.textContent = T.download;
-  if (fileLabel) fileLabel.textContent = T.choose;
-  if (importBtn) importBtn.textContent = T.import;
-  if (closeBtn) closeBtn.textContent = T.close;
+  const panel = modal ? modal.querySelector('.excel-modal') : null;
+  if (panel) {
+    panel.dir = 'rtl';
+    panel.lang = 'he';
+  }
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  setText('excelImportTitle', T.title);
+  setText('excelImportDesc', T.desc);
+  setText('excelStep1', T.step1);
+  setText('excelStep2', T.step2);
+  setText('excelStep3', T.step3);
+  setText('downloadExcelTemplateBtn', T.download);
+  setText('excelFileLabelText', T.choose);
+  setText('importExcelBtn', T.import);
+  setText('closeExcelModalBtn', T.close);
 }
 
 function setExcelStatus(type, message) {
@@ -922,8 +960,22 @@ function setExcelStatus(type, message) {
   box.className = message ? 'status-box ' + type : 'status-box';
 }
 
+function resetExcelFileSelection() {
+  selectedExcelFile = null;
+  const input = document.getElementById('excelImportFile');
+  if (input) input.value = '';
+  const nameBox = document.getElementById('excelFileName');
+  const fileLabel = document.getElementById('excelFileLabel');
+  if (nameBox) {
+    nameBox.textContent = '';
+    nameBox.classList.remove('visible');
+  }
+  if (fileLabel) fileLabel.classList.remove('has-file');
+}
+
 function openExcelImportModal() {
-  updateExcelModalLanguage();
+  updateExcelModalUi();
+  resetExcelFileSelection();
   setExcelStatus('', '');
   const modal = document.getElementById('excelImportModal');
   if (modal) {
@@ -938,6 +990,7 @@ function closeExcelImportModal() {
     modal.classList.remove('visible');
     modal.setAttribute('aria-hidden', 'true');
   }
+  resetExcelFileSelection();
 }
 
 function handleExcelBackdropClick(event) {
@@ -948,7 +1001,16 @@ function handleExcelFileSelection() {
   const input = document.getElementById('excelImportFile');
   selectedExcelFile = input && input.files && input.files[0] ? input.files[0] : null;
   const nameBox = document.getElementById('excelFileName');
-  if (nameBox) nameBox.textContent = selectedExcelFile ? getExcelText().fileSelected + selectedExcelFile.name : '';
+  const fileLabel = document.getElementById('excelFileLabel');
+  if (selectedExcelFile) {
+    if (nameBox) {
+      nameBox.textContent = selectedExcelFile.name;
+      nameBox.classList.add('visible');
+    }
+    if (fileLabel) fileLabel.classList.add('has-file');
+  } else {
+    resetExcelFileSelection();
+  }
   setExcelStatus('', '');
 }
 
@@ -959,11 +1021,16 @@ function ensureXlsxReady() {
 function downloadExcelTemplate() {
   const T = getExcelText();
   if (!ensureXlsxReady()) { setExcelStatus('error', T.noLib); return; }
-  const hebrewTemplateRows = EXCEL_TEMPLATE_ROWS.map(({ field_key, label_he, value }) => ({ field_key, label_he, value }));
-  const worksheet = XLSX.utils.json_to_sheet(hebrewTemplateRows, { header: ['field_key','label_he','value'] });
+  const templateRows = EXCEL_TEMPLATE_ROWS.map(({ field_key, label, value }) => ({
+    field_key,
+    'תווית': label,
+    value
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(templateRows, { header: ['field_key', 'תווית', 'value'] });
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Project Book');
-  XLSX.writeFile(workbook, 'Project_Book_Excel_Template.xlsx');
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'ספר פרויקט');
+  XLSX.writeFile(workbook, 'תבנית_ספר_פרויקט.xlsx');
+  setExcelStatus('success', 'תבנית Excel הורדה בהצלחה.');
 }
 
 function normalizeExcelLang(value) {
@@ -1005,7 +1072,7 @@ function applyExcelRowsToForm(values) {
     populateSchoolDropdown(currentLang, cityValue);
   }
 
-  const directFields = ['principal','science_coord','tech_coord','classroom'];
+  const directFields = ['principal','mentor','science_coord','tech_coord','classroom'];
   directFields.forEach(id => { if (values[id]) setFieldValueFromExcel(id, values[id]); });
 
   [1,2,3,4,5].forEach(n => {
@@ -1069,10 +1136,9 @@ async function importExcelAnswers() {
     if (photoStage) photoStage.classList.remove('visible');
     savedTranslation = null;
 
-    const currentTexts = getExcelText();
     const existingMessage = document.getElementById('excelImportStatus').textContent;
-    const hasSchoolWarning = Object.values(EXCEL_IMPORT_TEXTS).some(texts => existingMessage.includes(texts.schoolNotFound));
-    if (!hasSchoolWarning) setExcelStatus('success', currentTexts.success);
+    const hasSchoolWarning = existingMessage.includes(EXCEL_IMPORT_TEXTS.schoolNotFound);
+    if (!hasSchoolWarning) setExcelStatus('success', getExcelText().success);
   } catch (err) {
     console.error('Excel import failed', err);
     setExcelStatus('error', T.invalidFile);
@@ -1199,7 +1265,7 @@ function setLang(lang) {
   const _ps = document.getElementById('photoStage');
   if (_ps && _ps.classList.contains('visible')) renderPhotoStage(lang);
   const _excelModal = document.getElementById('excelImportModal');
-  if (_excelModal && _excelModal.classList.contains('visible')) updateExcelModalLanguage();
+  if (_excelModal && _excelModal.classList.contains('visible')) updateExcelModalUi();
 }
 
 function syncLanguageControls(lang) {
@@ -1290,9 +1356,11 @@ const ACTION_STRINGS = {
   he: {
     flowLabel1: '✨ צור פרומפט לליטוש מקצועי',
     flowLabel2: 'העתק → הדבק בכל AI → קבל תשובה',
-    flowLabel3: 'הדבק את תשובת ה-AI והמשך לשלב התמונות',
+    flowLabel3: 'הדבק את תשובת ה-AI ובחרו איך להמשיך',
+    flowStep3Hint: 'ניתן ליצור מיד ספר ללא תמונות, או להמשיך להוספת תמונות לפני יצירת ספר מלא.',
     btnGenerate: 'צור פרומפט לליטוש מקצועי',
-    btnWord: 'המשך לשלב הוספת תמונות',
+    btnCreateNoPhotos: 'יצירת ספר פרויקט ללא תמונות',
+    btnContinuePhotos: 'המשך להוספת תמונות',
     copyBtnText: 'העתק',
     copied: '✓ הועתק!',
     pasteHint: '↓ הדבק כאן את תגובת ה-AI (JSON בלבד):',
@@ -1300,7 +1368,9 @@ const ACTION_STRINGS = {
     aiLinksLabel: 'פתח AI:',
     errNoData: 'אנא מלא לפחות חלק מהשאלות לפני יצירת הפרומפט.',
     errBadJSON: 'התגובה אינה JSON תקין. ודא שהעתקת את כל התשובה מה-AI.',
-    successWord: '✅ התוכן המלוטש נשמר. אפשר לעבור לשלב התמונות.',
+    successContinuePhotos: '✅ התוכן נשמר. אפשר להעלות תמונות וליצור ספר כולל תמונות.',
+    exportingWord: '⏳ יוצר קובץ Word...',
+    exportSuccess: '✅ ספר הפרויקט הורד בהצלחה!',
   },
   ar: {
     flowLabel1: '✨ أنشئ بروميبت للترجمة',
@@ -1464,18 +1534,18 @@ function isValidPolishedData(data) {
 }
 
 // ═══════════════════════════════════════════════════════
-// STEP 3 — Parse pasted JSON and open photo stage
+// STEP 3 — Parse pasted JSON and choose export path
 // ═══════════════════════════════════════════════════════
-async function buildWord() {
+function savePolishedFromPaste() {
   const A = ACTION_STRINGS[currentLang];
-  const raw = document.getElementById('pasteTextarea').value.trim();
-  if (!raw) { showStatus(A.errBadJSON, 'error'); return; }
+  const raw = document.getElementById('pasteTextarea')?.value?.trim() || '';
+  if (!raw) { showStatus(A.errBadJSON, 'error'); return null; }
 
   const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
   let polished;
   try { polished = JSON.parse(clean); }
-  catch(e) { showStatus(A.errBadJSON, 'error'); return; }
-  if (!isValidPolishedData(polished)) { showStatus(A.errBadJSON, 'error'); return; }
+  catch (e) { showStatus(A.errBadJSON, 'error'); return null; }
+  if (!isValidPolishedData(polished)) { showStatus(A.errBadJSON, 'error'); return null; }
 
   savedTranslation = {
     fromLang: 'he',
@@ -1483,7 +1553,18 @@ async function buildWord() {
     data: polished,
     savedAt: Date.now()
   };
-  showStatus(A.successWord, 'success');
+  return polished;
+}
+
+async function createBookWithoutPhotos() {
+  if (!savePolishedFromPaste()) return;
+  await buildFinalWord(false);
+}
+
+function continueToPhotoStage() {
+  const A = ACTION_STRINGS[currentLang];
+  if (!savePolishedFromPaste()) return;
+  showStatus(A.successContinuePhotos, 'success');
   setTimeout(showPhotoStage, 300);
 }
 
@@ -1499,35 +1580,307 @@ function updateActionLabels() {
   if (el('flowLabel1')) el('flowLabel1').textContent = A.flowLabel1;
   if (el('flowLabel2')) el('flowLabel2').textContent = A.flowLabel2;
   if (el('flowLabel3')) el('flowLabel3').textContent = A.flowLabel3;
+  if (el('flowStep3Hint')) el('flowStep3Hint').textContent = A.flowStep3Hint || '';
   if (el('btnGenerate')) el('btnGenerate').textContent = A.btnGenerate;
-  if (el('btnWord')) el('btnWord').textContent = A.btnWord;
+  if (el('btnCreateNoPhotosText')) el('btnCreateNoPhotosText').textContent = A.btnCreateNoPhotos || S.btnCreateNoPhotosText || '';
+  if (el('btnContinuePhotosText')) el('btnContinuePhotosText').textContent = A.btnContinuePhotos || '';
   if (el('copyBtnText')) el('copyBtnText').textContent = A.copyBtnText;
   if (el('pasteHint')) el('pasteHint').textContent = A.pasteHint;
   if (el('promptBoxLabel')) el('promptBoxLabel').textContent = A.promptBoxLabel;
 }
 
 // ═══════════════════════════════════════════════════════
-// WORD DOC — Hebrew-only final export is handled by buildFinalWord
+// HEBREW WORD EXPORT — paragraphs only; HTML .doc default
 // ═══════════════════════════════════════════════════════
-async function createWordDoc() {
-  throw new Error('ייצוא Word מתבצע דרך שלב התמונות בלבד.');
+const WORD_EXPORT_FORMAT = 'html'; // 'html' = stable RTL in Word; 'docx' = docx library
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
+function polishedSectionAnswer(polished, num) {
+  return (polished.sections || []).find(s => String(s.num) === String(num));
+}
+
+function answerToLines(text) {
+  return String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+}
+
+function getSchoolDetailLines(polished) {
+  return [
+    [STRINGS.he.lbl_city, polished.school_city || ''],
+    [STRINGS.he.lbl_school_name, polished.school_name || ''],
+    [STRINGS.he.lbl_principal, polished.principal || ''],
+    [STRINGS.he.lbl_mentor, polished.mentor || ''],
+    [STRINGS.he.lbl_sci, polished.science_coord || ''],
+    [STRINGS.he.lbl_tech, polished.tech_coord || ''],
+    [STRINGS.he.lbl_class, polished.classroom || ''],
+    [STRINGS.he.lbl_students, polished.students || '']
+  ];
+}
+
+async function collectSectionPhotoHtml(secNum, includePhotos) {
+  if (!includePhotos) return '';
+  const entries = Object.entries(photoData[secNum] || {}).filter(([, ph]) => ph && ph.dataURL);
+  return entries.map(([, ph]) =>
+    `<p class="photo"><img src="${ph.dataURL}" alt="" style="max-width:360px;max-height:230px"></p>`
+  ).join('\n');
+}
+
+async function buildHebrewWordHtml(polished, includePhotos = true) {
+  const schoolLines = getSchoolDetailLines(polished)
+    .map(([label, value]) => `<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</p>`)
+    .join('\n');
+
+  let sectionsHtml = '';
+  for (const sec of STRINGS.he.sections) {
+    const answer = polishedSectionAnswer(polished, sec.num)?.answer || '';
+    const lines = answerToLines(answer);
+    const body = lines.length
+      ? lines.map(line => `<p>${escapeHtml(line)}</p>`).join('\n')
+      : '<p>&nbsp;</p>';
+    const photos = await collectSectionPhotoHtml(sec.num, includePhotos);
+    sectionsHtml += `<h3>${escapeHtml(sec.num)}. ${escapeHtml(sec.title)}</h3>\n${body}\n${photos}\n`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+  direction: rtl;
+  text-align: right;
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  line-height: 1.6;
+  margin: 2cm;
+}
+p {
+  direction: rtl;
+  text-align: right;
+  margin: 0 0 8px 0;
+}
+h1, h2, h3 {
+  direction: rtl;
+  font-family: Arial, sans-serif;
+}
+h1 {
+  text-align: center;
+  font-size: 22pt;
+  margin: 0 0 12px 0;
+}
+h2 {
+  text-align: center;
+  font-size: 16pt;
+  margin: 0 0 20px 0;
+}
+h3 {
+  text-align: right;
+  font-size: 14pt;
+  font-weight: bold;
+  margin: 24px 0 10px 0;
+}
+.school-block {
+  margin: 20px 0 28px 0;
+}
+.photo {
+  text-align: center;
+  margin: 12px 0;
+}
+hr {
+  border: none;
+  border-top: 2px solid #1a7a4a;
+  margin: 16px 0;
+}
+</style>
+</head>
+<body>
+<h1>אליפות מדעני המחר בהשראת הטבע</h1>
+<h2>ספר הפרויקט</h2>
+<p style="text-align:center">ביומימיקרי בגישת ה-STEM</p>
+<hr>
+<div class="school-block">
+${schoolLines}
+</div>
+${sectionsHtml}
+</body>
+</html>`;
+}
+
+function downloadHtmlWordDoc(html, filename) {
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
+  saveAs(blob, filename);
+}
+
+function createDocxRtlHelpers(docxLib) {
+  const { Paragraph, TextRun, AlignmentType, ImageRun } = docxLib;
+  const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
+
+  function rtlTextRun(text, options = {}) {
+    const { size = 22, bold = false, color = '1C3326', italics = false, ...rest } = options;
+    return new TextRun({
+      text: String(text ?? ''),
+      font: 'Arial',
+      rtl: true,
+      rightToLeft: true,
+      size,
+      bold,
+      color,
+      italics,
+      ...rest
+    });
+  }
+
+  function rtlParagraph(textOrChildren, options = {}) {
+    const {
+      alignment = AL.R,
+      spacing = { before: 50, after: 50 },
+      children: childOverride,
+      run: runOptions = {},
+      ...textRunOptions
+    } = options;
+    const children = childOverride || (Array.isArray(textOrChildren)
+      ? textOrChildren
+      : [rtlTextRun(textOrChildren, { ...textRunOptions, ...runOptions })]);
+    return new Paragraph({
+      bidirectional: true,
+      alignment,
+      spacing,
+      children
+    });
+  }
+
+  return { rtlTextRun, rtlParagraph, AL, ImageRun };
+}
+
+async function buildHebrewWordDocx(polished, includePhotos = true) {
+  const { Document, Packer, ImageRun, AlignmentType } = window.docx;
+  const { rtlTextRun, rtlParagraph, AL } = createDocxRtlHelpers(window.docx);
+  const para = rtlParagraph;
+  const run = rtlTextRun;
+  const sp = (pt = 100) => rtlParagraph('', { spacing: { before: pt, after: 0 } });
+
+  async function imgParagraph(dataURL) {
+    const base64 = dataURL.split(',')[1];
+    const mime = dataURL.split(';')[0].split(':')[1] || '';
+    const type = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : 'jpg';
+    const dims = await new Promise(res => {
+      const img = new Image();
+      img.onload = () => res({ w: img.naturalWidth || 400, h: img.naturalHeight || 300 });
+      img.onerror = () => res({ w: 400, h: 300 });
+      img.src = dataURL;
+    });
+    const maxW = 360;
+    const maxH = 230;
+    const scale = Math.min(maxW / dims.w, maxH / dims.h, 1);
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return rtlParagraph([new ImageRun({
+      data: bytes,
+      transformation: { width: Math.round(dims.w * scale), height: Math.round(dims.h * scale) },
+      type
+    })], { alignment: AL.C, spacing: { before: 80, after: 80 } });
+  }
+
+  async function imageBlocksForSection(secNum) {
+    if (!includePhotos) return [];
+    const entries = Object.entries(photoData[secNum] || {}).filter(([, ph]) => ph && ph.dataURL);
+    const blocks = [];
+    for (const [, ph] of entries) {
+      try { blocks.push(await imgParagraph(ph.dataURL)); }
+      catch (e) { console.warn('Image load failed for sec', secNum, e); }
+    }
+    return blocks;
+  }
+
+  const children = [];
+  children.push(sp(200));
+  children.push(para('אליפות מדעני המחר בהשראת הטבע', {
+    alignment: AL.C, bold: true, size: 34, spacing: { before: 0, after: 20 }
+  }));
+  children.push(para('ספר הפרויקט', {
+    alignment: AL.C, bold: true, size: 28, spacing: { before: 0, after: 40 }
+  }));
+  children.push(para('ביומימיקרי בגישת ה-STEM', {
+    alignment: AL.C, size: 22, spacing: { before: 0, after: 120 }
+  }));
+
+  getSchoolDetailLines(polished).forEach(([label, value]) => {
+    children.push(para([
+      run(label + ': ', { bold: true, size: 21 }),
+      run(value || '', { size: 21 })
+    ], { spacing: { before: 40, after: 40 } }));
+  });
+  children.push(sp(80));
+
+  for (const sec of STRINGS.he.sections) {
+    const answer = polishedSectionAnswer(polished, sec.num)?.answer || '';
+    children.push(para(`${sec.num}. ${sec.title}`, {
+      bold: true, size: 26, spacing: { before: 160, after: 80 }
+    }));
+    const lines = answerToLines(answer);
+    if (lines.length) {
+      lines.forEach(line => children.push(para(line, { size: 21, spacing: { before: 20, after: 20 } })));
+    } else {
+      children.push(para('', { size: 21, spacing: { before: 20, after: 20 } }));
+    }
+    children.push(...await imageBlocksForSection(sec.num));
+    children.push(sp(60));
+  }
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: { font: 'Arial', size: 22, rtl: true, rightToLeft: true },
+          paragraph: { alignment: AL.R, bidirectional: true }
+        }
+      }
+    },
+    sections: [{
+      properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } },
+      children
+    }]
+  });
+
+  return Packer.toBlob(doc);
+}
+
+async function exportHebrewProjectBook(polished, includePhotos = true) {
+  const suffix = includePhotos ? 'with_photos' : 'no_photos';
+  if (WORD_EXPORT_FORMAT === 'docx' && window.docx) {
+    const blob = await buildHebrewWordDocx(polished, includePhotos);
+    saveAs(blob, `biomimicry_project_book_hebrew_${suffix}.docx`);
+    return { format: 'docx', filename: `biomimicry_project_book_hebrew_${suffix}.docx` };
+  }
+  const html = await buildHebrewWordHtml(polished, includePhotos);
+  const filename = `biomimicry_project_book_hebrew_${suffix}.doc`;
+  downloadHtmlWordDoc(html, filename);
+  return { format: 'html', filename };
+}
 
 // ═══════════════════════════════════════════════════════
 // BUILD FINAL WORD FROM PHOTO STAGE
 // ═══════════════════════════════════════════════════════
 async function buildFinalWord(includePhotos = true) {
-  const buttons = [document.getElementById('btnFinal'), document.getElementById('btnFinalNoPhotos')].filter(Boolean);
-  const statusEl = document.getElementById('statusBoxFinal');
+  const buttonIds = includePhotos ? ['btnFinal'] : ['btnCreateNoPhotos'];
+  const buttons = buttonIds.map(id => document.getElementById(id)).filter(Boolean);
+  const statusEl = document.getElementById(includePhotos ? 'statusBoxFinal' : 'statusBox');
+  const A = ACTION_STRINGS[currentLang];
   const showFinalStatus = (msg, type) => {
     if (!statusEl) return;
     statusEl.textContent = msg;
     statusEl.className = 'status-box ' + type;
   };
 
-  if (!window._libsReady || typeof window.docx === 'undefined') {
-    showFinalStatus('⚠️ ספריות לא נטענו — רעננו את הדף ונסו שוב', 'error');
+  if (typeof saveAs === 'undefined') {
+    showFinalStatus('⚠️ ספריית ההורדה לא נטענה — רעננו את הדף ונסו שוב', 'error');
     return;
   }
 
@@ -1547,335 +1900,30 @@ async function buildFinalWord(includePhotos = true) {
   }
 
   buttons.forEach(btn => { btn.disabled = true; });
-  showFinalStatus('⏳ יוצר קובץ Word...', 'info');
+  showFinalStatus(A.exportingWord || '⏳ יוצר קובץ Word...', 'info');
 
-  const {
-    Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
-    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, VerticalAlign
-  } = window.docx;
-
-  const C = {
-    darkGreen:'0B3D1E', green:'1A7A4A', midGreen:'2DA65E',
-    paleGreen:'E8F7EE', mint:'A8DBBE', mintLight:'D4F0E2',
-    white:'FFFFFF', offWhite:'F9FDF9', textDark:'1C3326', textLight:'6B8F78',
-    border:'B5D9C3', headHe:'1A7A4A'
-  };
-  const RLM = '\u200F';
-  const LRM = '\u200E';
-  const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
-  const rtl = text => {
-    const value = String(text ?? '');
-    return value.startsWith(RLM) ? value : RLM + value;
-  };
-  const bs = (color, sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
-  const bAll = (col, sz=4) => ({ top:bs(col,sz), bottom:bs(col,sz), left:bs(col,sz), right:bs(col,sz) });
-
-  function rtlTextRun(text, options = {}) {
-    const { size=22, bold=false, color=C.textDark, italics=false, ...rest } = options;
-    return new TextRun({
-      text: rtl(text),
-      font:'Arial',
-      rtl:true,
-      rightToLeft:true,
-      size,
-      bold,
-      color,
-      italics,
-      ...rest
-    });
-  }
-
-  function rtlParagraph(textOrChildren, options = {}) {
-    const {
-      alignment = AL.R,
-      spacing = { before:50, after:50 },
-      border,
-      shading,
-      indent,
-      paragraph = {},
-      run: runOptions = {},
-      ...textRunOptions
-    } = options;
-    const children = Array.isArray(textOrChildren)
-      ? textOrChildren
-      : [rtlTextRun(textOrChildren, { ...textRunOptions, ...runOptions })];
-    return new Paragraph({
-      bidirectional:true,
-      alignment,
-      spacing,
-      border,
-      shading,
-      indent,
-      children,
-      ...paragraph
-    });
-  }
-
-  function rtlCell(textOrChildren, options = {}) {
-    const {
-      width,
-      borders,
-      shading,
-      margins = { top:120, bottom:120, left:180, right:180 },
-      cell = {},
-      paragraph: paragraphOptions = {},
-      ...paragraphTextOptions
-    } = options;
-    return new TableCell({
-      width,
-      borders,
-      shading,
-      verticalAlign: VerticalAlign ? VerticalAlign.CENTER : undefined,
-      margins,
-      children: [rtlParagraph(textOrChildren, { ...paragraphTextOptions, ...paragraphOptions })],
-      ...cell
-    });
-  }
-
-  const run = rtlTextRun;
-  const para = rtlParagraph;
-  const sp = (pt=100) => rtlParagraph('', { spacing:{before:pt,after:0} });
-  const rule = (color, thick=8) => rtlParagraph('', {
-    spacing:{before:0,after:0}, border:{bottom:bs(color,thick)}
-  });
-  const oneColTable = (rows, fill=C.white) => new Table({
-    alignment: AL.R,
-    bidirectional: true,
-    width:{ size:100, type:WidthType.PERCENTAGE },
-    rows: rows.map(cells => new TableRow({ children: cells.map(cell => rtlCell(
-      cell,
-      {
-        width:{ size:9360 / cells.length, type:WidthType.DXA },
-        borders:bAll(C.border, 3),
-        shading:{ fill, type:ShadingType.CLEAR },
-        margins:{ top:120, bottom:120, left:180, right:180 }
-      }
-    )) }))
-  });
-
-  const expandSelfClosingTag = (xmlPart, tag) => xmlPart.replace(new RegExp(`<${tag}([^>]*)\/>`), `<${tag}$1></${tag}>`);
-  const ensurePPr = paragraph => {
-    paragraph = expandSelfClosingTag(paragraph, 'w:pPr');
-    return /<w:pPr[\s>]/.test(paragraph)
-      ? paragraph
-      : paragraph.replace(/<w:p([^>]*)>/, '<w:p$1><w:pPr></w:pPr>');
-  };
-  const ensureRPr = runXml => {
-    runXml = expandSelfClosingTag(runXml, 'w:rPr');
-    return /<w:rPr[\s>]/.test(runXml)
-      ? runXml
-      : runXml.replace(/<w:r([^>]*)>/, '<w:r$1><w:rPr></w:rPr>');
-  };
-  const ensureTblPr = tableXml => {
-    tableXml = expandSelfClosingTag(tableXml, 'w:tblPr');
-    return /<w:tblPr[\s>]/.test(tableXml)
-      ? tableXml
-      : tableXml.replace(/<w:tbl([^>]*)>/, '<w:tbl$1><w:tblPr></w:tblPr>');
-  };
-  const ensureChild = (xmlPart, parentTag, childXml, childPattern) => {
-    if (childPattern.test(xmlPart)) return xmlPart;
-    return xmlPart.replace(new RegExp(`<${parentTag}([^>]*)>`), `<${parentTag}$1>${childXml}`);
-  };
-  const ensureJcRight = xmlPart => /<w:jc\b/.test(xmlPart)
-    ? xmlPart.replace(/<w:jc\b[^>]*\/?>(?:<\/w:jc>)?/, '<w:jc w:val="right"/>')
-    : xmlPart.replace(/^<w:[^>]+>/, match => `${match}<w:jc w:val="right"/>`);
-
-  function patchDocumentXmlForFullRtl(xml) {
-    return xml
-      .replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, tbl => ensureTblPr(tbl)
-        .replace(/<w:tblPr\b[^>]*>[\s\S]*?<\/w:tblPr>/, tblPr => {
-          let patched = ensureChild(tblPr, 'w:tblPr', '<w:bidiVisual/>', /<w:bidiVisual\b/);
-          patched = ensureJcRight(patched);
-          return patched;
-        })
-      )
-      .replace(/<w:p\b[\s\S]*?<\/w:p>/g, pXml => ensurePPr(pXml).replace(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, pPr => {
-        let patched = ensureChild(pPr, 'w:pPr', '<w:bidi/>', /<w:bidi\b/);
-        patched = ensureJcRight(patched);
-        return patched;
-      }))
-      .replace(/<w:r\b[\s\S]*?<\/w:r>/g, rXml => ensureRPr(rXml).replace(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/, rPr => {
-        if (/<w:rtl\b/.test(rPr)) return rPr;
-        return rPr.replace(/<w:rPr([^>]*)>/, '<w:rPr$1><w:rtl/>');
-      }))
-      .replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g, sectPr => ensureChild(sectPr, 'w:sectPr', '<w:bidi/>', /<w:bidi\b/));
-  }
-
-  function patchStylesXmlForFullRtl(xml) {
-    const rPrDefault = '<w:rPrDefault><w:rPr><w:rtl/><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/></w:rPr></w:rPrDefault>';
-    const pPrDefault = '<w:pPrDefault><w:pPr><w:bidi/><w:jc w:val="right"/></w:pPr></w:pPrDefault>';
-    if (!/<w:docDefaults\b/.test(xml)) {
-      xml = xml.replace(/<w:styles([^>]*)>/, `<w:styles$1><w:docDefaults>${rPrDefault}${pPrDefault}</w:docDefaults>`);
-    }
-    return xml.replace(/<w:docDefaults\b[^>]*>[\s\S]*?<\/w:docDefaults>/, docDefaults => {
-      let patched = docDefaults;
-      if (!/<w:rPrDefault\b/.test(patched)) patched = patched.replace(/<w:docDefaults([^>]*)>/, `<w:docDefaults$1>${rPrDefault}`);
-      if (!/<w:pPrDefault\b/.test(patched)) patched = patched.replace(/<w:docDefaults([^>]*)>/, `<w:docDefaults$1>${pPrDefault}`);
-      patched = patched.replace(/<w:rPrDefault\b[^>]*>[\s\S]*?<\/w:rPrDefault>/, block => {
-        block = expandSelfClosingTag(block, 'w:rPr');
-        if (!/<w:rPr\b/.test(block)) block = block.replace(/<w:rPrDefault([^>]*)>/, '<w:rPrDefault$1><w:rPr></w:rPr>');
-        return block.replace(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/, rPr => {
-          let out = ensureChild(rPr, 'w:rPr', '<w:rtl/>', /<w:rtl\b/);
-          if (!/<w:rFonts\b/.test(out)) out = ensureChild(out, 'w:rPr', '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>', /<w:rFonts\b/);
-          return out;
-        });
-      });
-      patched = patched.replace(/<w:pPrDefault\b[^>]*>[\s\S]*?<\/w:pPrDefault>/, block => {
-        block = expandSelfClosingTag(block, 'w:pPr');
-        if (!/<w:pPr\b/.test(block)) block = block.replace(/<w:pPrDefault([^>]*)>/, '<w:pPrDefault$1><w:pPr></w:pPr>');
-        return block.replace(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, pPr => {
-          let out = ensureChild(pPr, 'w:pPr', '<w:bidi/>', /<w:bidi\b/);
-          out = ensureJcRight(out);
-          return out;
-        });
-      });
-      return patched;
-    });
-  }
-
-  function patchSettingsXmlForFullRtl(xml) {
-    let patched = xml.replace(/<w:settings([^>]*)>/, (match, attrs) => {
-      let prefix = '';
-      if (!/<w:bidi\b/.test(xml)) prefix += '<w:bidi/>';
-      if (!/<w:themeFontLang\b/.test(xml)) prefix += '<w:themeFontLang w:val="he-IL" w:eastAsia="he-IL" w:bidi="he-IL"/>';
-      return `<w:settings${attrs}>${prefix}`;
-    });
-    patched = patched.replace(/<w:themeFontLang\b[^>]*\/?>(?:<\/w:themeFontLang>)?/, tag => (
-      /w:bidi=/.test(tag) ? tag : tag.replace(/\/?>(?:<\/w:themeFontLang>)?$/, ' w:bidi="he-IL"/>')
-    ));
-    return patched;
-  }
-
-  async function patchDocxBlobForFullRtl(blob) {
-    if (!window.JSZip) return blob;
-    const zip = await window.JSZip.loadAsync(blob);
-    const patches = [
-      ['word/document.xml', patchDocumentXmlForFullRtl],
-      ['word/styles.xml', patchStylesXmlForFullRtl],
-      ['word/settings.xml', patchSettingsXmlForFullRtl]
-    ];
-    for (const [path, patcher] of patches) {
-      const file = zip.file(path);
-      if (file) zip.file(path, patcher(await file.async('string')));
-    }
-    return zip.generateAsync({ type:'blob' });
-  }
-
-  const cleanLines = text => String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
-  const sectionAnswer = (text) => {
-    const lines = cleanLines(text);
-    return lines.length
-      ? lines.map(line => para(line, { size:21 }))
-      : [para('', { size:21, color:C.textLight })];
-  };
-  const polishedSection = num => (polished.sections || []).find(s => String(s.num) === String(num));
-
-  async function imgParas(dataURL) {
-    const base64 = dataURL.split(',')[1];
-    const mime = dataURL.split(';')[0].split(':')[1] || '';
-    const type = mime.includes('png') ? 'png' : mime.includes('gif') ? 'gif' : 'jpg';
-    const dims = await new Promise(res => {
-      const img = new Image();
-      img.onload = () => res({ w:img.naturalWidth || 400, h:img.naturalHeight || 300 });
-      img.onerror = () => res({ w:400, h:300 });
-      img.src = dataURL;
-    });
-    const maxW = 360;
-    const maxH = 230;
-    const scale = Math.min(maxW / dims.w, maxH / dims.h, 1);
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i=0; i<binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return rtlParagraph([
-      new ImageRun({ data:bytes, transformation:{ width:Math.round(dims.w * scale), height:Math.round(dims.h * scale) }, type })
-    ], { alignment:AL.C, spacing:{ before:80, after:80 } });
-  }
-
-  async function imageBlocksForSection(secNum) {
-    if (!includePhotos) return [];
-    const entries = Object.entries(photoData[secNum] || {}).filter(([,ph]) => ph && ph.dataURL);
-    const blocks = [];
-    for (const [, ph] of entries) {
-      try { blocks.push(await imgParas(ph.dataURL)); }
-      catch(e) { console.warn('Image load failed for sec', secNum, e); }
-    }
-    return blocks;
-  }
-
-  const schoolRows = [
-    [STRINGS.he.lbl_city, polished.school_city || ''],
-    [STRINGS.he.lbl_school_name, polished.school_name || ''],
-    [STRINGS.he.lbl_principal, polished.principal || ''],
-    [STRINGS.he.lbl_mentor, polished.mentor || ''],
-    [STRINGS.he.lbl_sci, polished.science_coord || ''],
-    [STRINGS.he.lbl_tech, polished.tech_coord || ''],
-    [STRINGS.he.lbl_class, polished.classroom || ''],
-    [STRINGS.he.lbl_students, polished.students || '']
-  ];
-
-  const children = [];
   try {
-    children.push(sp(260));
-    children.push(rule(C.headHe, 18));
-    children.push(sp(100));
-    children.push(para('אליפות מדעני המחר בהשראת הטבע', { alignment:AL.C, bold:true, size:34, color:C.darkGreen, spacing:{ before:40, after:20 } }));
-    children.push(para('ספר הפרויקט', { alignment:AL.C, bold:true, size:26, color:C.headHe, spacing:{ before:0, after:80 } }));
-    children.push(para('ביומימיקרי בגישת ה-STEM', { alignment:AL.C, size:22, color:C.green, spacing:{ before:0, after:60 } }));
-    children.push(rule(C.mint, 7));
-    children.push(sp(90));
-
-    children.push(para(STRINGS.he.schoolTitle, {
-      bold:true, size:23, color:C.white,
-      shading:{ fill:C.headHe, type:ShadingType.CLEAR },
-      spacing:{ before:80, after:80 }
-    }));
-    schoolRows.forEach(([label, value], idx) => {
-      children.push(oneColTable([[[
-        run(label + ':  ', { bold:true, size:19, color:C.headHe }),
-        run(value || '', { size:19 })
-      ]]], idx % 2 === 0 ? C.paleGreen : C.offWhite));
-    });
-    children.push(sp(100));
-
-    for (const sec of STRINGS.he.sections) {
-      const answer = polishedSection(sec.num)?.answer || '';
-      children.push(para([
-        new TextRun({ text: `${LRM}${sec.num}.${LRM} `, font:'Arial', rtl:false, rightToLeft:false, bold:true, size:25, color:C.white }),
-        run(sec.title, { bold:true, size:25, color:C.white })
-      ], {
-        shading:{ fill:C.headHe, type:ShadingType.CLEAR },
-        spacing:{ before:130, after:70 }
-      }));
-      children.push(...sectionAnswer(answer));
-      children.push(...await imageBlocksForSection(sec.num));
-      children.push(sp(40));
+    await exportHebrewProjectBook(polished, includePhotos);
+    showFinalStatus(A.exportSuccess || '✅ ספר הפרויקט הורד בהצלחה!', 'success');
+  } catch (e) {
+    if (WORD_EXPORT_FORMAT !== 'html') {
+      try {
+        const html = await buildHebrewWordHtml(polished, includePhotos);
+        const suffix = includePhotos ? 'with_photos' : 'no_photos';
+        downloadHtmlWordDoc(html, `biomimicry_project_book_hebrew_${suffix}.doc`);
+        showFinalStatus('✅ ספר הפרויקט הורד בהצלחה (פורמט HTML)!', 'success');
+      } catch (fallbackErr) {
+        showFinalStatus('❌ ' + (fallbackErr.message || e.message), 'error');
+      }
+    } else {
+      showFinalStatus('❌ ' + e.message, 'error');
     }
-
-    const doc = new Document({
-      styles:{
-        default:{
-          document:{
-            run:{ font:'Arial', size:22, color:C.textDark, rtl:true, rightToLeft:true },
-            paragraph:{ alignment:AL.R, bidirectional:true }
-          }
-        }
-      },
-      sections:[{
-        properties:{ page:{ size:{ width:11906, height:16838 }, margin:{ top:720, right:720, bottom:720, left:720 } } },
-        children
-      }]
-    });
-
-    const blob = await patchDocxBlobForFullRtl(await Packer.toBlob(doc));
-    const filename = includePhotos
-      ? 'biomimicry_project_book_hebrew_with_photos.docx'
-      : 'biomimicry_project_book_hebrew_no_photos.docx';
-    saveAs(blob, filename);
-    showFinalStatus('✅ ספר הפרויקט הורד בהצלחה!', 'success');
-  } catch(e) {
-    showFinalStatus('❌ ' + e.message, 'error');
   }
   buttons.forEach(btn => { btn.disabled = false; });
+}
+
+async function buildWordExport(polished, includePhotos = false) {
+  return exportHebrewProjectBook(polished, includePhotos);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1921,8 +1969,7 @@ function renderPhotoStage(lang) {
   const el = id => document.getElementById(id);
   if (el('photoStageTitle')) el('photoStageTitle').textContent = S.photoStageTitle;
   if (el('photoStageDesc'))  el('photoStageDesc').textContent  = S.photoStageDesc;
-  if (el('btnFinalText'))    el('btnFinalText').textContent    = S.btnFinalText;
-  if (el('btnFinalNoPhotosText')) el('btnFinalNoPhotosText').textContent = S.btnFinalNoPhotosText;
+  if (el('btnFinalText')) el('btnFinalText').textContent = S.btnFinalText;
 }
 
 function makeSlot(secNum, idx, label) {
