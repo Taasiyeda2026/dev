@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ביומימיקרי STEM | بيومحاكاة STEM</title>
+<title>ביומימיקרי STEM</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -117,6 +117,7 @@
     width: 100%; font-family: 'Heebo', sans-serif; font-size: 14px; color: var(--text);
     background: var(--white); border: 1.5px solid var(--border); border-radius: 10px;
     padding: 10px 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+    direction: auto; unicode-bidi: plaintext;
   }
   input[type="text"]:focus, textarea:focus { border-color: var(--green-light); box-shadow: 0 0 0 3px rgba(45,166,94,0.12); }
   textarea { min-height: 135px; resize: vertical; line-height: 1.7; }
@@ -317,12 +318,12 @@
   <span class="leaf-icon" id="leafIcon" onclick="handleLeafSecretClick()">🌿</span>
   <div class="header-badge" id="hdrBadge">STEM · ביומימיקרי · תשפ״ו</div>
   <h1 id="hdrTitle">אליפות <span>מדעני המחר</span><br>בהשראת הטבע</h1>
-  <p id="hdrSub">מלאו את ספר הפרויקט ושלחו לתרגום</p>
+  <p id="hdrSub">מלאו את ספר הפרויקט ושלחו לליטוש מקצועי</p>
 </div>
 
 <div class="excel-modal-backdrop" id="excelImportModal" aria-hidden="true" onclick="handleExcelBackdropClick(event)">
   <div class="excel-modal" role="dialog" aria-modal="true" aria-labelledby="excelImportTitle" onclick="event.stopPropagation()">
-    <h2 id="excelImportTitle">ייבוא תשובות מקובץ Excel / استيراد الإجابات من ملف Excel</h2>
+    <h2 id="excelImportTitle">ייבוא תשובות מקובץ Excel</h2>
     <p id="excelImportDesc">הורידו תחילה את תבנית האקסל, מלאו את התשובות, ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.</p>
     <div class="excel-actions">
       <button type="button" class="excel-btn secondary" id="downloadExcelTemplateBtn" onclick="downloadExcelTemplate()">הורדת תבנית Excel</button>
@@ -346,25 +347,7 @@
 
 <div class="container">
 
-  <!-- Question 0: language choice -->
-  <div class="language-choice-card section-card open" id="languageQuestionCard">
-    <div class="section-header">
-      <span class="section-num">0</span>
-      <span class="section-title">בחירת שפה / اختيار اللغة</span>
-    </div>
-    <div class="language-choice-body">
-      <div class="language-options" role="radiogroup" aria-label="בחירת שפה / اختيار اللغة">
-        <label class="language-option" for="langChoiceHe">
-          <input type="radio" name="languageChoice" id="langChoiceHe" value="he" checked onchange="setLang('he')">
-          <span>עברית</span>
-        </label>
-        <label class="language-option" for="langChoiceAr">
-          <input type="radio" name="languageChoice" id="langChoiceAr" value="ar" onchange="setLang('ar')">
-          <span>العربية</span>
-        </label>
-      </div>
-    </div>
-  </div>
+  <!-- ממשק בעברית בלבד: כרטיס בחירת השפה הוסר -->
 
   <!-- School info -->
   <div class="school-block">
@@ -420,17 +403,17 @@
 
   <!-- Action -->
   <div class="action-section">
-    <h3 id="actionTitle">🌍 תרגום וייצוא לוורד</h3>
+    <h3 id="actionTitle">🌍 ליטוש מקצועי וייצוא לוורד</h3>
     <p id="actionDesc">3 שלבים פשוטים — ללא צורך בחשבון AI</p>
 
     <!-- STEP 1 -->
     <div class="flow-step" id="flowStep1">
       <div class="flow-step-header">
         <span class="flow-num">1</span>
-        <span id="flowLabel1">צור פרומפט לתרגום</span>
+        <span id="flowLabel1">צור פרומפט לליטוש מקצועי</span>
       </div>
       <button class="btn-translate" onclick="generatePrompt()">
-        <span>✨</span> <span id="btnGenerate">צור פרומפט</span>
+        <span>✨</span> <span id="btnGenerate">צור פרומפט לליטוש מקצועי</span>
       </button>
     </div>
 
@@ -546,7 +529,7 @@ const STRINGS = {
     dir: 'rtl', lang: 'he',
     badge: 'STEM · ביומימיקרי · תשפ״ו',
     title: 'אליפות <span>מדעני המחר</span><br>בהשראת הטבע',
-    sub: 'מלאו את ספר הפרויקט ושלחו לתרגום לערבית',
+    sub: 'מלאו את ספר הפרויקט ושלחו לליטוש מקצועי',
     progressSuffix: '% הושלם',
     schoolTitle: '🏫 פרטי בית הספר',
     lbl_school_name: 'בית ספר',
@@ -560,10 +543,10 @@ const STRINGS = {
     student_placeholders: ['תלמיד/ה 1','תלמיד/ה 2','תלמיד/ה 3','תלמיד/ה 4','תלמיד/ה 5'],
     city_placeholder: '— בחר —',
     school_placeholder: '— בחר רשות תחילה —',
-    actionTitle: '🌍 תרגום לערבית וייצוא לוורד',
+    actionTitle: '🌍 ליטוש מקצועי וייצוא לוורד',
     actionDesc: '3 שלבים פשוטים — ללא צורך בחשבון AI',
-    btnText: 'תרגם לערבית וצור קובץ Word',
-    steps: ['1. אוסף נתונים','2. מתרגם','3. יוצר Word','4. מוריד'],
+    btnText: 'לטש מקצועית וצור קובץ Word',
+    steps: ['1. אוסף נתונים','2. מלטש מקצועית','3. יוצר Word','4. מוריד'],
     photoStageTitle: 'יצירת ספר פרויקט עם תמונות',
     photoStageDesc: 'העלה תמונות לכל סעיף — לאחר מכן בחר אם ליצור ספר עם תמונות או ללא תמונות',
     btnFinalText: 'יצירת ספר פרויקט עם תמונות',
@@ -626,10 +609,10 @@ const STRINGS = {
         ]
       },
     ],
-    targetLang: 'ar',
-    targetLangName: 'ערבית',
-    filename: 'biomimicry_arabic.docx',
-    docTitle: 'بطولة علماء الغد بإلهام من الطبيعة – البيومحاكاة',
+    targetLang: 'he',
+    targetLangName: 'עברית',
+    filename: 'biomimicry_project_book_hebrew.docx',
+    docTitle: 'אליפות מדעני המחר בהשראת הטבע – ביומימיקרי',
     sections: [
       { num:'1', title:'שם המיזם', subs:[], fieldLabel:'שם הפרויקט', hint:'שם קצר, יצירתי ובעל משמעות הקשור לפתרון או לתופעה מהטבע', textarea:false },
       { num:'1.1', title:'הסבר על שם המיזם', subs:[], fieldLabel:'✎ הסבירו בקצרה מדוע בחרתם בשם זה (משפט וחצי)', hint:'הקשר בין שם המיזם לתופעה הטבעית או לפתרון', textarea:false },
@@ -839,7 +822,6 @@ let leafClickTimer = null;
 let selectedExcelFile = null;
 
 const EXCEL_TEMPLATE_ROWS = [
-  { field_key:'language', label_he:'בחירת שפה', label_ar:'اختيار اللغة', value:'he/ar' },
   { field_key:'school_city', label_he:'רשות', label_ar:'السلطة / البلدة', value:'' },
   { field_key:'school_name', label_he:'בית ספר', label_ar:'اسم المدرسة', value:'' },
   { field_key:'principal', label_he:'שם המנהל/ת', label_ar:'اسم المدير/ة', value:'' },
@@ -867,7 +849,7 @@ const EXCEL_TEMPLATE_ROWS = [
 
 const EXCEL_IMPORT_TEXTS = {
   he: {
-    title: 'ייבוא תשובות מקובץ Excel / استيراد الإجابات من ملف Excel',
+    title: 'ייבוא תשובות מקובץ Excel',
     desc: 'הורידו תחילה את תבנית האקסל, מלאו את התשובות, ולאחר מכן העלו את הקובץ כדי למלא את הטופס באופן אוטומטי.',
     download: 'הורדת תבנית Excel', choose: 'בחירת קובץ Excel', import: 'ייבוא ומילוי הטופס', close: 'סגירה',
     noLib: 'ספריית Excel לא נטענה. בדקו חיבור אינטרנט ונסו שוב.',
@@ -970,7 +952,8 @@ function ensureXlsxReady() {
 function downloadExcelTemplate() {
   const T = getExcelText();
   if (!ensureXlsxReady()) { setExcelStatus('error', T.noLib); return; }
-  const worksheet = XLSX.utils.json_to_sheet(EXCEL_TEMPLATE_ROWS, { header: ['field_key','label_he','label_ar','value'] });
+  const hebrewTemplateRows = EXCEL_TEMPLATE_ROWS.map(({ field_key, label_he, value }) => ({ field_key, label_he, value }));
+  const worksheet = XLSX.utils.json_to_sheet(hebrewTemplateRows, { header: ['field_key','label_he','value'] });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Project Book');
   XLSX.writeFile(workbook, 'Project_Book_Excel_Template.xlsx');
@@ -979,7 +962,6 @@ function downloadExcelTemplate() {
 function normalizeExcelLang(value) {
   const v = String(value || '').trim().toLowerCase();
   if (['he', 'heb', 'hebrew', 'עברית'].includes(v)) return 'he';
-  if (['ar', 'ara', 'arabic', 'العربية', 'عربي'].includes(v)) return 'ar';
   return '';
 }
 
@@ -1067,12 +1049,7 @@ async function importExcelAnswers() {
       values[key] = value;
     });
 
-    const importedLang = normalizeExcelLang(values.language);
-    if (importedLang && importedLang !== currentLang) {
-      setLang(importedLang);
-      await new Promise(resolve => setTimeout(resolve, 80));
-    }
-
+      // הממשק קבוע בעברית; שדה language באקסל נשמר לתאימות לאחור אך אינו מחליף שפה.
     applyExcelRowsToForm(values);
     saveCurrentAnswers();
     updateProgress();
@@ -1117,8 +1094,8 @@ function renderSections(lang) {
     const savedVal = answers[lang][fieldId] || '';
 
     const fieldHTML = sec.textarea
-      ? `<textarea id="${fieldId}" placeholder="…">${savedVal}</textarea>`
-      : `<input type="text" id="${fieldId}" value="${savedVal.replace(/"/g,'&quot;')}" placeholder="…">`;
+      ? `<textarea id="${fieldId}" dir="auto" placeholder="…">${savedVal}</textarea>`
+      : `<input type="text" id="${fieldId}" dir="auto" value="${savedVal.replace(/"/g,'&quot;')}" placeholder="…">`;
 
     const hintHTML = sec.hint ? `<div class="field-hint">${sec.hint}</div>` : '';
 
@@ -1156,6 +1133,7 @@ function renderSections(lang) {
 // LANGUAGE SWITCH
 // ═══════════════════════════════════════════════════════
 function setLang(lang) {
+  lang = 'he';
   if (!STRINGS[lang]) return;
 
   // Save current answers before switching
@@ -1169,7 +1147,12 @@ function setLang(lang) {
   document.getElementById('htmlRoot').setAttribute('lang', S.lang);
 
   // Update all text inputs' dir
-  document.querySelectorAll('input[type="text"], textarea').forEach(el => el.style.direction = S.dir);
+  document.querySelectorAll('input[type="text"], textarea').forEach(el => {
+    if (!el.classList.contains('prompt-textarea') && !el.classList.contains('paste-textarea')) {
+      el.setAttribute('dir', 'auto');
+      el.style.unicodeBidi = 'plaintext';
+    }
+  });
 
   // Header
   document.getElementById('hdrBadge').textContent = S.badge;
@@ -1190,7 +1173,7 @@ function setLang(lang) {
   // Action section
   const _at = document.getElementById('actionTitle');
   const _ad = document.getElementById('actionDesc');
-  if (_at) _at.textContent = S.actionTitle || '';
+  if (_at) _at.textContent = '🌍 ליטוש מקצועי וייצוא לוורד';
   if (_ad) _ad.textContent = S.actionDesc || '';
 
   // Lang buttons
@@ -1217,12 +1200,8 @@ function syncLanguageControls(lang) {
   const btnAr = document.getElementById('btnAr');
   if (btnHe) btnHe.className = 'lang-btn' + (lang==='he' ? ' active' : '');
   if (btnAr) btnAr.className = 'lang-btn' + (lang==='ar' ? ' active' : '');
-  const choiceHe = document.getElementById('langChoiceHe');
-  const choiceAr = document.getElementById('langChoiceAr');
-  if (choiceHe) choiceHe.checked = lang === 'he';
-  if (choiceAr) choiceAr.checked = lang === 'ar';
   const clearBtn = document.getElementById('clearFormBtn');
-  if (clearBtn) clearBtn.textContent = lang === 'he' ? '🗑 ניקוי טופס' : '🗑 مسح النموذج';
+  if (clearBtn) clearBtn.textContent = '🗑 ניקוי טופס';
 }
 
 function saveCurrentAnswers() {
@@ -1302,10 +1281,10 @@ function collectData() {
 // Add to he/ar STRINGS at runtime
 const ACTION_STRINGS = {
   he: {
-    flowLabel1: '✨ צור פרומפט לתרגום',
+    flowLabel1: '✨ צור פרומפט לליטוש מקצועי',
     flowLabel2: 'העתק → הדבק בכל AI → קבל תשובה',
     flowLabel3: 'הדבק את תשובת ה-AI והמשך לשלב התמונות',
-    btnGenerate: 'צור פרומפט',
+    btnGenerate: 'צור פרומפט לליטוש מקצועי',
     btnWord: 'המשך לשלב הוספת תמונות',
     copyBtnText: 'העתק',
     copied: '✓ הועתק!',
@@ -1314,7 +1293,7 @@ const ACTION_STRINGS = {
     aiLinksLabel: 'פתח AI:',
     errNoData: 'אנא מלא לפחות חלק מהשאלות לפני יצירת הפרומפט.',
     errBadJSON: 'התגובה אינה JSON תקין. ודא שהעתקת את כל התשובה מה-AI.',
-    successWord: '✅ התרגום נשמר. אפשר לעבור לשלב התמונות.',
+    successWord: '✅ התוכן המלוטש נשמר. אפשר לעבור לשלב התמונות.',
   },
   ar: {
     flowLabel1: '✨ أنشئ بروميبت للترجمة',
@@ -1380,20 +1359,25 @@ function generatePrompt() {
   updateActionLabels();
 }
 
-function buildPrompt(data, secAnswers, fromName, toName) {
+function buildPrompt(data, secAnswers) {
   const secs = secAnswers.map(s =>
     `Section ${s.num} "${s.title}":\n${s.answer || '(empty)'}`
   ).join('\n\n');
 
-  return `You are a professional ${toName} translator specializing in STEM education for schools.
-Translate ALL the following ${fromName} content to ${toName}.
-This is a student biomimicry STEM project book.
+  return `You are a professional Hebrew editor specializing in STEM education for schools.
+The following student project book contains answers written in Hebrew and/or Arabic.
+Your task is to create a polished professional Hebrew version of all answers for a final Word project book.
 
 RULES:
-1. Translate every field faithfully and completely.
-2. Keep technical STEM/science terms accurate.
-3. Return ONLY a valid JSON object — no explanation, no markdown, no backticks.
-4. If a field is empty, keep it as an empty string "".
+1. Return ONLY a valid JSON object — no explanation, no markdown, no backticks.
+2. The final output must be Hebrew only.
+3. If an answer is already in Hebrew, polish it professionally in Hebrew.
+4. If an answer is in Arabic, translate it into natural professional Hebrew while preserving the exact meaning.
+5. Preserve all factual details, names, project details, scientific terms, and student intent.
+6. Do not invent, expand, or add new information that does not appear in the source.
+7. Keep the writing suitable for a student STEM project book: clear, respectful, educational, and professional.
+8. If a field is empty, keep it as an empty string "".
+9. Do not change student names, school name, authority/city, role holders, or project details except to transliterate/translate them into Hebrew if they are written in Arabic.
 
 SOURCE DATA:
 School: ${data.school_name || ''}
@@ -1410,27 +1394,27 @@ ${secs}
 
 REQUIRED JSON OUTPUT FORMAT:
 {
-  "school_name": "<translated school name>",
-  "school_city": "<translated city>",
-  "principal": "<translated>",
-  "mentor": "<translated>",
-  "science_coord": "<translated>",
-  "tech_coord": "<translated>",
-  "classroom": "<translated>",
-  "students": "<translated>",
+  "school_name": "",
+  "school_city": "",
+  "principal": "",
+  "mentor": "",
+  "science_coord": "",
+  "tech_coord": "",
+  "classroom": "",
+  "students": "",
   "sections": [
-    {"num":"1","answer":"<translated answer>"},
-    {"num":"1.1","answer":"<translated answer>"},
-    {"num":"2","answer":"<translated answer>"},
-    {"num":"3","answer":"<translated answer>"},
-    {"num":"4","answer":"<translated answer>"},
-    {"num":"5","answer":"<translated answer>"},
-    {"num":"6","answer":"<translated answer>"},
-    {"num":"7","answer":"<translated answer>"},
-    {"num":"8","answer":"<translated answer>"},
-    {"num":"9","answer":"<translated answer>"},
-    {"num":"10","answer":"<translated answer>"},
-    {"num":"11","answer":"<translated answer>"}
+    {"num":"1","answer":""},
+    {"num":"1.1","answer":""},
+    {"num":"2","answer":""},
+    {"num":"3","answer":""},
+    {"num":"4","answer":""},
+    {"num":"5","answer":""},
+    {"num":"6","answer":""},
+    {"num":"7","answer":""},
+    {"num":"8","answer":""},
+    {"num":"9","answer":""},
+    {"num":"10","answer":""},
+    {"num":"11","answer":""}
   ]
 }`;
 }
@@ -1455,6 +1439,13 @@ function copyPrompt() {
   });
 }
 
+function isValidPolishedData(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return false;
+  if (!Array.isArray(data.sections)) return false;
+  const requiredNums = STRINGS.he.sections.map(sec => String(sec.num));
+  return requiredNums.every(num => data.sections.some(sec => sec && String(sec.num) === num && Object.prototype.hasOwnProperty.call(sec, 'answer')));
+}
+
 // ═══════════════════════════════════════════════════════
 // STEP 3 — Parse pasted JSON and open photo stage
 // ═══════════════════════════════════════════════════════
@@ -1464,14 +1455,15 @@ async function buildWord() {
   if (!raw) { showStatus(A.errBadJSON, 'error'); return; }
 
   const clean = raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim();
-  let translated;
-  try { translated = JSON.parse(clean); }
+  let polished;
+  try { polished = JSON.parse(clean); }
   catch(e) { showStatus(A.errBadJSON, 'error'); return; }
+  if (!isValidPolishedData(polished)) { showStatus(A.errBadJSON, 'error'); return; }
 
   savedTranslation = {
-    fromLang: currentLang,
-    toLang: STRINGS[currentLang].targetLang,
-    data: translated,
+    fromLang: 'he',
+    toLang: 'he',
+    data: polished,
     savedAt: Date.now()
   };
   showStatus(A.successWord, 'success');
@@ -1485,7 +1477,7 @@ function updateActionLabels() {
   const A = ACTION_STRINGS[currentLang];
   const S = STRINGS[currentLang];
   const el = (id) => document.getElementById(id);
-  if (el('actionTitle')) el('actionTitle').textContent = S.actionTitle || '🌍 תרגום וייצוא לוורד';
+  if (el('actionTitle')) el('actionTitle').textContent = '🌍 ליטוש מקצועי וייצוא לוורד';
   if (el('actionDesc')) el('actionDesc').textContent = S.actionDesc || '';
   if (el('flowLabel1')) el('flowLabel1').textContent = A.flowLabel1;
   if (el('flowLabel2')) el('flowLabel2').textContent = A.flowLabel2;
@@ -1498,339 +1490,10 @@ function updateActionLabels() {
 }
 
 // ═══════════════════════════════════════════════════════
-// WORD DOC  — bilingual side-by-side
+// WORD DOC — Hebrew-only final export is handled by buildFinalWord
 // ═══════════════════════════════════════════════════════
-async function createWordDoc(srcData, translated, fromLang, toLang, T_strings) {
-  if (!window._libsReady || typeof window.docx === 'undefined') {
-    throw new Error(fromLang === 'he'
-      ? 'ספריות לא נטענו — רענן את הדף ונסה שוב'
-      : 'لم تُحمَّل المكتبات — أعد تحميل الصفحة وحاول مجدداً');
-  }
-
-  const {
-    Document, Packer, Paragraph, TextRun, AlignmentType,
-    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, PageBreak
-  } = window.docx;
-
-  const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER, L: AlignmentType.LEFT };
-
-  // ── Palette ───────────────────────────────────────────
-  const C = {
-    darkGreen:'0B3D1E', green:'1A7A4A', midGreen:'2DA65E',
-    paleGreen:'E8F7EE', paleGreen2:'F0FAF5',
-    mint:'A8DBBE', mintLight:'D4F0E2',
-    white:'FFFFFF', offWhite:'F9FDF9',
-    textDark:'1C3326', textMid:'3A5A45', textLight:'6B8F78',
-    border:'B5D9C3', colHe:'E8F7EE', colAr:'EBF5FF',
-    headHe:'1A7A4A', headAr:'1A4A7A',
-  };
-
-  // ── Border helpers ────────────────────────────────────
-  const bs  = (color,sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
-  const bn  = ()           => ({ style:BorderStyle.NONE,   size:0,  color:'FFFFFF' });
-  const bAll= (col,sz=4)   => ({ top:bs(col,sz),bottom:bs(col,sz),left:bs(col,sz),right:bs(col,sz) });
-  const bNone = ()         => ({ top:bn(),bottom:bn(),left:bn(),right:bn() });
-
-  // ── Text run helpers ──────────────────────────────────
-  const run = (text, opts={}) => new TextRun({
-    text, font:'Arial', rtl:true,
-    size: opts.size||22, bold:opts.bold||false,
-    color: opts.color||C.textDark, italics:opts.italics||false,
-  });
-
-  // ── RTL paragraph helper ───────────────────────────────
-  const rtlParagraph = (children, opts={}) => new Paragraph({
-    bidirectional: true,
-    alignment: opts.alignment || AL.R,
-    spacing: opts.spacing || { before:60, after:60 },
-    shading: opts.shading || undefined,
-    border: opts.border || undefined,
-    indent: opts.indent || undefined,
-    children,
-  });
-
-  // ── Single-column paragraph ───────────────────────────
-  const para = (text, align=AL.R, opts={}) => rtlParagraph(
-    Array.isArray(text) ? text : [run(text, opts)],
-    { ...opts, alignment: align }
-  );
-
-  const sp = (pt=120) => new Paragraph({ spacing:{before:pt,after:0}, children:[new TextRun('')] });
-
-  const rule = (color, thick=8) => new Paragraph({
-    spacing:{before:0,after:0},
-    border:{ bottom:bs(color,thick) },
-    children:[new TextRun('')]
-  });
-
-  // ── TWO-COLUMN TABLE ROW ──────────────────────────────
-  // leftContent / rightContent = array of Paragraph
-  // leftBg / rightBg = fill color hex
-  const twoCol = (leftParas, rightParas, leftBg, rightBg, borderColor) => {
-    const brd = bAll(borderColor||C.border, 3);
-    return new TableRow({ children:[
-      new TableCell({
-        width:{ size:4680, type:WidthType.DXA },
-        borders: brd,
-        shading:{ fill:leftBg||C.white, type:ShadingType.CLEAR },
-        margins:{ top:80, bottom:80, left:140, right:140 },
-        children: leftParas,
-      }),
-      new TableCell({
-        width:{ size:4680, type:WidthType.DXA },
-        borders: brd,
-        shading:{ fill:rightBg||C.white, type:ShadingType.CLEAR },
-        margins:{ top:80, bottom:80, left:140, right:140 },
-        children: rightParas,
-      }),
-    ]});
-  };
-
-  const twoColTable = (rows) => new Table({
-    width:{ size:9360, type:WidthType.DXA },
-    columnWidths:[4680,4680],
-    rows,
-  });
-
-  // ── Language assignment ───────────────────────────────
-  // fromLang = interface language (what user filled in)
-  // toLang   = translation language
-  // LEFT col  = fromLang (original)
-  // RIGHT col = toLang   (translated)
-  const SRC  = STRINGS[fromLang];
-  const TRGT = STRINGS[toLang];
-
-  const srcLabel  = fromLang==='he' ? 'עברית' : 'عربي';
-  const trgLabel  = toLang  ==='he' ? 'עברית' : 'عربي';
-  const srcBg     = fromLang==='he' ? C.colHe  : C.colAr;
-  const trgBg     = toLang  ==='he' ? C.colHe  : C.colAr;
-  const srcHead   = fromLang==='he' ? C.headHe : C.headAr;
-  const trgHead   = toLang  ==='he' ? C.headHe : C.headAr;
-
-  // ── Helper: lines from answer string ─────────────────
-  const answerParas = (text, align) => {
-    if (!text || !text.trim()) return [para('—', align, {color:C.textLight, size:20})];
-    return text.split('\n')
-      .filter(l=>l.trim())
-      .map(l => para(l, align, { size:21 }));
-  };
-
-  const guideParas = (subs, align) => subs.map(q => rtlParagraph([
-    run('◈  ', { size:18, color:C.midGreen, bold:true }),
-    run(q,      { size:18, color:C.textMid }),
-  ], {
-    alignment: align,
-    spacing:{ before:30, after:30 },
-    indent: align===AL.R ? {right:160} : {left:160},
-  }));
-
-  // ══════════════════════════════════════════════════════
-  // BUILD DOCUMENT
-  // ══════════════════════════════════════════════════════
-  const children = [];
-
-  // ── COVER ─────────────────────────────────────────────
-  children.push(sp(400));
-  children.push(rule(C.green, 20));
-  children.push(sp(160));
-
-  // Bilingual cover title table
-  const coverTitleRow = twoCol(
-    [para('אליפות מדעני המחר בהשראת הטבע', AL.R,
-          { bold:true, size:36, color:C.darkGreen, spacing:{before:40,after:20} }),
-     para('ביומימיקרי בגישת ה-STEM', AL.R,
-          { size:24, color:C.green, spacing:{before:0,after:40} })],
-    [para('بطولة علماء الغد بإلهام من الطبيعة', AL.R,
-          { bold:true, size:36, color:C.darkGreen, spacing:{before:40,after:20} }),
-     para('البيومحاكاة بمنهج الـ STEM', AL.R,
-          { size:24, color:C.headAr, spacing:{before:0,after:40} })],
-    C.paleGreen, C.colAr, C.border
-  );
-  children.push(twoColTable([coverTitleRow]));
-  children.push(sp(80));
-
-  // Book label row
-  const bookRow = twoCol(
-    [para('ספר הפרויקט', AL.C, { size:26, color:C.green }),
-     para('שנת לימודים: תשפ״ו — 2025–2026', AL.C, { size:18, color:C.textLight, italics:true })],
-    [para('كتاب المشروع', AL.C, { size:26, color:C.headAr }),
-     para('السنة الدراسية: تشب"ו — 2025–2026', AL.C, { size:18, color:C.textLight, italics:true })],
-    C.offWhite, C.offWhite, C.border
-  );
-  children.push(twoColTable([bookRow]));
-  children.push(sp(160));
-  children.push(rule(C.mint, 8));
-
-  // ── SCHOOL INFO ───────────────────────────────────────
-  children.push(sp(160));
-
-  // School section heading row
-  const schoolHdr = twoCol(
-    [para('  ' + STRINGS['he'].schoolTitle.replace('🏫 ','🏫 '), AL.R,
-          { bold:true, size:24, color:C.white,
-            spacing:{before:100,after:100},
-            shading:{ fill:C.headHe, type:ShadingType.CLEAR } })],
-    [para('  ' + STRINGS['ar'].schoolTitle.replace('🏫 ','🏫 '), AL.R,
-          { bold:true, size:24, color:C.white,
-            spacing:{before:100,after:100},
-            shading:{ fill:C.headAr, type:ShadingType.CLEAR } })],
-    C.headHe, C.headAr, C.border
-  );
-  children.push(twoColTable([schoolHdr]));
-
-  const LH = STRINGS['he'];
-  const LA = STRINGS['ar'];
-
-  const schoolFieldsHe = [
-    [LH.lbl_city,      srcData.school_city   || ''],
-    [LH.lbl_school_name,srcData.school_name  || ''],
-    [LH.lbl_principal, srcData.principal     || ''],
-    [LH.lbl_mentor,    srcData.mentor        || ''],
-    [LH.lbl_sci,       srcData.science_coord || ''],
-    [LH.lbl_tech,      srcData.tech_coord    || ''],
-    [LH.lbl_class,     srcData.classroom     || ''],
-    [LH.lbl_students,  srcData.students      || ''],
-  ];
-  const schoolFieldsAr = [
-    [LA.lbl_city,       translated.school_city   || srcData.school_city   || ''],
-    [LA.lbl_school_name,translated.school_name   || srcData.school_name   || ''],
-    [LA.lbl_principal,  translated.principal     || srcData.principal     || ''],
-    [LA.lbl_mentor,    translated.mentor        || srcData.mentor        || ''],
-    [LA.lbl_sci,        translated.science_coord || srcData.science_coord || ''],
-    [LA.lbl_tech,       translated.tech_coord    || srcData.tech_coord    || ''],
-    [LA.lbl_class,      translated.classroom     || srcData.classroom     || ''],
-    [LA.lbl_students,   translated.students      || srcData.students      || ''],
-  ];
-
-  const schoolRows = schoolFieldsHe.map(([lbl,val], i) => {
-    const [lblA, valA] = schoolFieldsAr[i];
-    const shade = i%2===0;
-    return twoCol(
-      [rtlParagraph([
-         run(lbl+':  ', {bold:true, size:19, color:C.green}),
-         run(val||'—',  {size:19, color:C.textDark}),
-       ]),],
-      [rtlParagraph([
-         run(lblA+':  ', {bold:true, size:19, color:C.headAr}),
-         run(valA||'—', {size:19, color:C.textDark}),
-       ]),],
-      shade ? C.paleGreen : C.white,
-      shade ? C.colAr     : C.offWhite,
-      C.border
-    );
-  });
-  children.push(twoColTable(schoolRows));
-  children.push(sp(120));
-  children.push(rule(C.green, 6));
-
-  // ── SECTIONS ──────────────────────────────────────────
-  const secsSrc  = STRINGS[fromLang].sections;
-  const secsTrgt = STRINGS[toLang].sections;
-  const transSecs = translated.sections || [];
-
-  secsSrc.forEach((secSrc, idx) => {
-    const secTrgt = secsTrgt[idx];
-    const tSec    = transSecs.find(s => s.num === secSrc.num);
-
-    if (idx > 0 && idx % 3 === 0) {
-      children.push(new Paragraph({ children:[new PageBreak()] }));
-    }
-
-    // ── Section heading row ──
-    const secHdrRow = twoCol(
-      [rtlParagraph([
-        run('  '+secSrc.num+'.  ', {bold:true, size:28, color:C.mintLight}),
-        run(secSrc.title,          {bold:true, size:28, color:C.white}),
-      ], {
-        alignment:AL.R, spacing:{before:0,after:0},
-        shading:{ fill:C.headHe, type:ShadingType.CLEAR },
-      })],
-      [rtlParagraph([
-        run('  '+secTrgt.num+'.  ', {bold:true, size:28, color:C.mintLight}),
-        run(secTrgt.title,          {bold:true, size:28, color:C.white}),
-      ], {
-        alignment:AL.R, spacing:{before:0,after:0},
-        shading:{ fill:C.headAr, type:ShadingType.CLEAR },
-      })],
-      C.headHe, C.headAr, C.border
-    );
-    children.push(twoColTable([secHdrRow]));
-
-    // ── Guiding questions row ──
-    if ((secSrc.subs && secSrc.subs.length) || (secTrgt.subs && secTrgt.subs.length)) {
-      const qRow = twoCol(
-        guideParas(secSrc.subs||[], AL.R),
-        guideParas(secTrgt.subs||[], AL.R),
-        C.paleGreen, C.colAr, C.border
-      );
-      children.push(twoColTable([qRow]));
-    }
-
-    // ── Write-label row ──
-    const lblRow = twoCol(
-      [rtlParagraph([run('  '+secSrc.fieldLabel, {bold:true, size:20, color:C.midGreen})], {
-        alignment:AL.R, spacing:{before:40,after:40},
-        border:{ right:bs(C.midGreen,8) },
-      })],
-      [rtlParagraph([run('  '+secTrgt.fieldLabel, {bold:true, size:20, color:C.headAr})], {
-        alignment:AL.R, spacing:{before:40,after:40},
-        border:{ right:bs(C.headAr,8) },
-      })],
-      C.offWhite, C.offWhite, C.border
-    );
-    children.push(twoColTable([lblRow]));
-
-    // ── Answer row ──
-    const srcAns  = (srcData['s'+secSrc.num]||'').trim();
-    const trgAns  = (tSec?.answer||'').trim();
-
-    const srcParas = srcAns
-      ? srcAns.split('\n').filter(l=>l.trim()).map(l=>para(l,AL.R,{size:21}))
-      : Array(4).fill(null).map(()=>rtlParagraph([new TextRun('')], {
-          spacing:{before:180,after:0},
-          border:{bottom:bs(C.border,2)},
-        }));
-
-    const trgParas = trgAns
-      ? trgAns.split('\n').filter(l=>l.trim()).map(l=>para(l,AL.R,{size:21}))
-      : Array(4).fill(null).map(()=>rtlParagraph([new TextRun('')], {
-          spacing:{before:180,after:0},
-          border:{bottom:bs(C.border,2)},
-        }));
-
-    const ansRow = twoCol(srcParas, trgParas, C.white, C.offWhite, C.border);
-    children.push(twoColTable([ansRow]));
-    children.push(sp(60));
-  });
-
-  // ── FOOTER ────────────────────────────────────────────
-  children.push(sp(160));
-  children.push(rule(C.mint, 6));
-  children.push(sp(60));
-  children.push(rtlParagraph([
-    run('אליפות מדעני המחר בהשראת הטבע  |  بطولة علماء الغد بإلهام من الطبيعة  |  2025–2026',
-        { size:16, color:C.textLight, italics:true })
-  ], { alignment:AL.C }));
-
-  // ── ASSEMBLE ──────────────────────────────────────────
-  const doc = new Document({
-    styles:{
-      default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } }
-    },
-    sections:[{
-      properties:{
-        page:{
-          size:{ width:16838, height:11906 },        // A4 Landscape
-          margin:{ top:720, right:720, bottom:720, left:720 }
-        }
-      },
-      children
-    }]
-  });
-
-  const blob = await Packer.toBlob(doc);
-  const filename = 'biomimicry_bilingual_' + fromLang + '_' + toLang + '.docx';
-  saveAs(blob, filename);
+async function createWordDoc() {
+  throw new Error('ייצוא Word מתבצע דרך שלב התמונות בלבד.');
 }
 
 
@@ -1847,36 +1510,38 @@ async function buildFinalWord(includePhotos = true) {
   };
 
   if (!window._libsReady || typeof window.docx === 'undefined') {
-    showFinalStatus(currentLang==='he'
-      ? '⚠️ ספריות לא נטענו — רענן את הדף'
-      : '⚠️ المكتبات لم تُحمَّل — أعد التحميل', 'error');
+    showFinalStatus('⚠️ ספריות לא נטענו — רעננו את הדף ונסו שוב', 'error');
     return;
   }
 
   const raw = document.getElementById('pasteTextarea')?.value?.trim() || '';
-  let translated = (savedTranslation && savedTranslation.fromLang === currentLang) ? savedTranslation.data : null;
-  if (!translated) {
+  let polished = savedTranslation ? savedTranslation.data : null;
+  if (!polished) {
     try {
-      translated = JSON.parse(raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
+      polished = JSON.parse(raw.replace(/^```json\s*/,'').replace(/^```\s*/,'').replace(/```\s*$/,'').trim());
     } catch(e) {
-      showFinalStatus(ACTION_STRINGS[currentLang].errBadJSON, 'error');
+      showFinalStatus(ACTION_STRINGS.he.errBadJSON, 'error');
       return;
     }
   }
+  if (!isValidPolishedData(polished)) {
+    showFinalStatus(ACTION_STRINGS.he.errBadJSON, 'error');
+    return;
+  }
 
   buttons.forEach(btn => { btn.disabled = true; });
-  showFinalStatus(currentLang==='he' ? '⏳ יוצר קובץ Word...' : '⏳ جارٍ إنشاء ملف Word...', 'info');
+  showFinalStatus('⏳ יוצר קובץ Word...', 'info');
 
   const {
     Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType,
-    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell, PageBreak
+    BorderStyle, ShadingType, WidthType, Table, TableRow, TableCell
   } = window.docx;
 
   const C = {
     darkGreen:'0B3D1E', green:'1A7A4A', midGreen:'2DA65E',
-    paleGreen:'E8F7EE', colAr:'EBF5FF', mint:'A8DBBE', mintLight:'D4F0E2',
+    paleGreen:'E8F7EE', mint:'A8DBBE', mintLight:'D4F0E2',
     white:'FFFFFF', offWhite:'F9FDF9', textDark:'1C3326', textLight:'6B8F78',
-    border:'B5D9C3', headHe:'1A7A4A', headAr:'1A4A7A'
+    border:'B5D9C3', headHe:'1A7A4A'
   };
   const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
   const bs = (color, sz=4) => ({ style:BorderStyle.SINGLE, size:sz, color });
@@ -1920,10 +1585,7 @@ async function buildFinalWord(includePhotos = true) {
       ? lines.map(line => para(line, { size:21 }))
       : [para('', { size:21, color:C.textLight })];
   };
-  const translatedSection = num => (translated.sections || []).find(s => String(s.num) === String(num));
-  const srcData = collectData();
-  const firstLang = currentLang;
-  const secondLang = STRINGS[firstLang].targetLang;
+  const polishedSection = num => (polished.sections || []).find(s => String(s.num) === String(num));
 
   async function imgParas(dataURL) {
     const base64 = dataURL.split(',')[1];
@@ -1959,72 +1621,52 @@ async function buildFinalWord(includePhotos = true) {
     return blocks;
   }
 
-  const schoolRowsForLang = (lang) => {
-    const S = STRINGS[lang];
-    const isFirst = lang === firstLang;
-    const values = isFirst ? srcData : translated;
-    return [
-      [S.lbl_city, values.school_city || ''],
-      [S.lbl_school_name, values.school_name || ''],
-      [S.lbl_principal, values.principal || ''],
-      [S.lbl_mentor, values.mentor || srcData.mentor || ''],
-      [S.lbl_sci, values.science_coord || ''],
-      [S.lbl_tech, values.tech_coord || ''],
-      [S.lbl_class, values.classroom || ''],
-      [S.lbl_students, values.students || '']
-    ];
-  };
+  const schoolRows = [
+    [STRINGS.he.lbl_city, polished.school_city || ''],
+    [STRINGS.he.lbl_school_name, polished.school_name || ''],
+    [STRINGS.he.lbl_principal, polished.principal || ''],
+    [STRINGS.he.lbl_mentor, polished.mentor || ''],
+    [STRINGS.he.lbl_sci, polished.science_coord || ''],
+    [STRINGS.he.lbl_tech, polished.tech_coord || ''],
+    [STRINGS.he.lbl_class, polished.classroom || ''],
+    [STRINGS.he.lbl_students, polished.students || '']
+  ];
 
-  async function appendBook(lang, isFirstBook, children) {
-    const S = STRINGS[lang];
-    const head = lang === 'he' ? C.headHe : C.headAr;
-    const bg = lang === 'he' ? C.paleGreen : C.colAr;
-    const title = lang === 'he'
-      ? 'אליפות מדעני המחר בהשראת הטבע'
-      : 'بطولة علماء الغد بإلهام من الطبيعة';
-    const subtitle = lang === 'he' ? 'ספר הפרויקט' : 'كتاب المشروع';
-
-    if (!isFirstBook) children.push(new Paragraph({ children:[new PageBreak()] }));
+  const children = [];
+  try {
     children.push(sp(260));
-    children.push(rule(head, 18));
+    children.push(rule(C.headHe, 18));
     children.push(sp(100));
-    children.push(para(title, { alignment:AL.C, bold:true, size:34, color:C.darkGreen, spacing:{ before:40, after:20 } }));
-    children.push(para(subtitle, { alignment:AL.C, bold:true, size:26, color:head, spacing:{ before:0, after:80 } }));
+    children.push(para('אליפות מדעני המחר בהשראת הטבע', { alignment:AL.C, bold:true, size:34, color:C.darkGreen, spacing:{ before:40, after:20 } }));
+    children.push(para('ספר הפרויקט', { alignment:AL.C, bold:true, size:26, color:C.headHe, spacing:{ before:0, after:80 } }));
+    children.push(para('ביומימיקרי בגישת ה-STEM', { alignment:AL.C, size:22, color:C.green, spacing:{ before:0, after:60 } }));
     children.push(rule(C.mint, 7));
     children.push(sp(90));
 
-    children.push(para(S.schoolTitle, {
+    children.push(para(STRINGS.he.schoolTitle, {
       bold:true, size:23, color:C.white,
-      shading:{ fill:head, type:ShadingType.CLEAR },
+      shading:{ fill:C.headHe, type:ShadingType.CLEAR },
       spacing:{ before:80, after:80 }
     }));
-    schoolRowsForLang(lang).forEach(([label, value], idx) => {
+    schoolRows.forEach(([label, value], idx) => {
       children.push(oneColTable([[rtlParagraph([
-        run(label + ':  ', { bold:true, size:19, color:head }),
+        run(label + ':  ', { bold:true, size:19, color:C.headHe }),
         run(value || '', { size:19 })
-      ])]], idx % 2 === 0 ? bg : C.offWhite));
+      ])]], idx % 2 === 0 ? C.paleGreen : C.offWhite));
     });
     children.push(sp(100));
 
-    for (const sec of S.sections) {
-      const answer = lang === firstLang
-        ? (srcData['s' + sec.num] || '')
-        : (translatedSection(sec.num)?.answer || '');
+    for (const sec of STRINGS.he.sections) {
+      const answer = polishedSection(sec.num)?.answer || '';
       children.push(para(sec.num + '. ' + sec.title, {
         bold:true, size:25, color:C.white,
-        shading:{ fill:head, type:ShadingType.CLEAR },
+        shading:{ fill:C.headHe, type:ShadingType.CLEAR },
         spacing:{ before:130, after:70 }
       }));
       children.push(...sectionAnswer(answer));
       children.push(...await imageBlocksForSection(sec.num));
       children.push(sp(40));
     }
-  }
-
-  const children = [];
-  try {
-    await appendBook(firstLang, true, children);
-    await appendBook(secondLang, false, children);
 
     const doc = new Document({
       styles:{ default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } } },
@@ -2035,9 +1677,11 @@ async function buildFinalWord(includePhotos = true) {
     });
 
     const blob = await Packer.toBlob(doc);
-    const suffix = includePhotos ? 'with_photos' : 'no_photos';
-    saveAs(blob, 'biomimicry_project_book_' + firstLang + '_' + secondLang + '_' + suffix + '.docx');
-    showFinalStatus(currentLang==='he' ? '✅ ספר הפרויקט הורד בהצלחה!' : '✅ تم تنزيل كتاب المشروع بنجاح!', 'success');
+    const filename = includePhotos
+      ? 'biomimicry_project_book_hebrew_with_photos.docx'
+      : 'biomimicry_project_book_hebrew_no_photos.docx';
+    saveAs(blob, filename);
+    showFinalStatus('✅ ספר הפרויקט הורד בהצלחה!', 'success');
   } catch(e) {
     showFinalStatus('❌ ' + e.message, 'error');
   }
@@ -2055,14 +1699,10 @@ function renderPhotoStage(lang) {
   const S = STRINGS[lang];
   const body = document.getElementById('photoSlotsBody');
   body.innerHTML = '';
-  const isHe = lang === 'he';
-
   S.photoSections.forEach(sec => {
     const isRequired = sec.status === 'required';
     const badgeClass = isRequired ? 'status-badge required' : 'status-badge recommended';
-    const countLabel = isHe
-      ? `עד ${sec.max} תמונות`
-      : `حتى ${sec.max} صور`;
+    const countLabel = `עד ${sec.max} תמונות`;
 
     const block = document.createElement('div');
     block.className = 'photo-section-block';
@@ -2083,7 +1723,7 @@ function renderPhotoStage(lang) {
 
     const slotsDiv = document.getElementById('slots_' + sec.secNum);
     for (let i = 0; i < sec.max; i++) {
-      slotsDiv.appendChild(makeSlot(sec.secNum, i, sec.slots[i] || (isHe?'תמונה '+(i+1):'صورة '+(i+1))));
+      slotsDiv.appendChild(makeSlot(sec.secNum, i, sec.slots[i] || ('תמונה '+(i+1))));
     }
   });
 
@@ -2100,15 +1740,13 @@ function makeSlot(secNum, idx, label) {
   const existing = photoData[secNum] && photoData[secNum][idx];
   slot.className = 'photo-slot' + (existing ? ' filled' : '');
   slot.id = `slot_${secNum}_${idx}`;
-  const isHe = currentLang === 'he';
-
   if (existing) {
     slot.innerHTML = `
       <img src="${existing.dataURL}" alt="">
       <div class="slot-caption">${label}</div>
       <div class="slot-overlay">
-        <button class="slot-btn" onclick="replaceSlot('${secNum}',${idx})">${isHe?'החלף':'استبدل'}</button>
-        <button class="slot-btn remove" onclick="removeSlot('${secNum}',${idx})">${isHe?'הסר':'حذف'}</button>
+        <button class="slot-btn" onclick="replaceSlot('${secNum}',${idx})">החלף</button>
+        <button class="slot-btn remove" onclick="removeSlot('${secNum}',${idx})">הסר</button>
       </div>`;
   } else {
     slot.dataset.label = label;
@@ -2260,6 +1898,15 @@ renderSections('he');
 setStudentsValue('he', '');
 updateProgress();
 updateActionLabels();
+
+document.getElementById('htmlRoot').setAttribute('lang', 'he');
+document.getElementById('htmlRoot').setAttribute('dir', 'rtl');
+document.querySelectorAll('input[type="text"], textarea').forEach(el => {
+  if (!el.classList.contains('prompt-textarea') && !el.classList.contains('paste-textarea')) {
+    el.setAttribute('dir', 'auto');
+    el.style.unicodeBidi = 'plaintext';
+  }
+});
 
 // Live save on school fields
 ['school_name','school_city','principal','science_coord','tech_coord','classroom','student1','student2','student3','student4','student5'].forEach(id => {
