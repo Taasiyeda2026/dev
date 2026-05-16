@@ -1551,6 +1551,7 @@ async function buildFinalWord(includePhotos = true) {
     border:'B5D9C3', headHe:'1A7A4A'
   };
   const RLM = '\u200F';
+  const LRM = '\u200E';
   const AL = { R: AlignmentType.RIGHT, C: AlignmentType.CENTER };
   const rtl = text => {
     const value = String(text ?? '');
@@ -1615,6 +1616,7 @@ async function buildFinalWord(includePhotos = true) {
       borders,
       shading,
       verticalAlign: VerticalAlign ? VerticalAlign.CENTER : undefined,
+      textDirection: window.docx.TextDirection?.TOP_TO_BOTTOM_RIGHT_TO_LEFT || 'tbRl',
       margins,
       children: [rtlParagraph(textOrChildren, { ...paragraphTextOptions, ...paragraphOptions })],
       ...cell
@@ -1642,43 +1644,122 @@ async function buildFinalWord(includePhotos = true) {
     )) }))
   });
 
-  const ensurePPr = paragraph => /<w:pPr[\s>]/.test(paragraph)
-    ? paragraph
-    : paragraph.replace(/<w:p([^>]*)>/, '<w:p$1><w:pPr></w:pPr>');
-  const ensureRPr = runXml => /<w:rPr[\s>]/.test(runXml)
-    ? runXml
-    : runXml.replace(/<w:r([^>]*)>/, '<w:r$1><w:rPr></w:rPr>');
-  const ensureTblPr = tableXml => /<w:tblPr[\s>]/.test(tableXml)
-    ? tableXml
-    : tableXml.replace(/<w:tbl([^>]*)>/, '<w:tbl$1><w:tblPr></w:tblPr>');
+  const expandSelfClosingTag = (xmlPart, tag) => xmlPart.replace(new RegExp(`<${tag}([^>]*)\/>`), `<${tag}$1></${tag}>`);
+  const ensurePPr = paragraph => {
+    paragraph = expandSelfClosingTag(paragraph, 'w:pPr');
+    return /<w:pPr[\s>]/.test(paragraph)
+      ? paragraph
+      : paragraph.replace(/<w:p([^>]*)>/, '<w:p$1><w:pPr></w:pPr>');
+  };
+  const ensureRPr = runXml => {
+    runXml = expandSelfClosingTag(runXml, 'w:rPr');
+    return /<w:rPr[\s>]/.test(runXml)
+      ? runXml
+      : runXml.replace(/<w:r([^>]*)>/, '<w:r$1><w:rPr></w:rPr>');
+  };
+  const ensureTblPr = tableXml => {
+    tableXml = expandSelfClosingTag(tableXml, 'w:tblPr');
+    return /<w:tblPr[\s>]/.test(tableXml)
+      ? tableXml
+      : tableXml.replace(/<w:tbl([^>]*)>/, '<w:tbl$1><w:tblPr></w:tblPr>');
+  };
+  const ensureTcPr = cellXml => {
+    cellXml = expandSelfClosingTag(cellXml, 'w:tcPr');
+    return /<w:tcPr[\s>]/.test(cellXml)
+      ? cellXml
+      : cellXml.replace(/<w:tc([^>]*)>/, '<w:tc$1><w:tcPr></w:tcPr>');
+  };
+  const ensureChild = (xmlPart, parentTag, childXml, childPattern) => {
+    if (childPattern.test(xmlPart)) return xmlPart;
+    return xmlPart.replace(new RegExp(`<${parentTag}([^>]*)>`), `<${parentTag}$1>${childXml}`);
+  };
+  const ensureJcRight = xmlPart => /<w:jc\b/.test(xmlPart)
+    ? xmlPart.replace(/<w:jc\b[^>]*\/?>(?:<\/w:jc>)?/, '<w:jc w:val="right"/>')
+    : xmlPart.replace(/^<w:[^>]+>/, match => `${match}<w:jc w:val="right"/>`);
 
   function patchDocumentXmlForFullRtl(xml) {
     return xml
-      .replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, tbl => ensureTblPr(tbl).replace(/<w:tblPr\b[^>]*>[\s\S]*?<\/w:tblPr>/, tblPr => {
-        let patched = tblPr;
-        if (!/<w:bidiVisual\b/.test(patched)) patched = patched.replace(/<w:tblPr([^>]*)>/, '<w:tblPr$1><w:bidiVisual/>');
-        if (!/<w:jc\b/.test(patched)) patched = patched.replace(/<w:tblPr([^>]*)>/, '<w:tblPr$1><w:jc w:val="right"/>');
-        return patched;
-      }))
+      .replace(/<w:tbl\b[\s\S]*?<\/w:tbl>/g, tbl => ensureTblPr(tbl)
+        .replace(/<w:tblPr\b[^>]*>[\s\S]*?<\/w:tblPr>/, tblPr => {
+          let patched = ensureChild(tblPr, 'w:tblPr', '<w:bidiVisual/>', /<w:bidiVisual\b/);
+          patched = ensureJcRight(patched);
+          return patched;
+        })
+        .replace(/<w:tc\b[\s\S]*?<\/w:tc>/g, tc => ensureTcPr(tc).replace(/<w:tcPr\b[^>]*>[\s\S]*?<\/w:tcPr>/, tcPr => {
+          let patched = tcPr;
+          patched = ensureChild(patched, 'w:tcPr', '<w:textDirection w:val="tbRl"/>', /<w:textDirection\b/);
+          return patched;
+        }))
+      )
       .replace(/<w:p\b[\s\S]*?<\/w:p>/g, pXml => ensurePPr(pXml).replace(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, pPr => {
-        let patched = pPr;
-        if (!/<w:bidi\b/.test(patched)) patched = patched.replace(/<w:pPr([^>]*)>/, '<w:pPr$1><w:bidi/>');
-        if (!/<w:jc\b/.test(patched)) patched = patched.replace(/<w:pPr([^>]*)>/, '<w:pPr$1><w:jc w:val="right"/>');
+        let patched = ensureChild(pPr, 'w:pPr', '<w:bidi/>', /<w:bidi\b/);
+        patched = ensureJcRight(patched);
         return patched;
       }))
       .replace(/<w:r\b[\s\S]*?<\/w:r>/g, rXml => ensureRPr(rXml).replace(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/, rPr => {
         if (/<w:rtl\b/.test(rPr)) return rPr;
         return rPr.replace(/<w:rPr([^>]*)>/, '<w:rPr$1><w:rtl/>');
-      }));
+      }))
+      .replace(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g, sectPr => ensureChild(sectPr, 'w:sectPr', '<w:bidi/>', /<w:bidi\b/));
+  }
+
+  function patchStylesXmlForFullRtl(xml) {
+    const rPrDefault = '<w:rPrDefault><w:rPr><w:rtl/><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/></w:rPr></w:rPrDefault>';
+    const pPrDefault = '<w:pPrDefault><w:pPr><w:bidi/><w:jc w:val="right"/></w:pPr></w:pPrDefault>';
+    if (!/<w:docDefaults\b/.test(xml)) {
+      xml = xml.replace(/<w:styles([^>]*)>/, `<w:styles$1><w:docDefaults>${rPrDefault}${pPrDefault}</w:docDefaults>`);
+    }
+    return xml.replace(/<w:docDefaults\b[^>]*>[\s\S]*?<\/w:docDefaults>/, docDefaults => {
+      let patched = docDefaults;
+      if (!/<w:rPrDefault\b/.test(patched)) patched = patched.replace(/<w:docDefaults([^>]*)>/, `<w:docDefaults$1>${rPrDefault}`);
+      if (!/<w:pPrDefault\b/.test(patched)) patched = patched.replace(/<w:docDefaults([^>]*)>/, `<w:docDefaults$1>${pPrDefault}`);
+      patched = patched.replace(/<w:rPrDefault\b[^>]*>[\s\S]*?<\/w:rPrDefault>/, block => {
+        block = expandSelfClosingTag(block, 'w:rPr');
+        if (!/<w:rPr\b/.test(block)) block = block.replace(/<w:rPrDefault([^>]*)>/, '<w:rPrDefault$1><w:rPr></w:rPr>');
+        return block.replace(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/, rPr => {
+          let out = ensureChild(rPr, 'w:rPr', '<w:rtl/>', /<w:rtl\b/);
+          if (!/<w:rFonts\b/.test(out)) out = ensureChild(out, 'w:rPr', '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>', /<w:rFonts\b/);
+          return out;
+        });
+      });
+      patched = patched.replace(/<w:pPrDefault\b[^>]*>[\s\S]*?<\/w:pPrDefault>/, block => {
+        block = expandSelfClosingTag(block, 'w:pPr');
+        if (!/<w:pPr\b/.test(block)) block = block.replace(/<w:pPrDefault([^>]*)>/, '<w:pPrDefault$1><w:pPr></w:pPr>');
+        return block.replace(/<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>/, pPr => {
+          let out = ensureChild(pPr, 'w:pPr', '<w:bidi/>', /<w:bidi\b/);
+          out = ensureJcRight(out);
+          return out;
+        });
+      });
+      return patched;
+    });
+  }
+
+  function patchSettingsXmlForFullRtl(xml) {
+    let patched = xml.replace(/<w:settings([^>]*)>/, (match, attrs) => {
+      let prefix = '';
+      if (!/<w:bidi\b/.test(xml)) prefix += '<w:bidi/>';
+      if (!/<w:themeFontLang\b/.test(xml)) prefix += '<w:themeFontLang w:val="he-IL" w:eastAsia="he-IL" w:bidi="he-IL"/>';
+      return `<w:settings${attrs}>${prefix}`;
+    });
+    patched = patched.replace(/<w:themeFontLang\b[^>]*\/?>(?:<\/w:themeFontLang>)?/, tag => (
+      /w:bidi=/.test(tag) ? tag : tag.replace(/\/?>(?:<\/w:themeFontLang>)?$/, ' w:bidi="he-IL"/>')
+    ));
+    return patched;
   }
 
   async function patchDocxBlobForFullRtl(blob) {
     if (!window.JSZip) return blob;
     const zip = await window.JSZip.loadAsync(blob);
-    const documentFile = zip.file('word/document.xml');
-    if (!documentFile) return blob;
-    const documentXml = await documentFile.async('string');
-    zip.file('word/document.xml', patchDocumentXmlForFullRtl(documentXml));
+    const patches = [
+      ['word/document.xml', patchDocumentXmlForFullRtl],
+      ['word/styles.xml', patchStylesXmlForFullRtl],
+      ['word/settings.xml', patchSettingsXmlForFullRtl]
+    ];
+    for (const [path, patcher] of patches) {
+      const file = zip.file(path);
+      if (file) zip.file(path, patcher(await file.async('string')));
+    }
     return zip.generateAsync({ type:'blob' });
   }
 
@@ -1760,8 +1841,10 @@ async function buildFinalWord(includePhotos = true) {
 
     for (const sec of STRINGS.he.sections) {
       const answer = polishedSection(sec.num)?.answer || '';
-      children.push(para(sec.num + '. ' + sec.title, {
-        bold:true, size:25, color:C.white,
+      children.push(para([
+        new TextRun({ text: `${LRM}${sec.num}.${LRM} `, font:'Arial', rtl:false, rightToLeft:false, bold:true, size:25, color:C.white }),
+        run(sec.title, { bold:true, size:25, color:C.white })
+      ], {
         shading:{ fill:C.headHe, type:ShadingType.CLEAR },
         spacing:{ before:130, after:70 }
       }));
@@ -1771,7 +1854,14 @@ async function buildFinalWord(includePhotos = true) {
     }
 
     const doc = new Document({
-      styles:{ default:{ document:{ run:{ font:'Arial', size:22, color:C.textDark, rtl:true } } } },
+      styles:{
+        default:{
+          document:{
+            run:{ font:'Arial', size:22, color:C.textDark, rtl:true, rightToLeft:true },
+            paragraph:{ alignment:AL.R, bidirectional:true }
+          }
+        }
+      },
       sections:[{
         properties:{ page:{ size:{ width:11906, height:16838 }, margin:{ top:720, right:720, bottom:720, left:720 } } },
         children
