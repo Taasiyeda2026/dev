@@ -376,8 +376,10 @@
 
     /* ─── Activity card ─── */
     .activity-card {
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: 96px 1fr;
+      grid-template-rows: auto;
+      align-items: start;
       background: var(--paper);
       border: 1px solid rgba(23, 32, 51, 0.1);
       border-radius: var(--radius);
@@ -399,11 +401,13 @@
 
     /* ─── Card image ─── */
     .card-image-wrap {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      overflow: hidden;
+      width: 96px;
+      height: 96px;
       flex-shrink: 0;
+      border-radius: 14px;
+      overflow: hidden;
       background: #eef1f7;
+      margin: 18px 0 0 12px;
     }
 
     .card-image {
@@ -421,11 +425,11 @@
       justify-content: center;
       background: linear-gradient(135deg, #eef1f7, #e4e9f4);
       color: #8fa0c0;
-      font-size: 14px;
+      font-size: 11px;
       font-weight: 700;
     }
 
-    /* content wrapper — allows print horizontal layout */
+    /* content column */
     .card-content {
       display: flex;
       flex-direction: column;
@@ -706,31 +710,33 @@
 
       /* Horizontal card: image (square) on right, content on left */
       .activity-card {
+        display: flex !important;
+        flex-direction: row !important;
         min-height: auto !important;
         break-inside: avoid;
         page-break-inside: avoid;
         border: 1px solid #dde3ee !important;
-        border-radius: 6mm !important;
+        border-radius: 5mm !important;
         background: white !important;
         overflow: hidden !important;
-        flex-direction: row !important;
         gap: 0 !important;
       }
 
       .activity-card::before {
-        height: 3mm !important;
+        height: 2.5mm !important;
       }
 
-      /* 1:1 square image — fixed 32mm × 32mm in RTL right column */
+      /* 1:1 square image — 22mm × 22mm compact thumbnail */
       .card-image-wrap {
-        width: 32mm !important;
-        height: 32mm !important;
-        min-width: 32mm !important;
+        width: 22mm !important;
+        height: 22mm !important;
+        min-width: 22mm !important;
         flex-shrink: 0 !important;
         align-self: flex-start !important;
-        border-radius: 0 !important;
-        margin-top: 3mm !important;
+        border-radius: 2.5mm !important;
+        margin: 3mm 0 0 2.5mm !important;
         overflow: hidden !important;
+        background: #eef1f7 !important;
       }
 
       .card-image {
@@ -742,7 +748,7 @@
       .card-image-placeholder {
         width: 100% !important;
         height: 100% !important;
-        font-size: 8px !important;
+        font-size: 7px !important;
       }
 
       /* content column takes remaining width */
