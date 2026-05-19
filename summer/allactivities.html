@@ -631,7 +631,7 @@
     @media print {
       @page {
         size: A4 portrait;
-        margin: 8mm 9mm;
+        margin: 10mm;
       }
 
       * { box-shadow: none !important; }
@@ -675,7 +675,7 @@
         border: none !important;
         border-radius: 0 !important;
         padding: 0 !important;
-        margin: 0 0 4mm 0 !important;
+        margin: 0 0 6mm 0 !important;
         break-inside: auto;
         page-break-inside: auto;
       }
@@ -712,11 +712,22 @@
 
       .cards-grid {
         display: grid !important;
-        grid-template-columns: 1fr 1fr 1fr !important;
-        gap: 3mm !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 3.5mm !important;
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+      }
+
+      .cards-grid > .activity-card:nth-child(7n + 7) {
+        grid-column: 1 / -1 !important;
+        break-after: page !important;
+        page-break-after: always !important;
+      }
+
+      .cards-grid > .activity-card:last-child {
+        break-after: auto !important;
+        page-break-after: auto !important;
       }
 
       /* Escape-room card: image on top */
@@ -737,7 +748,7 @@
       .activity-card {
         display: flex !important;
         flex-direction: row !important;
-        min-height: auto !important;
+        min-height: 84mm !important;
         break-inside: avoid;
         page-break-inside: avoid;
         border: 0.5pt solid #ccd3e0 !important;
@@ -753,13 +764,13 @@
 
       /* Compact side thumbnail */
       .card-image-wrap {
-        width: 14mm !important;
-        height: 14mm !important;
-        min-width: 14mm !important;
+        width: 34% !important;
+        height: auto !important;
+        min-width: 34% !important;
         flex-shrink: 0 !important;
-        align-self: flex-start !important;
-        border-radius: 1.5mm !important;
-        margin: 1.5mm 0 0 1.5mm !important;
+        align-self: stretch !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
         overflow: hidden !important;
         background: #eef1f7 !important;
       }
@@ -785,19 +796,19 @@
       }
 
       .card-top {
-        padding: 1.5mm 2mm 0.5mm 2mm !important;
+        padding: 3mm 3mm 1mm 3mm !important;
       }
 
       .domain-badge {
-        font-size: 6.5px !important;
+        font-size: 9px !important;
         min-height: auto !important;
-        padding: 1px 3px !important;
+        padding: 1.2mm 2mm !important;
       }
 
       .activity-card h3 {
-        font-size: 9.5px !important;
-        line-height: 1.15 !important;
-        margin: 0.6mm 0 0.6mm 0 !important;
+        font-size: 14px !important;
+        line-height: 1.25 !important;
+        margin: 1.4mm 0 1.4mm 0 !important;
       }
 
       .meta-row {
@@ -807,36 +818,45 @@
 
       .meta {
         min-height: auto !important;
-        padding: 0.6mm 1mm !important;
+        padding: 1.2mm 1.5mm !important;
         border-radius: 1.5mm !important;
       }
 
-      .meta b    { font-size: 6.5px !important; }
-      .meta span { font-size: 7.5px !important; line-height: 1.2 !important; }
+      .meta b    { font-size: 8px !important; }
+      .meta span { font-size: 10px !important; line-height: 1.25 !important; }
 
       .card-body {
-        padding: 0 2mm 0.8mm 2mm !important;
+        padding: 0 3mm 1.2mm 3mm !important;
       }
 
       .card-body p {
-        font-size: 8px !important;
-        line-height: 1.3 !important;
+        font-size: 11px !important;
+        line-height: 1.45 !important;
         margin: 0 !important;
       }
 
       .goals {
-        margin: 0 2mm 1.5mm 2mm !important;
-        padding: 1mm !important;
+        margin: 0 3mm 2.6mm 3mm !important;
+        padding: 1.5mm !important;
         border-radius: 1.5mm !important;
       }
 
       .goals h4 {
-        font-size: 7.5px !important;
-        margin: 0 0 0.4mm 0 !important;
+        font-size: 9px !important;
+        margin: 0 0 0.8mm 0 !important;
       }
 
       .goals ul  { padding: 0 2mm 0 0 !important; }
-      .goals li  { font-size: 7px !important; line-height: 1.2 !important; margin: 0.3mm 0 !important; }
+      .goals li  { font-size: 10px !important; line-height: 1.3 !important; margin: 0.6mm 0 !important; }
+
+      .cards-grid > .activity-card:nth-child(7n + 7) {
+        min-height: 88mm !important;
+      }
+
+      .cards-grid > .activity-card:nth-child(7n + 7) .card-content {
+        display: grid !important;
+        grid-template-rows: auto 1fr auto !important;
+      }
     }
   </style>
 </head>
