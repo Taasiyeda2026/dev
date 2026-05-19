@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>חוברת פעילויות מדע, חלל וטכנולוגיה</title>
+  <style>
+    :root {
+      --ink: #172033;
+      --muted: #667085;
+      --line: rgba(23, 32, 51, 0.12);
+      --paper: #fffdf7;
+      --blue: #203b7a;
+      --cyan: #34c3d5;
+      --pink: #d82f78;
+      --purple: #6c4de6;
+      --green: #1a9c74;
+      --orange: #f39b2f;
+      --shadow: 0 18px 55px rgba(20, 34, 66, 0.14);
+      --soft-shadow: 0 10px 30px rgba(20, 34, 66, 0.09);
+      --radius: 26px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Heebo", "Rubik", "Assistant", Arial, sans-serif;
+      background:
+        radial-gradient(circle at 8% 5%, rgba(52, 195, 213, 0.18), transparent 31%),
+        radial-gradient(circle at 92% 0%, rgba(216, 47, 120, 0.16), transparent 30%),
+        linear-gradient(180deg, #f8fbff 0%, #eef3f9 44%, #f7f2ea 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    button, input { font-family: inherit; }
+
+    .app-shell {
+      width: min(1240px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 28px 0 70px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 34px;
+      padding: 42px 44px 36px;
+      color: white;
+      background: linear-gradient(135deg, rgba(18, 33, 77, 0.97), rgba(38, 62, 139, 0.96) 45%, rgba(26, 153, 174, 0.92));
+      box-shadow: var(--shadow);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 0.9fr;
+      gap: 34px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .hero h1 {
+      margin: 20px 0 12px;
+      font-size: clamp(34px, 5vw, 62px);
+      line-height: 1.04;
+      letter-spacing: -0.04em;
+      max-width: 840px;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 780px;
+      font-size: 18px;
+      line-height: 1.75;
+      color: rgba(255, 255, 255, 0.86);
+    }
+
+    .hero-panel {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 28px;
+      padding: 22px;
+    }
+
+    .stat-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .stat {
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 30px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat span {
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .hero-note {
+      margin-top: 16px;
+      font-size: 14px;
+      line-height: 1.65;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .toolbar {
+      position: relative;
+      margin: 24px 0;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.75);
+      box-shadow: var(--soft-shadow);
+      border-radius: 28px;
+      padding: 18px;
+      backdrop-filter: blur(18px);
+    }
+
+    .toolbar-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .toolbar-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 210px;
+    }
+
+    .toolbar-title .icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #fff;
+      font-size: 21px;
+    }
+
+    .toolbar-title h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .toolbar-title small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .search-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: white;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 0 16px;
+      height: 48px;
+    }
+
+    .search-wrap input {
+      border: none;
+      outline: none;
+      flex: 1;
+      font-size: 15px;
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 15px;
+      background: #ffffff;
+      color: var(--ink);
+      font-weight: 800;
+      cursor: pointer;
+      border: 1px solid var(--line);
+    }
+
+    .btn.primary {
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+      color: white;
+      border-color: transparent;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1.25fr;
+      gap: 14px;
+    }
+
+    .filter-box {
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 14px;
+    }
+
+    .filter-label {
+      margin: 0 0 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 900;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: white;
+      color: #344054;
+      min-height: 34px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .chip.active {
+      color: white;
+      border-color: transparent;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      box-shadow: 0 8px 18px rgba(32, 59, 122, 0.2);
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .summary-card {
+      background: rgba(255,255,255,0.84);
+      border: 1px solid rgba(255,255,255,0.8);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: var(--soft-shadow);
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 34px;
+      line-height: 1;
+      margin-bottom: 8px;
+      color: var(--accent, var(--blue));
+    }
+
+    .summary-card span {
+      font-weight: 800;
+      color: #475467;
+    }
+
+    .view-tabs {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0 24px;
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+      padding: 10px 15px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-weight: 900;
+      color: #475467;
+    }
+
+    .tab.active {
+      color: white;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      border-color: transparent;
+      box-shadow: 0 10px 24px rgba(32, 59, 122, 0.18);
+    }
+
+    .catalog {
+      display: flex;
+      flex-direction: column;
+      gap: 26px;
+    }
+
+    .group {
+      background: rgba(255,255,255,0.64);
+      border: 1px solid rgba(255,255,255,0.78);
+      box-shadow: var(--soft-shadow);
+      border-radius: 34px;
+      padding: 22px;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+      margin-bottom: 18px;
+    }
+
+    .group-header h2 {
+      margin: 0;
+      font-size: 27px;
+      letter-spacing: -0.03em;
+    }
+
+    .group-header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .group-count {
+      min-width: 78px;
+      text-align: center;
+      padding: 10px 12px;
+      border-radius: 16px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-weight: 900;
+      color: var(--blue);
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .activity-card {
+      min-height: 395px;
+      display: flex;
+      flex-direction: column;
+      background: var(--paper);
+      border: 1px solid rgba(23, 32, 51, 0.1);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(23, 32, 51, 0.08);
+      position: relative;
+    }
+
+    .activity-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 100%;
+      height: 8px;
+      background: linear-gradient(90deg, var(--accent), rgba(255,255,255,0.2));
+    }
+
+    .card-top {
+      padding: 24px 22px 14px;
+      position: relative;
+    }
+
+    .domain-badge {
+      display: inline-flex;
+      min-height: 30px;
+      padding: 6px 11px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent) 12%, white);
+      color: color-mix(in srgb, var(--accent) 85%, #111);
+      border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .activity-card h3 {
+      margin: 14px 0 12px;
+      font-size: 24px;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .meta {
+      border: 1px solid rgba(23, 32, 51, 0.08);
+      background: rgba(255,255,255,0.58);
+      border-radius: 15px;
+      padding: 10px;
+      min-height: 54px;
+    }
+
+    .meta b {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 3px;
+    }
+
+    .meta span {
+      font-size: 13px;
+      font-weight: 900;
+      color: #26344d;
+    }
+
+    .card-body {
+      padding: 0 22px 18px;
+      flex: 1;
+    }
+
+    .card-body p {
+      margin: 0;
+      color: #344054;
+      font-size: 15.5px;
+      line-height: 1.76;
+      font-weight: 520;
+    }
+
+    .goals {
+      margin: auto 22px 22px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(23, 32, 51, 0.08);
+    }
+
+    .goals h4 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      color: var(--accent);
+    }
+
+    .goals ul {
+      margin: 0;
+      padding: 0 18px 0 0;
+    }
+
+    .goals li {
+      margin: 5px 0;
+      color: #475467;
+      font-size: 13.8px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+
+    .empty-state {
+      display: none;
+      text-align: center;
+      padding: 58px 20px;
+      background: rgba(255,255,255,0.8);
+      border-radius: 30px;
+      box-shadow: var(--soft-shadow);
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .empty-state strong {
+      display: block;
+      font-size: 26px;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+
+    .print-panel {
+      margin-top: 34px;
+      padding: 28px;
+      border-radius: 30px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,255,255,0.72)),
+        radial-gradient(circle at 12% 30%, rgba(52,195,213,0.18), transparent 34%);
+      border: 1px solid rgba(255,255,255,0.85);
+      box-shadow: var(--soft-shadow);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+    }
+
+    .print-panel h3 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      letter-spacing: -0.03em;
+    }
+
+    .print-panel p {
+      margin: 0;
+      color: var(--muted);
+      font-weight: 700;
+      line-height: 1.65;
+    }
+
+    .print-panel-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      padding: 26px;
+      border-radius: 28px;
+      background: rgba(23, 32, 51, 0.92);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      gap: 22px;
+      align-items: center;
+    }
+
+    .footer-note h3 { margin: 0 0 6px; font-size: 22px; }
+    .footer-note p { margin: 0; color: rgba(255,255,255,0.76); line-height: 1.65; }
+
+    .mini-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .mini-tags span {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: rgba(255,255,255,0.9);
+      padding: 7px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    @media (max-width: 1050px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      .filter-grid { grid-template-columns: 1fr; }
+      .cards-grid { grid-template-columns: repeat(2, 1fr); }
+      .summary-strip { grid-template-columns: repeat(2, 1fr); }
+      .toolbar-top { flex-direction: column; align-items: stretch; }
+    }
+
+    @media (max-width: 690px) {
+      .app-shell { width: min(100% - 20px, 1240px); padding-top: 12px; }
+      .hero { padding: 28px 22px; border-radius: 26px; }
+      .hero h1 { font-size: 36px; }
+      .hero p { font-size: 16px; }
+      .stat-row { grid-template-columns: repeat(2, 1fr); }
+      .toolbar { border-radius: 22px; padding: 12px; }
+      .summary-strip { grid-template-columns: 1fr; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .group { padding: 14px; border-radius: 26px; }
+      .group-header { align-items: flex-start; flex-direction: column; }
+      .print-panel { flex-direction: column; align-items: stretch; }
+      .print-panel-actions { justify-content: flex-start; }
+      .footer-note { flex-direction: column; align-items: stretch; }
+      .mini-tags { justify-content: flex-start; }
+    }
+
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 14mm 12mm 14mm 12mm;
+      }
+
+      * {
+        box-shadow: none !important;
+      }
+
+      html, body {
+        width: auto !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      .app-shell {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .hero,
+      .toolbar,
+      .summary-strip,
+      .view-tabs,
+      .print-panel,
+      .footer-note,
+      .empty-state {
+        display: none !important;
+      }
+
+      .catalog {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .group {
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 0 10mm 0 !important;
+        break-inside: auto;
+        page-break-inside: auto;
+      }
+
+      .group + .group {
+        break-before: page;
+        page-break-before: always;
+      }
+
+      .group-header {
+        break-before: auto !important;
+        page-break-before: auto !important;
+        break-after: avoid;
+        page-break-after: avoid;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 0 0 5mm 0 !important;
+        margin: 0 0 6mm 0 !important;
+        border-bottom: 2px solid #1f2a44;
+      }
+
+      .group-header h2 {
+        font-size: 24px !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+      }
+
+      .group-header p {
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+        margin: 2mm 0 0 0 !important;
+      }
+
+      .group-count {
+        display: none !important;
+      }
+
+      .cards-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 7mm;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .activity-card {
+        min-height: auto !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #dde3ee !important;
+        border-radius: 10mm !important;
+        background: white !important;
+        overflow: hidden !important;
+      }
+
+      .activity-card::before {
+        height: 4mm !important;
+      }
+
+      .card-top {
+        padding: 7mm 6mm 3mm 6mm !important;
+      }
+
+      .domain-badge {
+        font-size: 10.5px !important;
+        min-height: auto !important;
+        padding: 4px 8px !important;
+      }
+
+      .activity-card h3 {
+        font-size: 18px !important;
+        line-height: 1.18 !important;
+        margin: 3mm 0 3mm 0 !important;
+      }
+
+      .meta-row {
+        gap: 2.5mm !important;
+        margin-top: 0 !important;
+      }
+
+      .meta {
+        min-height: auto !important;
+        padding: 2.5mm !important;
+        border-radius: 4mm !important;
+      }
+
+      .meta b {
+        font-size: 9.5px !important;
+      }
+
+      .meta span {
+        font-size: 11px !important;
+        line-height: 1.25 !important;
+      }
+
+      .card-body {
+        padding: 0 6mm 4mm 6mm !important;
+      }
+
+      .card-body p {
+        font-size: 11.5px !important;
+        line-height: 1.55 !important;
+      }
+
+      .goals {
+        margin: auto 6mm 6mm 6mm !important;
+        padding: 4mm !important;
+        border-radius: 5mm !important;
+      }
+
+      .goals h4 {
+        font-size: 11.5px !important;
+        margin: 0 0 2mm 0 !important;
+      }
+
+      .goals ul {
+        padding: 0 5mm 0 0 !important;
+      }
+
+      .goals li {
+        font-size: 10.8px !important;
+        line-height: 1.35 !important;
+        margin: 1.2mm 0 !important;
+      }
+    }
+  </style>tant;
+      }
+
+      .catalog {
+        display: block !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .group {
+        background: transparent !important;
+        border: none !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+        margin: 0 0 10mm 0 !important;
+        break-inside: auto;
+        page-break-inside: auto;
+      }
+
+      .group + .group {
+        break-before: page;
+        page-break-before: always;
+      }
+
+      .group-header {
+        break-before: auto !important;
+        page-break-before: auto !important;
+        break-after: avoid;
+        page-break-after: avoid;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 0 0 5mm 0 !important;
+        margin: 0 0 6mm 0 !important;
+        border-bottom: 2px solid #1f2a44;
+      }
+
+      .group-header h2 {
+        font-size: 24px !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+      }
+
+      .group-header p {
+        font-size: 12px !important;
+        line-height: 1.35 !important;
+        margin: 2mm 0 0 0 !important;
+      }
+
+      .group-count {
+        display: none !important;
+      }
+
+      .cards-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 7mm;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .activity-card {
+        min-height: auto !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #dde3ee !important;
+        border-radius: 10mm !important;
+        background: white !important;
+        overflow: hidden !important;
+      }
+
+      .activity-card::before {
+        height: 4mm !important;
+      }
+
+      .card-top {
+        padding: 7mm 6mm 3mm 6mm !important;
+      }
+
+      .domain-badge {
+        font-size: 10.5px !important;
+        min-height: auto !important;
+        padding: 4px 8px !important;
+      }
+
+      .activity-card h3 {
+        font-size: 18px !important;
+        line-height: 1.18 !important;
+        margin: 3mm 0 3mm 0 !important;
+      }
+
+      .meta-row {
+        gap: 2.5mm !important;
+        margin-top: 0 !important;
+      }
+
+      .meta {
+        min-height: auto !important;
+        padding: 2.5mm !important;
+        border-radius: 4mm !important;
+      }
+
+      .meta b {
+        font-size: 9.5px !important;
+      }
+
+      .meta span {
+        font-size: 11px !important;
+        line-height: 1.25 !important;
+      }
+
+      .card-body {
+        padding: 0 6mm 4mm 6mm !important;
+      }
+
+      .card-body p {
+        font-size: 11.5px !important;
+        line-height: 1.55 !important;
+      }
+
+      .goals {
+        margin: auto 6mm 6mm 6mm !important;
+        padding: 4mm !important;
+        border-radius: 5mm !important;
+      }
+
+      .goals h4 {
+        font-size: 11.5px !important;
+        margin: 0 0 2mm 0 !important;
+      }
+
+      .goals ul {
+        padding: 0 5mm 0 0 !important;
+      }
+
+      .goals li {
+        font-size: 10.8px !important;
+        line-height: 1.35 !important;
+        margin: 1.2mm 0 !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">✦ חוברת פעילויות מדע, חלל, הנדסה וטכנולוגיה</div>
+          <h1>ממשק בחירה להצגת פעילויות לפי גיל, סוג ותחום</h1>
+          <p>בחרו שכבות גיל, סוג פעילות ותחומי תוכן — וקבלו תצוגת HTML מעוצבת של הפעילויות הרלוונטיות, מחולקות לקבוצות ברורות ומוכנות להצגה, שליחה או הדפסה כחוברת.</p>
+        </div>
+        <aside class="hero-panel">
+          <div class="stat-row">
+            <div class="stat"><strong id="heroTotal">25</strong><span>פעילויות במאגר</span></div>
+            <div class="stat"><strong>45</strong><span>דקות לרוב הפעילויות</span></div>
+            <div class="stat"><strong>STEM</strong><span>מדע, הנדסה וטכנולוגיה</span></div>
+            <div class="stat"><strong>HTML</strong><span>תצוגה דינמית מרשימה</span></div>
+          </div>
+          <div class="hero-note">הממשק בנוי כך שאפשר להשתמש בו כעמוד פנימי באתר, כקטלוג דיגיטלי או כבסיס לחוברת מודפסת.</div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="מסננים">
+      <div class="toolbar-top">
+        <div class="toolbar-title">
+          <div class="icon">⚙</div>
+          <div>
+            <h2>סינון תצוגה</h2>
+            <small>בחירה מרובה לפי גיל ותחום</small>
+          </div>
+        </div>
+        <label class="search-wrap">
+          <span>⌕</span>
+          <input id="searchInput" type="search" placeholder="חיפוש חופשי לפי שם, תחום, תוצר או עיקרון מדעי..." />
+        </label>
+        <div class="actions">
+          <button class="btn" id="resetBtn" type="button">איפוס</button>
+          <button class="btn primary" id="printBtn" type="button">הדפסה / PDF</button>
+        </div>
+      </div>
+
+      <div class="filter-grid">
+        <div class="filter-box"><p class="filter-label">שכבת גיל</p><div class="chip-row" id="gradeFilters"></div></div>
+        <div class="filter-box"><p class="filter-label">סוג פעילות</p><div class="chip-row" id="typeFilters"></div></div>
+        <div class="filter-box"><p class="filter-label">תחום / עולם תוכן</p><div class="chip-row" id="domainFilters"></div></div>
+      </div>
+    </section>
+
+    <section class="summary-strip" aria-label="סיכום תוצאות">
+      <div class="summary-card" style="--accent: var(--blue)"><strong id="visibleCount">0</strong><span>פעילויות מוצגות</span></div>
+      <div class="summary-card" style="--accent: var(--pink)"><strong id="workshopCount">0</strong><span>סדנאות פעילות</span></div>
+      <div class="summary-card" style="--accent: var(--green)"><strong id="escapeCount">0</strong><span>חדרי בריחה</span></div>
+      <div class="summary-card" style="--accent: var(--orange)"><strong id="domainCount">0</strong><span>תחומים בתצוגה</span></div>
+    </section>
+
+    <nav class="view-tabs" aria-label="סוג קיבוץ">
+      <button class="tab active" data-group="grade" type="button">חלוקה לפי שכבת גיל</button>
+      <button class="tab" data-group="type" type="button">חלוקה לפי סוג פעילות</button>
+      <button class="tab" data-group="domain" type="button">חלוקה לפי תחום</button>
+    </nav>
+
+    <section id="catalog" class="catalog"></section>
+    <section id="emptyState" class="empty-state"><strong>לא נמצאו פעילויות מתאימות</strong>אפשר לשנות סינון, לבחור שכבת גיל נוספת או לאפס את הבחירה.</section>
+
+    <section class="print-panel">
+      <div>
+        <h3>סיימת לבחור? אפשר להדפיס את המידע</h3>
+        <p>ההדפסה תכלול רק את הפעילויות שמוצגות כרגע לפי הסינון שבחרת — בלי אזור הבחירה, החיפוש והכפתורים.</p>
+      </div>
+      <div class="print-panel-actions">
+        <button class="btn" type="button" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">חזרה לסינון</button>
+        <button class="btn primary" id="printBtnBottom" type="button">הדפסה / שמירה ל־PDF</button>
+      </div>
+    </section>
+
+    <section class="footer-note">
+      <div><h3>תצוגה מוכנה לחוברת, אתר או הצעת פעילות</h3><p>כל כרטיס כולל שכבת גיל, תחום, משך, תוצר, תיאור חווייתי ומטרות מרכזיות — במבנה אחיד אך לא רובוטי.</p></div>
+      <div class="mini-tags"><span>חלל</span><span>פיזיקה</span><span>אופטיקה</span><span>הנדסה</span><span>ביולוגיה</span><span>כימיה</span><span>קיימות</span></div>
+    </section>
+  </main>
+
+  <script>
+    const activities = [
+      {title:"אסטרונאוט על חוטים",grades:["א׳–ג׳"],type:"סדנה",domain:"חלל",accent:"#203b7a",duration:"45 דקות",product:"בובת אסטרונאוט נעה באמצעות חוטים",text:"בסדנה זו התלמידים בונים בובת אסטרונאוט אישית, משלבים צביעה, גזירה, חיבור חלקים והפעלת מנגנון חוטים. דרך ההרכבה הם מגלים כיצד חלקים נפרדים יכולים להתחבר לדמות אחת בעלת תנועה, וכיצד משיכה פשוטה יוצרת פעולה נראית לעין. הפעילות מחברת בין עולם החלל לבין עקרונות ראשוניים של תנועה, מפרקים ותכנון מכני.",goals:["להבין כיצד חיבור בין חלקים יוצר תנועה","לפתח דיוק, מוטוריקה עדינה ועבודה בשלבים","ליצור תוצר אישי המחבר בין דמיון, חלל ומנגנון פעולה"]},
+      {title:"מעבורת חלל תלת־ממדית",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"חלל",accent:"#203b7a",duration:"45 דקות",product:"דגם אישי של מעבורת חלל",text:"בסדנה זו התלמידים יוצרים דגם תלת־ממדי של מעבורת חלל באמצעות צביעה, גזירה, קיפול והרכבה. במהלך הפעילות הם עוברים מדף שטוח לתוצר בנוי, ומגלים כיצד צורות, זוויות וחלקים שונים מתחברים למבנה של כלי טיס חללי. הסדנה מחזקת חשיבה מרחבית, תכנון מוקדם והבנה בסיסית של מבנה הנדסי.",goals:["להבין כיצד פריסה שטוחה הופכת לדגם תלת־ממדי","להכיר מרכיבים בסיסיים במבנה של כלי חלל","לפתח חשיבה מרחבית, דיוק וסבלנות בתהליך בנייה"]},
+      {title:"חללית בראשית",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"חלל",accent:"#203b7a",duration:"45 דקות",product:"דגם אישי של חללית בראשית",text:"הסדנה מחברת את התלמידים לסיפורה של חללית בראשית — רעיון ישראלי שאפתני שהפך למשימת חלל אמיתית. במהלך הפעילות הם בונים דגם אישי של החללית ונחשפים לעולם של תכנון, ניסוי, אתגר, תקלה והפקת לקחים. דרך הבנייה והשיח התלמידים מבינים שמאחורי כל משימה טכנולוגית עומדים חזון, התמדה, עבודת צוות ויכולת ללמוד גם מהצלחות וגם מאתגרים.",goals:["להכיר את סיפורה של חללית בראשית","להבין שמאחורי משימת חלל עומדים תכנון, ניסוי ושיפור","לחזק תחושת מסוגלות דרך בניית דגם אישי"]},
+      {title:"מערכת השמש בתלת־ממד",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"אסטרונומיה",accent:"#6c4de6",duration:"45 דקות",product:"מודל תלת־ממדי של מערכת השמש",text:"בסדנה זו התלמידים מרכיבים מודל תלת־ממדי של מערכת השמש ויוצאים למסע בין השמש, כוכבי הלכת והמרחבים שסביבנו. באמצעות הדגם הם לומדים על מסלולים, מרחקים, תנועה בחלל ומקומו של כדור הארץ במערכת רחבה יותר. הפעילות הופכת מושגים אסטרונומיים גדולים למשהו מוחשי, נגיש וברור.",goals:["להכיר את מרכיבי מערכת השמש","להבין תנועה ומסלולים בחלל באופן מוחשי","לפתח חשיבה מרחבית וסקרנות אסטרונומית"]},
+      {title:"טלסקופ קפלר",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"אופטיקה",accent:"#34c3d5",duration:"45 דקות",product:"טלסקופ אישי",text:"התלמידים בונים טלסקופ אישי ומתנסים בצפייה למרחקים שונים. דרך ההרכבה הם מגלים כיצד עדשות משנות את הדרך שבה האור עובר, כיצד נוצרים מיקוד והגדלה, וכיצד כלי תצפית פשוט יכול לפתוח חלון לעולם רחוק. הסדנה מחברת בין אופטיקה, סקרנות מדעית וחקר החלל.",goals:["להבין כיצד עדשות יוצרות הגדלה ומיקוד","לחבר בין אופטיקה לבין תצפית וחקר החלל","להתנסות בבנייה של כלי מדעי אישי"]},
+      {title:"רוטוקופטר",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"תעופה",accent:"#f39b2f",duration:"45 דקות",product:"דגם רוטוקופטר אישי",text:"בסדנה זו התלמידים בונים רוטוקופטר, משגרים אותו ובודקים כיצד הוא מסתובב בזמן ירידה באוויר. הם חוקרים כיצד צורת הלהבים, הכיוון והמבנה משפיעים על התנועה, היציבות ומשך הסיבוב. הפעילות מזמינה אותם לחשוב כמו מהנדסים צעירים: לבנות, לבדוק, לשנות ולנסות שוב.",goals:["להכיר עקרונות בסיסיים של תעופה וזרימת אוויר","להבין את הקשר בין צורת הדגם לבין אופן התנועה שלו","לפתח חשיבה ניסויית ושיפור בעקבות תצפית"]},
+      {title:"פרפרטוס / פרפרוש",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"תעופה",accent:"#f39b2f",duration:"45 דקות",product:"דגם פרפר מעופף עם מנגנון גומי",text:"התלמידים בונים וצובעים פרפר דו־צדדי המופעל באמצעות מנגנון גומי. לאחר ההרכבה הם מפעילים את הדגם וצופים כיצד אנרגיה שנאגרה בגומייה משתחררת והופכת לתנועה. הפעילות מחברת בין תעופה בטבע, מבנה כנפיים, יציבות ותנועה באוויר, ומראה כיצד גם תופעה טבעית עדינה יכולה להוביל להבנה מדעית וטכנולוגית.",goals:["להכיר את הקשר בין אנרגיה לתנועה","להבין כיצד מבנה כנף משפיע על תעופה","לחבר בין תופעות בטבע לבין רעיונות טכנולוגיים"]},
+      {title:"חדר בריחה ביומימיקרי",grades:["ג׳–ו׳","ד׳–ו׳"],type:"חדר בריחה",domain:"ביומימיקרי",accent:"#1a9c74",duration:"45 דקות",product:"חוויית אתגר קבוצתית מבוססת חידות ומשימות",text:"בפעילות זו התלמידים נכנסים לעולם של חידות, רמזים ומשימות בהשראת עולם הטבע. הם מגלים כיצד מבנים, תופעות והתנהגויות בטבע יכולים לעורר השראה לפתרונות טכנולוגיים יצירתיים. החוויה משלבת עבודת צוות, חשיבה יצירתית ופתרון בעיות, ומציגה את הטבע כמקור ידע, השראה וחדשנות.",goals:["להכיר את הרעיון של למידה מהטבע","לפתח חשיבה יצירתית ופתרון בעיות","לחזק שיתוף פעולה דרך חידות ומשימות"]},
+      {title:"חדר בריחה הצלת המים – אתגר הקרחון מהחלל",grades:["ג׳–ו׳","ד׳–ו׳"],type:"חדר בריחה",domain:"קיימות",accent:"#1a9c74",duration:"45 דקות",product:"משימת חדר בריחה קבוצתית בנושא מים וסביבה",text:"התלמידים יוצאים למשימת הצלה סביבתית בעקבות אתגר הקרחון מהחלל. דרך חידות, רמזים ומשימות צוות הם נחשפים לקשר בין מים, קרחונים, תצפית מהחלל ושמירה על כדור הארץ. הפעילות מחברת בין חוויה משחקית לבין נושא סביבתי חשוב, ומציבה את התלמידים בתפקיד פעיל של חוקרים ופותרי בעיות.",goals:["להבין את חשיבות המים כמשאב חיוני","לחבר בין חלל, סביבה וקיימות","לפתח עבודת צוות וחשיבה מערכתית"]},
+      {title:"כדור מולקולה",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"כימיה",accent:"#7b61ff",duration:"45 דקות",product:"דגם תלת־ממדי של מולקולה / כדור באקי",text:"בסדנה זו התלמידים בונים דגם תלת־ממדי של מולקולה באמצעות מחברים וצינוריות. תוך כדי ההרכבה הם מגלים כיצד חלקיקים קטנים יכולים להתחבר למבנים מורכבים, וכיצד מושגים מופשטים כמו אטומים וקשרים כימיים יכולים להפוך לדגם מוחשי. הפעילות מנגישה את עולם הכימיה דרך בנייה, דיוק וחשיבה מרחבית.",goals:["להכיר מושגים בסיסיים בכימיה: אטום, מולקולה וקשר","להבין כיצד חיבורים יוצרים מבנה מולקולרי","לפתח חשיבה מרחבית ודיוק בהרכבה"]},
+      {title:"צמידי שמש",grades:["א׳–ג׳"],type:"סדנה",domain:"אופטיקה",accent:"#34c3d5",duration:"45 דקות",product:"צמיד אישי מחרוזים מחליפי צבע",text:"התלמידים יוצרים צמיד אישי מחרוזים מיוחדים המשנים את צבעם בחשיפה לשמש. השינוי בצבע מוביל לשיחה מסקרנת על אור בלתי נראה ועל קרינת UV, שאינה נראית לעין אך משפיעה על חומרים ועל הגוף שלנו. הסדנה מחברת בין מדע יומיומי, אופטיקה ומודעות להתנהגות חכמה בשמש.",goals:["להכיר את קרינת UV באופן מוחשי","להבין כיצד חומרים מגיבים לאור","לעודד מודעות להתנהגות חכמה בשמש"]},
+      {title:"משקפת מתקפלת",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"אופטיקה",accent:"#34c3d5",duration:"45 דקות",product:"משקפת מתקפלת אישית",text:"התלמידים בונים משקפת אישית בעזרת עדשות ורכיבים להרכבה. במהלך הפעילות הם מתנסים בצפייה דרך המשקפת ובודקים כיצד האור עובר דרך עדשות ומשפיע על מה שאנחנו רואים. הסדנה מחברת בין בנייה מדויקת לבין הבנה של מיקוד, הגדלה, ראיית עומק וטכנולוגיות ראייה.",goals:["להכיר עקרונות בסיסיים באופטיקה","להבין כיצד עדשות משפיעות על ראייה","לפתח מיומנות הרכבה ותצפית מדעית"]},
+      {title:"קלידוסקופ",grades:["א׳–ג׳"],type:"סדנה",domain:"אופטיקה",accent:"#34c3d5",duration:"45 דקות",product:"קלידוסקופ אישי",text:"התלמידים בונים קלידוסקופ אישי באמצעות גליל, מראות וחרוזים צבעוניים. כאשר הם מביטים פנימה ומסובבים את הדגם, נוצרים דגמים צבעוניים משתנים ומפתיעים. הפעילות מחברת בין אור, השתקפות, סימטריה ודמיון, ומראה כיצד תופעה אופטית פשוטה יכולה ליצור עולם חזותי עשיר ומרהיב.",goals:["להכיר תופעות של השתקפות וסימטריה","לפתח התבוננות, דמיון ודיוק","ליצור תוצר אישי שמחבר בין אור, צבע ומדע"]},
+      {title:"ג׳וני השלד",grades:["א׳–ג׳"],type:"סדנה",domain:"ביולוגיה",accent:"#e05260",duration:"45 דקות",product:"דגם שלד אנושי מעץ",text:"התלמידים בונים דגם של שלד אנושי ומכירים את חלקי הגוף המרכזיים דרך הרכבה מוחשית. הסדנה מזמינה אותם להבין מה נמצא מתחת לעור, כיצד העצמות מעניקות לגוף תמיכה וצורה, ואיך מבנה השלד קשור לתנועה. הפעילות הופכת את הלמידה על גוף האדם לחוויה פעילה, ברורה ומסקרנת.",goals:["להכיר את מערכת השלד ותפקידה","להבין את הקשר בין מבנה הגוף לתנועה","לעודד התבוננות מדעית בגוף האדם"]},
+      {title:"נשכן מפרקים",grades:["א׳–ג׳"],type:"סדנה",domain:"ביולוגיה",accent:"#e05260",duration:"45 דקות",product:"דגם לסת נעה המדגים פעולת מפרק",text:"התלמידים בונים דגם של לסת נעה ובודקים כיצד חיבור בין חלקים מאפשר תנועה. דרך הדגם הם מבינים כיצד מפרק פועל, מדוע הגוף זקוק לחיבורים גמישים, ואיך מבנה נכון מאפשר פעולה יומיומית כמו פתיחה וסגירה. הסדנה מנגישה את גוף האדם דרך דגם פשוט, ברור ומוחשי.",goals:["להבין מהו מפרק וכיצד הוא מאפשר תנועה","לחבר בין מבנה הגוף לבין פעולה","לפתח סקרנות כלפי הגוף האנושי"]},
+      {title:"מצפן",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"מצפן אישי",text:"התלמידים בונים מצפן אישי ולומדים כיצד ניתן למצוא כיוון גם בלי מפה או טלפון. דרך ניסוי והתבוננות בתנועת המחט הם נחשפים למגנטיות ולשדה המגנטי של כדור הארץ. הפעילות מחברת בין פיזיקה, טבע והתמצאות במרחב, ומראה כיצד כוח בלתי נראה יכול להפוך לכלי שימושי.",goals:["להכיר תכונות של מגנטים ושדה מגנטי","להבין כיצד מצפן מסייע בניווט","לבנות כלי מדעי אישי ושימושי"]},
+      {title:"מכונית תנע",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"מכונית הנעה באמצעות בלון",text:"התלמידים בונים מכונית קטנה המונעת בעזרת בלון. לאחר ההרכבה הם מפעילים את הדגם וצופים כיצד אוויר שמשתחרר לאחור גורם למכונית לנוע קדימה. הפעילות ממחישה באופן פשוט וחווייתי את עקרון הפעולה והתגובה, ומחברת בין כוח, דחיפה, תנועה ותכנון מכני.",goals:["להכיר את עקרון הפעולה והתגובה","להבין כיצד כוח יוצר תנועה","לפתח תכנון והרכבה טכנית"]},
+      {title:"פרוגי המקפצת",grades:["א׳–ג׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"צפרדע קופצת עם מנגנון מגנטי",text:"התלמידים מרכיבים דגם של צפרדע קופצת ומפעילים אותו באמצעות מגנטים. הקפיצה המפתיעה מובילה לחקר של כוח בלתי נראה — דחייה מגנטית — וכיצד הוא יכול ליצור תנועה ללא מגע ישיר. הפעילות משלבת משחק, ניסוי והשוואה בין כיוון, מרחק ועוצמת הקפיצה.",goals:["להכיר את תופעת הדחייה בין מגנטים","להבין כיצד נוצרת תנועה ללא מגע","לפתח חשיבה ניסויית דרך משחק"]},
+      {title:"מכונית מגנטית",grades:["א׳–ג׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"מכונית מעץ המונעת באמצעות מגנט",text:"התלמידים בונים מכונית קטנה ומניעים אותה באמצעות מגנט חיצוני, בלי לדחוף אותה ביד. התנועה שנוצרת מאפשרת לחקור משיכה, דחייה ושדה מגנטי, ולהבין כיצד כוח בלתי נראה יכול להשפיע על חפץ ממשי. הפעילות מרגישה כמעט כמו קסם, אך מוסברת באמצעות מדע פשוט וברור.",goals:["להבין עקרונות של משיכה ודחייה מגנטית","לחקור תנועה ללא מגע ישיר","לפתח דיוק והרכבה טכנית"]},
+      {title:"גשר לאונרדו",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"הנדסה",accent:"#996c31",duration:"45 דקות",product:"דגם אישי של גשר לאונרדו",text:"התלמידים בונים דגם מוקטן של גשר לאונרדו — מבנה שמחזיק את עצמו ללא דבק, חוטים או מסמרים. באמצעות סידור נכון של קורות, הם מגלים כיצד חלקים בודדים יכולים לתמוך זה בזה וליצור מבנה יציב. הפעילות מציבה אתגר הנדסי ברור ומלמדת שיציבות נוצרת לא רק מחומר חזק, אלא גם מתכנון חכם.",goals:["להכיר עקרונות בסיסיים של יציבות ומבנים","לפתח חשיבה הנדסית ומרחבית","להתמודד עם אתגר בנייה מדויק ומספק"]},
+      {title:"ציפור שיווי משקל",grades:["א׳–ג׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"ציפור שיווי משקל אישית",text:"התלמידים בונים דגם של ציפור שמצליחה לעמוד על נקודה קטנה מבלי ליפול. התוצאה מפתיעה ומזמינה חקירה של השאלה: איך היא נשארת מאוזנת? דרך הדגם הם לומדים על מרכז כובד, חלוקת משקל ויציבות, ומגלים כיצד שינוי קטן במבנה משפיע על האיזון.",goals:["להבין את מושג מרכז הכובד","לחקור כיצד חלוקת משקל יוצרת איזון","לפתח התבוננות מדעית בתופעה יומיומית"]},
+      {title:"גלגל הקסם",grades:["א׳–ג׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"גלגל קסם מסתובב אישי",text:"התלמידים יוצרים גלגל מסתובב, מקשטים אותו ומפעילים אותו באמצעות דחיפה או סיבוב. תוך כדי המשחק הם מתבוננים במהירות, בצבעים המשתנים ובקשר בין פעולה קטנה לבין תנועה מתמשכת. הפעילות מתאימה כהיכרות ראשונית עם עולם הפיזיקה דרך צבע, משחק ותוצר אישי.",goals:["להכיר קשר בין דחיפה לתנועה","להתנסות בתנועה סיבובית","לשלב יצירה אישית עם חקר בסיסי"]},
+      {title:"ספינר",grades:["א׳–ג׳","ד׳–ו׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"ספינר אישי להרכבה והפעלה",text:"התלמידים בונים ספינר אישי, מפעילים אותו ובודקים מה משפיע על משך הסיבוב ועל יציבותו. דרך ההתנסות הם חוקרים תנועה סיבובית, חיכוך, איזון וחלוקת משקל. הפעילות לוקחת חפץ משחקי ומוכר, והופכת אותו להזדמנות אמיתית לחקר פיזיקלי נגיש.",goals:["להבין עקרונות של סיבוב ואיזון","לבדוק מה משפיע על משך התנועה","לפתח חקר דרך משחק והתנסות"]},
+      {title:"קטפולטה",grades:["ג׳–ו׳","ד׳–ו׳"],type:"סדנה",domain:"הנדסה",accent:"#996c31",duration:"45 דקות",product:"דגם קטפולטה להפעלה וניסוי",text:"התלמידים בונים קטפולטה ומתנסים בשיגור חפצים קטנים. לאחר ההפעלה הם בודקים כיצד שינוי בזווית, בעוצמה או במיקום משפיע על המרחק והדיוק. הפעילות מחברת בין בנייה הנדסית לבין ניסוי פיזיקלי, ומעודדת חשיבה של תכנון, בדיקה ושיפור.",goals:["להבין את הקשר בין כוח, זווית ותנועה","לפתח חשיבה הנדסית דרך בנייה ושיפור","לעודד ניסוי, מדידה והסקת מסקנות"]},
+      {title:"כדורי ברנולי",grades:["ג׳–ו׳","ד׳–ו׳"],type:"סדנה",domain:"פיזיקה",accent:"#2f6fed",duration:"45 דקות",product:"התנסות חקר עם כדור ברנולי / מערכת הדגמה",text:"בסדנה זו התלמידים מתנסים בפעילות חקר שבה כדור קל מושפע מזרימת אוויר ונשאר בתנועה או באיזון באופן מפתיע. הם בודקים כיצד שינוי בכיוון האוויר או בעוצמת הזרימה משפיע על הכדור, ונחשפים לקשר בין מהירות זרימת אוויר, לחץ ותנועה. הפעילות מחברת בין ניסוי פשוט לבין עקרונות מעולם התעופה.",goals:["להכיר את הקשר בין זרימת אוויר ללחץ","להבין כיצד אוויר משפיע על תנועה ויציבות","לחבר בין פיזיקה יומיומית לבין עקרונות תעופה"]}
+    ];
+
+    const gradeOptions = ["א׳–ג׳", "ג׳–ו׳", "ד׳–ו׳"];
+    const typeOptions = ["הכל", "סדנה", "חדר בריחה"];
+    const domainOptions = [...new Set(activities.map(item => item.domain))].sort((a, b) => a.localeCompare(b, "he"));
+    const state = { grades: new Set(gradeOptions), types: new Set(["הכל"]), domains: new Set(domainOptions), query: "", groupBy: "grade" };
+    const $ = id => document.getElementById(id);
+
+    function makeChip(container, label, category, active = true) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "chip" + (active ? " active" : "");
+      button.textContent = label;
+      button.dataset.category = category;
+      button.dataset.value = label;
+      container.appendChild(button);
+    }
+
+    function renderFilters() {
+      $("gradeFilters").innerHTML = "";
+      $("typeFilters").innerHTML = "";
+      $("domainFilters").innerHTML = "";
+      gradeOptions.forEach(option => makeChip($("gradeFilters"), option, "grade", state.grades.has(option)));
+      typeOptions.forEach(option => makeChip($("typeFilters"), option, "type", state.types.has(option)));
+      domainOptions.forEach(option => makeChip($("domainFilters"), option, "domain", state.domains.has(option)));
+    }
+
+    function toggleChip(category, value) {
+      if (category === "grade") {
+        state.grades.has(value) ? state.grades.delete(value) : state.grades.add(value);
+      }
+      if (category === "domain") {
+        state.domains.has(value) ? state.domains.delete(value) : state.domains.add(value);
+      }
+      if (category === "type") {
+ 
