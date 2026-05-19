@@ -29,7 +29,10 @@ const server = http.createServer((req, res) => {
     urlPath = '/index.html';
   }
 
-  const filePath = path.join(FRONTEND_DIR, urlPath);
+  const SUMMER_DIR = path.join(__dirname, 'summer');
+  const filePath = urlPath.startsWith('/summer/')
+    ? path.join(SUMMER_DIR, urlPath.replace('/summer/', ''))
+    : path.join(FRONTEND_DIR, urlPath);
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = mimeTypes[ext] || 'application/octet-stream';
