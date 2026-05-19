@@ -437,6 +437,17 @@
       min-width: 0;
     }
 
+    /* ─── Escape-room card: image full-width on top ─── */
+    .escape-card {
+      grid-template-columns: 1fr;
+    }
+    .escape-card .card-image-wrap {
+      width: 100%;
+      height: 180px;
+      margin: 0;
+      border-radius: 0;
+    }
+
     .card-top {
       padding: 18px 22px 12px;
       position: relative;
@@ -706,6 +717,20 @@
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+      }
+
+      /* Escape-room card: image on top, bigger */
+      .escape-card {
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      .escape-card .card-image-wrap {
+        width: 100% !important;
+        height: 35mm !important;
+        min-width: unset !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        align-self: auto !important;
       }
 
       /* Horizontal card: image (square) on right, content on left */
@@ -1302,7 +1327,7 @@
     /* ── Card render ── */
     function renderCard(activity) {
       const card = document.createElement("div");
-      card.className = "activity-card";
+      card.className = "activity-card" + (activity.type === "חדר בריחה" ? " escape-card" : "");
       card.style.setProperty("--accent", activity.accent);
 
       // Image
