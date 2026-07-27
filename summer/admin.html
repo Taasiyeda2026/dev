@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#17324d">
+  <meta name="robots" content="noindex,nofollow">
+  <title>ניהול משוב צוות חינוכי | תעשיידע</title>
+  <style>
+    :root {
+      font-family: Arial, "Noto Sans Hebrew", sans-serif;
+      color: #172033;
+      background: #f4f7fa;
+      --navy: #17324d;
+      --navy-2: #244b6e;
+      --teal: #0f766e;
+      --teal-soft: #eaf8f5;
+      --border: #dbe3e9;
+      --muted: #687386;
+      --danger: #b42318;
+      --warning: #946200;
+      --success: #16734a;
+      --panel: #fff;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: linear-gradient(180deg, #eef4f7 0, #f7f9fb 260px); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .hidden { display: none !important; }
+    .loading { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    .loading-card, .login-card {
+      width: min(440px, 100%); padding: 28px; background: #fff; border: 1px solid var(--border);
+      border-radius: 18px; box-shadow: 0 18px 46px rgba(15, 23, 42, .09);
+    }
+    .spinner { width: 34px; height: 34px; margin: 0 auto 12px; border: 4px solid #dce9ed; border-top-color: var(--teal); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .shell { width: min(1220px, calc(100% - 24px)); margin: 0 auto; padding: 14px 0 38px; }
+    .topbar {
+      position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between;
+      gap: 14px; min-height: 58px; margin-bottom: 14px; padding: 8px 12px;
+      background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border: 1px solid var(--border);
+      border-radius: 14px; box-shadow: 0 5px 18px rgba(15,23,42,.05);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { width: 38px; height: 38px; display: grid; place-items: center; color: #fff; background: var(--teal); border-radius: 11px; font-size: 21px; font-weight: 800; }
+    .brand-copy strong { display: block; font-size: 15px; }
+    .brand-copy span { display: block; color: var(--muted); font-size: 11px; }
+    .top-actions { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      min-height: 34px; padding: 7px 11px; color: #243247; background: #fff;
+      border: 1px solid var(--border); border-radius: 9px; font-weight: 700; font-size: 12px;
+    }
+    .btn:hover { background: #f5f8fa; }
+    .btn.primary { color: #fff; background: var(--teal); border-color: var(--teal); }
+    .btn.primary:hover { background: #0b625c; }
+    .btn.danger { color: var(--danger); }
+    .btn.icon { width: 32px; min-width: 32px; padding: 0; display: grid; place-items: center; font-size: 15px; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .hero { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 20px 22px; color: #fff; background: linear-gradient(135deg, var(--navy), var(--navy-2)); border-radius: 17px; box-shadow: 0 14px 34px rgba(23,50,77,.17); }
+    .hero h1 { margin: 0 0 5px; font-size: 26px; }
+    .hero p { margin: 0; color: #dce9f3; font-size: 13px; }
+    .hero-side { text-align: center; min-width: 120px; padding: 10px 14px; background: rgba(255,255,255,.1); border-radius: 12px; }
+    .hero-side strong { display: block; font-size: 26px; }
+    .hero-side span { font-size: 11px; }
+    .stats { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 9px; margin-top: 11px; }
+    .stat { padding: 12px 13px; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+    .stat span { display: block; color: var(--muted); font-size: 11px; }
+    .stat strong { display: block; margin-top: 3px; font-size: 23px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 11px; padding: 10px; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
+    .filters { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .search { width: min(290px, 42vw); }
+    input[type="search"], input[type="email"], input[type="password"], select {
+      min-height: 34px; padding: 7px 10px; color: #172033; background: #fff; border: 1px solid #bdcad3; border-radius: 9px; outline: none; font-size: 12px;
+    }
+    input:focus, select:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15,118,110,.1); }
+    .table-panel { margin-top: 10px; overflow: hidden; background: #fff; border: 1px solid var(--border); border-radius: 13px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
+    th { position: sticky; top: 0; z-index: 2; padding: 9px 8px; color: #4c5c70; background: #f4f7f9; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    td { height: 43px; padding: 7px 8px; border-bottom: 1px solid #edf1f4; vertical-align: middle; }
+    tbody tr:hover { background: #fbfdfd; }
+    tbody tr:last-child td { border-bottom: 0; }
+    .col-authority { width: 13%; }
+    .col-school { width: 19%; }
+    .col-status { width: 12%; }
+    .col-link { width: 18%; }
+    .col-updated { width: 15%; }
+    .col-person { width: 13%; }
+    .col-actions { width: 10%; text-align: center; }
+    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { display: inline-flex; align-items: center; gap: 5px; min-height: 23px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge.not-created { color: #6d7685; background: #eef1f4; }
+    .badge.created { color: #245c8a; background: #e9f3fb; }
+    .badge.opened { color: #765612; background: #fff4d5; }
+    .badge.draft { color: #946200; background: #fff0c2; }
+    .badge.submitted { color: #16734a; background: #e5f7ef; }
+    .link-cell { display: flex; align-items: center; gap: 6px; }
+    .row-actions { display: flex; justify-content: center; gap: 5px; }
+    .pagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 11px; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); }
+    .page-buttons { display: flex; gap: 6px; }
+    .empty { padding: 36px 20px; text-align: center; color: var(--muted); }
+    .login-card h1 { margin: 0 0 5px; font-size: 24px; }
+    .login-card p { margin: 0 0 18px; color: var(--muted); line-height: 1.5; font-size: 13px; }
+    .login-form { display: grid; gap: 11px; }
+    .login-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
+    .login-error { display: none; padding: 9px 10px; color: #8b1e16; background: #fff2f0; border: 1px solid #efb9b2; border-radius: 9px; font-size: 12px; }
+    .login-error.show { display: block; }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; background: rgba(15,23,42,.52); }
+    .modal { width: min(860px, 100%); max-height: 90vh; overflow: auto; background: #fff; border-radius: 17px; box-shadow: 0 26px 80px rgba(15,23,42,.3); }
+    .modal-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 15px; background: #fff; border-bottom: 1px solid var(--border); }
+    .modal-head h2 { margin: 0; font-size: 18px; }
+    .modal-body { padding: 15px; }
+    .details-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+    .detail { padding: 9px 10px; background: #f7f9fb; border: 1px solid #e4e9ed; border-radius: 9px; }
+    .detail span { display: block; color: var(--muted); font-size: 10px; }
+    .detail strong { display: block; margin-top: 3px; font-size: 12px; }
+    .answer-section { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border); }
+    .answer-section h3 { margin: 0 0 8px; font-size: 14px; }
+    .answer-list { display: grid; gap: 6px; }
+    .answer-row { display: grid; grid-template-columns: 1fr 70px; gap: 8px; padding: 8px 9px; background: #fbfcfd; border: 1px solid #edf1f3; border-radius: 8px; font-size: 11px; }
+    .answer-value { text-align: center; font-weight: 800; }
+    .long-answer { padding: 10px; background: #fbfcfd; border: 1px solid #edf1f3; border-radius: 8px; white-space: pre-wrap; line-height: 1.55; font-size: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { padding: 5px 8px; color: #345; background: #eef3f6; border-radius: 999px; font-size: 10px; }
+    .toast { position: fixed; right: 50%; bottom: 22px; z-index: 90; transform: translate(50%,18px); padding: 9px 13px; color: #fff; background: #172033; border-radius: 9px; font-size: 12px; opacity: 0; pointer-events: none; transition: .2s; box-shadow: 0 12px 32px rgba(15,23,42,.2); }
+    .toast.show { opacity: 1; transform: translate(50%,0); }
+    .toast.error { background: var(--danger); }
+    @media (max-width: 860px) {
+      .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .stat:last-child { grid-column: span 2; }
+      .toolbar { align-items: stretch; flex-direction: column; }
+      .filters { flex-wrap: wrap; }
+      .search { width: 100%; flex: 1 1 100%; }
+      .details-grid { grid-template-columns: 1fr 1fr; }
+      table { min-width: 920px; }
+    }
+    @media (max-width: 520px) {
+      .shell { width: min(100% - 12px,1220px); padding-top: 6px; }
+      .topbar { border-radius: 10px; }
+      .brand-copy span { display: none; }
+      .hero { align-items: flex-start; padding: 17px; }
+      .hero-side { display: none; }
+      .hero h1 { font-size: 22px; }
+      .stats { gap: 6px; }
+      .stat { padding: 10px; }
+      .top-actions .label { display: none; }
+      .details-grid { grid-template-columns: 1fr; }
+      .answer-row { grid-template-columns: 1fr 55px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="loading"><div class="loading-card"><div class="spinner"></div><p style="text-align:center;margin:0">טוען את עמוד הניהול…</p></div></div>
+  <div id="modal-root"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/+esm';
+
+    const supabase = createClient(
+      'https://szinlhjuwyiyszdpsdop.supabase.co',
+      'sb_publishable_k0IbDJlgPA9KTVuDWrCyFw_Zsa5kZIM',
+      { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
+    );
+
+    const app = document.querySelector('#app');
+    const modalRoot = document.querySelector('#modal-root');
+    const toast = document.querySelector('#toast');
+
+    const SATISFACTION = [
+      ['coordination_info', 'התיאום והמידע שנמסרו לקראת הפעילויות היו ברורים, מסודרים ומדויקים.'],
+      ['facilitation_professionalism', 'צוות ההדרכה הגיע ערוך והעביר את הפעילויות במקצועיות, בנעימות ובבהירות.'],
+      ['age_group_fit', 'הפעילויות התאימו לגיל התלמידים, למאפייני הקבוצות ולמסגרת הקיץ.'],
+      ['content_equipment_duration', 'התוכן, הציוד ומשך הפעילויות נתנו מענה מלא ומותאם לצורכי הקבוצות.'],
+      ['learning_experience', 'הפעילויות העניקו לתלמידים חוויה לימודית, מעשית, מהנה ומשמעותית.'],
+      ['expectations_staff', 'הפעילויות עמדו בציפיות שלנו ונתנו מענה מקצועי לצוות החינוכי.'],
+      ['overall_satisfaction', 'באופן כללי, אנו שבעי רצון מפעילויות תעשיידע שהתקיימו בבית הספר.']
+    ];
+    const STUDENTS = [
+      ['interest_curiosity', 'התלמידים גילו עניין, סקרנות ומעורבות לאורך הפעילויות.'],
+      ['active_participation', 'התלמידים השתתפו באופן פעיל ושיתפו פעולה לאורך הפעילות.'],
+      ['enjoyment_motivation', 'התלמידים הביעו הנאה, התלהבות ורצון להמשיך ולהתנסות.'],
+      ['building_creation', 'התלמידים גילו מעורבות בבנייה, ביצירה ובשלבי ההתנסות.'],
+      ['positive_experience', 'תגובות התלמידים העידו על חוויה חיובית, מהנה ומשמעותית.']
+    ];
+    const HIGHLIGHTS = {
+      enthusiasm: 'התלהבות, הנאה ורצון להשתתף', curiosity: 'סקרנות, עניין ושאלת שאלות',
+      active_participation: 'השתתפות פעילה לאורך הפעילות', cooperation: 'שיתוף פעולה בין התלמידים',
+      pride: 'גאווה בתוצר, בבנייה או בהתנסות', continue: 'רצון להמשיך בפעילות או להתנסות שוב',
+      after_talk: 'שיח על הפעילות גם לאחר סיומה', different_interest: 'רמת עניין שונה בין התלמידים',
+      could_not_observe: 'לא הייתה אפשרות להתרשם'
+    };
+    const ROLE = { manager: 'מנהל/ת', coordinator: 'רכז/ת', teacher: 'מורה או איש/אשת צוות חינוכי', other: 'אחר' };
+    const FUTURE = { yes: 'כן', maybe: 'ייתכן, נשמח לקבל פרטים', no: 'לא בשלב זה' };
+
+    const state = { rows: [], filtered: [], search: '', filter: 'all', page: 1, pageSize: 15, user: null, busy: false };
+
+    function esc(value = '') {
+      return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+    }
+    function fmtDate(value) {
+      if (!value) return '—';
+      try { return new Intl.DateTimeFormat('he-IL',{ dateStyle:'short', timeStyle:'short' }).format(new Date(value)); }
+      catch { return '—'; }
+    }
+    function notify(message, error = false) {
+      toast.textContent = message;
+      toast.className = `toast show${error ? ' error' : ''}`;
+      clearTimeout(notify.timer);
+      notify.timer = setTimeout(() => toast.className = 'toast', 2600);
+    }
+    function statusOf(row) {
+      if (row.status === 'submitted') return { key:'submitted', label:'הוגש' };
+      if (row.status === 'draft') return { key:'draft', label:'טיוטה' };
+      if (row.first_opened_at) return { key:'opened', label:'נפתח' };
+      if (row.access_token) return { key:'created', label:'קישור הופק' };
+      return { key:'not-created', label:'טרם הופק' };
+    }
+    function linkFor(row) {
+      if (!row.access_token) return '';
+      const url = new URL('./form.html', window.location.href);
+      url.search = '';
+      url.searchParams.set('t', row.access_token);
+      return url.href;
+    }
+    async function copyText(text) {
+      try { await navigator.clipboard.writeText(text); }
+      catch {
+        const input = document.createElement('textarea');
+        input.value = text; input.style.position='fixed'; input.style.opacity='0'; document.body.append(input);
+        input.select(); document.execCommand('copy'); input.remove();
+      }
+    }
+
+    async function init() {
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session) return renderLogin();
+      state.user = data.session.user;
+      await loadRows();
+    }
+
+    function renderLogin(error = '') {
+      app.className = 'loading';
+      app.innerHTML = `<section class="login-card">
+        <div class="brand" style="margin-bottom:18px"><span class="brand-mark">ת</span><span class="brand-copy"><strong>תעשיידע</strong><span>ניהול משוב לצוות החינוכי</span></span></div>
+        <h1>כניסה לעמוד הניהול</h1>
+        <p>העמוד עצמאי ואינו חלק מהדשבורד. הכניסה מיועדת לבעלי הרשאת ניהול בלבד.</p>
+        <div id="login-error" class="login-error${error ? ' show' : ''}">${esc(error)}</div>
+        <form id="login-form" class="login-form">
+          <label>דוא״ל<input name="email" type="email" autocomplete="username" required></label>
+          <label>סיסמה<input name="password" type="password" autocomplete="current-password" required></label>
+          <button class="btn primary" type="submit">כניסה</button>
+        </form>
+      </section>`;
+    }
+
+    async function login(form) {
+      const button = form.querySelector('button');
+      button.disabled = true; button.textContent = 'מתחבר…';
+      const values = new FormData(form);
+      const { data, error } = await supabase.auth.signInWithPassword({ email: String(values.get('email')||'').trim(), password: String(values.get('password')||'') });
+      if (error || !data?.session) {
+        renderLogin('פרטי הכניסה אינם תקינים.');
+        return;
+      }
+      state.user = data.session.user;
+      await loadRows();
+    }
+
+    async function loadRows() {
+      app.className = 'loading';
+      app.innerHTML = '<div class="loading-card"><div class="spinner"></div><p style="text-align:center;margin:0">טוען נתוני משוב…</p></div>';
+      const { data, error } = await supabase.from('educational_feedback').select('*').order('authority_name').order('school_name');
+      if (error) {
+        console.error(error);
+        if (error.code === '42501' || /permission|policy|row-level/i.test(error.message || '')) {
+          app.innerHTML = `<section class="login-card"><h1>אין הרשאת ניהול</h1><p>המשתמש המחובר אינו מורשה לצפות בנתוני המשוב.</p><button class="btn" data-action="logout">יציאה</button></section>`;
+          return;
+        }
+        app.innerHTML = `<section class="login-card"><h1>לא ניתן לטעון את הנתונים</h1><p>${esc(error.message || 'אירעה תקלה זמנית.')}</p><button class="btn" data-action="reload">ניסיון נוסף</button></section>`;
+        return;
+      }
+      state.rows = data || [];
+      state.page = 1;
+      applyFilters();
+      renderDashboard();
+    }
+
+    function applyFilters() {
+      const q = state.search.trim().toLowerCase();
+      state.filtered = state.rows.filter(row => {
+        const status = statusOf(row).key;
+        const statusMatch = state.filter === 'all' || status === state.filter;
+        const textMatch = !q || `${row.authority_name} ${row.school_name} ${row.respondent_name}`.toLowerCase().includes(q);
+        return statusMatch && textMatch;
+      });
+      const pages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
+      if (state.page > pages) state.page = pages;
+    }
+
+    function stats() {
+      return {
+        total: state.rows.length,
+        created: state.rows.filter(r => !!r.access_token).length,
+        opened: state.rows.filter(r => !!r.first_opened_at).length,
+        draft: state.rows.filter(r => r.status === 'draft').length,
+        submitted: state.rows.filter(r => r.status === 'submitted').length
+      };
+    }
+
+    function renderDashboard() {
+      const s = stats();
+      app.className = '';
+      app.innerHTML = `<main class="shell">
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">ת</span><span class="brand-copy"><strong>תעשיידע</strong><span>ניהול משוב לצוות החינוכי</span></span></div>
+          <div class="top-actions">
+            <button class="btn" data-action="export">ייצוא CSV</button>
+            <button class="btn danger" data-action="logout"><span class="label">יציאה</span> ↗</button>
+          </div>
+        </header>
+        <section class="hero">
+          <div><h1>ניהול משוב פעילויות הקיץ</h1><p>הפקת קישורים אישיים, מעקב אחר המילוי וצפייה בתשובות — במקום אחד.</p></div>
+          <div class="hero-side"><strong>${s.submitted}</strong><span>משובים שהוגשו</span></div>
+        </section>
+        <section class="stats">
+          ${statCard('מוסדות', s.total)}${statCard('קישורים שהופקו', s.created)}${statCard('פתחו את הקישור', s.opened)}${statCard('טיוטות', s.draft)}${statCard('הוגשו', s.submitted)}
+        </section>
+        <section class="toolbar">
+          <div class="filters">
+            <input id="search" class="search" type="search" placeholder="חיפוש לפי רשות, בית ספר או שם…" value="${esc(state.search)}">
+            <select id="status-filter">
+              <option value="all"${state.filter==='all'?' selected':''}>כל הסטטוסים</option>
+              <option value="not-created"${state.filter==='not-created'?' selected':''}>טרם הופק</option>
+              <option value="created"${state.filter==='created'?' selected':''}>קישור הופק</option>
+              <option value="opened"${state.filter==='opened'?' selected':''}>נפתח</option>
+              <option value="draft"${state.filter==='draft'?' selected':''}>טיוטה</option>
+              <option value="submitted"${state.filter==='submitted'?' selected':''}>הוגש</option>
+            </select>
+          </div>
+          <button class="btn primary" data-action="generate-all" ${s.created===s.total?'disabled':''}>הפקת כל הקישורים החסרים</button>
+        </section>
+        <section class="table-panel">${tableHtml()}</section>
+      </main>`;
+    }
+
+    function statCard(label, value) { return `<article class="stat"><span>${esc(label)}</span><strong>${value}</strong></article>`; }
+
+    function tableHtml() {
+      const start = (state.page - 1) * state.pageSize;
+      const pageRows = state.filtered.slice(start, start + state.pageSize);
+      if (!pageRows.length) return '<div class="empty">לא נמצאו מוסדות בהתאם לסינון.</div>';
+      const pages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
+      return `<div class="table-wrap"><table>
+        <thead><tr><th class="col-authority">רשות</th><th class="col-school">בית ספר</th><th class="col-status">סטטוס</th><th class="col-link">קישור אישי</th><th class="col-updated">פתיחה / עדכון</th><th class="col-person">ממלא/ת המשוב</th><th class="col-actions">פעולות</th></tr></thead>
+        <tbody>${pageRows.map(rowHtml).join('')}</tbody>
+      </table></div>
+      <div class="pagination"><span>מציג ${start+1}–${Math.min(start+state.pageSize,state.filtered.length)} מתוך ${state.filtered.length}</span><div class="page-buttons"><button class="btn" data-action="prev-page" ${state.page<=1?'disabled':''}>הקודם</button><span style="align-self:center">${state.page} / ${pages}</span><button class="btn" data-action="next-page" ${state.page>=pages?'disabled':''}>הבא</button></div></div>`;
+    }
+
+    function rowHtml(row) {
+      const status = statusOf(row);
+      const link = linkFor(row);
+      const time = row.submitted_at || row.updated_at || row.first_opened_at || row.link_created_at;
+      return `<tr>
+        <td class="truncate" title="${esc(row.authority_name)}">${esc(row.authority_name)}</td>
+        <td class="truncate" title="${esc(row.school_name)}"><strong>${esc(row.school_name)}</strong></td>
+        <td><span class="badge ${status.key}">${status.label}</span></td>
+        <td>${row.access_token ? `<div class="link-cell"><button class="btn" data-action="copy" data-id="${row.id}">העתק קישור</button><button class="btn icon" data-action="open" data-id="${row.id}" title="פתיחת הקישור">↗</button></div>` : `<button class="btn primary" data-action="generate" data-id="${row.id}">הפק קישור</button>`}</td>
+        <td><span title="${esc(time || '')}">${fmtDate(time)}</span></td>
+        <td class="truncate" title="${esc(row.respondent_name || '')}">${esc(row.respondent_name || '—')}</td>
+        <td><div class="row-actions"><button class="btn icon" data-action="view" data-id="${row.id}" title="צפייה בפרטים" ${row.status==='not_started'?'disabled':''}>◉</button>${link ? `<button class="btn icon" data-action="copy" data-id="${row.id}" title="העתקת קישור">⧉</button>` : ''}</div></td>
+      </tr>`;
+    }
+
+    async function generateLink(id) {
+      if (state.busy) return;
+      state.busy = true;
+      const { data, error } = await supabase.rpc('educational_feedback_generate_link', { p_id: id });
+      state.busy = false;
+      if (error || !data?.ok) return notify(error?.message || 'לא ניתן להפיק את הקישור.', true);
+      const row = state.rows.find(item => item.id === id);
+      if (row) { row.access_token = data.access_token; row.link_created_at = new Date().toISOString(); }
+      applyFilters(); renderDashboard();
+      if (row) { await copyText(linkFor(row)); notify('הקישור הופק והועתק'); }
+    }
+
+    async function generateAll() {
+      if (state.busy) return;
+      if (!confirm('להפיק קישורים אישיים לכל המוסדות שטרם הופק עבורם קישור?')) return;
+      state.busy = true;
+      const { data, error } = await supabase.rpc('educational_feedback_generate_all_links');
+      state.busy = false;
+      if (error || !data?.ok) return notify(error?.message || 'לא ניתן להפיק את הקישורים.', true);
+      await loadRows();
+      notify('כל הקישורים החסרים הופקו');
+    }
+
+    async function copyLink(id) {
+      const row = state.rows.find(item => item.id === id);
+      if (!row?.access_token) return;
+      await copyText(linkFor(row));
+      notify('הקישור הועתק');
+    }
+
+    function openLink(id) {
+      const row = state.rows.find(item => item.id === id);
+      const link = row ? linkFor(row) : '';
+      if (link) window.open(link, '_blank', 'noopener');
+    }
+
+    function ratingValue(value) { return value === 'na' ? 'לא ניתן להתרשם' : (value || '—'); }
+    function answerRows(items, answers = {}) {
+      return items.map(([key,label]) => `<div class="answer-row"><span>${esc(label)}</span><span class="answer-value">${esc(ratingValue(answers?.[key]))}</span></div>`).join('');
+    }
+
+    function viewResponse(id) {
+      const row = state.rows.find(item => item.id === id);
+      if (!row || row.status === 'not_started') return;
+      const role = row.respondent_role === 'other' ? row.respondent_role_other : ROLE[row.respondent_role];
+      modalRoot.innerHTML = `<div class="modal-backdrop" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" aria-label="תשובת ${esc(row.school_name)}" onclick="event.stopPropagation()">
+        <header class="modal-head"><div><h2>${esc(row.school_name)}</h2><small style="color:var(--muted)">${esc(row.authority_name)}</small></div><button class="btn icon" data-action="close-modal" aria-label="סגירה">×</button></header>
+        <div class="modal-body">
+          <div class="details-grid">
+            ${detail('סטטוס', statusOf(row).label)}${detail('שם מלא', row.respondent_name || '—')}${detail('תפקיד', role || '—')}
+            ${detail('נפתח לראשונה', fmtDate(row.first_opened_at))}${detail('עודכן לאחרונה', fmtDate(row.updated_at))}${detail('הוגש', fmtDate(row.submitted_at))}
+          </div>
+          <section class="answer-section"><h3>שביעות רצון מהפעילות</h3><div class="answer-list">${answerRows(SATISFACTION,row.satisfaction_answers)}</div></section>
+          <section class="answer-section"><h3>חוויית התלמידים</h3><div class="answer-list">${answerRows(STUDENTS,row.student_experience_answers)}</div></section>
+          <section class="answer-section"><h3>מה בלט בתגובות התלמידים</h3><div class="chips">${(row.student_highlights||[]).map(value => `<span class="chip">${esc(HIGHLIGHTS[value] || value)}</span>`).join('') || '<span class="chip">לא נבחר</span>'}</div></section>
+          <section class="answer-section"><h3>מה עבד היטב וחשוב לשמר</h3><div class="long-answer">${esc(row.preserve_text || '—')}</div></section>
+          <section class="answer-section"><h3>מה ניתן לשפר</h3><div class="long-answer">${esc(row.improve_text || '—')}</div></section>
+          <section class="answer-section"><h3>עניין בפעילות נוספת</h3><div class="long-answer">${esc(FUTURE[row.future_interest] || '—')}</div></section>
+          <section class="answer-section"><h3>תגובה או אמירה של תלמידים</h3><div class="long-answer">${esc(row.memorable_response || '—')}</div></section>
+        </div>
+      </section></div>`;
+    }
+    function detail(label,value) { return `<div class="detail"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`; }
+    function closeModal() { modalRoot.innerHTML = ''; }
+
+    function exportCsv() {
+      const headers = ['רשות','בית ספר','סטטוס','קישור','שם מלא','תפקיד','נפתח לראשונה','עודכן','הוגש','מה לשמר','מה לשפר','פעילות נוספת','תגובה זכורה','דירוגי שביעות רצון','דירוגי חוויית תלמידים','תגובות בולטות'];
+      const csvRows = state.rows.map(row => {
+        const role = row.respondent_role === 'other' ? row.respondent_role_other : ROLE[row.respondent_role] || '';
+        return [row.authority_name,row.school_name,statusOf(row).label,linkFor(row),row.respondent_name,role,fmtDate(row.first_opened_at),fmtDate(row.updated_at),fmtDate(row.submitted_at),row.preserve_text,row.improve_text,FUTURE[row.future_interest]||'',row.memorable_response,JSON.stringify(row.satisfaction_answers||{}),JSON.stringify(row.student_experience_answers||{}),(row.student_highlights||[]).map(v=>HIGHLIGHTS[v]||v).join(' | ')];
+      });
+      const quote = value => `"${String(value??'').replaceAll('"','""')}"`;
+      const csv = '\uFEFF' + [headers,...csvRows].map(row => row.map(quote).join(',')).join('\r\n');
+      const blob = new Blob([csv],{type:'text/csv;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href=url; link.download='משוב-צוות-חינוכי.csv'; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+    }
+
+    async function logout() { await supabase.auth.signOut(); state.rows=[]; renderLogin(); }
+
+    app.addEventListener('submit', event => {
+      if (event.target.id === 'login-form') { event.preventDefault(); login(event.target); }
+    });
+    app.addEventListener('input', event => {
+      if (event.target.id === 'search') { state.search=event.target.value; state.page=1; applyFilters(); renderDashboard(); document.querySelector('#search')?.focus(); }
+    });
+    app.addEventListener('change', event => {
+      if (event.target.id === 'status-filter') { state.filter=event.target.value; state.page=1; applyFilters(); renderDashboard(); }
+    });
+    app.addEventListener('click', event => {
+      const button = event.target.closest('[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const id = button.dataset.id;
+      if (action==='generate') generateLink(id);
+      if (action==='generate-all') generateAll();
+      if (action==='copy') copyLink(id);
+      if (action==='open') openLink(id);
+      if (action==='view') viewResponse(id);
+      if (action==='export') exportCsv();
+      if (action==='logout') logout();
+      if (action==='reload') loadRows();
+      if (action==='prev-page' && state.page>1) { state.page--; renderDashboard(); }
+      if (action==='next-page' && state.page<Math.ceil(state.filtered.length/state.pageSize)) { state.page++; renderDashboard(); }
+    });
+    modalRoot.addEventListener('click', event => {
+      const action = event.target.closest('[data-action]')?.dataset.action;
+      if (action === 'close-modal') closeModal();
+    });
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
+
+    init();
+  </script>
+</body>
+</html>
