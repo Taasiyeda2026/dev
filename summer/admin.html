@@ -2,623 +2,89 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#17324d">
   <meta name="robots" content="noindex,nofollow">
   <title>ניהול משוב לצוות החינוכי | תעשיידע</title>
   <style>
-    :root {
-      font-family: Arial, "Noto Sans Hebrew", sans-serif;
-      color: #172033;
-      background: #f3f6f9;
-      --primary: #17324d;
-      --primary-dark: #10283d;
-      --primary-soft: #eef3f7;
-      --muted: #687386;
-      --border: #d8e0e6;
-      --danger: #b42318;
-      --success: #18734b;
-      --warning: #8a6500;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: #f3f6f9; }
-    button, input, select { font: inherit; }
-    button { cursor: pointer; }
-    .hidden { display: none !important; }
-
-    .loading-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
-    .loading-card, .login-card, .message-card {
-      width: min(440px, calc(100% - 24px));
-      padding: 28px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      box-shadow: 0 14px 36px rgba(15,23,42,.08);
-    }
-    .login-logo, .message-logo { display: block; width: auto; max-width: 200px; height: 66px; margin: 0 auto 20px; object-fit: contain; }
-    .spinner { width: 34px; height: 34px; margin: 0 auto 12px; border: 4px solid #dbe3e9; border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .shell {
-      width: min(84vw, 1080px);
-      margin: 0 auto;
-      padding: 18px 0 42px;
-    }
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 12px;
-      padding: 12px 16px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      box-shadow: 0 7px 22px rgba(15,23,42,.04);
-    }
-    .brand-logo { display: block; width: auto; max-width: 190px; height: 58px; object-fit: contain; object-position: right center; }
-    .top-actions { display: flex; align-items: center; gap: 8px; }
-
-    .btn {
-      min-height: 36px;
-      padding: 7px 12px;
-      color: #263447;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .btn:hover { background: #f7f9fb; }
-    .btn.primary { color: #fff; background: var(--primary); border-color: var(--primary); }
-    .btn.primary:hover { background: var(--primary-dark); }
-    .btn.danger { color: var(--danger); }
-    .btn.icon { width: 34px; min-width: 34px; padding: 0; display: grid; place-items: center; font-size: 15px; }
-    .btn:disabled { opacity: .48; cursor: not-allowed; }
-
-    .heading-card {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      padding: 20px 22px;
-      color: #fff;
-      background: var(--primary);
-      border-radius: 15px;
-      box-shadow: 0 12px 30px rgba(23,50,77,.15);
-    }
-    .heading-card h1 { margin: 0 0 5px; font-size: 25px; }
-    .heading-card p { margin: 0; color: #dce6ee; font-size: 13px; }
-    .heading-total { min-width: 110px; padding: 10px 14px; text-align: center; background: rgba(255,255,255,.1); border-radius: 11px; }
-    .heading-total strong { display: block; font-size: 25px; }
-    .heading-total span { font-size: 11px; }
-
-    .stats { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; margin-top: 10px; }
-    .stat { padding: 11px 13px; background: #fff; border: 1px solid var(--border); border-radius: 11px; }
-    .stat span { display: block; color: var(--muted); font-size: 11px; }
-    .stat strong { display: block; margin-top: 3px; font-size: 22px; }
-
-    .toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-top: 10px;
-      padding: 10px;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 11px;
-    }
-    .filters { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    input[type="search"], input[type="email"], input[type="password"], select {
-      min-height: 36px;
-      padding: 7px 10px;
-      color: #172033;
-      background: #fff;
-      border: 1px solid #bcc8d1;
-      border-radius: 8px;
-      outline: none;
-      font-size: 12px;
-    }
-    input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(23,50,77,.08); }
-    .search { width: min(300px, 31vw); }
-
-    .table-panel { margin-top: 9px; overflow: hidden; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: fixed; font-size: 12px; }
-    th { padding: 9px 8px; color: #4e5d70; background: #f4f7f9; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
-    td { height: 43px; padding: 7px 8px; border-bottom: 1px solid #edf1f4; vertical-align: middle; }
-    tbody tr:hover { background: #fbfcfd; }
-    tbody tr:last-child td { border-bottom: 0; }
-    .col-authority { width: 14%; }
-    .col-school { width: 20%; }
-    .col-status { width: 12%; }
-    .col-link { width: 18%; }
-    .col-updated { width: 14%; }
-    .col-person { width: 13%; }
-    .col-actions { width: 9%; text-align: center; }
-    .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    .badge { display: inline-flex; align-items: center; gap: 5px; min-height: 23px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; white-space: nowrap; }
-    .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-    .badge.not-created { color: #6d7685; background: #eef1f4; }
-    .badge.created { color: #315f86; background: #eaf2f8; }
-    .badge.opened { color: #765612; background: #fff4d5; }
-    .badge.draft { color: var(--warning); background: #fff0c2; }
-    .badge.submitted { color: var(--success); background: #e5f7ef; }
-    .link-cell, .row-actions { display: flex; align-items: center; gap: 5px; }
-    .row-actions { justify-content: center; }
-
-    .pagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 11px; color: var(--muted); border-top: 1px solid var(--border); font-size: 11px; }
-    .page-buttons { display: flex; align-items: center; gap: 6px; }
-    .empty { padding: 34px 18px; color: var(--muted); text-align: center; }
-
-    .login-card h1, .message-card h1 { margin: 0 0 6px; text-align: center; font-size: 23px; color: var(--primary); }
-    .login-card p, .message-card p { margin: 0 0 18px; color: var(--muted); text-align: center; font-size: 13px; line-height: 1.5; }
-    .login-form { display: grid; gap: 11px; }
-    .login-form label { display: grid; gap: 6px; font-size: 12px; font-weight: 700; }
-    .login-error { display: none; padding: 9px 10px; color: #8b1e16; background: #fff2f0; border: 1px solid #efb9b2; border-radius: 9px; font-size: 12px; }
-    .login-error.show { display: block; }
-
-    .modal-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; background: rgba(15,23,42,.52); }
-    .modal { width: min(760px, 82vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 15px; box-shadow: 0 26px 80px rgba(15,23,42,.3); }
-    .modal-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 15px; background: #fff; border-bottom: 1px solid var(--border); }
-    .modal-head h2 { margin: 0; font-size: 18px; }
-    .modal-body { padding: 15px; }
-    .details-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
-    .detail { padding: 9px 10px; background: #f7f9fb; border: 1px solid #e4e9ed; border-radius: 8px; }
-    .detail span { display: block; color: var(--muted); font-size: 10px; }
-    .detail strong { display: block; margin-top: 3px; font-size: 12px; }
-    .answer-section { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--border); }
-    .answer-section h3 { margin: 0 0 8px; font-size: 14px; }
-    .answer-list { display: grid; gap: 6px; }
-    .answer-row { display: grid; grid-template-columns: 1fr 76px; gap: 8px; padding: 8px 9px; background: #fbfcfd; border: 1px solid #edf1f3; border-radius: 8px; font-size: 11px; }
-    .answer-value { text-align: center; font-weight: 800; }
-    .long-answer { padding: 10px; background: #fbfcfd; border: 1px solid #edf1f3; border-radius: 8px; white-space: pre-wrap; line-height: 1.55; font-size: 12px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip { padding: 5px 8px; color: #345; background: #eef3f6; border-radius: 999px; font-size: 10px; }
-
-    .toast { position: fixed; right: 50%; bottom: 20px; z-index: 90; transform: translate(50%,16px); padding: 9px 13px; color: #fff; background: #172033; border-radius: 9px; opacity: 0; pointer-events: none; transition: .2s; box-shadow: 0 12px 30px rgba(15,23,42,.2); font-size: 12px; }
-    .toast.show { opacity: 1; transform: translate(50%,0); }
-    .toast.error { background: var(--danger); }
-
-    @media (max-width: 900px) {
-      .shell { width: calc(100% - 28px); }
-      .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
-      .stat:last-child { grid-column: span 2; }
-      .toolbar { align-items: stretch; flex-direction: column; }
-      .filters { flex-wrap: wrap; }
-      .search { width: 100%; flex: 1 1 100%; }
-      .details-grid { grid-template-columns: 1fr 1fr; }
-      .modal { width: calc(100% - 28px); }
-    }
-    @media (max-width: 520px) {
-      .shell { width: calc(100% - 14px); padding-top: 7px; }
-      .topbar { border-radius: 10px; }
-      .brand-logo { height: 48px; max-width: 155px; }
-      .heading-card { align-items: flex-start; padding: 17px; }
-      .heading-total { display: none; }
-      .heading-card h1 { font-size: 21px; }
-      .top-actions .label { display: none; }
-      .details-grid { grid-template-columns: 1fr; }
-      .answer-row { grid-template-columns: 1fr 58px; }
-    }
+    :root{font-family:Arial,"Noto Sans Hebrew",sans-serif;color:#172033;background:#f3f6f9;--primary:#17324d;--primary-dark:#10283d;--muted:#687386;--border:#d8e0e6;--danger:#b42318;--success:#18734b;--warning:#8a6500}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;background:#f3f6f9}button,input,select{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+    .loading{min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(440px,calc(100% - 24px));padding:28px;background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 14px 36px rgba(15,23,42,.08)}
+    .logo{display:block;width:auto;max-width:200px;height:66px;margin:0 auto 20px;object-fit:contain}.card h1{margin:0 0 7px;text-align:center;color:var(--primary);font-size:23px}.card p{margin:0 0 18px;text-align:center;color:var(--muted);font-size:13px;line-height:1.5}
+    .login-form{display:grid;gap:11px}.login-form label{display:grid;gap:6px;font-size:12px;font-weight:700}.error{display:none;padding:9px 10px;color:#8b1e16;background:#fff2f0;border:1px solid #efb9b2;border-radius:9px;font-size:12px}.error.show{display:block}
+    input[type=email],input[type=password],input[type=search],select{min-height:38px;padding:8px 11px;border:1px solid #bcc8d1;border-radius:9px;outline:none;background:#fff;color:#172033}input:focus,select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(23,50,77,.08)}
+    .btn{min-height:36px;padding:7px 12px;border:1px solid var(--border);border-radius:9px;background:#fff;color:#263447;font-weight:700;font-size:12px}.btn:hover{background:#f7f9fb}.btn.primary{color:#fff;background:var(--primary);border-color:var(--primary)}.btn.primary:hover{background:var(--primary-dark)}.btn.danger{color:var(--danger)}.btn.icon{width:34px;min-width:34px;padding:0;display:grid;place-items:center;font-size:15px}.btn:disabled{opacity:.48;cursor:not-allowed}
+    .shell{width:min(94vw,1240px);margin:0 auto;padding:18px 0 42px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:12px;padding:12px 16px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:0 7px 22px rgba(15,23,42,.04)}.topbar .logo{height:58px;max-width:190px;margin:0;object-position:right center}.top-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .heading{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:20px 22px;color:#fff;background:var(--primary);border-radius:15px;box-shadow:0 12px 30px rgba(23,50,77,.15)}.heading h1{margin:0 0 5px;font-size:25px}.heading p{margin:0;color:#dce6ee;font-size:13px}.total{min-width:120px;padding:10px 14px;text-align:center;background:rgba(255,255,255,.1);border-radius:11px}.total strong{display:block;font-size:25px}.total span{font-size:11px}
+    .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px}.stat{padding:11px 13px;background:#fff;border:1px solid var(--border);border-radius:11px}.stat span{display:block;color:var(--muted);font-size:11px}.stat strong{display:block;margin-top:3px;font-size:22px}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;padding:10px;background:#fff;border:1px solid var(--border);border-radius:11px}.filters{display:flex;align-items:center;gap:8px;min-width:0;flex:1}.search{width:min(360px,38vw)}
+    .panel{margin-top:9px;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:12px}.table-wrap{overflow-x:auto}table{width:100%;min-width:1120px;border-collapse:collapse;table-layout:fixed;font-size:12px}th{padding:10px 9px;color:#4e5d70;background:#f4f7f9;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap}td{height:48px;padding:8px 9px;border-bottom:1px solid #edf1f4;vertical-align:middle}tbody tr:hover{background:#fbfcfd}tbody tr:last-child td{border-bottom:0}
+    .code{width:10%;direction:ltr;text-align:left;font-weight:800;color:var(--primary)}.authority{width:13%}.school{width:18%}.status{width:11%}.link{width:22%}.updated{width:12%}.person{width:10%}.actions{width:4%;text-align:center}.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .badge{display:inline-flex;align-items:center;gap:5px;min-height:23px;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:800;white-space:nowrap}.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}.badge.not-created{color:#6d7685;background:#eef1f4}.badge.created{color:#315f86;background:#eaf2f8}.badge.opened{color:#765612;background:#fff4d5}.badge.draft{color:var(--warning);background:#fff0c2}.badge.submitted{color:var(--success);background:#e5f7ef}
+    .link-row,.row-actions{display:flex;align-items:center;gap:5px}.row-actions{justify-content:center}.url{min-width:0;flex:1;direction:ltr;text-align:left;color:#526174;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .pagination{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 11px;color:var(--muted);border-top:1px solid var(--border);font-size:11px}.page-buttons{display:flex;align-items:center;gap:6px}.empty{padding:34px 18px;text-align:center;color:var(--muted)}
+    .modal-backdrop{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:18px;background:rgba(15,23,42,.52)}.modal{width:min(800px,88vw);max-height:90vh;overflow:auto;background:#fff;border-radius:15px;box-shadow:0 26px 80px rgba(15,23,42,.3)}.modal-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 15px;background:#fff;border-bottom:1px solid var(--border)}.modal-head h2{margin:0;font-size:18px}.modal-body{padding:15px}.details-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.detail{padding:9px 10px;background:#f7f9fb;border:1px solid #e4e9ed;border-radius:8px}.detail span{display:block;color:var(--muted);font-size:10px}.detail strong{display:block;margin-top:3px;font-size:12px}.answer-section{margin-top:14px;padding-top:13px;border-top:1px solid var(--border)}.answer-section h3{margin:0 0 8px;font-size:14px}.answer-list{display:grid;gap:6px}.answer-row{display:grid;grid-template-columns:1fr 80px;gap:8px;padding:8px 9px;background:#fbfcfd;border:1px solid #edf1f3;border-radius:8px;font-size:11px}.answer-value{text-align:center;font-weight:800}.long-answer{padding:10px;background:#fbfcfd;border:1px solid #edf1f3;border-radius:8px;white-space:pre-wrap;line-height:1.55;font-size:12px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chip{padding:5px 8px;color:#345;background:#eef3f6;border-radius:999px;font-size:10px}
+    .toast{position:fixed;right:50%;bottom:20px;z-index:90;transform:translate(50%,16px);padding:9px 13px;color:#fff;background:#172033;border-radius:9px;opacity:0;pointer-events:none;transition:.2s;box-shadow:0 12px 30px rgba(15,23,42,.2);font-size:12px}.toast.show{opacity:1;transform:translate(50%,0)}.toast.error-toast{background:var(--danger)}
+    @media(max-width:900px){.shell{width:calc(100% - 20px)}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat:last-child{grid-column:span 2}.toolbar{align-items:stretch;flex-direction:column}.filters{flex-wrap:wrap}.search{width:100%;flex:1 1 100%}.details-grid{grid-template-columns:1fr 1fr}.modal{width:calc(100% - 28px)}}
+    @media(max-width:520px){.shell{width:calc(100% - 14px);padding-top:7px}.topbar{align-items:flex-start}.topbar .logo{height:48px;max-width:155px}.heading{align-items:flex-start;padding:17px}.heading h1{font-size:21px}.total{display:none}.details-grid{grid-template-columns:1fr}.answer-row{grid-template-columns:1fr 58px}}
   </style>
 </head>
 <body>
-  <div id="app" class="loading-screen"><div class="loading-card"><div class="spinner"></div><p style="text-align:center;margin:0">טוען…</p></div></div>
+  <div id="app" class="loading"><section class="card"><img class="logo" src="./logo.png" alt="תעשיידע"><p>טוען נתונים…</p></section></div>
   <div id="modal-root"></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
   <script type="module">
     import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.3/+esm';
 
-    const supabase = createClient(
-      'https://szinlhjuwyiyszdpsdop.supabase.co',
-      'sb_publishable_k0IbDJlgPA9KTVuDWrCyFw_Zsa5kZIM',
-      { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }
-    );
+    const supabase=createClient('https://szinlhjuwyiyszdpsdop.supabase.co','sb_publishable_k0IbDJlgPA9KTVuDWrCyFw_Zsa5kZIM',{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const app=document.querySelector('#app'),modalRoot=document.querySelector('#modal-root'),toast=document.querySelector('#toast');
+    const SATISFACTION=[['coordination_info','התיאום והמידע שנמסרו לקראת הפעילויות היו ברורים, מסודרים ומדויקים.'],['facilitation_professionalism','צוות ההדרכה הגיע ערוך והעביר את הפעילויות במקצועיות, בנעימות ובבהירות.'],['age_group_fit','הפעילויות התאימו לגיל התלמידים, למאפייני הקבוצות ולמסגרת הקיץ.'],['content_equipment_duration','התוכן, הציוד ומשך הפעילויות נתנו מענה מלא ומותאם לצורכי הקבוצות.'],['learning_experience','הפעילויות העניקו לתלמידים חוויה לימודית, מעשית, מהנה ומשמעותית.'],['expectations_staff','הפעילויות עמדו בציפיות שלנו ונתנו מענה מקצועי לצוות החינוכי.'],['overall_satisfaction','באופן כללי, אנו שבעי רצון מפעילויות תעשיידע שהתקיימו בבית הספר.']];
+    const STUDENTS=[['interest_curiosity','התלמידים גילו עניין, סקרנות ומעורבות לאורך הפעילויות.'],['active_participation','התלמידים השתתפו באופן פעיל ושיתפו פעולה לאורך הפעילות.'],['enjoyment_motivation','התלמידים הביעו הנאה, התלהבות ורצון להמשיך ולהתנסות.'],['building_creation','התלמידים גילו מעורבות בבנייה, ביצירה ובשלבי ההתנסות.'],['positive_experience','תגובות התלמידים העידו על חוויה חיובית, מהנה ומשמעותית.']];
+    const HIGHLIGHTS={enthusiasm:'התלהבות והנאה',curiosity:'סקרנות ושאלת שאלות',active_participation:'השתתפות פעילה',cooperation:'שיתוף פעולה בין התלמידים',pride:'גאווה בתוצר, בבנייה או בהתנסות',continue:'רצון להמשיך או להתנסות שוב',after_talk:'שיח על הפעילות לאחר סיומה',different_interest:'רמת העניין הייתה שונה בין התלמידים',could_not_observe:'לא הייתה אפשרות להתרשם'};
+    const ROLE={manager:'מנהל/ת',coordinator:'רכז/ת',teacher:'מורה או איש/אשת צוות חינוכי',other:'אחר'},FUTURE={yes:'כן',maybe:'ייתכן, נשמח לקבל פרטים',no:'לא בשלב זה'};
+    const state={rows:[],filtered:[],search:'',filter:'all',page:1,pageSize:20,busy:false};
 
-    const app = document.querySelector('#app');
-    const modalRoot = document.querySelector('#modal-root');
-    const toast = document.querySelector('#toast');
+    const esc=(value='')=>String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+    const fmtDate=value=>{if(!value)return'—';try{return new Intl.DateTimeFormat('he-IL',{dateStyle:'short',timeStyle:'short'}).format(new Date(value))}catch{return'—'}};
+    function notify(message,isError=false){toast.textContent=message;toast.className=`toast show${isError?' error-toast':''}`;clearTimeout(notify.timer);notify.timer=setTimeout(()=>toast.className='toast',2500)}
+    function statusOf(row){if(row.status==='submitted')return['submitted','הוגש'];if(row.status==='draft')return['draft','טיוטה'];if(row.first_opened_at)return['opened','נפתח'];if(row.access_token)return['created','קישור הופק'];return['not-created','טרם הופק']}
+    function linkFor(row){if(row.short_code)return new URL(`./${row.short_code}/`,window.location.href).href;if(!row.access_token)return'';const url=new URL('./form.html',window.location.href);url.searchParams.set('t',row.access_token);return url.href}
+    async function copyText(text){try{await navigator.clipboard.writeText(text)}catch{const input=document.createElement('textarea');input.value=text;input.style.position='fixed';input.style.opacity='0';document.body.append(input);input.select();document.execCommand('copy');input.remove()}}
 
-    const SATISFACTION = [
-      ['coordination_info', 'התיאום והמידע שנמסרו לקראת הפעילויות היו ברורים, מסודרים ומדויקים.'],
-      ['facilitation_professionalism', 'צוות ההדרכה הגיע ערוך והעביר את הפעילויות במקצועיות, בנעימות ובבהירות.'],
-      ['age_group_fit', 'הפעילויות התאימו לגיל התלמידים, למאפייני הקבוצות ולמסגרת הקיץ.'],
-      ['content_equipment_duration', 'התוכן, הציוד ומשך הפעילויות נתנו מענה מלא ומותאם לצורכי הקבוצות.'],
-      ['learning_experience', 'הפעילויות העניקו לתלמידים חוויה לימודית, מעשית, מהנה ומשמעותית.'],
-      ['expectations_staff', 'הפעילויות עמדו בציפיות שלנו ונתנו מענה מקצועי לצוות החינוכי.'],
-      ['overall_satisfaction', 'באופן כללי, אנו שבעי רצון מפעילויות תעשיידע שהתקיימו בבית הספר.']
-    ];
-    const STUDENTS = [
-      ['interest_curiosity', 'התלמידים גילו עניין, סקרנות ומעורבות לאורך הפעילויות.'],
-      ['active_participation', 'התלמידים השתתפו באופן פעיל ושיתפו פעולה לאורך הפעילות.'],
-      ['enjoyment_motivation', 'התלמידים הביעו הנאה, התלהבות ורצון להמשיך ולהתנסות.'],
-      ['building_creation', 'התלמידים גילו מעורבות בבנייה, ביצירה ובשלבי ההתנסות.'],
-      ['positive_experience', 'תגובות התלמידים העידו על חוויה חיובית, מהנה ומשמעותית.']
-    ];
-    const HIGHLIGHTS = {
-      enthusiasm: 'התלהבות והנאה', curiosity: 'סקרנות ושאלת שאלות',
-      active_participation: 'השתתפות פעילה', cooperation: 'שיתוף פעולה בין התלמידים',
-      pride: 'גאווה בתוצר, בבנייה או בהתנסות', continue: 'רצון להמשיך או להתנסות שוב',
-      after_talk: 'שיח על הפעילות לאחר סיומה', different_interest: 'רמת העניין הייתה שונה בין התלמידים',
-      could_not_observe: 'לא הייתה אפשרות להתרשם'
-    };
-    const ROLE = { manager: 'מנהל/ת', coordinator: 'רכז/ת', teacher: 'מורה או איש/אשת צוות חינוכי', other: 'אחר' };
-    const FUTURE = { yes: 'כן', maybe: 'ייתכן, נשמח לקבל פרטים', no: 'לא בשלב זה' };
-    const state = { rows: [], filtered: [], search: '', filter: 'all', page: 1, pageSize: 15, busy: false };
+    async function init(){const {data}=await supabase.auth.getSession();if(!data?.session)return renderLogin();await enterAdmin()}
+    function renderLogin(error=''){app.className='loading';app.innerHTML=`<section class="card"><img class="logo" src="./logo.png" alt="תעשיידע"><h1>ניהול המשוב</h1><p>קישורים, מעקב ותשובות במקום אחד</p><div class="error${error?' show':''}">${esc(error)}</div><form id="login-form" class="login-form"><label>דוא״ל<input name="email" type="email" autocomplete="username" required></label><label>סיסמה<input name="password" type="password" autocomplete="current-password" required></label><button class="btn primary" type="submit">כניסה</button></form></section>`}
+    async function login(form){const button=form.querySelector('button');button.disabled=true;button.textContent='מתחבר…';const values=new FormData(form);const {data,error}=await supabase.auth.signInWithPassword({email:String(values.get('email')||'').trim(),password:String(values.get('password')||'')});if(error||!data?.session)return renderLogin('פרטי הכניסה אינם תקינים.');await enterAdmin()}
+    async function enterAdmin(){const {data,error}=await supabase.rpc('educational_feedback_admin_access');if(error||data!==true){app.className='loading';app.innerHTML=`<section class="card"><img class="logo" src="./logo.png" alt="תעשיידע"><h1>אין הרשאת ניהול</h1><p>המשתמש המחובר אינו מורשה לצפות בנתונים.</p><button class="btn" data-action="logout">יציאה</button></section>`;return}await loadRows()}
+    async function loadRows(){app.className='loading';app.innerHTML='<section class="card"><img class="logo" src="./logo.png" alt="תעשיידע"><p>טוען נתונים…</p></section>';const {data,error}=await supabase.from('educational_feedback').select('*').order('short_code',{ascending:true,nullsFirst:false}).order('authority_name').order('school_name');if(error){app.innerHTML=`<section class="card"><img class="logo" src="./logo.png" alt="תעשיידע"><h1>לא ניתן לטעון</h1><p>${esc(error.message||'אירעה תקלה זמנית.')}</p><button class="btn" data-action="reload">ניסיון נוסף</button></section>`;return}state.rows=data||[];state.page=1;applyFilters();render()}
 
-    function esc(value = '') {
-      return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
-    }
-    function fmtDate(value) {
-      if (!value) return '—';
-      try { return new Intl.DateTimeFormat('he-IL',{ dateStyle:'short', timeStyle:'short' }).format(new Date(value)); }
-      catch { return '—'; }
-    }
-    function notify(message, error = false) {
-      toast.textContent = message;
-      toast.className = `toast show${error ? ' error' : ''}`;
-      clearTimeout(notify.timer);
-      notify.timer = setTimeout(() => toast.className = 'toast', 2500);
-    }
-    function statusOf(row) {
-      if (row.status === 'submitted') return { key:'submitted', label:'הוגש' };
-      if (row.status === 'draft') return { key:'draft', label:'טיוטה' };
-      if (row.first_opened_at) return { key:'opened', label:'נפתח' };
-      if (row.access_token) return { key:'created', label:'קישור הופק' };
-      return { key:'not-created', label:'טרם הופק' };
-    }
-    function linkFor(row) {
-      if (!row.access_token) return '';
-      const url = new URL('./form.html', window.location.href);
-      url.search = '';
-      url.searchParams.set('t', row.access_token);
-      return url.href;
-    }
-    async function copyText(text) {
-      try { await navigator.clipboard.writeText(text); }
-      catch {
-        const input = document.createElement('textarea');
-        input.value = text;
-        input.style.position = 'fixed';
-        input.style.opacity = '0';
-        document.body.append(input);
-        input.select();
-        document.execCommand('copy');
-        input.remove();
-      }
-    }
+    function applyFilters(){const q=state.search.trim().toLowerCase();state.filtered=state.rows.filter(row=>{const [status]=statusOf(row);return(state.filter==='all'||status===state.filter)&&(!q||`${row.short_code||''} ${row.authority_name||''} ${row.school_name||''} ${row.respondent_name||''}`.toLowerCase().includes(q))});const pages=Math.max(1,Math.ceil(state.filtered.length/state.pageSize));if(state.page>pages)state.page=pages}
+    function stats(){return{total:state.rows.length,created:state.rows.filter(row=>!!row.access_token).length,opened:state.rows.filter(row=>!!row.first_opened_at).length,draft:state.rows.filter(row=>row.status==='draft').length,submitted:state.rows.filter(row=>row.status==='submitted').length}}
+    const statCard=(label,value)=>`<article class="stat"><span>${esc(label)}</span><strong>${value}</strong></article>`;
 
-    async function init() {
-      const { data } = await supabase.auth.getSession();
-      if (!data?.session) return renderLogin();
-      await enterAdmin();
-    }
+    function render(){const s=stats();app.className='';app.innerHTML=`<main class="shell"><header class="topbar"><img class="logo" src="./logo.png" alt="תעשיידע"><div class="top-actions"><button class="btn" data-action="export">ייצוא CSV</button><button class="btn danger" data-action="logout">יציאה</button></div></header><section class="heading"><div><h1>ניהול משוב לצוות החינוכי</h1><p>קישורים קצרים, מעקב וצפייה בתשובות באותו עמוד</p></div><div class="total"><strong>${s.submitted}</strong><span>משובים שהוגשו</span></div></section><section class="stats">${statCard('מוסדות',s.total)}${statCard('קישורים שהופקו',s.created)}${statCard('פתחו את הקישור',s.opened)}${statCard('טיוטות',s.draft)}${statCard('הוגשו',s.submitted)}</section><section class="toolbar"><div class="filters"><input id="search" class="search" type="search" placeholder="חיפוש לפי קוד, רשות, בית ספר או שם" value="${esc(state.search)}"><select id="status-filter"><option value="all"${state.filter==='all'?' selected':''}>כל הסטטוסים</option><option value="not-created"${state.filter==='not-created'?' selected':''}>טרם הופק</option><option value="created"${state.filter==='created'?' selected':''}>קישור הופק</option><option value="opened"${state.filter==='opened'?' selected':''}>נפתח</option><option value="draft"${state.filter==='draft'?' selected':''}>טיוטה</option><option value="submitted"${state.filter==='submitted'?' selected':''}>הוגש</option></select></div><button class="btn primary" data-action="generate-all" ${s.created===s.total?'disabled':''}>הפקת כל הקישורים החסרים</button></section><section class="panel">${tableHtml()}</section></main>`}
+    function tableHtml(){const start=(state.page-1)*state.pageSize,pageRows=state.filtered.slice(start,start+state.pageSize);if(!pageRows.length)return'<div class="empty">לא נמצאו מוסדות בהתאם לסינון.</div>';const pages=Math.max(1,Math.ceil(state.filtered.length/state.pageSize));return`<div class="table-wrap"><table><thead><tr><th class="code">קוד</th><th class="authority">רשות</th><th class="school">בית ספר</th><th class="status">סטטוס</th><th class="link">קישור לשליחה</th><th class="updated">פעילות אחרונה</th><th class="person">ממלא/ת המשוב</th><th class="actions">תשובות</th></tr></thead><tbody>${pageRows.map(rowHtml).join('')}</tbody></table></div><div class="pagination"><span>מציג ${start+1}–${Math.min(start+state.pageSize,state.filtered.length)} מתוך ${state.filtered.length}</span><div class="page-buttons"><button class="btn" data-action="prev-page" ${state.page<=1?'disabled':''}>הקודם</button><span>${state.page} / ${pages}</span><button class="btn" data-action="next-page" ${state.page>=pages?'disabled':''}>הבא</button></div></div>`}
+    function rowHtml(row){const [key,label]=statusOf(row),url=linkFor(row),last=row.submitted_at||row.updated_at||row.last_opened_at||row.link_created_at;return`<tr><td class="code">${esc(row.short_code||'—')}</td><td class="truncate" title="${esc(row.authority_name)}">${esc(row.authority_name)}</td><td class="truncate" title="${esc(row.school_name)}"><strong>${esc(row.school_name)}</strong></td><td><span class="badge ${key}">${label}</span></td><td>${url?`<div class="link-row"><span class="url" title="${esc(url)}">${esc(url)}</span><button class="btn primary" data-action="copy" data-id="${row.id}">העתקה</button><button class="btn icon" data-action="open" data-id="${row.id}" title="פתיחת הקישור">↗</button></div>`:`<button class="btn primary" data-action="generate" data-id="${row.id}">הפק קישור</button>`}</td><td>${fmtDate(last)}</td><td class="truncate" title="${esc(row.respondent_name||'')}">${esc(row.respondent_name||'—')}</td><td><div class="row-actions"><button class="btn icon" data-action="view" data-id="${row.id}" title="צפייה בתשובות" ${row.status==='not_started'?'disabled':''}>◉</button></div></td></tr>`}
 
-    function renderLogin(error = '') {
-      app.className = 'loading-screen';
-      app.innerHTML = `<section class="login-card">
-        <img class="login-logo" src="./logo.png" alt="תעשיידע">
-        <h1>ניהול המשוב</h1>
-        <p>כניסה למשתמשים מורשים</p>
-        <div id="login-error" class="login-error${error ? ' show' : ''}">${esc(error)}</div>
-        <form id="login-form" class="login-form">
-          <label>דוא״ל<input name="email" type="email" autocomplete="username" required></label>
-          <label>סיסמה<input name="password" type="password" autocomplete="current-password" required></label>
-          <button class="btn primary" type="submit">כניסה</button>
-        </form>
-      </section>`;
-    }
+    async function generateLink(id){if(state.busy)return;state.busy=true;const {data,error}=await supabase.rpc('educational_feedback_generate_link',{p_id:id});state.busy=false;if(error||!data?.ok)return notify(error?.message||'לא ניתן להפיק את הקישור.',true);await loadRows();const row=state.rows.find(item=>item.id===id);if(row)await copyText(linkFor(row));notify('הקישור הופק והועתק')}
+    async function generateAll(){if(state.busy)return;if(!confirm('להפיק קישורים אישיים לכל המוסדות שטרם הופק עבורם קישור?'))return;state.busy=true;const {data,error}=await supabase.rpc('educational_feedback_generate_all_links');state.busy=false;if(error||!data?.ok)return notify(error?.message||'לא ניתן להפיק את הקישורים.',true);await loadRows();notify('כל הקישורים החסרים הופקו')}
+    async function copyLink(id){const row=state.rows.find(item=>item.id===id),link=row?linkFor(row):'';if(!link)return;await copyText(link);notify('הקישור הקצר הועתק')}
+    function openLink(id){const row=state.rows.find(item=>item.id===id),link=row?linkFor(row):'';if(link)window.open(link,'_blank','noopener')}
 
-    async function login(form) {
-      const button = form.querySelector('button');
-      button.disabled = true;
-      button.textContent = 'מתחבר…';
-      const values = new FormData(form);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: String(values.get('email') || '').trim(),
-        password: String(values.get('password') || '')
-      });
-      if (error || !data?.session) return renderLogin('פרטי הכניסה אינם תקינים.');
-      await enterAdmin();
-    }
+    const ratingValue=value=>value==='na'?'לא ניתן להתרשם':(value||'—');
+    const answerRows=(items,answers={})=>items.map(([key,label])=>`<div class="answer-row"><span>${esc(label)}</span><span class="answer-value">${esc(ratingValue(answers?.[key]))}</span></div>`).join('');
+    const detail=(label,value)=>`<div class="detail"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+    function viewResponse(id){const row=state.rows.find(item=>item.id===id);if(!row||row.status==='not_started')return;const role=row.respondent_role==='other'?row.respondent_role_other:ROLE[row.respondent_role];modalRoot.innerHTML=`<div class="modal-backdrop" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()"><header class="modal-head"><div><h2>${esc(row.school_name)}</h2><small style="color:var(--muted)">${esc(row.authority_name)} · ${esc(row.short_code||'')}</small></div><button class="btn icon" data-action="close-modal" aria-label="סגירה">×</button></header><div class="modal-body"><div class="details-grid">${detail('סטטוס',statusOf(row)[1])}${detail('שם מלא',row.respondent_name||'—')}${detail('תפקיד',role||'—')}${detail('נפתח לראשונה',fmtDate(row.first_opened_at))}${detail('עודכן לאחרונה',fmtDate(row.updated_at))}${detail('הוגש',fmtDate(row.submitted_at))}</div><section class="answer-section"><h3>שביעות רצון מהפעילות</h3><div class="answer-list">${answerRows(SATISFACTION,row.satisfaction_answers)}</div></section><section class="answer-section"><h3>חוויית התלמידים</h3><div class="answer-list">${answerRows(STUDENTS,row.student_experience_answers)}</div></section><section class="answer-section"><h3>מה בלט בתגובות התלמידים</h3><div class="chips">${(row.student_highlights||[]).map(value=>`<span class="chip">${esc(HIGHLIGHTS[value]||value)}</span>`).join('')||'<span class="chip">לא נבחר</span>'}</div></section><section class="answer-section"><h3>מה עבד היטב וחשוב לשמר</h3><div class="long-answer">${esc(row.preserve_text||'—')}</div></section><section class="answer-section"><h3>מה ניתן לשפר</h3><div class="long-answer">${esc(row.improve_text||'—')}</div></section><section class="answer-section"><h3>עניין בפעילות נוספת</h3><div class="long-answer">${esc(FUTURE[row.future_interest]||'—')}</div></section><section class="answer-section"><h3>תגובה או אמירה של תלמידים</h3><div class="long-answer">${esc(row.memorable_response||'—')}</div></section></div></section></div>`}
+    const closeModal=()=>modalRoot.innerHTML='';
 
-    async function enterAdmin() {
-      const { data, error } = await supabase.rpc('educational_feedback_admin_access');
-      if (error || data !== true) {
-        app.className = 'loading-screen';
-        app.innerHTML = `<section class="message-card"><img class="message-logo" src="./logo.png" alt="תעשיידע"><h1>אין הרשאת ניהול</h1><p>המשתמש המחובר אינו מורשה לצפות בנתונים.</p><button class="btn" data-action="logout">יציאה</button></section>`;
-        return;
-      }
-      await loadRows();
-    }
+    function exportCsv(){const headers=['קוד','רשות','בית ספר','סטטוס','קישור','שם מלא','תפקיד','נפתח לראשונה','עודכן','הוגש','מה לשמר','מה לשפר','פעילות נוספת','תגובה זכורה','דירוגי שביעות רצון','דירוגי חוויית תלמידים','תגובות בולטות'];const rows=state.rows.map(row=>{const role=row.respondent_role==='other'?row.respondent_role_other:ROLE[row.respondent_role]||'';return[row.short_code,row.authority_name,row.school_name,statusOf(row)[1],linkFor(row),row.respondent_name,role,fmtDate(row.first_opened_at),fmtDate(row.updated_at),fmtDate(row.submitted_at),row.preserve_text,row.improve_text,FUTURE[row.future_interest]||'',row.memorable_response,JSON.stringify(row.satisfaction_answers||{}),JSON.stringify(row.student_experience_answers||{}),(row.student_highlights||[]).map(value=>HIGHLIGHTS[value]||value).join(' | ')]});const quote=value=>`"${String(value??'').replaceAll('"','""')}"`;const csv='\uFEFF'+[headers,...rows].map(row=>row.map(quote).join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='משוב-צוות-חינוכי.csv';document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url)}
+    async function logout(){await supabase.auth.signOut();state.rows=[];renderLogin()}
 
-    async function loadRows() {
-      app.className = 'loading-screen';
-      app.innerHTML = '<div class="loading-card"><div class="spinner"></div><p style="text-align:center;margin:0">טוען נתונים…</p></div>';
-      const { data, error } = await supabase.from('educational_feedback').select('*').order('authority_name').order('school_name');
-      if (error) {
-        app.innerHTML = `<section class="message-card"><img class="message-logo" src="./logo.png" alt="תעשיידע"><h1>לא ניתן לטעון את הנתונים</h1><p>${esc(error.message || 'אירעה תקלה זמנית.')}</p><button class="btn" data-action="reload">ניסיון נוסף</button></section>`;
-        return;
-      }
-      state.rows = data || [];
-      state.page = 1;
-      applyFilters();
-      renderDashboard();
-    }
-
-    function applyFilters() {
-      const q = state.search.trim().toLowerCase();
-      state.filtered = state.rows.filter(row => {
-        const status = statusOf(row).key;
-        return (state.filter === 'all' || status === state.filter)
-          && (!q || `${row.authority_name} ${row.school_name} ${row.respondent_name || ''}`.toLowerCase().includes(q));
-      });
-      const pages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
-      if (state.page > pages) state.page = pages;
-    }
-
-    function stats() {
-      return {
-        total: state.rows.length,
-        created: state.rows.filter(row => !!row.access_token).length,
-        opened: state.rows.filter(row => !!row.first_opened_at).length,
-        draft: state.rows.filter(row => row.status === 'draft').length,
-        submitted: state.rows.filter(row => row.status === 'submitted').length
-      };
-    }
-
-    function renderDashboard() {
-      const s = stats();
-      app.className = '';
-      app.innerHTML = `<main class="shell">
-        <header class="topbar">
-          <img class="brand-logo" src="./logo.png" alt="תעשיידע">
-          <div class="top-actions">
-            <button class="btn" data-action="export">ייצוא CSV</button>
-            <button class="btn danger" data-action="logout"><span class="label">יציאה</span></button>
-          </div>
-        </header>
-        <section class="heading-card">
-          <div><h1>ניהול משוב לצוות החינוכי</h1><p>הפקת קישורים, מעקב וצפייה בתשובות</p></div>
-          <div class="heading-total"><strong>${s.submitted}</strong><span>משובים שהוגשו</span></div>
-        </section>
-        <section class="stats">
-          ${statCard('מוסדות', s.total)}
-          ${statCard('קישורים שהופקו', s.created)}
-          ${statCard('פתחו את הקישור', s.opened)}
-          ${statCard('טיוטות', s.draft)}
-          ${statCard('הוגשו', s.submitted)}
-        </section>
-        <section class="toolbar">
-          <div class="filters">
-            <input id="search" class="search" type="search" placeholder="חיפוש לפי רשות, בית ספר או שם" value="${esc(state.search)}">
-            <select id="status-filter">
-              <option value="all"${state.filter === 'all' ? ' selected' : ''}>כל הסטטוסים</option>
-              <option value="not-created"${state.filter === 'not-created' ? ' selected' : ''}>טרם הופק</option>
-              <option value="created"${state.filter === 'created' ? ' selected' : ''}>קישור הופק</option>
-              <option value="opened"${state.filter === 'opened' ? ' selected' : ''}>נפתח</option>
-              <option value="draft"${state.filter === 'draft' ? ' selected' : ''}>טיוטה</option>
-              <option value="submitted"${state.filter === 'submitted' ? ' selected' : ''}>הוגש</option>
-            </select>
-          </div>
-          <button class="btn primary" data-action="generate-all" ${s.created === s.total ? 'disabled' : ''}>הפקת כל הקישורים החסרים</button>
-        </section>
-        <section class="table-panel">${tableHtml()}</section>
-      </main>`;
-    }
-
-    function statCard(label, value) {
-      return `<article class="stat"><span>${esc(label)}</span><strong>${value}</strong></article>`;
-    }
-
-    function tableHtml() {
-      const start = (state.page - 1) * state.pageSize;
-      const pageRows = state.filtered.slice(start, start + state.pageSize);
-      if (!pageRows.length) return '<div class="empty">לא נמצאו מוסדות בהתאם לסינון.</div>';
-      const pages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
-      return `<div class="table-wrap"><table>
-        <thead><tr>
-          <th class="col-authority">רשות</th>
-          <th class="col-school">בית ספר</th>
-          <th class="col-status">סטטוס</th>
-          <th class="col-link">קישור אישי</th>
-          <th class="col-updated">פעילות אחרונה</th>
-          <th class="col-person">ממלא/ת המשוב</th>
-          <th class="col-actions">צפייה</th>
-        </tr></thead>
-        <tbody>${pageRows.map(rowHtml).join('')}</tbody>
-      </table></div>
-      <div class="pagination">
-        <span>מציג ${start + 1}–${Math.min(start + state.pageSize, state.filtered.length)} מתוך ${state.filtered.length}</span>
-        <div class="page-buttons">
-          <button class="btn" data-action="prev-page" ${state.page <= 1 ? 'disabled' : ''}>הקודם</button>
-          <span>${state.page} / ${pages}</span>
-          <button class="btn" data-action="next-page" ${state.page >= pages ? 'disabled' : ''}>הבא</button>
-        </div>
-      </div>`;
-    }
-
-    function rowHtml(row) {
-      const status = statusOf(row);
-      const lastActivity = row.submitted_at || row.updated_at || row.last_opened_at || row.link_created_at;
-      return `<tr>
-        <td class="truncate" title="${esc(row.authority_name)}">${esc(row.authority_name)}</td>
-        <td class="truncate" title="${esc(row.school_name)}"><strong>${esc(row.school_name)}</strong></td>
-        <td><span class="badge ${status.key}">${status.label}</span></td>
-        <td>${row.access_token
-          ? `<div class="link-cell"><button class="btn" data-action="copy" data-id="${row.id}">העתקה</button><button class="btn icon" data-action="open" data-id="${row.id}" title="פתיחת הקישור">↗</button></div>`
-          : `<button class="btn primary" data-action="generate" data-id="${row.id}">הפק קישור</button>`}
-        </td>
-        <td>${fmtDate(lastActivity)}</td>
-        <td class="truncate" title="${esc(row.respondent_name || '')}">${esc(row.respondent_name || '—')}</td>
-        <td><div class="row-actions"><button class="btn icon" data-action="view" data-id="${row.id}" title="צפייה בתשובות" ${row.status === 'not_started' ? 'disabled' : ''}>◉</button></div></td>
-      </tr>`;
-    }
-
-    async function generateLink(id) {
-      if (state.busy) return;
-      state.busy = true;
-      const { data, error } = await supabase.rpc('educational_feedback_generate_link', { p_id: id });
-      state.busy = false;
-      if (error || !data?.ok) return notify(error?.message || 'לא ניתן להפיק את הקישור.', true);
-      const row = state.rows.find(item => item.id === id);
-      if (row) {
-        row.access_token = data.access_token;
-        row.link_created_at = new Date().toISOString();
-        await copyText(linkFor(row));
-      }
-      applyFilters();
-      renderDashboard();
-      notify('הקישור הופק והועתק');
-    }
-
-    async function generateAll() {
-      if (state.busy) return;
-      if (!confirm('להפיק קישורים אישיים לכל המוסדות שטרם הופק עבורם קישור?')) return;
-      state.busy = true;
-      const { data, error } = await supabase.rpc('educational_feedback_generate_all_links');
-      state.busy = false;
-      if (error || !data?.ok) return notify(error?.message || 'לא ניתן להפיק את הקישורים.', true);
-      await loadRows();
-      notify('כל הקישורים החסרים הופקו');
-    }
-
-    async function copyLink(id) {
-      const row = state.rows.find(item => item.id === id);
-      if (!row?.access_token) return;
-      await copyText(linkFor(row));
-      notify('הקישור הועתק');
-    }
-
-    function openLink(id) {
-      const row = state.rows.find(item => item.id === id);
-      const link = row ? linkFor(row) : '';
-      if (link) window.open(link, '_blank', 'noopener');
-    }
-
-    function ratingValue(value) {
-      return value === 'na' ? 'לא ניתן להתרשם' : (value || '—');
-    }
-    function answerRows(items, answers = {}) {
-      return items.map(([key,label]) => `<div class="answer-row"><span>${esc(label)}</span><span class="answer-value">${esc(ratingValue(answers?.[key]))}</span></div>`).join('');
-    }
-    function detail(label, value) {
-      return `<div class="detail"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
-    }
-
-    function viewResponse(id) {
-      const row = state.rows.find(item => item.id === id);
-      if (!row || row.status === 'not_started') return;
-      const role = row.respondent_role === 'other' ? row.respondent_role_other : ROLE[row.respondent_role];
-      modalRoot.innerHTML = `<div class="modal-backdrop" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
-        <header class="modal-head"><div><h2>${esc(row.school_name)}</h2><small style="color:var(--muted)">${esc(row.authority_name)}</small></div><button class="btn icon" data-action="close-modal" aria-label="סגירה">×</button></header>
-        <div class="modal-body">
-          <div class="details-grid">
-            ${detail('סטטוס', statusOf(row).label)}
-            ${detail('שם מלא', row.respondent_name || '—')}
-            ${detail('תפקיד', role || '—')}
-            ${detail('נפתח לראשונה', fmtDate(row.first_opened_at))}
-            ${detail('עודכן לאחרונה', fmtDate(row.updated_at))}
-            ${detail('הוגש', fmtDate(row.submitted_at))}
-          </div>
-          <section class="answer-section"><h3>שביעות רצון מהפעילות</h3><div class="answer-list">${answerRows(SATISFACTION,row.satisfaction_answers)}</div></section>
-          <section class="answer-section"><h3>חוויית התלמידים</h3><div class="answer-list">${answerRows(STUDENTS,row.student_experience_answers)}</div></section>
-          <section class="answer-section"><h3>מה בלט בתגובות התלמידים</h3><div class="chips">${(row.student_highlights || []).map(value => `<span class="chip">${esc(HIGHLIGHTS[value] || value)}</span>`).join('') || '<span class="chip">לא נבחר</span>'}</div></section>
-          <section class="answer-section"><h3>מה עבד היטב וחשוב לשמר</h3><div class="long-answer">${esc(row.preserve_text || '—')}</div></section>
-          <section class="answer-section"><h3>מה ניתן לשפר</h3><div class="long-answer">${esc(row.improve_text || '—')}</div></section>
-          <section class="answer-section"><h3>עניין בפעילות נוספת</h3><div class="long-answer">${esc(FUTURE[row.future_interest] || '—')}</div></section>
-          <section class="answer-section"><h3>תגובה או אמירה של תלמידים</h3><div class="long-answer">${esc(row.memorable_response || '—')}</div></section>
-        </div>
-      </section></div>`;
-    }
-
-    function closeModal() {
-      modalRoot.innerHTML = '';
-    }
-
-    function exportCsv() {
-      const headers = ['רשות','בית ספר','סטטוס','קישור','שם מלא','תפקיד','נפתח לראשונה','עודכן','הוגש','מה לשמר','מה לשפר','פעילות נוספת','תגובה זכורה','דירוגי שביעות רצון','דירוגי חוויית תלמידים','תגובות בולטות'];
-      const rows = state.rows.map(row => {
-        const role = row.respondent_role === 'other' ? row.respondent_role_other : ROLE[row.respondent_role] || '';
-        return [
-          row.authority_name, row.school_name, statusOf(row).label, linkFor(row), row.respondent_name, role,
-          fmtDate(row.first_opened_at), fmtDate(row.updated_at), fmtDate(row.submitted_at),
-          row.preserve_text, row.improve_text, FUTURE[row.future_interest] || '', row.memorable_response,
-          JSON.stringify(row.satisfaction_answers || {}), JSON.stringify(row.student_experience_answers || {}),
-          (row.student_highlights || []).map(value => HIGHLIGHTS[value] || value).join(' | ')
-        ];
-      });
-      const quote = value => `"${String(value ?? '').replaceAll('"','""')}"`;
-      const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(quote).join(',')).join('\r\n');
-      const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'משוב-צוות-חינוכי.csv';
-      document.body.append(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    async function logout() {
-      await supabase.auth.signOut();
-      state.rows = [];
-      renderLogin();
-    }
-
-    app.addEventListener('submit', event => {
-      if (event.target.id === 'login-form') {
-        event.preventDefault();
-        login(event.target);
-      }
-    });
-    app.addEventListener('input', event => {
-      if (event.target.id === 'search') {
-        state.search = event.target.value;
-        state.page = 1;
-        applyFilters();
-        renderDashboard();
-        const search = document.querySelector('#search');
-        search?.focus();
-        if (search) search.setSelectionRange(search.value.length, search.value.length);
-      }
-    });
-    app.addEventListener('change', event => {
-      if (event.target.id === 'status-filter') {
-        state.filter = event.target.value;
-        state.page = 1;
-        applyFilters();
-        renderDashboard();
-      }
-    });
-    app.addEventListener('click', event => {
-      const button = event.target.closest('[data-action]');
-      if (!button) return;
-      const action = button.dataset.action;
-      const id = button.dataset.id;
-      if (action === 'generate') generateLink(id);
-      if (action === 'generate-all') generateAll();
-      if (action === 'copy') copyLink(id);
-      if (action === 'open') openLink(id);
-      if (action === 'view') viewResponse(id);
-      if (action === 'export') exportCsv();
-      if (action === 'logout') logout();
-      if (action === 'reload') loadRows();
-      if (action === 'prev-page' && state.page > 1) { state.page--; renderDashboard(); }
-      if (action === 'next-page' && state.page < Math.ceil(state.filtered.length / state.pageSize)) { state.page++; renderDashboard(); }
-    });
-    modalRoot.addEventListener('click', event => {
-      if (event.target.closest('[data-action]')?.dataset.action === 'close-modal') closeModal();
-    });
-    document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') closeModal();
-    });
-
+    app.addEventListener('submit',event=>{if(event.target.id==='login-form'){event.preventDefault();login(event.target)}});
+    app.addEventListener('input',event=>{if(event.target.id==='search'){state.search=event.target.value;state.page=1;applyFilters();render();const search=document.querySelector('#search');search?.focus();if(search)search.setSelectionRange(search.value.length,search.value.length)}});
+    app.addEventListener('change',event=>{if(event.target.id==='status-filter'){state.filter=event.target.value;state.page=1;applyFilters();render()}});
+    app.addEventListener('click',event=>{const button=event.target.closest('[data-action]');if(!button)return;const action=button.dataset.action,id=button.dataset.id;if(action==='generate')generateLink(id);if(action==='generate-all')generateAll();if(action==='copy')copyLink(id);if(action==='open')openLink(id);if(action==='view')viewResponse(id);if(action==='export')exportCsv();if(action==='logout')logout();if(action==='reload')loadRows();if(action==='prev-page'&&state.page>1){state.page--;render()}if(action==='next-page'&&state.page<Math.ceil(state.filtered.length/state.pageSize)){state.page++;render()}});
+    modalRoot.addEventListener('click',event=>{if(event.target.closest('[data-action]')?.dataset.action==='close-modal')closeModal()});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape')closeModal()});
     init();
   </script>
 </body>
