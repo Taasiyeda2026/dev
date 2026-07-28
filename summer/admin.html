@@ -19,7 +19,6 @@
       --danger: #b42318;
       --success: #18734b;
       --warning: #8a6500;
-      --panel: #fff;
     }
     * { box-sizing: border-box; }
     body { margin: 0; min-height: 100vh; background: #f3f6f9; }
@@ -36,23 +35,12 @@
       border-radius: 16px;
       box-shadow: 0 14px 36px rgba(15,23,42,.08);
     }
-    .login-logo, .message-logo {
-      display: block;
-      width: auto;
-      max-width: 200px;
-      height: 66px;
-      margin: 0 auto 20px;
-      object-fit: contain;
-    }
-    .spinner {
-      width: 34px; height: 34px; margin: 0 auto 12px;
-      border: 4px solid #dbe3e9; border-top-color: var(--primary);
-      border-radius: 50%; animation: spin .8s linear infinite;
-    }
+    .login-logo, .message-logo { display: block; width: auto; max-width: 200px; height: 66px; margin: 0 auto 20px; object-fit: contain; }
+    .spinner { width: 34px; height: 34px; margin: 0 auto 12px; border: 4px solid #dbe3e9; border-top-color: var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .shell {
-      width: min(92vw, 1160px);
+      width: min(84vw, 1080px);
       margin: 0 auto;
       padding: 18px 0 42px;
     }
@@ -133,7 +121,7 @@
       font-size: 12px;
     }
     input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(23,50,77,.08); }
-    .search { width: min(300px, 34vw); }
+    .search { width: min(300px, 31vw); }
 
     .table-panel { margin-top: 9px; overflow: hidden; background: #fff; border: 1px solid var(--border); border-radius: 12px; }
     .table-wrap { overflow-x: auto; }
@@ -151,17 +139,7 @@
     .col-actions { width: 9%; text-align: center; }
     .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      min-height: 23px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 10px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
+    .badge { display: inline-flex; align-items: center; gap: 5px; min-height: 23px; padding: 3px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; white-space: nowrap; }
     .badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     .badge.not-created { color: #6d7685; background: #eef1f4; }
     .badge.created { color: #315f86; background: #eaf2f8; }
@@ -171,16 +149,7 @@
     .link-cell, .row-actions { display: flex; align-items: center; gap: 5px; }
     .row-actions { justify-content: center; }
 
-    .pagination {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 11px;
-      color: var(--muted);
-      border-top: 1px solid var(--border);
-      font-size: 11px;
-    }
+    .pagination { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 11px; color: var(--muted); border-top: 1px solid var(--border); font-size: 11px; }
     .page-buttons { display: flex; align-items: center; gap: 6px; }
     .empty { padding: 34px 18px; color: var(--muted); text-align: center; }
 
@@ -192,7 +161,7 @@
     .login-error.show { display: block; }
 
     .modal-backdrop { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 18px; background: rgba(15,23,42,.52); }
-    .modal { width: min(820px, 92vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 15px; box-shadow: 0 26px 80px rgba(15,23,42,.3); }
+    .modal { width: min(760px, 82vw); max-height: 90vh; overflow: auto; background: #fff; border-radius: 15px; box-shadow: 0 26px 80px rgba(15,23,42,.3); }
     .modal-head { position: sticky; top: 0; z-index: 2; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 13px 15px; background: #fff; border-bottom: 1px solid var(--border); }
     .modal-head h2 { margin: 0; font-size: 18px; }
     .modal-body { padding: 15px; }
@@ -209,32 +178,22 @@
     .chips { display: flex; flex-wrap: wrap; gap: 6px; }
     .chip { padding: 5px 8px; color: #345; background: #eef3f6; border-radius: 999px; font-size: 10px; }
 
-    .toast {
-      position: fixed;
-      right: 50%; bottom: 20px; z-index: 90;
-      transform: translate(50%,16px);
-      padding: 9px 13px;
-      color: #fff; background: #172033;
-      border-radius: 9px;
-      opacity: 0; pointer-events: none;
-      transition: .2s;
-      box-shadow: 0 12px 30px rgba(15,23,42,.2);
-      font-size: 12px;
-    }
+    .toast { position: fixed; right: 50%; bottom: 20px; z-index: 90; transform: translate(50%,16px); padding: 9px 13px; color: #fff; background: #172033; border-radius: 9px; opacity: 0; pointer-events: none; transition: .2s; box-shadow: 0 12px 30px rgba(15,23,42,.2); font-size: 12px; }
     .toast.show { opacity: 1; transform: translate(50%,0); }
     .toast.error { background: var(--danger); }
 
-    @media (max-width: 860px) {
-      .shell { width: calc(100% - 20px); }
+    @media (max-width: 900px) {
+      .shell { width: calc(100% - 28px); }
       .stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
       .stat:last-child { grid-column: span 2; }
       .toolbar { align-items: stretch; flex-direction: column; }
       .filters { flex-wrap: wrap; }
       .search { width: 100%; flex: 1 1 100%; }
       .details-grid { grid-template-columns: 1fr 1fr; }
+      .modal { width: calc(100% - 28px); }
     }
     @media (max-width: 520px) {
-      .shell { width: calc(100% - 12px); padding-top: 6px; }
+      .shell { width: calc(100% - 14px); padding-top: 7px; }
       .topbar { border-radius: 10px; }
       .brand-logo { height: 48px; max-width: 155px; }
       .heading-card { align-items: flex-start; padding: 17px; }
@@ -281,20 +240,15 @@
       ['positive_experience', 'תגובות התלמידים העידו על חוויה חיובית, מהנה ומשמעותית.']
     ];
     const HIGHLIGHTS = {
-      enthusiasm: 'התלהבות והנאה',
-      curiosity: 'סקרנות ושאלת שאלות',
-      active_participation: 'השתתפות פעילה',
-      cooperation: 'שיתוף פעולה בין התלמידים',
-      pride: 'גאווה בתוצר, בבנייה או בהתנסות',
-      continue: 'רצון להמשיך או להתנסות שוב',
-      after_talk: 'שיח על הפעילות לאחר סיומה',
-      different_interest: 'רמת העניין הייתה שונה בין התלמידים',
+      enthusiasm: 'התלהבות והנאה', curiosity: 'סקרנות ושאלת שאלות',
+      active_participation: 'השתתפות פעילה', cooperation: 'שיתוף פעולה בין התלמידים',
+      pride: 'גאווה בתוצר, בבנייה או בהתנסות', continue: 'רצון להמשיך או להתנסות שוב',
+      after_talk: 'שיח על הפעילות לאחר סיומה', different_interest: 'רמת העניין הייתה שונה בין התלמידים',
       could_not_observe: 'לא הייתה אפשרות להתרשם'
     };
     const ROLE = { manager: 'מנהל/ת', coordinator: 'רכז/ת', teacher: 'מורה או איש/אשת צוות חינוכי', other: 'אחר' };
     const FUTURE = { yes: 'כן', maybe: 'ייתכן, נשמח לקבל פרטים', no: 'לא בשלב זה' };
-
-    const state = { rows: [], filtered: [], search: '', filter: 'all', page: 1, pageSize: 15, user: null, busy: false };
+    const state = { rows: [], filtered: [], search: '', filter: 'all', page: 1, pageSize: 15, busy: false };
 
     function esc(value = '') {
       return String(value).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -340,8 +294,7 @@
 
     async function init() {
       const { data } = await supabase.auth.getSession();
-      if (!data?.session) { renderLogin(); return; }
-      state.user = data.session.user;
+      if (!data?.session) return renderLogin();
       await enterAdmin();
     }
 
@@ -369,26 +322,25 @@
         email: String(values.get('email') || '').trim(),
         password: String(values.get('password') || '')
       });
-      if (error || !data?.session) { renderLogin('פרטי הכניסה אינם תקינים.'); return; }
-      state.user = data.session.user;
+      if (error || !data?.session) return renderLogin('פרטי הכניסה אינם תקינים.');
       await enterAdmin();
     }
 
     async function enterAdmin() {
-      app.className = 'loading-screen';
-      app.innerHTML = '<div class="loading-card"><div class="spinner"></div><p style="text-align:center;margin:0">טוען נתונים…</p></div>';
       const { data, error } = await supabase.rpc('educational_feedback_admin_access');
       if (error || data !== true) {
-        app.innerHTML = `<section class="message-card"><img class="message-logo" src="./logo.png" alt="תעשיידע"><h1>אין הרשאת ניהול</h1><p>המשתמש המחובר אינו מורשה לצפות בעמוד זה.</p><button class="btn" data-action="logout">יציאה</button></section>`;
+        app.className = 'loading-screen';
+        app.innerHTML = `<section class="message-card"><img class="message-logo" src="./logo.png" alt="תעשיידע"><h1>אין הרשאת ניהול</h1><p>המשתמש המחובר אינו מורשה לצפות בנתונים.</p><button class="btn" data-action="logout">יציאה</button></section>`;
         return;
       }
       await loadRows();
     }
 
     async function loadRows() {
+      app.className = 'loading-screen';
+      app.innerHTML = '<div class="loading-card"><div class="spinner"></div><p style="text-align:center;margin:0">טוען נתונים…</p></div>';
       const { data, error } = await supabase.from('educational_feedback').select('*').order('authority_name').order('school_name');
       if (error) {
-        console.error(error);
         app.innerHTML = `<section class="message-card"><img class="message-logo" src="./logo.png" alt="תעשיידע"><h1>לא ניתן לטעון את הנתונים</h1><p>${esc(error.message || 'אירעה תקלה זמנית.')}</p><button class="btn" data-action="reload">ניסיון נוסף</button></section>`;
         return;
       }
@@ -402,9 +354,8 @@
       const q = state.search.trim().toLowerCase();
       state.filtered = state.rows.filter(row => {
         const status = statusOf(row).key;
-        const statusMatch = state.filter === 'all' || status === state.filter;
-        const textMatch = !q || `${row.authority_name} ${row.school_name} ${row.respondent_name || ''}`.toLowerCase().includes(q);
-        return statusMatch && textMatch;
+        return (state.filter === 'all' || status === state.filter)
+          && (!q || `${row.authority_name} ${row.school_name} ${row.respondent_name || ''}`.toLowerCase().includes(q));
       });
       const pages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
       if (state.page > pages) state.page = pages;
@@ -513,27 +464,25 @@
       state.busy = true;
       const { data, error } = await supabase.rpc('educational_feedback_generate_link', { p_id: id });
       state.busy = false;
-      if (error || !data?.ok) { notify(error?.message || 'לא ניתן להפיק את הקישור.', true); return; }
+      if (error || !data?.ok) return notify(error?.message || 'לא ניתן להפיק את הקישור.', true);
       const row = state.rows.find(item => item.id === id);
       if (row) {
         row.access_token = data.access_token;
         row.link_created_at = new Date().toISOString();
+        await copyText(linkFor(row));
       }
       applyFilters();
       renderDashboard();
-      if (row) {
-        await copyText(linkFor(row));
-        notify('הקישור הופק והועתק');
-      }
+      notify('הקישור הופק והועתק');
     }
 
     async function generateAll() {
       if (state.busy) return;
-      if (!confirm('להפיק קישורים לכל המוסדות שטרם הופק עבורם קישור?')) return;
+      if (!confirm('להפיק קישורים אישיים לכל המוסדות שטרם הופק עבורם קישור?')) return;
       state.busy = true;
       const { data, error } = await supabase.rpc('educational_feedback_generate_all_links');
       state.busy = false;
-      if (error || !data?.ok) { notify(error?.message || 'לא ניתן להפיק את הקישורים.', true); return; }
+      if (error || !data?.ok) return notify(error?.message || 'לא ניתן להפיק את הקישורים.', true);
       await loadRows();
       notify('כל הקישורים החסרים הופקו');
     }
@@ -555,71 +504,57 @@
       return value === 'na' ? 'לא ניתן להתרשם' : (value || '—');
     }
     function answerRows(items, answers = {}) {
-      return items.map(([key, label]) => `<div class="answer-row"><span>${esc(label)}</span><span class="answer-value">${esc(ratingValue(answers?.[key]))}</span></div>`).join('');
+      return items.map(([key,label]) => `<div class="answer-row"><span>${esc(label)}</span><span class="answer-value">${esc(ratingValue(answers?.[key]))}</span></div>`).join('');
+    }
+    function detail(label, value) {
+      return `<div class="detail"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
     }
 
     function viewResponse(id) {
       const row = state.rows.find(item => item.id === id);
       if (!row || row.status === 'not_started') return;
       const role = row.respondent_role === 'other' ? row.respondent_role_other : ROLE[row.respondent_role];
-      modalRoot.innerHTML = `<div class="modal-backdrop" data-action="close-modal">
-        <section class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
-          <header class="modal-head">
-            <div><h2>${esc(row.school_name)}</h2><small style="color:var(--muted)">${esc(row.authority_name)}</small></div>
-            <button class="btn icon" data-action="close-modal" aria-label="סגירה">×</button>
-          </header>
-          <div class="modal-body">
-            <div class="details-grid">
-              ${detail('סטטוס', statusOf(row).label)}
-              ${detail('שם מלא', row.respondent_name || '—')}
-              ${detail('תפקיד', role || '—')}
-              ${detail('נפתח לראשונה', fmtDate(row.first_opened_at))}
-              ${detail('עודכן לאחרונה', fmtDate(row.updated_at))}
-              ${detail('הוגש', fmtDate(row.submitted_at))}
-            </div>
-            <section class="answer-section"><h3>שביעות רצון מהפעילות</h3><div class="answer-list">${answerRows(SATISFACTION, row.satisfaction_answers)}</div></section>
-            <section class="answer-section"><h3>חוויית התלמידים</h3><div class="answer-list">${answerRows(STUDENTS, row.student_experience_answers)}</div></section>
-            <section class="answer-section"><h3>מה בלט בתגובות התלמידים</h3><div class="chips">${(row.student_highlights || []).map(value => `<span class="chip">${esc(HIGHLIGHTS[value] || value)}</span>`).join('') || '<span class="chip">לא נבחר</span>'}</div></section>
-            <section class="answer-section"><h3>מה חשוב לשמר</h3><div class="long-answer">${esc(row.preserve_text || '—')}</div></section>
-            <section class="answer-section"><h3>מה ניתן לשפר</h3><div class="long-answer">${esc(row.improve_text || '—')}</div></section>
-            <section class="answer-section"><h3>עניין בפעילות נוספת</h3><div class="long-answer">${esc(FUTURE[row.future_interest] || '—')}</div></section>
-            <section class="answer-section"><h3>תגובה או אמירה של תלמידים</h3><div class="long-answer">${esc(row.memorable_response || '—')}</div></section>
+      modalRoot.innerHTML = `<div class="modal-backdrop" data-action="close-modal"><section class="modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
+        <header class="modal-head"><div><h2>${esc(row.school_name)}</h2><small style="color:var(--muted)">${esc(row.authority_name)}</small></div><button class="btn icon" data-action="close-modal" aria-label="סגירה">×</button></header>
+        <div class="modal-body">
+          <div class="details-grid">
+            ${detail('סטטוס', statusOf(row).label)}
+            ${detail('שם מלא', row.respondent_name || '—')}
+            ${detail('תפקיד', role || '—')}
+            ${detail('נפתח לראשונה', fmtDate(row.first_opened_at))}
+            ${detail('עודכן לאחרונה', fmtDate(row.updated_at))}
+            ${detail('הוגש', fmtDate(row.submitted_at))}
           </div>
-        </section>
-      </div>`;
+          <section class="answer-section"><h3>שביעות רצון מהפעילות</h3><div class="answer-list">${answerRows(SATISFACTION,row.satisfaction_answers)}</div></section>
+          <section class="answer-section"><h3>חוויית התלמידים</h3><div class="answer-list">${answerRows(STUDENTS,row.student_experience_answers)}</div></section>
+          <section class="answer-section"><h3>מה בלט בתגובות התלמידים</h3><div class="chips">${(row.student_highlights || []).map(value => `<span class="chip">${esc(HIGHLIGHTS[value] || value)}</span>`).join('') || '<span class="chip">לא נבחר</span>'}</div></section>
+          <section class="answer-section"><h3>מה עבד היטב וחשוב לשמר</h3><div class="long-answer">${esc(row.preserve_text || '—')}</div></section>
+          <section class="answer-section"><h3>מה ניתן לשפר</h3><div class="long-answer">${esc(row.improve_text || '—')}</div></section>
+          <section class="answer-section"><h3>עניין בפעילות נוספת</h3><div class="long-answer">${esc(FUTURE[row.future_interest] || '—')}</div></section>
+          <section class="answer-section"><h3>תגובה או אמירה של תלמידים</h3><div class="long-answer">${esc(row.memorable_response || '—')}</div></section>
+        </div>
+      </section></div>`;
     }
 
-    function detail(label, value) {
-      return `<div class="detail"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+    function closeModal() {
+      modalRoot.innerHTML = '';
     }
-    function closeModal() { modalRoot.innerHTML = ''; }
 
     function exportCsv() {
       const headers = ['רשות','בית ספר','סטטוס','קישור','שם מלא','תפקיד','נפתח לראשונה','עודכן','הוגש','מה לשמר','מה לשפר','פעילות נוספת','תגובה זכורה','דירוגי שביעות רצון','דירוגי חוויית תלמידים','תגובות בולטות'];
-      const csvRows = state.rows.map(row => {
+      const rows = state.rows.map(row => {
         const role = row.respondent_role === 'other' ? row.respondent_role_other : ROLE[row.respondent_role] || '';
         return [
-          row.authority_name,
-          row.school_name,
-          statusOf(row).label,
-          linkFor(row),
-          row.respondent_name,
-          role,
-          fmtDate(row.first_opened_at),
-          fmtDate(row.updated_at),
-          fmtDate(row.submitted_at),
-          row.preserve_text,
-          row.improve_text,
-          FUTURE[row.future_interest] || '',
-          row.memorable_response,
-          JSON.stringify(row.satisfaction_answers || {}),
-          JSON.stringify(row.student_experience_answers || {}),
+          row.authority_name, row.school_name, statusOf(row).label, linkFor(row), row.respondent_name, role,
+          fmtDate(row.first_opened_at), fmtDate(row.updated_at), fmtDate(row.submitted_at),
+          row.preserve_text, row.improve_text, FUTURE[row.future_interest] || '', row.memorable_response,
+          JSON.stringify(row.satisfaction_answers || {}), JSON.stringify(row.student_experience_answers || {}),
           (row.student_highlights || []).map(value => HIGHLIGHTS[value] || value).join(' | ')
         ];
       });
       const quote = value => `"${String(value ?? '').replaceAll('"','""')}"`;
-      const csv = '\uFEFF' + [headers, ...csvRows].map(row => row.map(quote).join(',')).join('\r\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(quote).join(',')).join('\r\n');
+      const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -642,18 +577,17 @@
         login(event.target);
       }
     });
-
     app.addEventListener('input', event => {
       if (event.target.id === 'search') {
         state.search = event.target.value;
         state.page = 1;
         applyFilters();
         renderDashboard();
-        const input = document.querySelector('#search');
-        if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+        const search = document.querySelector('#search');
+        search?.focus();
+        if (search) search.setSelectionRange(search.value.length, search.value.length);
       }
     });
-
     app.addEventListener('change', event => {
       if (event.target.id === 'status-filter') {
         state.filter = event.target.value;
@@ -662,7 +596,6 @@
         renderDashboard();
       }
     });
-
     app.addEventListener('click', event => {
       const button = event.target.closest('[data-action]');
       if (!button) return;
@@ -676,14 +609,15 @@
       if (action === 'export') exportCsv();
       if (action === 'logout') logout();
       if (action === 'reload') loadRows();
-      if (action === 'prev-page' && state.page > 1) { state.page -= 1; renderDashboard(); }
-      if (action === 'next-page' && state.page < Math.ceil(state.filtered.length / state.pageSize)) { state.page += 1; renderDashboard(); }
+      if (action === 'prev-page' && state.page > 1) { state.page--; renderDashboard(); }
+      if (action === 'next-page' && state.page < Math.ceil(state.filtered.length / state.pageSize)) { state.page++; renderDashboard(); }
     });
-
     modalRoot.addEventListener('click', event => {
       if (event.target.closest('[data-action]')?.dataset.action === 'close-modal') closeModal();
     });
-    document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') closeModal();
+    });
 
     init();
   </script>
